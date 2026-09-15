@@ -1,4 +1,4 @@
-"""HTTP entry point for SourceCraft Repo Health."""
+"""Точка входа HTTP для SourceCraft Repo Health."""
 
 from fastapi import FastAPI
 
@@ -6,19 +6,19 @@ from fastapi import FastAPI
 app = FastAPI(
     title="SourceCraft Repo Health",
     version="0.1.0",
-    description="Repository health analysis for SourceCraft projects.",
+    description="Анализ здоровья репозиториев SourceCraft.",
 )
 
 
 @app.get("/health", tags=["system"])
 def health() -> dict[str, str]:
-    """Return process health for local development and deployment probes."""
+    """Возвращает состояние процесса для локальной разработки и проверок развёртывания."""
 
     return {"status": "ok"}
 
 
 @app.get("/api/v1/health", tags=["system"])
 def api_health() -> dict[str, str]:
-    """Return an API-prefixed health endpoint for the frontend proxy."""
+    """Возвращает endpoint с префиксом API для proxy frontend."""
 
     return {"status": "ok"}

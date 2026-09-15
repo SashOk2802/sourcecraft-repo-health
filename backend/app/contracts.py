@@ -1,4 +1,4 @@
-"""Shared contracts between category analyzers and the analysis core."""
+"""Общие контракты между анализаторами категорий и ядром анализа."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from enum import StrEnum
 
 
 class DataStatus(StrEnum):
-    """Availability and quality of data used by a category."""
+    """Доступность и качество данных, используемых категорией."""
 
     MEASURED = "measured"
     UNAVAILABLE = "unavailable"
@@ -18,7 +18,7 @@ class DataStatus(StrEnum):
 
 
 class RecommendationPriority(StrEnum):
-    """Priority order used in repository reports."""
+    """Порядок приоритетов рекомендаций в отчёте по репозиторию."""
 
     P0 = "p0"
     P1 = "p1"
@@ -28,7 +28,7 @@ class RecommendationPriority(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class RepositoryRef:
-    """Stable SourceCraft repository identity for an analysis run."""
+    """Стабильная идентификация репозитория SourceCraft в одном запуске анализа."""
 
     id: str
     organization_slug: str
@@ -38,7 +38,7 @@ class RepositoryRef:
 
 @dataclass(frozen=True, slots=True)
 class AnalysisContext:
-    """Shared input passed to every category analyzer."""
+    """Общие входные данные, передаваемые каждому анализатору категории."""
 
     repository: RepositoryRef
     commit_sha: str
@@ -49,7 +49,7 @@ class AnalysisContext:
 
 @dataclass(frozen=True, slots=True)
 class Evidence:
-    """A minimal fact supporting a metric or recommendation."""
+    """Минимальный факт, подтверждающий метрику или рекомендацию."""
 
     source: str
     reference: str
@@ -59,7 +59,7 @@ class Evidence:
 
 @dataclass(frozen=True, slots=True)
 class MetricResult:
-    """A normalized metric and the raw values needed to explain it."""
+    """Нормализованная метрика и исходные значения для её объяснения."""
 
     code: str
     value: float | int | str | None
@@ -74,7 +74,7 @@ class MetricResult:
 
 @dataclass(frozen=True, slots=True)
 class Recommendation:
-    """A deterministic recommendation formed from collected evidence."""
+    """Детерминированная рекомендация, сформированная по собранным фактам."""
 
     code: str
     priority: RecommendationPriority
@@ -87,7 +87,7 @@ class Recommendation:
 
 @dataclass(frozen=True, slots=True)
 class CategoryResult:
-    """Common output of one of the six repository-health categories."""
+    """Единый результат одной из шести категорий здоровья репозитория."""
 
     category: str
     status: DataStatus
@@ -108,7 +108,7 @@ class CategoryResult:
 
 @dataclass(frozen=True, slots=True)
 class AnalysisResult:
-    """Aggregate result returned by the orchestration layer."""
+    """Сводный результат, который возвращает слой оркестрации."""
 
     repository: RepositoryRef
     analyzed_at: datetime
@@ -116,4 +116,3 @@ class AnalysisResult:
     score: float | None
     methodology_version: str
     recommendations: tuple[Recommendation, ...] = field(default_factory=tuple)
-

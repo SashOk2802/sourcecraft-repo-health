@@ -1,2 +1,1 @@
-"""Application modules for SourceCraft Repo Health."""
-
+"""Модули приложения SourceCraft Repo Health."""

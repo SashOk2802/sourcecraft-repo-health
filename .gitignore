@@ -1,4 +1,4 @@
-# Python
+# Файлы Python
 __pycache__/
 *.py[cod]
 .pytest_cache/
@@ -9,27 +9,27 @@ htmlcov/
 .venv/
 venv/
 
-# Node.js
+# Зависимости Node.js
 node_modules/
 frontend/node_modules/
 frontend/dist/
 
-# Environment and secrets
+# Переменные окружения и секреты
 .env
 .env.*
 !.env.example
 
-# Editors and operating systems
+# Редакторы и операционные системы
 .idea/
 .vscode/
 .DS_Store
 Thumbs.db
 
-# Local runtime data
+# Локальные данные выполнения
 data/
 tmp/
 artifacts/
 
-# Source materials kept outside the code repository
+# Материалы ТЗ, которые не должны попадать в репозиторий
 технической задание/
 техническое задание/

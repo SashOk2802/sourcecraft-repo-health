@@ -1,2 +1,1 @@
-"""SourceCraft Repo Health backend package."""
-
+"""Пакет backend проекта SourceCraft Repo Health."""
