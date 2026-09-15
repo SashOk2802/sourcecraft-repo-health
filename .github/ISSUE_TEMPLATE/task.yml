@@ -1,0 +1,30 @@
+name: Backend task
+description: A small, reviewable backend task
+title: "[Backend]: "
+labels: ["backend"]
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Expected outcome
+      description: What must work after this task is complete?
+    validations:
+      required: true
+  - type: textarea
+    id: contract
+    attributes:
+      label: Input and output
+      description: Which input does the module receive and what should it return?
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: Which modules, API methods, data or people does this depend on?
+  - type: textarea
+    id: done
+    attributes:
+      label: Definition of done
+      description: Which tests or manual checks prove the task is ready?
+    validations:
+      required: true
+
