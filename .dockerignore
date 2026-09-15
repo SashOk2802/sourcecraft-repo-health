@@ -1,0 +1,19 @@
+.git
+.github
+.env
+.env.*
+!.env.example
+.venv
+venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.ruff_cache
+node_modules
+frontend
+docs
+технической задание
+техническое задание
+data
+tmp
+artifacts

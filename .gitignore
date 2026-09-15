@@ -9,6 +9,11 @@ htmlcov/
 .venv/
 venv/
 
+# Node.js
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
 # Environment and secrets
 .env
 .env.*
@@ -27,3 +32,4 @@ artifacts/
 
 # Source materials kept outside the code repository
 технической задание/
+техническое задание/

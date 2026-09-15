@@ -16,3 +16,9 @@ def health() -> dict[str, str]:
 
     return {"status": "ok"}
 
+
+@app.get("/api/v1/health", tags=["system"])
+def api_health() -> dict[str, str]:
+    """Return an API-prefixed health endpoint for the frontend proxy."""
+
+    return {"status": "ok"}
