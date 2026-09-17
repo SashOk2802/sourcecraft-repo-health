@@ -48,6 +48,7 @@ compose.yaml         единый локальный запуск
 - [Docker: запуск и правила](docs/docker-development.md)
 - [Frontend: граница ответственности](docs/frontend-workspace.md)
 - [Контракт API frontend ↔ backend](docs/api-contract.md)
+- [CI и тесты](docs/ci-testing-guide.md)
 
 ## Работа в команде
 
