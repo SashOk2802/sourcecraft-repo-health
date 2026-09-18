@@ -62,7 +62,8 @@ class SourceCraftClient:
         if not token:
             raise ValueError("SourceCraft token must not be empty")
 
-        self._validate_base_url(base_url)
+        effective_base_url = str(http_client.base_url) if http_client is not None else base_url
+        self._validate_base_url(effective_base_url)
 
         self._token = token
         self._owns_http_client = http_client is None

@@ -138,6 +138,24 @@ class SourceCraftClientTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "official HTTPS API host"):
             SourceCraftClient("test-token", base_url="https://attacker.example")
 
+    def test_injected_http_client_with_untrusted_base_url_is_rejected_before_request(self) -> None:
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            return httpx.Response(200, json={})
+
+        http_client = httpx.Client(
+            base_url="https://attacker.example",
+            transport=httpx.MockTransport(handler),
+        )
+
+        with self.assertRaisesRegex(ValueError, "official HTTPS API host"):
+            SourceCraftClient("test-token", http_client=http_client)
+
+        self.assertEqual(requests, [])
+        http_client.close()
+
     def test_redirect_is_rejected_without_sending_token_to_redirect_target(self) -> None:
         requests: list[httpx.Request] = []
 
