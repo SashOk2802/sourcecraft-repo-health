@@ -95,8 +95,8 @@ class SourceCraftClient:
         path: str,
         *,
         params: Mapping[str, str | int] | None = None,
-    ) -> dict[str, Any] | list[Any]:
-        """Возвращает JSON от GET endpoint или типизированную ошибку."""
+    ) -> dict[str, Any] | list[Any] | None:
+        """Возвращает JSON object, array или null либо типизированную ошибку."""
 
         self._validate_path(path)
 
@@ -119,8 +119,10 @@ class SourceCraftClient:
         except ValueError as error:
             raise SourceCraftResponseError("SourceCraft returned invalid JSON") from error
 
+        if payload is None:
+            return None
         if not isinstance(payload, (dict, list)):
-            raise SourceCraftResponseError("SourceCraft JSON must be an object or array")
+            raise SourceCraftResponseError("SourceCraft JSON must be an object, array or null")
         return payload
 
     @staticmethod

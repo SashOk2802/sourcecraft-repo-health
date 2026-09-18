@@ -1,0 +1,34 @@
+[
+  {
+    "id": "",
+    "slug": "1",
+    "dates": {
+      "created_at": "2026-01-01T00:00:00Z",
+      "started_at": "2026-01-01T00:00:01Z",
+      "finished_at": "2026-01-01T00:00:30Z",
+      "updated_at": "2026-01-01T00:00:32Z"
+    },
+    "status": "success",
+    "workflows": [
+      {
+        "id": "",
+        "slug": "example-workflow",
+        "description": "",
+        "dates": {
+          "created_at": "2026-01-01T00:00:01Z",
+          "started_at": "2026-01-01T00:00:01Z",
+          "finished_at": "2026-01-01T00:00:30Z",
+          "updated_at": "2026-01-01T00:00:32Z"
+        },
+        "status": "success",
+        "tasks": []
+      }
+    ],
+    "event_type": "manual",
+    "error_messages": [],
+    "user": {
+      "id": "user-id-redacted",
+      "slug": "example-user"
+    }
+  }
+]

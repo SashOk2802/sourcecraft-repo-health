@@ -34,6 +34,21 @@ class SourceCraftClientTest(unittest.TestCase):
 
         self.assertEqual(client.get_json("/user"), {"id": "user-42"})
 
+    def test_null_json_is_available_for_endpoint_specific_mapping(self) -> None:
+        http_client = httpx.Client(
+            base_url="https://api.sourcecraft.tech",
+            transport=httpx.MockTransport(
+                lambda request: httpx.Response(
+                    200,
+                    content=b"null",
+                    headers={"Content-Type": "application/json"},
+                )
+            ),
+        )
+        client = SourceCraftClient("test-token", http_client=http_client)
+
+        self.assertIsNone(client.get_json("/appsec/defects"))
+
     def test_authentication_error_does_not_include_token(self) -> None:
         secret_token = "token-that-must-not-appear-in-errors"
         http_client = httpx.Client(
