@@ -19,7 +19,8 @@
 Следующим общим endpoint будет:
 
 ~~~text
-GET /api/v1/repositories/{organization_slug}/{repository_slug}/report
+GET /api/v1/analyses/{analysis_id}/report
+GET /api/v1/analyses/{analysis_id}/report.md
 ~~~
 
 Он пока не реализован. Модель отчёта уже строится в `backend/app/reporting/builder.py`: HTTP-слой будет получать из него готовый JSON.
@@ -35,19 +36,18 @@ GET /api/v1/repositories/{organization_slug}/{repository_slug}/report
   },
   "analysis": {
     "id": "analysis-2026-09-15",
-    "status": "completed",
+    "status": "partial",
     "analyzedAt": "2026-09-15T12:30:00Z",
     "commitSha": "d7bebd1",
     "methodologyVersion": "v1",
     "coverage": 0.75,
-    "isPreliminary": true
+    "isPreliminary": true,
+    "scoreLimit": null
   },
   "score": 73.4,
   "scoreDetails": {
-    "uncappedScore": 73.4,
     "measuredWeight": 75,
-    "applicableWeight": 100,
-    "scoreLimit": null
+    "applicableWeight": 100
   },
   "categories": [
     {
@@ -60,7 +60,7 @@ GET /api/v1/repositories/{organization_slug}/{repository_slug}/report
       "points": null,
       "summary": "Результаты AppSec не получены.",
       "reason": "appsec_not_available",
-      "facts": []
+      "evidence": []
     },
     {
       "code": "cicd",
@@ -72,7 +72,7 @@ GET /api/v1/repositories/{organization_slug}/{repository_slug}/report
       "points": 15.47,
       "summary": "9 из 40 последних прогонов завершились неуспешно.",
       "reason": null,
-      "facts": [
+      "evidence": [
         {
           "code": "failed-runs",
           "value": 9,
@@ -105,16 +105,14 @@ GET /api/v1/repositories/{organization_slug}/{repository_slug}/report
 }
 ~~~
 
-Если применено ограничение из-за открытой критической AppSec-уязвимости, `score` содержит ограниченный результат, а в `scoreDetails` добавляется объект:
+Если применено ограничение из-за открытой критической AppSec-уязвимости, `score` содержит ограниченный результат, а в `analysis.scoreLimit` добавляется объект:
 
 ~~~json
 {
+  "value": 60,
   "uncappedScore": 90,
-  "scoreLimit": {
-    "maximumScore": 60,
-    "code": "security-open-critical",
-    "summary": "Есть подтверждённая открытая критическая AppSec-уязвимость."
-  }
+  "code": "security-open-critical",
+  "summary": "Есть подтверждённая открытая критическая AppSec-уязвимость."
 }
 ~~~
 
@@ -125,6 +123,8 @@ GET /api/v1/repositories/{organization_slug}/{repository_slug}/report
 | score | число от 0 до 100 или null; null не заменяют нулём |
 | analysis.coverage | число от 0 до 1; null, если для репозитория нет применимых категорий |
 | analysis.isPreliminary | true, когда доступна только часть применимых категорий |
+| analysis.status | partial для предварительного результата, completed для полного или неприменимого набора категорий |
+| analysis.scoreLimit | null либо объект с value, uncappedScore, code и summary |
 | categories[].code | security, cicd, documentation, activity, issues или code_health |
 | categories[].status | measured, unavailable, not_applicable, insufficient_sample или error |
 | categories[].weight | исходный вес категории в методике v1 |
@@ -133,7 +133,7 @@ GET /api/v1/repositories/{organization_slug}/{repository_slug}/report
 | recommendation.priority | p0, p1, p2 или p3 |
 | recommendation.expectedScoreDelta | ожидаемое изменение итогового Score или null, если его нельзя оценить надёжно |
 | reason | машинный код, объясняющий, почему score равен null |
-| facts и evidence | факты и ссылки, на которых основаны оценка и рекомендация |
+| categories[].evidence и recommendations[].evidence | факты и ссылки, на которых основаны оценка и рекомендация |
 
 ## Как менять контракт
 

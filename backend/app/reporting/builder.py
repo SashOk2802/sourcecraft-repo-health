@@ -55,19 +55,20 @@ def build_report_payload(
         },
         "analysis": {
             "id": analysis_id,
-            "status": "completed",
+            "status": "partial" if score_summary.is_preliminary else "completed",
             "analyzedAt": _format_timestamp(analysis.analyzed_at),
             "commitSha": analysis.commit_sha,
             "methodologyVersion": analysis.methodology_version,
             "coverage": score_summary.coverage,
             "isPreliminary": score_summary.is_preliminary,
+            "scoreLimit": _score_limit_payload(
+                score_summary.score_limit, score_summary.uncapped_score
+            ),
         },
         "score": analysis.score,
         "scoreDetails": {
-            "uncappedScore": score_summary.uncapped_score,
             "measuredWeight": score_summary.measured_weight,
             "applicableWeight": score_summary.applicable_weight,
-            "scoreLimit": _score_limit_payload(score_summary.score_limit),
         },
         "categories": [
             _category_payload(category, contributions[category.category])
@@ -90,7 +91,6 @@ def render_markdown_report(
     report = build_report_payload(execution, analysis_id=analysis_id)
     repository = report["repository"]
     analysis = report["analysis"]
-    score_details = report["scoreDetails"]
     categories = report["categories"]
     recommendations = report["recommendations"]
 
@@ -107,7 +107,7 @@ def render_markdown_report(
         f"Предварительная оценка: {'да' if analysis['isPreliminary'] else 'нет'}.",
     ]
 
-    score_limit = score_details["scoreLimit"]
+    score_limit = analysis["scoreLimit"]
     if score_limit is not None:
         lines.extend(
             (
@@ -116,8 +116,8 @@ def render_markdown_report(
                 "",
                 score_limit["summary"],
                 (
-                    f"Без ограничения: {_format_number(score_details['uncappedScore'])}; "
-                    f"максимальный Score: {_format_number(score_limit['maximumScore'])}."
+                    f"Без ограничения: {_format_number(score_limit['uncappedScore'])}; "
+                    f"максимальный Score: {_format_number(score_limit['value'])}."
                 ),
             )
         )
@@ -137,9 +137,11 @@ def render_markdown_report(
                 f"- {category['summary']}",
             )
         )
+        if category["effectiveWeight"] is None:
+            lines.append("- Не участвует в расчёте.")
         if category["reason"]:
             lines.append(f"- Причина: `{category['reason']}`")
-        for fact in category["facts"]:
+        for fact in category["evidence"]:
             lines.append(f"- Факт `{fact['code']}`: {fact['summary']}")
             for evidence in fact["evidence"]:
                 lines.append(_evidence_markdown(evidence))
@@ -168,6 +170,16 @@ def render_markdown_report(
             for evidence in recommendation["evidence"]:
                 lines.append(_evidence_markdown(evidence))
 
+        lines.extend(
+            (
+                "",
+                (
+                    "Возможные приросты не суммируются: рекомендации могут влиять на одни и те же "
+                    "метрики или снять общее ограничение Score."
+                ),
+            )
+        )
+
     return "\n".join(lines) + "\n"
 
 
@@ -182,7 +194,7 @@ def _category_payload(category: CategoryResult, contribution: CategoryContributi
         "points": contribution.points,
         "summary": category.summary,
         "reason": category.reason,
-        "facts": [_metric_payload(metric) for metric in category.metrics],
+        "evidence": [_metric_payload(metric) for metric in category.metrics],
     }
 
 
@@ -218,11 +230,15 @@ def _evidence_payload(evidence: Evidence) -> dict[str, object]:
     }
 
 
-def _score_limit_payload(score_limit: ScoreLimit | None) -> dict[str, object] | None:
+def _score_limit_payload(
+    score_limit: ScoreLimit | None,
+    uncapped_score: float | None,
+) -> dict[str, object] | None:
     if score_limit is None:
         return None
     return {
-        "maximumScore": score_limit.maximum_score,
+        "value": score_limit.maximum_score,
+        "uncappedScore": uncapped_score,
         "code": score_limit.code,
         "summary": score_limit.summary,
     }

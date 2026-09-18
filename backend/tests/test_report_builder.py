@@ -32,7 +32,7 @@ class ReportBuilderTest(unittest.TestCase):
             period_end=timestamp,
         )
 
-    def test_builds_api_payload_with_score_details_and_facts(self) -> None:
+    def test_builds_api_payload_with_agreed_score_limit_and_evidence(self) -> None:
         evidence = Evidence(
             source="sourcecraft-appsec",
             reference="scan-42",
@@ -80,32 +80,52 @@ class ReportBuilderTest(unittest.TestCase):
         )
 
         report = build_report_payload(execution, analysis_id="analysis-42")
+        markdown = render_markdown_report(execution, analysis_id="analysis-42")
 
         self.assertEqual(report["repository"]["name"], "team/platform-api")
+        self.assertEqual(report["analysis"]["status"], "completed")
         self.assertEqual(report["analysis"]["commitSha"], "abc123")
         self.assertEqual(report["analysis"]["coverage"], 1)
         self.assertEqual(report["score"], 60)
-        self.assertEqual(report["scoreDetails"]["uncappedScore"], 90)
-        self.assertEqual(report["scoreDetails"]["scoreLimit"]["maximumScore"], 60)
+        self.assertEqual(
+            report["analysis"]["scoreLimit"],
+            {
+                "value": 60,
+                "uncappedScore": 90,
+                "code": "security-open-critical",
+                "summary": "Есть подтверждённая открытая критическая AppSec-уязвимость.",
+            },
+        )
+        self.assertNotIn("uncappedScore", report["scoreDetails"])
         security = report["categories"][0]
         self.assertEqual(security["code"], "security")
         self.assertEqual(security["weight"], 25)
         self.assertEqual(security["effectiveWeight"], 25)
         self.assertEqual(security["points"], 22.5)
-        self.assertEqual(security["facts"][0]["evidence"][0]["source"], "sourcecraft-appsec")
+        self.assertEqual(security["evidence"][0]["evidence"][0]["source"], "sourcecraft-appsec")
+        self.assertNotIn("facts", security)
         self.assertEqual(report["recommendations"][0]["expectedScoreDelta"], 30)
+        self.assertIn(
+            "Возможные приросты не суммируются: рекомендации могут влиять на одни и те же "
+            "метрики или снять общее ограничение Score.",
+            markdown,
+        )
 
-    def test_renders_markdown_for_a_preliminary_analysis(self) -> None:
+    def test_marks_partial_analysis_and_explains_excluded_category(self) -> None:
         execution = run_analysis(self.context, (registration("activity", 80),))
 
-        report = render_markdown_report(execution, analysis_id="analysis-43")
+        payload = build_report_payload(execution, analysis_id="analysis-43")
+        markdown = render_markdown_report(execution, analysis_id="analysis-43")
 
-        self.assertIn("# Repo Health: team/platform-api", report)
-        self.assertIn("**Repo Health Score: 80 / 100**", report)
-        self.assertIn("Покрытие данных: 15 %.", report)
-        self.assertIn("Предварительная оценка: да.", report)
-        self.assertIn("### Безопасность", report)
-        self.assertIn("Причина: `analyzer_not_configured`", report)
+        self.assertEqual(payload["analysis"]["status"], "partial")
+        self.assertIsNone(payload["analysis"]["scoreLimit"])
+        self.assertIn("# Repo Health: team/platform-api", markdown)
+        self.assertIn("**Repo Health Score: 80 / 100**", markdown)
+        self.assertIn("Покрытие данных: 15 %.", markdown)
+        self.assertIn("Предварительная оценка: да.", markdown)
+        self.assertIn("### Безопасность", markdown)
+        self.assertIn("Не участвует в расчёте.", markdown)
+        self.assertIn("Причина: `analyzer_not_configured`", markdown)
 
     def test_rejects_empty_analysis_identifier(self) -> None:
         execution = run_analysis(self.context, ())
