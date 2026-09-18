@@ -2,6 +2,7 @@
 
 from backend.app.scoring.engine import (
     CATEGORY_WEIGHTS,
+    METHODOLOGY_VERSION,
     CategoryContribution,
     ScoreLimit,
     ScoreSummary,
@@ -10,6 +11,7 @@ from backend.app.scoring.engine import (
 
 __all__ = [
     "CATEGORY_WEIGHTS",
+    "METHODOLOGY_VERSION",
     "CategoryContribution",
     "ScoreLimit",
     "ScoreSummary",
