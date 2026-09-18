@@ -3,26 +3,32 @@ from __future__ import annotations
 import unittest
 from datetime import UTC, datetime, timedelta
 
+import httpx
+
 from backend.app.analyzers.issues import (
     STALE_AFTER_DAYS,
     IssuesFacts,
     build_facts,
+    collect,
     evaluate,
 )
 from backend.app.contracts import AnalysisContext, DataStatus, RecommendationPriority, RepositoryRef
+from backend.app.integrations.sourcecraft import SourceCraftClient
 
 ANALYZED_AT = datetime(2026, 9, 15, 12, 0, tzinfo=UTC)
 PERIOD_START = datetime(2026, 3, 15, 12, 0, tzinfo=UTC)
 
+REPOSITORY = RepositoryRef(
+    id="repo-1",
+    organization_slug="team",
+    repository_slug="platform",
+    web_url="https://sourcecraft.dev/team/platform",
+)
 
-def context() -> AnalysisContext:
+
+def context(repository: RepositoryRef = REPOSITORY) -> AnalysisContext:
     return AnalysisContext(
-        repository=RepositoryRef(
-            id="repo-1",
-            organization_slug="team",
-            repository_slug="platform",
-            web_url="https://sourcecraft.dev/team/platform",
-        ),
+        repository=repository,
         commit_sha="0" * 40,
         analyzed_at=ANALYZED_AT,
         period_start=PERIOD_START,
@@ -59,6 +65,15 @@ def open_issue(slug: str, *, created_days_ago: int, updated_days_ago: int) -> di
         updated_days_ago=updated_days_ago,
         status_type="initial",
     )
+
+
+def make_client(handler) -> SourceCraftClient:
+    """Клиент SourceCraft на искусственном транспорте: тесты не выходят в сеть."""
+    http_client = httpx.Client(
+        base_url="https://api.sourcecraft.tech",
+        transport=httpx.MockTransport(handler),
+    )
+    return SourceCraftClient("test-token", http_client=http_client)
 
 
 class IssuesEvaluateTest(unittest.TestCase):
@@ -113,6 +128,24 @@ class IssuesEvaluateTest(unittest.TestCase):
         )
         self.assertTrue(result.recommendations[0].evidence)
 
+    def test_aging_issues_raise_only_a_low_priority_recommendation(self) -> None:
+        # Созданы до периода анализа, поэтому динамика разбора не измеряется,
+        # а возраст обновления попадает между порогами AGING и STALE.
+        open_items = [
+            open_issue(f"aging-{index}", created_days_ago=300, updated_days_ago=45)
+            for index in range(3)
+        ]
+
+        result = evaluate(build_facts(open_items, []), context())
+
+        self.assertIs(result.status, DataStatus.MEASURED)
+        self.assertEqual(result.score, 100.0)
+        self.assertEqual(
+            [(item.code, item.priority) for item in result.recommendations],
+            [("issues-aging-watch", RecommendationPriority.P3)],
+        )
+        self.assertTrue(result.recommendations[0].evidence)
+
     def test_evidence_links_to_the_issue_in_the_interface(self) -> None:
         open_items = [open_issue("65", created_days_ago=400, updated_days_ago=200)]
 
@@ -125,12 +158,8 @@ class IssuesEvaluateTest(unittest.TestCase):
         )
 
     def test_evidence_has_no_link_when_repository_url_is_unknown(self) -> None:
-        anonymous = AnalysisContext(
-            repository=RepositoryRef(id="r", organization_slug="team", repository_slug="platform"),
-            commit_sha="0" * 40,
-            analyzed_at=ANALYZED_AT,
-            period_start=PERIOD_START,
-            period_end=ANALYZED_AT,
+        anonymous = context(
+            RepositoryRef(id="r", organization_slug="team", repository_slug="platform")
         )
         open_items = [open_issue("65", created_days_ago=400, updated_days_ago=200)]
 
@@ -139,17 +168,41 @@ class IssuesEvaluateTest(unittest.TestCase):
         self.assertIsNone(result.metrics[0].evidence[0].url)
 
     def test_cancelled_issues_are_not_counted_as_resolved(self) -> None:
-        created_recently = [
-            raw_issue(f"cancelled-{index}", created_days_ago=30, updated_days_ago=10,
-                      completed_days_ago=5, status_type="cancelled")
+        cancelled = [
+            raw_issue(
+                f"cancelled-{index}",
+                created_days_ago=30,
+                updated_days_ago=10,
+                completed_days_ago=5,
+                status_type="cancelled",
+            )
             for index in range(8)
         ]
 
-        result = evaluate(build_facts([], created_recently), context())
+        result = evaluate(build_facts([], cancelled), context())
 
         self.assertIs(result.status, DataStatus.MEASURED)
         backlog = next(metric for metric in result.metrics if metric.code == "backlog_trend")
         self.assertEqual(backlog.value, 0.0)
+        self.assertIn("отменено 8", backlog.summary)
+
+    def test_resolution_time_ignores_issues_closed_before_the_period(self) -> None:
+        # Быстрые закрытия годичной давности не должны улучшать сегодняшнюю оценку.
+        old = [
+            raw_issue(
+                f"old-{index}",
+                created_days_ago=400,
+                updated_days_ago=399,
+                completed_days_ago=399,
+            )
+            for index in range(5)
+        ]
+
+        result = evaluate(build_facts([], old), context())
+
+        self.assertNotIn(
+            "median_days_to_close", {metric.code for metric in result.metrics}
+        )
 
     def test_repository_without_issues_is_not_applicable(self) -> None:
         result = evaluate(build_facts([], []), context())
@@ -159,11 +212,31 @@ class IssuesEvaluateTest(unittest.TestCase):
         self.assertIsNotNone(result.reason)
 
     def test_source_failure_is_unavailable_and_never_zero(self) -> None:
-        result = evaluate(IssuesFacts(error="SourceCraft denied access with HTTP 403"), context())
+        facts = IssuesFacts(
+            open_error="SourceCraft denied access with HTTP 403",
+            closed_error="SourceCraft denied access with HTTP 403",
+        )
+
+        result = evaluate(facts, context())
 
         self.assertIs(result.status, DataStatus.UNAVAILABLE)
         self.assertIsNone(result.score)
         self.assertIn("403", result.reason or "")
+
+    def test_partial_failure_keeps_the_metrics_that_still_have_data(self) -> None:
+        open_items = [
+            open_issue(f"stale-{index}", created_days_ago=400, updated_days_ago=200)
+            for index in range(4)
+        ]
+        facts = build_facts(
+            open_items, [], closed_error="SourceCraft returned unexpected HTTP 500"
+        )
+
+        result = evaluate(facts, context())
+
+        self.assertIs(result.status, DataStatus.MEASURED)
+        self.assertEqual({metric.code for metric in result.metrics}, {"stale_open_ratio"})
+        self.assertIn("часть данных недоступна", result.summary)
 
     def test_truncated_list_is_insufficient_sample(self) -> None:
         open_items = [
@@ -178,8 +251,8 @@ class IssuesEvaluateTest(unittest.TestCase):
 
     def test_same_facts_and_context_give_the_same_score(self) -> None:
         open_items = [
-            raw_issue("open-1", created_days_ago=50, updated_days_ago=120, status_type="initial"),
-            raw_issue("open-2", created_days_ago=50, updated_days_ago=4, status_type="initial"),
+            open_issue("open-1", created_days_ago=50, updated_days_ago=120),
+            open_issue("open-2", created_days_ago=50, updated_days_ago=4),
         ]
         facts = build_facts(open_items, [])
 
@@ -188,6 +261,145 @@ class IssuesEvaluateTest(unittest.TestCase):
 
         self.assertEqual(first.score, second.score)
         self.assertEqual(first.summary, second.summary)
+
+
+class IssuesParsingTest(unittest.TestCase):
+    """Кривой ответ API не должен ронять расчёт."""
+
+    def test_timestamps_without_timezone_are_treated_as_utc(self) -> None:
+        naive = {
+            "slug": "1",
+            "title": "Без часового пояса",
+            "created_at": "2026-05-01T10:00:00",
+            "updated_at": "2026-05-01T10:00:00",
+            "status": {"status_type": "initial"},
+        }
+
+        result = evaluate(build_facts([naive], []), context())
+
+        self.assertIs(result.status, DataStatus.MEASURED)
+
+    def test_non_object_status_does_not_crash_the_analyzer(self) -> None:
+        broken = {
+            "slug": "1",
+            "title": "Статус строкой",
+            "created_at": moment(10),
+            "updated_at": moment(10),
+            "status": "open",
+        }
+
+        facts = build_facts([broken], [])
+
+        self.assertEqual(facts.open_issues[0].status_type, "")
+        self.assertIs(evaluate(facts, context()).status, DataStatus.MEASURED)
+
+    def test_issues_without_dates_are_counted_as_skipped(self) -> None:
+        facts = build_facts([{"slug": "1", "title": "Без даты"}, "мусор"], [])
+
+        self.assertEqual(facts.open_issues, ())
+        self.assertEqual(facts.skipped_count, 2)
+
+
+class IssuesCollectTest(unittest.TestCase):
+    """Проверяет обход страниц и обработку ошибок без обращения к сети."""
+
+    def test_collect_follows_pagination_to_the_last_page(self) -> None:
+        seen: list[tuple[str | None, str | None]] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            params = request.url.params
+            status_filter = params.get("filter")
+            token = params.get("page_token")
+            seen.append((status_filter, token))
+
+            if status_filter == "status=open" and token is None:
+                return httpx.Response(
+                    200,
+                    json={
+                        "issues": [open_issue("1", created_days_ago=10, updated_days_ago=2)],
+                        "next_page_token": "page-2",
+                    },
+                )
+            if status_filter == "status=open":
+                return httpx.Response(
+                    200,
+                    json={
+                        "issues": [open_issue("2", created_days_ago=10, updated_days_ago=2)],
+                        "next_page_token": "",
+                    },
+                )
+            return httpx.Response(
+                200,
+                json={
+                    "issues": [
+                        raw_issue("3", created_days_ago=20, updated_days_ago=15,
+                                  completed_days_ago=15)
+                    ],
+                    "next_page_token": "",
+                },
+            )
+
+        facts = collect(make_client(handler), REPOSITORY)
+
+        self.assertEqual(len(facts.open_issues), 2)
+        self.assertEqual(len(facts.closed_issues), 1)
+        self.assertFalse(facts.open_truncated)
+        self.assertFalse(facts.closed_truncated)
+        self.assertEqual(seen[0], ("status=open", None))
+        self.assertEqual(seen[1], ("status=open", "page-2"))
+
+    def test_collect_marks_truncation_when_the_page_budget_runs_out(self) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={
+                    "issues": [open_issue("1", created_days_ago=10, updated_days_ago=2)],
+                    "next_page_token": "more",
+                },
+            )
+
+        facts = collect(make_client(handler), REPOSITORY, max_pages=2)
+
+        self.assertTrue(facts.open_truncated)
+        self.assertTrue(facts.closed_truncated)
+        self.assertEqual(len(facts.open_issues), 2)
+
+    def test_collect_turns_authentication_failure_into_a_fact(self) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(403)
+
+        facts = collect(make_client(handler), REPOSITORY)
+
+        self.assertIsNotNone(facts.open_error)
+        self.assertIsNotNone(facts.closed_error)
+        self.assertIs(evaluate(facts, context()).status, DataStatus.UNAVAILABLE)
+
+    def test_collect_rejects_a_payload_that_is_not_an_object(self) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json=[])
+
+        facts = collect(make_client(handler), REPOSITORY)
+
+        self.assertIn("object", facts.open_error or "")
+
+    def test_collect_keeps_the_open_list_when_the_closed_list_fails(self) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.params.get("filter") == "status=closed":
+                return httpx.Response(500)
+            return httpx.Response(
+                200,
+                json={
+                    "issues": [open_issue("1", created_days_ago=400, updated_days_ago=200)],
+                    "next_page_token": "",
+                },
+            )
+
+        facts = collect(make_client(handler), REPOSITORY)
+
+        self.assertIsNone(facts.open_error)
+        self.assertIsNotNone(facts.closed_error)
+        self.assertEqual(len(facts.open_issues), 1)
+        self.assertIs(evaluate(facts, context()).status, DataStatus.MEASURED)
 
 
 if __name__ == "__main__":

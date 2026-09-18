@@ -7,13 +7,18 @@
 Модуль разделён на две части. `collect` обращается к SourceCraft и возвращает факты.
 `evaluate` — чистая функция: она не ходит в сеть и не смотрит на системное время,
 поэтому на одних и тех же фактах всегда даёт один и тот же результат.
+
+Открытые и закрытые задачи запрашиваются независимо. Если один из списков не удалось
+получить или он оборван по лимиту страниц, категория не обнуляется целиком: метрики,
+которым не хватает данных, выпадают, а вес перераспределяется между остальными.
 """
 
 from __future__ import annotations
 
+import urllib.parse
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from statistics import median
 from typing import Any
 
@@ -41,6 +46,18 @@ STALE_AFTER_DAYS = 90
 # Порог для предупреждения о задачах, которые скоро станут брошенными.
 AGING_AFTER_DAYS = 30
 
+# Пороги нормализации. Вынесены в константы, чтобы тесты и документация ссылались
+# на одно место, а не повторяли числа.
+STALE_RATIO_BEST = 0.05
+STALE_RATIO_WORST = 0.5
+BACKLOG_RATIO_BEST = 1.0
+BACKLOG_RATIO_WORST = 0.25
+RESOLUTION_DAYS_BEST = 7.0
+RESOLUTION_DAYS_WORST = 180.0
+
+# Медиана по одному-двум наблюдениям недостоверна.
+MIN_RESOLUTION_SAMPLE = 3
+
 # Веса внутри категории. Нормируются по доступным метрикам, как и веса категорий в ядре.
 METRIC_WEIGHTS = {
     "stale_open_ratio": 45.0,
@@ -54,7 +71,12 @@ STATUS_COMPLETED = "completed"
 STATUS_CANCELLED = "cancelled"
 
 PAGE_SIZE = 100
-DEFAULT_MAX_PAGES = 5
+
+# Бюджет страниц рассчитан на самый крупный трекер платформы (около 2400 задач).
+# Обрыв выборки остаётся возможным, но перестаёт быть обычным режимом работы.
+DEFAULT_MAX_PAGES = 30
+
+SECONDS_PER_DAY = 86400.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,33 +103,56 @@ class IssueFact:
 class IssuesFacts:
     """Собранные факты вместе с оценкой их полноты.
 
-    Признаки `*_truncated` обязательны: без них нельзя отличить «в проекте мало задач»
-    от «мы прочитали только первые страницы списка».
+    Признаки `*_truncated` и `*_error` обязательны: без них нельзя отличить
+    «в проекте мало задач» от «список прочитан не полностью» и от «источник недоступен».
     """
 
     open_issues: tuple[IssueFact, ...] = ()
     closed_issues: tuple[IssueFact, ...] = ()
     open_truncated: bool = False
     closed_truncated: bool = False
-    error: str | None = None
+    open_error: str | None = None
+    closed_error: str | None = None
+    skipped_count: int = 0
+
+    @property
+    def open_available(self) -> bool:
+        return self.open_error is None
+
+    @property
+    def closed_available(self) -> bool:
+        return self.closed_error is None
 
     @property
     def total_count(self) -> int:
         return len(self.open_issues) + len(self.closed_issues)
 
     @property
-    def truncated(self) -> bool:
-        return self.open_truncated or self.closed_truncated
+    def errors(self) -> tuple[str, ...]:
+        return tuple(error for error in (self.open_error, self.closed_error) if error)
 
 
 def parse_datetime(value: Any) -> datetime | None:
-    """Разбирает метку времени RFC3339; непригодное значение даёт None, а не исключение."""
+    """Разбирает метку времени RFC3339 и приводит её к UTC.
+
+    Часовой пояс нормализуется намеренно: сравнение «наивной» и «осведомлённой» даты
+    в Python выбрасывает TypeError, и одна битая запись уронила бы весь анализ.
+    """
     if not isinstance(value, str) or not value:
         return None
+
+    text = value.strip()
+    if text.endswith(("Z", "z")):
+        text = f"{text[:-1]}+00:00"
+
     try:
-        return datetime.fromisoformat(value)
+        moment = datetime.fromisoformat(text)
     except ValueError:
         return None
+
+    if moment.tzinfo is None:
+        return moment.replace(tzinfo=UTC)
+    return moment.astimezone(UTC)
 
 
 def parse_issue(raw: Any) -> IssueFact | None:
@@ -120,15 +165,29 @@ def parse_issue(raw: Any) -> IssueFact | None:
     if created_at is None or updated_at is None:
         return None
 
-    status = raw.get("status") or {}
+    status = raw.get("status")
+    status_type = status.get("status_type") if isinstance(status, dict) else None
+
     return IssueFact(
         slug=str(raw.get("slug") or raw.get("id") or ""),
         title=str(raw.get("title") or ""),
         created_at=created_at,
         updated_at=updated_at,
         completed_at=parse_datetime(raw.get("completed_at")),
-        status_type=str(status.get("status_type") or ""),
+        status_type=str(status_type or ""),
     )
+
+
+def _parse_many(items: Iterable[Any]) -> tuple[tuple[IssueFact, ...], int]:
+    parsed: list[IssueFact] = []
+    skipped = 0
+    for item in items:
+        fact = parse_issue(item)
+        if fact is None:
+            skipped += 1
+        else:
+            parsed.append(fact)
+    return tuple(parsed), skipped
 
 
 def build_facts(
@@ -137,13 +196,21 @@ def build_facts(
     *,
     open_truncated: bool = False,
     closed_truncated: bool = False,
+    open_error: str | None = None,
+    closed_error: str | None = None,
 ) -> IssuesFacts:
     """Собирает факты из сырых ответов API или из сохранённых фикстур."""
+    open_issues, open_skipped = _parse_many(open_items)
+    closed_issues, closed_skipped = _parse_many(closed_items)
+
     return IssuesFacts(
-        open_issues=tuple(filter(None, (parse_issue(item) for item in open_items))),
-        closed_issues=tuple(filter(None, (parse_issue(item) for item in closed_items))),
+        open_issues=open_issues,
+        closed_issues=closed_issues,
         open_truncated=open_truncated,
         closed_truncated=closed_truncated,
+        open_error=open_error,
+        closed_error=closed_error,
+        skipped_count=open_skipped + closed_skipped,
     )
 
 
@@ -159,6 +226,9 @@ def _fetch_pages(
     Пагинация живёт здесь временно: когда SourceCraftClient получит собственный
     метод обхода страниц, эта функция должна исчезнуть.
     """
+    if max_pages < 1:
+        raise ValueError("max_pages must be at least 1")
+
     params: dict[str, str | int] = {"page_size": PAGE_SIZE, "filter": f"status={status}"}
     items: list[Any] = []
 
@@ -173,9 +243,24 @@ def _fetch_pages(
             return items, False
         if page == max_pages:
             return items, True
-        params["page_token"] = next_token
+        params["page_token"] = str(next_token)
 
     return items, True
+
+
+def _fetch_status(
+    client: SourceCraftClient,
+    path: str,
+    *,
+    status: str,
+    max_pages: int,
+) -> tuple[list[Any], bool, str | None]:
+    """Забирает один список задач. Сбой источника возвращается как факт, не как исключение."""
+    try:
+        items, truncated = _fetch_pages(client, path, status=status, max_pages=max_pages)
+    except SourceCraftClientError as error:
+        return [], False, str(error)
+    return items, truncated, None
 
 
 def collect(
@@ -187,20 +272,20 @@ def collect(
     """Обращается к SourceCraft и возвращает факты. Оценок не выставляет."""
     path = f"/repos/{repository.organization_slug}/{repository.repository_slug}/issues"
 
-    try:
-        open_items, open_truncated = _fetch_pages(client, path, status="open", max_pages=max_pages)
-        closed_items, closed_truncated = _fetch_pages(
-            client, path, status="closed", max_pages=max_pages
-        )
-    except SourceCraftClientError as error:
-        # Недоступность источника — тоже факт о репозитории, а не плохая оценка.
-        return IssuesFacts(error=str(error))
+    open_items, open_truncated, open_error = _fetch_status(
+        client, path, status="open", max_pages=max_pages
+    )
+    closed_items, closed_truncated, closed_error = _fetch_status(
+        client, path, status="closed", max_pages=max_pages
+    )
 
     return build_facts(
         open_items,
         closed_items,
         open_truncated=open_truncated,
         closed_truncated=closed_truncated,
+        open_error=open_error,
+        closed_error=closed_error,
     )
 
 
@@ -221,23 +306,30 @@ def _issue_url(repository: RepositoryRef, slug: str) -> str | None:
     """Ссылка на задачу в интерфейсе SourceCraft; без web_url ссылка не придумывается."""
     if not repository.web_url or not slug:
         return None
-    return f"{repository.web_url.rstrip('/')}/issues/{slug}"
+    return f"{repository.web_url.rstrip('/')}/issues/{urllib.parse.quote(slug, safe='')}"
+
+
+def _age_in_days(context: AnalysisContext, moment: datetime) -> int:
+    return (context.analyzed_at - moment).days
 
 
 def _stale_metric(
     facts: IssuesFacts, context: AnalysisContext
 ) -> tuple[MetricResult, float] | None:
-    """Доля открытых задач, которых не двигали дольше порога."""
-    if not facts.open_issues:
+    """Доля открытых задач, которых не двигали дольше порога.
+
+    Требует полного списка открытых задач: по оборванной выборке доля не определяется.
+    """
+    if not facts.open_available or facts.open_truncated or not facts.open_issues:
         return None
 
     stale = [
         issue
         for issue in facts.open_issues
-        if (context.analyzed_at - issue.updated_at).days > STALE_AFTER_DAYS
+        if _age_in_days(context, issue.updated_at) > STALE_AFTER_DAYS
     ]
     ratio = len(stale) / len(facts.open_issues)
-    score = _linear_score(ratio, best=0.05, worst=0.5)
+    score = _linear_score(ratio, best=STALE_RATIO_BEST, worst=STALE_RATIO_WORST)
 
     evidence = tuple(
         Evidence(
@@ -245,7 +337,7 @@ def _stale_metric(
             reference=issue.slug,
             summary=(
                 f"«{issue.title}» без изменений с {issue.updated_at.date().isoformat()} "
-                f"({(context.analyzed_at - issue.updated_at).days} дн.)"
+                f"({_age_in_days(context, issue.updated_at)} дн.)"
             ),
             url=_issue_url(context.repository, issue.slug),
         )
@@ -268,13 +360,32 @@ def _stale_metric(
 def _backlog_metric(
     facts: IssuesFacts, context: AnalysisContext
 ) -> tuple[MetricResult, float] | None:
-    """Соотношение решённых и созданных задач за период анализа."""
-    created = [issue for issue in facts.open_issues + facts.closed_issues
-               if _in_period(issue.created_at, context)]
+    """Соотношение решённых и созданных задач за период анализа.
+
+    Нужны оба списка целиком: иначе «создано» и «решено» считаются по разным выборкам.
+    """
+    if not (facts.open_available and facts.closed_available):
+        return None
+    if facts.open_truncated or facts.closed_truncated:
+        return None
+
+    created = [
+        issue
+        for issue in facts.open_issues + facts.closed_issues
+        if _in_period(issue.created_at, context)
+    ]
     resolved = [
         issue
         for issue in facts.closed_issues
-        if issue.is_resolved and issue.completed_at is not None
+        if issue.is_resolved
+        and issue.completed_at is not None
+        and _in_period(issue.completed_at, context)
+    ]
+    cancelled = [
+        issue
+        for issue in facts.closed_issues
+        if issue.is_cancelled
+        and issue.completed_at is not None
         and _in_period(issue.completed_at, context)
     ]
 
@@ -283,40 +394,67 @@ def _backlog_metric(
         return None
 
     ratio = len(resolved) / len(created)
-    score = _linear_score(ratio, best=1.0, worst=0.25)
+    score = _linear_score(ratio, best=BACKLOG_RATIO_BEST, worst=BACKLOG_RATIO_WORST)
+
+    summary = f"за период создано {len(created)} задач, решено {len(resolved)}"
+    if cancelled:
+        summary += f", отменено {len(cancelled)} (в решённые не входят)"
 
     metric = MetricResult(
         code="backlog_trend",
         value=round(ratio, 4),
         normalized_score=score,
-        summary=(
-            f"за период создано {len(created)} задач, решено {len(resolved)}"
-        ),
+        summary=summary,
     )
     return metric, score
 
 
-def _resolution_time_metric(facts: IssuesFacts) -> tuple[MetricResult, float] | None:
-    """Медианное время от создания до решения задачи."""
-    durations = [
-        (issue.completed_at - issue.created_at).days
-        for issue in facts.closed_issues
-        if issue.is_resolved and issue.completed_at is not None
-    ]
-
-    # Поле completed_at заполнено не всегда; на единичных наблюдениях медиана
-    # недостоверна, поэтому метрика просто не участвует в оценке.
-    if len(durations) < 3:
+def _resolution_time_metric(
+    facts: IssuesFacts, context: AnalysisContext
+) -> tuple[MetricResult, float] | None:
+    """Медианное время от создания до решения задачи внутри периода анализа."""
+    if not facts.closed_available or facts.closed_truncated:
         return None
 
-    value = float(median(durations))
-    score = _linear_score(value, best=7.0, worst=180.0)
+    resolved = [
+        issue
+        for issue in facts.closed_issues
+        if issue.is_resolved
+        and issue.completed_at is not None
+        and _in_period(issue.completed_at, context)
+        and issue.completed_at >= issue.created_at
+    ]
+
+    # Поле completed_at заполняется не всеми проектами; на единичных наблюдениях
+    # медиана недостоверна, поэтому метрика просто не участвует в оценке.
+    if len(resolved) < MIN_RESOLUTION_SAMPLE:
+        return None
+
+    durations = {
+        issue.slug: (issue.completed_at - issue.created_at).total_seconds() / SECONDS_PER_DAY
+        for issue in resolved
+        if issue.completed_at is not None
+    }
+    value = float(median(durations.values()))
+    score = _linear_score(value, best=RESOLUTION_DAYS_BEST, worst=RESOLUTION_DAYS_WORST)
+
+    slowest = sorted(resolved, key=lambda issue: durations[issue.slug], reverse=True)[:3]
+    evidence = tuple(
+        Evidence(
+            source=EVIDENCE_SOURCE,
+            reference=issue.slug,
+            summary=f"«{issue.title}» решалась {durations[issue.slug]:.1f} дн.",
+            url=_issue_url(context.repository, issue.slug),
+        )
+        for issue in slowest
+    )
 
     metric = MetricResult(
         code="median_days_to_close",
-        value=value,
+        value=round(value, 2),
         normalized_score=score,
-        summary=f"медиана времени до решения — {value:.0f} дн. по {len(durations)} задачам",
+        summary=f"медиана времени до решения — {value:.0f} дн. по {len(resolved)} задачам",
+        evidence=evidence,
     )
     return metric, score
 
@@ -366,7 +504,7 @@ def _build_recommendations(
     aging = [
         issue
         for issue in facts.open_issues
-        if AGING_AFTER_DAYS < (context.analyzed_at - issue.updated_at).days <= STALE_AFTER_DAYS
+        if AGING_AFTER_DAYS < _age_in_days(context, issue.updated_at) <= STALE_AFTER_DAYS
     ]
     if aging and not recommendations:
         recommendations.append(
@@ -376,24 +514,65 @@ def _build_recommendations(
                 problem=f"{len(aging)} задач не обновлялись дольше {AGING_AFTER_DAYS} дней.",
                 action="Отметьте их статус, чтобы они не перешли в брошенные.",
                 rationale="Ранний разбор дешевле, чем возврат к задаче через несколько месяцев.",
+                evidence=tuple(
+                    Evidence(
+                        source=EVIDENCE_SOURCE,
+                        reference=issue.slug,
+                        summary=(
+                            f"«{issue.title}» без изменений "
+                            f"{_age_in_days(context, issue.updated_at)} дн."
+                        ),
+                        url=_issue_url(context.repository, issue.slug),
+                    )
+                    for issue in sorted(aging, key=lambda issue: issue.updated_at)[:5]
+                ),
             )
         )
 
     return tuple(recommendations)
 
 
+def _unmeasured_result(facts: IssuesFacts, summary: str) -> CategoryResult:
+    """Возвращает результат без оценки, различая недоступность и неполноту данных."""
+    if facts.errors:
+        return CategoryResult(
+            category=CATEGORY_CODE,
+            status=DataStatus.UNAVAILABLE,
+            score=None,
+            summary=summary,
+            reason="; ".join(facts.errors),
+        )
+
+    if facts.open_truncated or facts.closed_truncated:
+        return CategoryResult(
+            category=CATEGORY_CODE,
+            status=DataStatus.INSUFFICIENT_SAMPLE,
+            score=None,
+            summary=summary,
+            reason="Списки задач прочитаны не полностью: доли и динамика не определяются.",
+        )
+
+    return CategoryResult(
+        category=CATEGORY_CODE,
+        status=DataStatus.INSUFFICIENT_SAMPLE,
+        score=None,
+        summary=summary,
+        reason="Нет открытых задач за период и слишком мало решённых для медианы.",
+    )
+
+
 def evaluate(facts: IssuesFacts, context: AnalysisContext) -> CategoryResult:
     """Превращает факты в оценку категории. Без сети и без обращения к текущему времени."""
-    if facts.error is not None:
+    if facts.open_error and facts.closed_error:
         return CategoryResult(
             category=CATEGORY_CODE,
             status=DataStatus.UNAVAILABLE,
             score=None,
             summary="Не удалось получить задачи репозитория.",
-            reason=facts.error,
+            reason="; ".join(facts.errors),
         )
 
-    if facts.total_count == 0:
+    if facts.open_available and facts.closed_available and facts.total_count == 0:
         return CategoryResult(
             category=CATEGORY_CODE,
             status=DataStatus.NOT_APPLICABLE,
@@ -402,45 +581,42 @@ def evaluate(facts: IssuesFacts, context: AnalysisContext) -> CategoryResult:
             reason="Трекер задач не используется.",
         )
 
-    if facts.truncated:
-        return CategoryResult(
-            category=CATEGORY_CODE,
-            status=DataStatus.INSUFFICIENT_SAMPLE,
-            score=None,
-            summary=(
-                f"Просмотрено {facts.total_count} задач, список не дочитан до конца."
-            ),
-            reason="Выборка неполная: доля брошенных задач по ней не определяется.",
-        )
-
     measured: list[tuple[MetricResult, float]] = [
         result
         for result in (
             _stale_metric(facts, context),
             _backlog_metric(facts, context),
-            _resolution_time_metric(facts),
+            _resolution_time_metric(facts, context),
         )
         if result is not None
     ]
 
+    notes: list[str] = []
+    if facts.errors:
+        notes.append(f"часть данных недоступна ({'; '.join(facts.errors)})")
+    if facts.open_truncated or facts.closed_truncated:
+        notes.append("список задач прочитан не полностью")
+    if facts.skipped_count:
+        notes.append(f"{facts.skipped_count} задач пропущено из-за неполных данных")
+
     if not measured:
-        return CategoryResult(
-            category=CATEGORY_CODE,
-            status=DataStatus.INSUFFICIENT_SAMPLE,
-            score=None,
-            summary=f"Задачи есть ({facts.total_count}), но ни одна метрика не применима.",
-            reason="Нет открытых задач за период и слишком мало решённых для медианы.",
-        )
+        summary = f"Задачи есть ({facts.total_count}), но ни одна метрика не применима."
+        if notes:
+            summary = f"{summary} Причины: {'; '.join(notes)}."
+        return _unmeasured_result(facts, summary)
 
     metrics = tuple(metric for metric, _ in measured)
     total_weight = sum(METRIC_WEIGHTS[metric.code] for metric in metrics)
     score = sum(METRIC_WEIGHTS[metric.code] * value for metric, value in measured) / total_weight
 
+    summary_parts = [metric.summary for metric in metrics]
+    summary_parts.extend(notes)
+
     return CategoryResult(
         category=CATEGORY_CODE,
         status=DataStatus.MEASURED,
         score=score,
-        summary="; ".join(metric.summary for metric in metrics),
+        summary="; ".join(summary_parts),
         metrics=metrics,
         recommendations=_build_recommendations(facts, context, metrics),
     )

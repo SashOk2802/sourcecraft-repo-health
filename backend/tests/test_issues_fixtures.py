@@ -44,6 +44,10 @@ def analyze(label: str) -> CategoryResult:
         closed_envelope["items"],
         open_truncated=bool(open_envelope["_meta"]["truncated"]),
         closed_truncated=bool(closed_envelope["_meta"]["truncated"]),
+        # Скрипт сбора записывает сбой источника в _meta.error; без переноса в факты
+        # пустой ответ после ошибки выглядел бы как «задач нет».
+        open_error=open_envelope["_meta"].get("error"),
+        closed_error=closed_envelope["_meta"].get("error"),
     )
 
     context = AnalysisContext(
