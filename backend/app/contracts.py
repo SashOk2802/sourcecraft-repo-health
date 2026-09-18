@@ -82,7 +82,12 @@ class Recommendation:
     action: str
     rationale: str
     expected_effect: str | None = None
+    expected_score_delta: float | None = None
     evidence: tuple[Evidence, ...] = ()
+
+    def __post_init__(self) -> None:
+        if self.expected_score_delta is not None and not 0 <= self.expected_score_delta <= 100:
+            raise ValueError("expected_score_delta must be between 0 and 100")
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,6 +117,7 @@ class AnalysisResult:
 
     repository: RepositoryRef
     analyzed_at: datetime
+    commit_sha: str
     categories: tuple[CategoryResult, ...]
     score: float | None
     methodology_version: str
