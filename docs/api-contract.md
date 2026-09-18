@@ -85,7 +85,7 @@ GET /api/v1/repositories/{organization_slug}/{repository_slug}/report
 | Поле | Правило |
 | --- | --- |
 | score | число от 0 до 100 или null; null не заменяют нулём |
-| coverage | число от 0 до 1; показывает, какую часть веса удалось измерить |
+| coverage | число от 0 до 1; null, если для репозитория нет применимых категорий |
 | categories[].status | measured, unavailable, not_applicable, insufficient_sample или error |
 | recommendation.priority | p0, p1, p2 или p3 |
 | reason | объясняет, почему score равен null |

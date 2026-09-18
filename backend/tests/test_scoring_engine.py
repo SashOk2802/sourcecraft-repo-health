@@ -86,6 +86,21 @@ class ScoringEngineTest(unittest.TestCase):
         self.assertTrue(summary.is_preliminary)
         self.assertTrue(all(item.points is None for item in summary.categories))
 
+    def test_all_not_applicable_has_no_score_or_coverage(self) -> None:
+        summary = calculate_score(
+            tuple(
+                category(code, None, DataStatus.NOT_APPLICABLE)
+                for code in ("security", "cicd", "documentation", "activity", "issues", "code_health")
+            )
+        )
+
+        self.assertIsNone(summary.score)
+        self.assertIsNone(summary.uncapped_score)
+        self.assertIsNone(summary.coverage)
+        self.assertEqual(summary.measured_weight, 0)
+        self.assertEqual(summary.applicable_weight, 0)
+        self.assertFalse(summary.is_preliminary)
+
     def test_confirmed_security_limit_caps_score(self) -> None:
         limit = ScoreLimit(
             maximum_score=60,

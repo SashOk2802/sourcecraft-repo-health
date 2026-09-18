@@ -54,7 +54,7 @@ class ScoreSummary:
 
     score: float | None
     uncapped_score: float | None
-    coverage: float
+    coverage: float | None
     measured_weight: float
     applicable_weight: float
     is_preliminary: bool
@@ -82,7 +82,7 @@ def calculate_score(
         for code, weight in CATEGORY_WEIGHTS.items()
         if categories_by_code[code].status is DataStatus.MEASURED
     )
-    coverage = measured_weight / applicable_weight if applicable_weight else 0.0
+    coverage = measured_weight / applicable_weight if applicable_weight else None
 
     contributions = tuple(
         _build_contribution(
@@ -100,7 +100,7 @@ def calculate_score(
             coverage=coverage,
             measured_weight=measured_weight,
             applicable_weight=applicable_weight,
-            is_preliminary=True,
+            is_preliminary=coverage is not None,
             categories=contributions,
             score_limit=None,
         )
@@ -121,7 +121,7 @@ def calculate_score(
         coverage=coverage,
         measured_weight=measured_weight,
         applicable_weight=applicable_weight,
-        is_preliminary=coverage < 1,
+        is_preliminary=coverage is not None and coverage < 1,
         categories=contributions,
         score_limit=applied_limit,
     )
