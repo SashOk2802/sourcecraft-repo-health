@@ -21,6 +21,7 @@ def context() -> AnalysisContext:
             id="repo-1",
             organization_slug="team",
             repository_slug="platform",
+            web_url="https://sourcecraft.dev/team/platform",
         ),
         commit_sha="0" * 40,
         analyzed_at=ANALYZED_AT,
@@ -111,6 +112,31 @@ class IssuesEvaluateTest(unittest.TestCase):
             [RecommendationPriority.P1],
         )
         self.assertTrue(result.recommendations[0].evidence)
+
+    def test_evidence_links_to_the_issue_in_the_interface(self) -> None:
+        open_items = [open_issue("65", created_days_ago=400, updated_days_ago=200)]
+
+        result = evaluate(build_facts(open_items, []), context())
+
+        evidence = result.metrics[0].evidence
+        self.assertEqual(
+            [item.url for item in evidence],
+            ["https://sourcecraft.dev/team/platform/issues/65"],
+        )
+
+    def test_evidence_has_no_link_when_repository_url_is_unknown(self) -> None:
+        anonymous = AnalysisContext(
+            repository=RepositoryRef(id="r", organization_slug="team", repository_slug="platform"),
+            commit_sha="0" * 40,
+            analyzed_at=ANALYZED_AT,
+            period_start=PERIOD_START,
+            period_end=ANALYZED_AT,
+        )
+        open_items = [open_issue("65", created_days_ago=400, updated_days_ago=200)]
+
+        result = evaluate(build_facts(open_items, []), anonymous)
+
+        self.assertIsNone(result.metrics[0].evidence[0].url)
 
     def test_cancelled_issues_are_not_counted_as_resolved(self) -> None:
         created_recently = [

@@ -1,0 +1,431 @@
+{
+  "_meta": {
+    "endpoint": "/repos/k-5-45mm/dozzle-plus/releases",
+    "params": {
+      "page_size": 100
+    },
+    "items_key": "releases",
+    "fetched_at": "2026-09-18T16:29:34.169715+00:00",
+    "pages_fetched": 1,
+    "truncated": false,
+    "item_count": 13
+  },
+  "items": [
+    {
+      "id": "01a05cff-c57b-7632-8c9e-db8622eef35c",
+      "repo_id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+      "tag": "v1.4.2",
+      "hash": "127406ec5d47eae39687e72d4bb74fed40e33f10",
+      "title": "v1.4.2",
+      "release_notes": "### Пулл-реквесты\n\n- fix: remediate August 2026 container CVEs — [#78](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/78) (автор: @k-5-45mm)\n\n**Полный список изменений**: [v1.4.1...v1.4.2](https://sourcecraft.dev/k-5-45mm/dozzle-plus/releases/v1.4.2/compare/?base=v1.4.1)",
+      "status": "published",
+      "assets": [
+        {
+          "id": "00000000-0000-0000-0000-000000000000",
+          "name": "Source code (zip)",
+          "archive_link": {
+            "archive_type": "zip",
+            "link": "https://codeload.sourcecraft.tech/k-5-45mm/dozzle-plus/zipball/refs/tags/v1.4.2"
+          }
+        },
+        {
+          "id": "00000000-0000-0000-0000-000000000000",
+          "name": "Source code (tar.gz)",
+          "archive_link": {
+            "archive_type": "tar_gz",
+            "link": "https://codeload.sourcecraft.tech/k-5-45mm/dozzle-plus/tarball/refs/tags/v1.4.2"
+          }
+        }
+      ],
+      "is_latest": true,
+      "is_pre_release": false,
+      "created_at": "2026-09-01T12:44:21.212015Z",
+      "updated_at": "2026-09-03T08:14:12.820223Z",
+      "released_at": "2026-09-03T08:14:12.574383Z"
+    },
+    {
+      "id": "01a05cff-4977-7645-ad6d-ca7623b0674c",
+      "repo_id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+      "tag": "v1.4.1",
+      "hash": "27db31e13d02f4679639bd087ab8a81187fd130c",
+      "title": "v1.4.1",
+      "release_notes": "### Пулл-реквесты\n\n- fix/upstream-v10.7.3-log-disconnect — [#76](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/76) (автор: @k-5-45mm)\n- feat: adopt useful Dozzle v10.8.0 improvements — [#77](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/77) (автор: @k-5-45mm)\n\n**Полный список изменений**: [v1.4...v1.4.1](https://sourcecraft.dev/k-5-45mm/dozzle-plus/releases/v1.4.1/compare/?base=v1.4)",
+      "status": "published",
+      "assets": [
+        {
+          "id": "00000000-0000-0000-0000-000000000000",
+          "name": "Source code (zip)",
+          "archive_link": {
+            "archive_type": "zip",
+            "link": "https://codeload.sourcecraft.tech/k-5-45mm/dozzle-plus/zipball/refs/tags/v1.4.1"
+          }
+        },
+        {
+          "id": "00000000-0000-0000-0000-000000000000",
+          "name": "Source code (tar.gz)",
+          "archive_link": {
+            "archive_type": "tar_gz",
+            "link": "https://codeload.sourcecraft.tech/k-5-45mm/dozzle-plus/tarball/refs/tags/v1.4.1"
+          }
+        }
+      ],
+      "is_latest": false,
+      "is_pre_release": false,
+      "created_at": "2026-09-01T12:43:49.474831Z",
+      "updated_at": "2026-09-01T12:43:49.495650Z",
+      "released_at": "2026-09-01T12:43:49.474831Z"
+    },
+    {
+      "id": "01a0204c-2d0d-7d48-8353-197a411c4c32",
+      "repo_id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+      "tag": "v1.4",
+      "hash": "2169e6c044b41529a1aadf82291c4d3ed165f431",
+      "title": "v1.4",
+      "release_notes": "### Пулл-реквесты\n\n- fix: order grouped logs chronologically — [#74](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/74) (автор: @k-5-45mm)\n- feature/log-history-prefetch — [#75](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/75) (автор: @k-5-45mm)\n\n**Полный список изменений**: [v1.3.1...v1.4](https://sourcecraft.dev/k-5-45mm/dozzle-plus/releases/v1.4/compare/?base=v1.3.1)",
+      "status": "published",
+      "assets": [
+        {
+          "id": "00000000-0000-0000-0000-000000000000",
+          "name": "Source code (zip)",
+          "archive_link": {
+            "archive_type": "zip",
+            "link": "https://codeload.sourcecraft.tech/k-5-45mm/dozzle-plus/zipball/refs/tags/v1.4"
+          }
+        },
+        {
+          "id": "00000000-0000-0000-0000-000000000000",
+          "name": "Source code (tar.gz)",
+          "archive_link": {
+            "archive_type": "tar_gz",
+            "link": "https://codeload.sourcecraft.tech/k-5-45mm/dozzle-plus/tarball/refs/tags/v1.4"
+          }
+        }
+      ],
+      "is_latest": false,
+      "is_pre_release": false,
+      "created_at": "2026-08-20T17:50:58.126442Z",
+      "updated_at": "2026-08-20T17:50:58.317893Z",
+      "released_at": "2026-08-20T17:50:58.126442Z"
+    },
+    {
+      "id": "01a01f29-65ac-71f1-b132-853efa389f22",
+      "repo_id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+      "tag": "v1.3.1",
+      "hash": "ad02e1a6dd86112e3ce6e3ff715b344579974ee9",
+      "title": "v1.3.1",
+      "release_notes": "### Пулл-реквесты\n\n- Добавить архитектурные заметки и карту зависимостей в документацию — [#67](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/67) (автор: @k-5-45mm)\n- Добавить архитектурные заметки и карту зависимостей на site — [#68](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/68) (автор: @k-5-45mm)\n- Убрать дублирующую кнопку карты зависимостей — [#69](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/69) (автор: @k-5-45mm)\n- Улучшить выделение связей и CVE на карте зависимостей — [#70](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/70) (автор: @k-5-45mm)\n- Вернуть ссылку на проект Dozzle Plus — [#71](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/71) (автор: @k-5-45mm)\n- site: remove redundant documentation hero — [#72](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/72) (автор: @k-5-45mm)\n- feat: share and monitor container log streams — [#73](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/73) (автор: @k-5-45mm)\n\n**Полный список изменений**: [v1.3...v1.3.1](https://sourcecraft.dev/k-5-45mm/dozzle-plus/releases/v1.3.1/compare/?base=v1.3)",
+      "status": "published",
+      "assets": [
+        {
+          "id": "00000000-0000-0000-0000-000000000000",
+          "name": "Source code (zip)",
+          "archive_link": {
+            "archive_type": "zip",
+            "link": "https://codeload.sourcecraft.tech/k-5-45mm/dozzle-plus/zipball/refs/tags/v1.3.1"
+          }
+        },
+        {
+          "id": "00000000-0000-0000-0000-000000000000",
+          "name": "Source code (tar.gz)",
+          "archive_link": {
+            "archive_type": "tar_gz",
+            "link": "https://codeload.sourcecraft.tech/k-5-45mm/dozzle-plus/tarball/refs/tags/v1.3.1"
+          }
+        }
+      ],
+      "is_latest": false,
+      "is_pre_release": false,
+      "created_at": "2026-08-20T12:33:21.803556Z",
+      "updated_at": "2026-08-20T12:33:21.836155Z",
+      "released_at": "2026-08-20T12:33:21.803556Z"
+    },
+    {
+      "id": "01a01bbc-4596-7cd3-abba-4c664f77f849",
+      "repo_id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+      "tag": "v1.3",
+      "hash": "cc4620bcd18a97631d0025615d11b19c936fb90b",
+      "title": "v1.3",
+      "release_notes": "### Пулл-реквесты\n\n- release/v1.2 — [#44](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/44) (автор: @k-5-45mm)\n- feat: add architecture notes permissions and transfer — [#46](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/46) (автор: @k-5-45mm)\n- release/v1.3 — [#64](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/64) (автор: @k-5-45mm)\n- release/v1.3 — [#66](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/66) (автор: @k-5-45mm)\n\n**Полный список изменений**: [v1.2.1...v1.3](https://sourcecraft.dev/k-5-45mm/dozzle-plus/releases/v1.3/compare/?base=v1.2.1)",
+      "status": "published",
+      "assets": [
+        {
+          "id": "00000000-0000-0000-0000-000000000000",
+          "name": "Source code (zip)",
+          "archive_link": {
+            "archive_type": "zip",
+            "link": "https://codeload.sourcecraft.tech/k-5-45mm/dozzle-plus/zipball/refs/tags/v1.3"
+          }
+        },
+        {
+          "id": "00000000-0000-0000-0000-000000000000",
+          "name": "Source code (tar.gz)",
+          "archive_link": {
+            "archive_type": "tar_gz",
+            "link": "https://codeload.sourcecraft.tech/k-5-45mm/dozzle-plus/tarball/refs/tags/v1.3"
+          }
+        }
+      ],
+      "is_latest": false,
+      "is_pre_release": false,
+      "created_at": "2026-08-19T20:35:18.506623Z",
+      "updated_at": "2026-08-19T22:08:44.359063Z",
+      "released_at": "2026-08-19T22:08:44.210122Z"
+    },
+    {
+      "id": "019ffbbf-359d-7431-935a-6851d8eee996",
+      "repo_id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+      "tag": "v1.2.1",
+      "hash": "463e2fe452f42be599615466a275bec1c573d472",
+      "title": "v1.2.1",
+      "release_notes": "",
+      "status": "published",
+      "assets": [
+        {
+          "id": "00000000-0000-0000-0000-000000000000",
+          "name": "Source code (zip)",
+          "archive_link": {
+            "archive_type": "zip",
+            "link": "https://codeload.sourcecraft.tech/k-5-45mm/dozzle-plus/zipball/refs/tags/v1.2.1"
+          }
+        },
+        {
+          "id": "00000000-0000-0000-0000-000000000000",
+          "name": "Source code (tar.gz)",
+          "archive_link": {
+            "archive_type": "tar_gz",
+            "link": "https://codeload.sourcecraft.tech/k-5-45mm/dozzle-plus/tarball/refs/tags/v1.2.1"
+          }
+        }
+      ],
+      "is_latest": false,
+      "is_pre_release": false,
+      "created_at": "2026-08-13T15:30:40.106579Z",
+      "updated_at": "2026-08-13T15:30:40.157326Z",
+      "released_at": "2026-08-13T15:30:40.106579Z"
+    },
+    {
+      "id": "019ff79e-2679-7b21-88e3-0a3bc0ce5bc1",
+      "repo_id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+      "tag": "v1.2",
+      "hash": "d237268a45236ee5057ca03b977bcea5d37c6ad6",
+      "title": "v1.2",
+      "release_notes": "### Пулл-реквесты\n\n- feature/architecture-visual-editor — [#32](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/32) (автор: @k-5-45mm)\n- release/v1.2 — [#44](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/44) (автор: @k-5-45mm)\n\n**Полный список изменений**: [v1.1.3...v1.2](https://sourcecraft.dev/k-5-45mm/dozzle-plus/releases/v1.2/compare/?base=v1.1.3)",
+      "status": "published",
+      "assets": [
+        {
+          "id": "00000000-0000-0000-0000-000000000000",
+          "name": "Source code (zip)",
+          "archive_link": {
+            "archive_type": "zip",
+            "link": "https://codeload.sourcecraft.tech/k-5-45mm/dozzle-plus/zipball/refs/tags/v1.2"
+          }
+        },
+        {
+          "id": "00000000-0000-0000-0000-000000000000",
+          "name": "Source code (tar.gz)",
+          "archive_link": {
+            "archive_type": "tar_gz",
+            "link": "https://codeload.sourcecraft.tech/k-5-45mm/dozzle-plus/tarball/refs/tags/v1.2"
+          }
+        }
+      ],
+      "is_latest": false,
+      "is_pre_release": false,
+      "created_at": "2026-08-12T20:16:04.714526Z",
+      "updated_at": "2026-08-12T20:16:04.729756Z",
+      "released_at": "2026-08-12T20:16:04.714526Z"
+    },
+    {
+      "id": "019ff0c1-8b48-7993-9542-8cd05bfc64e5",
+      "repo_id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+      "tag": "v1.1.3",
+      "hash": "f235b013234b481f23b7a98f6b6b0c6df8c30e36",
+      "title": "v1.1.3",
+      "release_notes": "### Пулл-реквесты\n\n- fix: isolate deployments and card templates by hostspace — [#26](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/26) (автор: @k-5-45mm)\n- feature: scope notifications by hostspace — [#27](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/27) (автор: @k-5-45mm)\n\n**Полный список изменений**: [v1.1.2...v1.1.3](https://sourcecraft.dev/k-5-45mm/dozzle-plus/releases/v1.1.3/compare/?base=v1.1.2)",
+      "status": "published",
+      "assets": [
+        {
+          "id": "00000000-0000-0000-0000-000000000000",
+          "name": "Source code (zip)",
+          "archive_link": {
+            "archive_type": "zip",
+            "link": "https://codeload.sourcecraft.tech/k-5-45mm/dozzle-plus/zipball/refs/tags/v1.1.3"
+          }
+        },
+        {
+          "id": "00000000-0000-0000-0000-000000000000",
+          "name": "Source code (tar.gz)",
+          "archive_link": {
+            "archive_type": "tar_gz",
+            "link": "https://codeload.sourcecraft.tech/k-5-45mm/dozzle-plus/tarball/refs/tags/v1.1.3"
+          }
+        }
+      ],
+      "is_latest": false,
+      "is_pre_release": false,
+      "created_at": "2026-08-11T12:17:23.766895Z",
+      "updated_at": "2026-08-11T12:17:23.784652Z",
+      "released_at": "2026-08-11T12:17:23.766895Z"
+    },
+    {
+      "id": "019ff052-12ad-76b1-a231-e5d9d1c812ad",
+      "repo_id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+      "tag": "v1.1.2",
+      "hash": "299a8f173973e3b45b5d5abc99757b9b42547071",
+      "title": "v1.1.2",
+      "release_notes": "### Пулл-реквесты\n\n- fix: isolate hostspace project settings — [#24](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/24) (автор: @k-5-45mm)\n- feature/local-container-filter — [#25](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/25) (автор: @k-5-45mm)\n\n**Полный список изменений**: [v1.1...v1.1.2](https://sourcecraft.dev/k-5-45mm/dozzle-plus/releases/v1.1.2/compare/?base=v1.1)",
+      "status": "published",
+      "assets": [
+        {
+          "id": "00000000-0000-0000-0000-000000000000",
+          "name": "Source code (zip)",
+          "archive_link": {
+            "archive_type": "zip",
+            "link": "https://codeload.sourcecraft.tech/k-5-45mm/dozzle-plus/zipball/refs/tags/v1.1.2"
+          }
+        },
+        {
+          "id": "00000000-0000-0000-0000-000000000000",
+          "name": "Source code (tar.gz)",
+          "archive_link": {
+            "archive_type": "tar_gz",
+            "link": "https://codeload.sourcecraft.tech/k-5-45mm/dozzle-plus/tarball/refs/tags/v1.1.2"
+          }
+        }
+      ],
+      "is_latest": false,
+      "is_pre_release": false,
+      "created_at": "2026-08-11T10:15:38.395867Z",
+      "updated_at": "2026-08-11T10:15:38.413697Z",
+      "released_at": "2026-08-11T10:15:38.395867Z"
+    },
+    {
+      "id": "019fee72-0493-7e72-a198-03585215338d",
+      "repo_id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+      "tag": "v1.1",
+      "hash": "1732c48c50228773a7cc05150c72dc96c3ba7d3b",
+      "title": "v1.1",
+      "release_notes": "### Пулл-реквесты\n\n- ci: add scheduled vulnerability scan — [#18](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/18) (автор: @k-5-45mm)\n- release/v1.1 — [#23](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/23) (автор: @k-5-45mm)\n\n**Полный список изменений**: [v1.0.4...v1.1](https://sourcecraft.dev/k-5-45mm/dozzle-plus/releases/v1.1/compare/?base=v1.0.4)",
+      "status": "published",
+      "assets": [
+        {
+          "id": "00000000-0000-0000-0000-000000000000",
+          "name": "Source code (zip)",
+          "archive_link": {
+            "archive_type": "zip",
+            "link": "https://codeload.sourcecraft.tech/k-5-45mm/dozzle-plus/zipball/refs/tags/v1.1"
+          }
+        },
+        {
+          "id": "00000000-0000-0000-0000-000000000000",
+          "name": "Source code (tar.gz)",
+          "archive_link": {
+            "archive_type": "tar_gz",
+            "link": "https://codeload.sourcecraft.tech/k-5-45mm/dozzle-plus/tarball/refs/tags/v1.1"
+          }
+        }
+      ],
+      "is_latest": false,
+      "is_pre_release": false,
+      "created_at": "2026-08-11T01:31:17.489934Z",
+      "updated_at": "2026-08-11T01:31:17.524Z",
+      "released_at": "2026-08-11T01:31:17.489934Z"
+    },
+    {
+      "id": "019fec49-cb09-77dd-b355-a1b883c59372",
+      "repo_id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+      "tag": "v1.0.4",
+      "hash": "07c72ca23924894a92a0820db8b39fdd68e5663c",
+      "title": "v1.0.4",
+      "release_notes": "### Пулл-реквесты\n\n- feature/project-site — [#13](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/13) (автор: @k-5-45mm)\n- feature/project-site — [#14](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/14) (автор: @k-5-45mm)\n- fix: show card report dropdown options — [#15](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/15) (автор: @k-5-45mm)\n- fix: compact container section navigation — [#16](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/16) (автор: @k-5-45mm)\n- fix: add home navigation shortcut — [#17](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/17) (автор: @k-5-45mm)\n\n**Полный список изменений**: [v1.0.3...v1.0.4](https://sourcecraft.dev/k-5-45mm/dozzle-plus/releases/v1.0.4/compare/?base=v1.0.3)",
+      "status": "published",
+      "assets": [
+        {
+          "id": "00000000-0000-0000-0000-000000000000",
+          "name": "Source code (zip)",
+          "archive_link": {
+            "archive_type": "zip",
+            "link": "https://codeload.sourcecraft.tech/k-5-45mm/dozzle-plus/zipball/refs/tags/v1.0.4"
+          }
+        },
+        {
+          "id": "00000000-0000-0000-0000-000000000000",
+          "name": "Source code (tar.gz)",
+          "archive_link": {
+            "archive_type": "tar_gz",
+            "link": "https://codeload.sourcecraft.tech/k-5-45mm/dozzle-plus/tarball/refs/tags/v1.0.4"
+          }
+        }
+      ],
+      "is_latest": false,
+      "is_pre_release": false,
+      "created_at": "2026-08-10T15:28:06.886859Z",
+      "updated_at": "2026-08-10T15:28:06.921567Z",
+      "released_at": "2026-08-10T15:28:06.886859Z"
+    },
+    {
+      "id": "019fec3c-8acf-719c-9c10-0813c2086ec5",
+      "repo_id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+      "tag": "v1.0.3",
+      "hash": "00f7e0bc5a412570a2e297be807f77e2c286fc94",
+      "title": "v1.0.3",
+      "release_notes": "### Пулл-реквесты\n\n- fix: keep container page controls visible — [#10](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/10) (автор: @k-5-45mm)\n- fix: handle release check failures gracefully — [#11](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/11) (автор: @k-5-45mm)\n- fix: surface release check failures — [#12](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/12) (автор: @k-5-45mm)\n\n**Полный список изменений**: [v1.0.2...v1.0.3](https://sourcecraft.dev/k-5-45mm/dozzle-plus/releases/v1.0.3/compare/?base=v1.0.2)",
+      "status": "published",
+      "assets": [
+        {
+          "id": "00000000-0000-0000-0000-000000000000",
+          "name": "Source code (zip)",
+          "archive_link": {
+            "archive_type": "zip",
+            "link": "https://codeload.sourcecraft.tech/k-5-45mm/dozzle-plus/zipball/refs/tags/v1.0.3"
+          }
+        },
+        {
+          "id": "00000000-0000-0000-0000-000000000000",
+          "name": "Source code (tar.gz)",
+          "archive_link": {
+            "archive_type": "tar_gz",
+            "link": "https://codeload.sourcecraft.tech/k-5-45mm/dozzle-plus/tarball/refs/tags/v1.0.3"
+          }
+        }
+      ],
+      "is_latest": false,
+      "is_pre_release": false,
+      "created_at": "2026-08-10T15:13:38.480444Z",
+      "updated_at": "2026-08-10T15:13:38.511160Z",
+      "released_at": "2026-08-10T15:13:38.480444Z"
+    },
+    {
+      "id": "019fea81-28a1-7797-a1d6-f09e09dbae81",
+      "repo_id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+      "tag": "v1.0.2",
+      "hash": "01883678adeb3701b7757dd205c4ebcf18119790",
+      "title": "v1.0.2",
+      "release_notes": "### Пулл-реквесты\n\n- ci: require code review for pull requests — [#1](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/1) (автор: @k-5-45mm)\n- ci: release trivy image independently — [#2](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/2) (автор: @k-5-45mm)\n- feat: add Dozzle Plus project site — [#3](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/3) (автор: @k-5-45mm)\n- ci: configure SourceCraft site publishing — [#4](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/4) (автор: @k-5-45mm)\n- docs: document Dozzle Plus features — [#5](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/5) (автор: @k-5-45mm)\n- Update site image — [#6](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/6) (автор: @k-5-45mm)\n- feat: align landing structure with Dozzle — [#7](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/7) (автор: @k-5-45mm)\n- docs: refine Plus feature catalog — [#8](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/8) (автор: @k-5-45mm)\n- fix: prevent agent host info panic — [#9](https://sourcecraft.dev/k-5-45mm/dozzle-plus/pr/9) (автор: @k-5-45mm)",
+      "status": "published",
+      "assets": [
+        {
+          "id": "00000000-0000-0000-0000-000000000000",
+          "name": "Source code (zip)",
+          "archive_link": {
+            "archive_type": "zip",
+            "link": "https://codeload.sourcecraft.tech/k-5-45mm/dozzle-plus/zipball/refs/tags/v1.0.2"
+          }
+        },
+        {
+          "id": "00000000-0000-0000-0000-000000000000",
+          "name": "Source code (tar.gz)",
+          "archive_link": {
+            "archive_type": "tar_gz",
+            "link": "https://codeload.sourcecraft.tech/k-5-45mm/dozzle-plus/tarball/refs/tags/v1.0.2"
+          }
+        }
+      ],
+      "is_latest": false,
+      "is_pre_release": false,
+      "created_at": "2026-08-10T07:09:20.891566Z",
+      "updated_at": "2026-08-10T07:09:20.929530Z",
+      "released_at": "2026-08-10T07:09:20.891566Z"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "_meta": {
+    "endpoint": "/repos/k-5-45mm/dozzle-plus/contributors",
+    "params": {
+      "page_size": 100
+    },
+    "items_key": "contributors",
+    "fetched_at": "2026-09-18T16:29:34.380711+00:00",
+    "pages_fetched": 1,
+    "truncated": false,
+    "item_count": 1
+  },
+  "items": [
+    {
+      "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+      "display_name": "Владислав",
+      "username": "k-5-45mm",
+      "bio": "Senior DevOps/Backend Engineer с 6 годами опыта в IT и страстью к автоматизации процессов. Специализируюсь на создании full-stack решений — от проектирования архитектуры до вывода в production.\nМой путь начался с технической поддержки, что дало глубокое понимание пользовательских потребностей и критически важных систем. ",
+      "location": {
+        "country": "Россия",
+        "city": "Краснодар"
+      },
+      "links": [
+        {
+          "link": "https://t.me/cepesh_v",
+          "type": "telegram"
+        }
+      ],
+      "avatar": {
+        "url": "https://storage.yandexcloud.net/yc-sourcecraft-user-uploads/userAvatar_141266537444059438"
+      },
+      "visibility": "public"
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "_meta": {
+    "endpoint": "/repos/brothersandksu/casesc/contributors",
+    "params": {
+      "page_size": 100
+    },
+    "items_key": "contributors",
+    "fetched_at": "2026-09-18T16:30:35.154447+00:00",
+    "pages_fetched": 1,
+    "truncated": false,
+    "item_count": 4
+  },
+  "items": [
+    {
+      "id": "019a1682-10b2-739c-bf7d-439f336a9c34",
+      "display_name": "albali",
+      "username": "artembely04",
+      "bio": "",
+      "location": {
+        "country": "Россия",
+        "city": "Ростов-на-Дону"
+      },
+      "links": [],
+      "avatar": {
+        "url": ""
+      },
+      "visibility": "public"
+    },
+    {
+      "id": "019a1682-7c05-7cca-8617-e875413df8b5",
+      "display_name": "jywwie",
+      "username": "rachiktavaratsyan",
+      "bio": "Golang developer",
+      "location": {
+        "country": "Russian Federation",
+        "city": "Rostov-on-Don"
+      },
+      "links": [],
+      "avatar": {
+        "url": ""
+      },
+      "visibility": "public"
+    },
+    {
+      "id": "019a1683-0047-762b-bd51-ef884728c4a0",
+      "display_name": "k1rasu",
+      "username": "dordjinimgirov19",
+      "bio": "",
+      "location": {
+        "country": "Россия",
+        "city": "Ростов-на-Дону"
+      },
+      "links": [],
+      "avatar": {
+        "url": ""
+      },
+      "visibility": "public"
+    },
+    {
+      "id": "019a16c4-15c9-720c-bc8c-028eaebceca3",
+      "display_name": "voryk",
+      "username": "vory-kamur1209-mail-ru",
+      "bio": "",
+      "location": {
+        "country": "Россия",
+        "city": "Ростов-на-Дону"
+      },
+      "workplace": {
+        "company": "ДГТУ",
+        "position": ""
+      },
+      "links": [],
+      "avatar": {
+        "url": ""
+      },
+      "visibility": "public"
+    }
+  ]
+}

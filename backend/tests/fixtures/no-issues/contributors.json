@@ -1,0 +1,26 @@
+{
+  "_meta": {
+    "endpoint": "/repos/userver/userver/contributors",
+    "params": {
+      "page_size": 100
+    },
+    "items_key": "contributors",
+    "fetched_at": "2026-09-18T16:32:01.652020+00:00",
+    "pages_fetched": 1,
+    "truncated": false,
+    "item_count": 1
+  },
+  "items": [
+    {
+      "id": "0198c323-3c15-7d6d-bf87-fa6b2e24804b",
+      "display_name": "Антон П.",
+      "username": "yndx-antoshkka",
+      "bio": "",
+      "links": [],
+      "avatar": {
+        "url": ""
+      },
+      "visibility": "public"
+    }
+  ]
+}

@@ -1,0 +1,1790 @@
+{
+  "_meta": {
+    "endpoint": "/repos/divkit/divkit/pulls",
+    "params": {
+      "page_size": 100
+    },
+    "items_key": "pull_requests",
+    "fetched_at": "2026-09-18T16:20:36.963829+00:00",
+    "pages_fetched": 1,
+    "truncated": false,
+    "item_count": 45
+  },
+  "items": [
+    {
+      "id": "019a59ab-57e9-71ef-935f-11003697ee0c",
+      "slug": "120",
+      "author": {
+        "id": "019a59ab-4d1b-7aba-a956-f533ffe52e56",
+        "slug": "26578192-github"
+      },
+      "updated_by": {
+        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
+        "slug": "sadsorceror"
+      },
+      "title": "Add alignment parameter support to TooltipFactory",
+      "description": "Add text alignment parameter to TooltipFactory.makeTooltip()",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "main",
+      "target_branch": "main",
+      "status": "open",
+      "created_at": "2025-11-06T14:56:32.745127Z",
+      "updated_at": "2026-09-18T15:31:25.341788Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "eb2d8be65927cc5100eeb505a725a40b1d261d7f"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "eb2d8be65927cc5100eeb505a725a40b1d261d7f"
+      }
+    },
+    {
+      "id": "019a59ab-58bb-7074-88d0-25aae8b0916b",
+      "slug": "119",
+      "author": {
+        "id": "019a59ab-3a9d-73f8-b771-2f419da3120b",
+        "slug": "6831397-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-3a9d-73f8-b771-2f419da3120b",
+        "slug": "6831397-github"
+      },
+      "title": "fix(iOS): prevent unnecessary `TabContentsView` reloads affecting `TextInput` focus",
+      "description": "## Problem\r\nText input fields in tabbed pages were losing focus due to unnecessary collection view reloads in `TabContentsView`. See more here #117. \r\n\r\n## Solution\r\nAdded reload pattern similar to GalleryView/PagerBlock:\r\n- Only do full `collectionView.reloadData()` when page count changes\r\n- Use `configureVisibleCells()` when page count is same to preserve text input focus\r\n\r\nI hereby agree to the terms of the CLA available at https://yandex.ru/legal/cla/",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "fix/ios-text-input-focus-in-tabs",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:32.955029Z",
+      "updated_at": "2025-11-06T14:56:33.107576Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:fix/ios-text-input-focus-in-tabs",
+        "ref": "fix/ios-text-input-focus-in-tabs",
+        "sha": "4e5f121ea97cab108e749fdc479e9e2d955ee8ef"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "82c9fd6553ea3ad1232ede64fb25439f14bc3f57"
+      }
+    },
+    {
+      "id": "019a59ab-5979-7184-93fd-9dd70b5c39d0",
+      "slug": "118",
+      "author": {
+        "id": "019a59ab-3a9d-73f8-b771-2f419da3120b",
+        "slug": "6831397-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-3a9d-73f8-b771-2f419da3120b",
+        "slug": "6831397-github"
+      },
+      "title": "fix(iOS): prevent unnecessary TabContentsView reloads affecting text input focus",
+      "description": "## Problem\r\nText input fields in tabbed pages were losing focus due to unnecessary collection view reloads in `TabContentsView`. See more here #117. \r\n\r\n## Solution\r\nRemoved the `oldModel.pages !== model.pages` comparison from the condition that triggers collection view reload and re-registration.\r\n\r\nThis comparison was causing the collection view to reload even when only the model reference changed but the actual page content remained the same or when only TextInputBlock's `isFocusing` variable was changed, leading to loss of text input focus and input content.\r\n\r\nI hereby agree to the terms of the CLA available at https://yandex.ru/legal/cla/",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "fix/ios-text-input-focus-in-tabs",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:33.145099Z",
+      "updated_at": "2025-11-06T14:56:33.300909Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:fix/ios-text-input-focus-in-tabs",
+        "ref": "fix/ios-text-input-focus-in-tabs",
+        "sha": "79d614154d5e81b5fb11581a7184a57cfb2ff215"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": ""
+      }
+    },
+    {
+      "id": "019a59ab-5a3d-717a-b3ef-24812f5f49b3",
+      "slug": "116",
+      "author": {
+        "id": "019a59ab-4d55-7d84-b5b0-8840df013530",
+        "slug": "15055008-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-4d55-7d84-b5b0-8840df013530",
+        "slug": "15055008-github"
+      },
+      "title": "Update README.md",
+      "description": "",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "patch-1",
+      "target_branch": "main",
+      "status": "open",
+      "created_at": "2025-11-06T14:56:33.341097Z",
+      "updated_at": "2025-11-06T14:56:33.477338Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:patch-1",
+        "ref": "patch-1",
+        "sha": "6c5c3c0f0b48a116ebdde21002ddca0427459b8c"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "28c7a5c2e39eefca4e4bce0becf621bd4270921f"
+      }
+    },
+    {
+      "id": "019a59ab-5afa-7d6b-93b6-31e360de0108",
+      "slug": "109",
+      "author": {
+        "id": "019a59ab-3e47-70ea-86bf-c0f19e1b905f",
+        "slug": "47780958-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-3e47-70ea-86bf-c0f19e1b905f",
+        "slug": "47780958-github"
+      },
+      "title": "merge auth to divkit main",
+      "description": "",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "main",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:33.530879Z",
+      "updated_at": "2025-11-06T14:56:33.644618Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "5227f57d69f6ad1525a4a4f2aefdc15ba6889a4c"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "6298661ecd89621f7b0e4961204652582b236d4a"
+      }
+    },
+    {
+      "id": "019a59ab-5b7d-7a6b-bcfa-10612145b142",
+      "slug": "106",
+      "author": {
+        "id": "019a59ab-4da6-76fd-a8a0-86f225d70a68",
+        "slug": "98697634-github"
+      },
+      "updated_by": {
+        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
+        "slug": "sadsorceror"
+      },
+      "title": "Добавление возможности выполнять див экшны в дебаг панели на Android",
+      "description": "В дебаг панель демо аппа для Android добавленно текстовое поле для ввода див-экшнов и кнопка для их исполнения. \r\nМожно ввести список список экшнов или один экшн в формате json (https://divkit.tech/docs/ru/concepts/divs/2/div-action), так же можно ввести экшн в виде url. \r\nВсе экшны будут и выполнены на корневом див-вью, так же, как они выполняются в интерактивных тестах. \r\n\r\nВот так выглядит\r\n![image](https://github.com/user-attachments/assets/38166416-17d2-4868-87c7-6cc4d512fe96)\r\n\r\n\r\nI hereby agree to the terms of the CLA available at: https://yandex.ru/legal/cla/?lang=ru.",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "main",
+      "target_branch": "main",
+      "status": "open",
+      "created_at": "2025-11-06T14:56:33.661683Z",
+      "updated_at": "2026-09-18T15:31:29.162377Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "eb2d8be65927cc5100eeb505a725a40b1d261d7f"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "eb2d8be65927cc5100eeb505a725a40b1d261d7f"
+      }
+    },
+    {
+      "id": "019a59ab-5c06-7aee-8f5a-aef7ca3749a1",
+      "slug": "102",
+      "author": {
+        "id": "01973730-e7a7-75a8-b303-0186de35aa68",
+        "slug": "20818445-github"
+      },
+      "updated_by": {
+        "id": "01973730-e7a7-75a8-b303-0186de35aa68",
+        "slug": "20818445-github"
+      },
+      "title": "Добавление тригонометрической функции ctan",
+      "description": "Fixes: [70](https://github.com/divkit/divkit/issues/70)\r\n\r\nI hereby agree to the terms of the CLA available at: https://yandex.ru/legal/cla/.",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "feature/borisov/fix-70",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:33.798716Z",
+      "updated_at": "2025-11-06T14:56:33.960029Z",
+      "linked_issues": [
+        {
+          "id": "019a59ab-4316-74cb-a20e-6c13e8f8c573",
+          "slug": "70"
+        }
+      ],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:feature/borisov/fix-70",
+        "ref": "feature/borisov/fix-70",
+        "sha": "dd7d735b645ab94a2cf40d6ffb5caa6f0dfdc6ba"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "6b1c9b22fdc94ba55865616d179dd8845dbd930b"
+      }
+    },
+    {
+      "id": "019a59ab-5cca-7de1-a03c-3858ac11ddd9",
+      "slug": "98",
+      "author": {
+        "id": "019a59ab-4de6-795b-b7f3-151b8d38a94e",
+        "slug": "5407142-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-4de6-795b-b7f3-151b8d38a94e",
+        "slug": "5407142-github"
+      },
+      "title": "Issue #85: [Android] Implement Android extension for DivInput to show date and time picker",
+      "description": "### Implementation details\r\nBasically adds click listener which opens DialogFragment with DatePickerDialog, TimePickerDialog or both depending on parameters.\r\n\r\nBecause input element based on EditText, applying this extension will make input non-focusable to prevent showing keyboard.\r\nSince project doesn't use Java 8 or java.time backports, implementation was written using Date and Calendar objects.\r\n\r\n### Tests\r\nImplemented test cases for parsing and integration with DivKit containers. Also implemented test scenario for DivKit demo.\r\nPicker fragment hasn't covered by tests.\r\n\r\n### Future considerations\r\nCurrently, there's no special type for date and time or any parameters for date formatting. However, it would be nice to have these in the future.\r\n\r\nAlso, this implementation doesn't set previously set date as initial to DateTimePicker because it seems there's no way to read variable from code (https://t.me/divkit_community_ru/5890), while reading it from View state looks incorrect from design point.",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "issue-85",
+      "target_branch": "main",
+      "status": "open",
+      "created_at": "2025-11-06T14:56:33.994909Z",
+      "updated_at": "2025-11-06T14:56:34.107445Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:issue-85",
+        "ref": "issue-85",
+        "sha": "1761da0489c39629dffdd1570e6dc1c56571f36d"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "80488f64a712bde56a2338ad91eff54c221a9bd9"
+      }
+    },
+    {
+      "id": "019a59ab-5d50-717a-8af7-078652e3d12a",
+      "slug": "97",
+      "author": {
+        "id": "019a59ab-4e12-78f7-b40e-bb30c42828fc",
+        "slug": "24753067-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-4e12-78f7-b40e-bb30c42828fc",
+        "slug": "24753067-github"
+      },
+      "title": "Issue #78: [iOS] Added atan",
+      "description": "Fix #78 ",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "fix/78-atan-ios",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:34.128096Z",
+      "updated_at": "2025-11-06T14:56:34.249837Z",
+      "linked_issues": [
+        {
+          "id": "019a59ab-4316-7490-9e38-f6eeaf6b69d8",
+          "slug": "78"
+        }
+      ],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:fix/78-atan-ios",
+        "ref": "fix/78-atan-ios",
+        "sha": "6fbcfae6915617d11b6a71d3b208c76b35a7a7fb"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "b497a1d1e2c9ffe3227267f14fea48be72405986"
+      }
+    },
+    {
+      "id": "019a59ab-5dec-74f7-a461-d3c475ae9e86",
+      "slug": "96",
+      "author": {
+        "id": "019a59ab-4e46-7c8a-b116-873a8fd80296",
+        "slug": "12647225-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-4e46-7c8a-b116-873a8fd80296",
+        "slug": "12647225-github"
+      },
+      "title": "[Android] add ctan function.",
+      "description": "Add new function ctan.",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "main",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:34.284325Z",
+      "updated_at": "2025-11-06T14:56:34.401305Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "e9cb6487f5f61dc3c7181faf5751f81a1239375e"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "b497a1d1e2c9ffe3227267f14fea48be72405986"
+      }
+    },
+    {
+      "id": "019a59ab-5e73-758f-a393-f003d66ebbf2",
+      "slug": "95",
+      "author": {
+        "id": "019a59ab-4e85-7a0f-8a76-23de0989b440",
+        "slug": "1146694-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-4e85-7a0f-8a76-23de0989b440",
+        "slug": "1146694-github"
+      },
+      "title": "[Android] Add asin() trigonometric function",
+      "description": "Issue: https://github.com/divkit/divkit/issues/79",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "main",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:34.419364Z",
+      "updated_at": "2025-11-06T14:56:34.542861Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "68346174859136b9ae271f0ac211a725ef21578d"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "8aba702f2f9db268d9fe2ed49b0ebcc3ee55bb3e"
+      }
+    },
+    {
+      "id": "019a59ab-5f02-7f19-a00a-aa46360d1ab7",
+      "slug": "94",
+      "author": {
+        "id": "019a59ab-4ed8-7cda-b4f9-c9820c819977",
+        "slug": "95085217-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-4ed8-7cda-b4f9-c9820c819977",
+        "slug": "95085217-github"
+      },
+      "title": "[iOS] Тригонометрическая функция ctan",
+      "description": "Добавили котангенс, но не проверяли его из-за того, что не подтянулись завис",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "ios-ctan",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:34.562989Z",
+      "updated_at": "2025-11-06T14:56:34.724394Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:ios-ctan",
+        "ref": "ios-ctan",
+        "sha": "a6468bfac85ccda080c9f86e2737dff7b9897d38"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "b497a1d1e2c9ffe3227267f14fea48be72405986"
+      }
+    },
+    {
+      "id": "019a59ab-5fba-7221-896d-61021799a178",
+      "slug": "93",
+      "author": {
+        "id": "019a59ab-4f18-79e0-bda1-13dfbe4ca50a",
+        "slug": "16787626-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-4f18-79e0-bda1-13dfbe4ca50a",
+        "slug": "16787626-github"
+      },
+      "title": "[iOS] Added min method to array",
+      "description": "",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "array_min",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:34.746139Z",
+      "updated_at": "2025-11-06T14:56:34.890863Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:array_min",
+        "ref": "array_min",
+        "sha": "3036dc3d98a42f64fa7df8e32ea322f4582fd007"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "b497a1d1e2c9ffe3227267f14fea48be72405986"
+      }
+    },
+    {
+      "id": "019a59ab-6063-752d-9c66-161253134866",
+      "slug": "92",
+      "author": {
+        "id": "019a59ab-4f51-78fb-a4fc-149c652fc208",
+        "slug": "19188911-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-4f51-78fb-a4fc-149c652fc208",
+        "slug": "19188911-github"
+      },
+      "title": "[iOS] Added avg method for array",
+      "description": "Реализация issue - https://github.com/divkit/divkit/issues/64\r\n\r\nРаботает только если все элементы имеют тип integer или number.\r\nЕсли встречается элемент другого типа, то выбрасываем ошибку unsupportedType.\r\n(https://github.com/divkit/divkit/blob/main/client/ios/DivKit/Expressions/Functions/ArrayFunctions.swift#L43).\r\nПример использования:\r\n```JSON\r\n{\r\n    \"card\": {\r\n        \"log_id\": \"div2_sample_card\",\r\n        \"states\": [\r\n            {\r\n                \"state_id\": 0,\r\n                \"div\": {\r\n                    \"variables\": [\r\n                        {\r\n                            \"name\": \"source\",\r\n                            \"type\": \"array\",\r\n                            \"value\": [10, 9, 8]\r\n                        }\r\n                    ],\r\n                    \"type\": \"text\",\r\n                    \"text\": \"@{source.avg()}\"   \r\n                }\r\n            }\r\n        ]\r\n    }\r\n}\r\n```",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "ios_avg_array_method",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:34.915339Z",
+      "updated_at": "2025-11-06T14:56:35.064248Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:ios_avg_array_method",
+        "ref": "ios_avg_array_method",
+        "sha": "b4ea82f1f33fe2c6991de1ca35877c617f8b77b5"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "b497a1d1e2c9ffe3227267f14fea48be72405986"
+      }
+    },
+    {
+      "id": "019a59ab-6115-7c99-94a9-6a057d31afc7",
+      "slug": "91",
+      "author": {
+        "id": "019a59ab-4f89-7594-9318-eeb3b9bbbf61",
+        "slug": "16115630-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-4f89-7594-9318-eeb3b9bbbf61",
+        "slug": "16115630-github"
+      },
+      "title": "Issue #63: [iOS] Added array.max",
+      "description": "",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "ios-max",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:35.093825Z",
+      "updated_at": "2025-11-06T14:56:35.233306Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:ios-max",
+        "ref": "ios-max",
+        "sha": "6398e35eba1940374221a3fff4b82f78d8d14d2b"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "b497a1d1e2c9ffe3227267f14fea48be72405986"
+      }
+    },
+    {
+      "id": "019a59ab-61b9-7bd6-91ef-d10b229b2ca4",
+      "slug": "90",
+      "author": {
+        "id": "019a59ab-4fcb-767e-aeb7-e736a6132479",
+        "slug": "664390-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-4fcb-767e-aeb7-e736a6132479",
+        "slug": "664390-github"
+      },
+      "title": "Issue #66: [Android] add array min function",
+      "description": "",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "main",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:35.257776Z",
+      "updated_at": "2025-11-06T14:56:35.362844Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "09f29fbe114a4e230ea06ab7c97168bc29756a7b"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "b497a1d1e2c9ffe3227267f14fea48be72405986"
+      }
+    },
+    {
+      "id": "019a59ab-6235-7a61-b1e7-7fbf75fea561",
+      "slug": "89",
+      "author": {
+        "id": "019a59ab-4ff3-7de4-8756-05fcd5367177",
+        "slug": "47542778-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-4ff3-7de4-8756-05fcd5367177",
+        "slug": "47542778-github"
+      },
+      "title": "Issue #68: [Android] array avg method",
+      "description": "Issue: https://github.com/divkit/divkit/issues/68",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "issue-68",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:35.381680Z",
+      "updated_at": "2025-11-06T14:56:35.519071Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:issue-68",
+        "ref": "issue-68",
+        "sha": "ab34b17ec98e84e9d77e77006a363103385c57d3"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "6062b096274ac296736b684577dc4f85076ec6b9"
+      }
+    },
+    {
+      "id": "019a59ab-62d3-7b7c-a9a3-f1350afdb97a",
+      "slug": "88",
+      "author": {
+        "id": "019a59ab-5024-7d33-8f5a-4b0a0297703b",
+        "slug": "79082708-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-5024-7d33-8f5a-4b0a0297703b",
+        "slug": "79082708-github"
+      },
+      "title": "[Android] added tan",
+      "description": "",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "main",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:35.539752Z",
+      "updated_at": "2025-11-06T14:56:35.661003Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "69d455fea63486ddf4021f086cb80dc595282e5d"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "b497a1d1e2c9ffe3227267f14fea48be72405986"
+      }
+    },
+    {
+      "id": "019a59ab-6367-7b81-b877-9d2fa881add3",
+      "slug": "87",
+      "author": {
+        "id": "019a59ab-505a-7ef0-9737-65ec018e9554",
+        "slug": "2684276-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-505a-7ef0-9737-65ec018e9554",
+        "slug": "2684276-github"
+      },
+      "title": "issue #74: [Android] cos function implementation",
+      "description": "Closes #74 - cos function implementation\r\n\r\nI hereby agree to the terms of the CLA available at: https://yandex.ru/legal/cla/?lang=ru",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "task/cos_func",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:35.687754Z",
+      "updated_at": "2025-11-06T14:56:35.804322Z",
+      "linked_issues": [
+        {
+          "id": "019a59ab-4316-74af-866c-bb6910c6ce7a",
+          "slug": "74"
+        }
+      ],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:task/cos_func",
+        "ref": "task/cos_func",
+        "sha": "8fd0d2fd3bd9c9fdecbfa35fb5091f8c3983ebb8"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "b497a1d1e2c9ffe3227267f14fea48be72405986"
+      }
+    },
+    {
+      "id": "019a59ab-63f6-7d8c-b87f-2b5683678357",
+      "slug": "86",
+      "author": {
+        "id": "019a59ab-4e12-78f7-b40e-bb30c42828fc",
+        "slug": "24753067-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-4e12-78f7-b40e-bb30c42828fc",
+        "slug": "24753067-github"
+      },
+      "title": "Issue #71: [iOS] Added cos",
+      "description": "Fix #71",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "ios-cos",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:35.830887Z",
+      "updated_at": "2025-11-06T14:56:36.008117Z",
+      "linked_issues": [
+        {
+          "id": "019a59ab-4316-74c4-ab4a-b3ebd5ba443e",
+          "slug": "71"
+        }
+      ],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:ios-cos",
+        "ref": "ios-cos",
+        "sha": "77a8fdabf7c1d57b05fc5ab3799146706c44dd92"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "b497a1d1e2c9ffe3227267f14fea48be72405986"
+      }
+    },
+    {
+      "id": "019a59ab-64c0-7dff-bac9-f29529f2c506",
+      "slug": "54",
+      "author": {
+        "id": "019a59ab-5096-7306-9c97-619545fda1dc",
+        "slug": "19855397-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-5096-7306-9c97-619545fda1dc",
+        "slug": "19855397-github"
+      },
+      "title": "feat(flutter): add scenario list to testing page",
+      "description": "Current \"testing\" page in example playground is unusable\r\n\r\nMade it similar to Android Playground\r\n\r\n<details>\r\n<summary>Demo</summary>\r\n\r\nhttps://github.com/user-attachments/assets/f0db190d-a7ff-4392-a68d-2b9d2e85c65f\r\n\r\n</details>",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "feat/add-scenario-list-testing-page",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:36.032917Z",
+      "updated_at": "2025-11-06T14:56:36.166756Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:feat/add-scenario-list-testing-page",
+        "ref": "feat/add-scenario-list-testing-page",
+        "sha": "0d5a9a6c636819e2e69968cc7a5c2eb943ef7780"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "61ddf6d488b9d0f94b0fe28fcdb8512ee562b9c9"
+      }
+    },
+    {
+      "id": "019a59ab-655a-7531-8fd5-8ad5c0fd14e9",
+      "slug": "53",
+      "author": {
+        "id": "019a59ab-5096-7306-9c97-619545fda1dc",
+        "slug": "19855397-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-5096-7306-9c97-619545fda1dc",
+        "slug": "19855397-github"
+      },
+      "title": "feat(flutter): add text div features support",
+      "description": "I hereby agree to the terms of the CLA available at: [link](https://yandex.ru/legal/cla/?lang=en)\r\n\r\n### Notes\r\n\r\nAdded support for next text properties:\r\n\r\n- `letter_spacing`\r\n- `font_family` - also for **input** div \r\n- `font_weight_value`\r\n- `text_shadow`\r\n\r\n<details>\r\n<summary>Screenshot</summary>\r\n<img src=\"https://github.com/user-attachments/assets/810c9cb2-aa89-4458-bc2c-40213140237e\" width=\"375\"/>\r\n</details>\r\n",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "feat/text-features-support",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:36.186340Z",
+      "updated_at": "2025-11-06T14:56:36.306314Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:feat/text-features-support",
+        "ref": "feat/text-features-support",
+        "sha": "2339e3228f8bf855cd30d9e574b8ab6d2a12fcca"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "bbb31c0c5dc9f2ae03f544ece50e80aeaf074268"
+      }
+    },
+    {
+      "id": "019a59ab-65f0-773f-ae8d-2673bc93515f",
+      "slug": "52",
+      "author": {
+        "id": "019a59ab-5096-7306-9c97-619545fda1dc",
+        "slug": "19855397-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-5096-7306-9c97-619545fda1dc",
+        "slug": "19855397-github"
+      },
+      "title": "fix(flutter): fix gradients in templates breaks rendering",
+      "description": "I hereby agree to the terms of the CLA available at: [link](https://yandex.ru/legal/cla/?lang=en)\r\n\r\nWhen gradients are used in template, there is TypeError occurring during template parsing. \r\nResolver is not expecting an array of strings. Probably other features using arrays of not objects are affected\r\n\r\nError:\r\n\r\n```\r\n_TypeError (type 'String' is not a subtype of type 'Map<String, dynamic>')\r\n```\r\n\r\n<details>\r\n<summary>Problematic card example</summary>\r\n\r\n```json\r\n{\r\n  \"card\": {\r\n    \"log_id\": \"gradient_error\",\r\n    \"states\": [\r\n      {\r\n        \"state_id\": 0,\r\n        \"div\": {\r\n          \"type\": \"example\"\r\n        }\r\n      }\r\n    ]\r\n  },\r\n  \"templates\": {\r\n    \"example\": {\r\n      \"type\": \"container\",\r\n      \"height\": {\r\n        \"type\": \"fixed\",\r\n        \"value\": 100\r\n      },\r\n      \"background\": [\r\n        {\r\n          \"type\": \"gradient\",\r\n          \"colors\": [\r\n            \"#999\",\r\n            \"#fff\"\r\n          ],\r\n          \"angle\": 45\r\n        }\r\n      ],\r\n      \"content_alignment_vertical\": \"center\",\r\n      \"content_alignment_horizontal\": \"center\",\r\n      \"items\": [\r\n        {\r\n          \"type\": \"text\",\r\n          \"text\": \"Gradient in templates example\",\r\n          \"width\": {\r\n            \"type\": \"wrap_content\"\r\n          }\r\n        }\r\n      ]\r\n    }\r\n  }\r\n}\r\n```\r\n\r\n</details>\r\n\r\n### Notes\r\n\r\nThis pull request fixes this error. \r\nChange is simply to pass not object value as is without processing by `TemplatesResolver._replace_`",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "fix-gradient-in-template-error",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:36.336475Z",
+      "updated_at": "2025-11-06T14:56:36.457625Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:fix-gradient-in-template-error",
+        "ref": "fix-gradient-in-template-error",
+        "sha": "341eb586cdbb90e50d896bbc2f0582a20705877e"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "bbb31c0c5dc9f2ae03f544ece50e80aeaf074268"
+      }
+    },
+    {
+      "id": "019a59ab-667a-78dc-8db3-bd89a5ed2458",
+      "slug": "50",
+      "author": {
+        "id": "019a59ab-3e47-70ea-86bf-c0f19e1b905f",
+        "slug": "47780958-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-3e47-70ea-86bf-c0f19e1b905f",
+        "slug": "47780958-github"
+      },
+      "title": "Fix Keyboard Type Handling by Adding Input Formatter for Number Input in Flutter DivKit",
+      "description": "In the web playground, when the keyboard_type is set to number in JSON, the client-side ensures that users can only input and paste numeric values. However, in the Flutter DivKit, setting the keyboard_type to number only displays the numeric keyboard, but users can still paste or type non-numeric strings. This behavior is inconsistent with the web version, where non-numeric inputs are restricted.\r\n\r\n**Changes Introduced:**\r\n\r\n- Added an inputFormatter to DivInput in Flutter DivKit.\r\n- The inputFormatter is set to digitsOnly when keyboard_type is number, ensuring users can only input numeric values.\r\n- For all other keyboard_type values, the inputFormatter is set to none, allowing normal string input.\r\n\r\n**Impact:**\r\n\r\n- Ensures consistency between the web and Flutter versions regarding input behavior for numeric fields.\r\n- Prevents users from inputting or pasting non-numeric values when keyboard_type is number in Flutter DivKit.\r\n\r\n**Testing:**\r\n\r\n- Verified that when keyboard_type is set to number, users can only input numeric values.\r\n- Confirmed that for other keyboard_type values, normal string input is allowed.",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "main",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:36.474580Z",
+      "updated_at": "2025-11-06T14:56:36.609672Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "3cb65f091b3edbb60964ae1c7598321b86452e65"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "87661fb69b9cc880f562216ee148e605f63e694e"
+      }
+    },
+    {
+      "id": "019a59ab-672c-7a7e-b143-a0ab5e63913b",
+      "slug": "46",
+      "author": {
+        "id": "019a59ab-50c1-7d10-8ba6-1aab979b0e38",
+        "slug": "86770740-github"
+      },
+      "updated_by": {
+        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
+        "slug": "sadsorceror"
+      },
+      "title": "Changing some regress tests to interactive analogues",
+      "description": "Added 75 interactive tests on base of some regression test, which can be automated with current instruments of test system (without clicks, e.t.c.)\r\n\r\nChanged CustomCard realization on Web and Android to test CustomCard automatically on web and android.\r\n\r\n\r\nI hereby agree to the terms of the CLA available at: https://yandex.ru/legal/cla/",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "main",
+      "target_branch": "main",
+      "status": "open",
+      "created_at": "2025-11-06T14:56:36.652687Z",
+      "updated_at": "2026-09-18T15:31:29.165671Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "eb2d8be65927cc5100eeb505a725a40b1d261d7f"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "eb2d8be65927cc5100eeb505a725a40b1d261d7f"
+      }
+    },
+    {
+      "id": "019a59ab-67b6-718b-acd6-153a89121d45",
+      "slug": "45",
+      "author": {
+        "id": "019a59ab-50f7-79c2-bae8-ee5aae55f661",
+        "slug": "44105323-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-50f7-79c2-bae8-ee5aae55f661",
+        "slug": "44105323-github"
+      },
+      "title": "Added nested ternary operator test case",
+      "description": "There are not enough examples of a nested operator, because when using nested operators, you need to implicitly add parentheses. Otherwise, the ternary operator in the expression is interpreted as an infix:\r\n\r\n```JSON\r\n\"expression\": \"@{stringVariable == 'first' ? 1 : stringVariable == 'second' ? 2 : stringVariable == 'third' && intVariable < 42 ? 3 : 4}\"\r\n```\r\n\r\nCauses an error:\r\n\r\n```\r\nExpressionError(error.makeOutputMessage(for: expression), expression: link.rawValue)\r\n(DivKit.ExpressionError) {\r\n  message = \"Undefined infix operator ?\"\r\n  ...\r\n}\r\n```\r\n\r\nTherefore, the proposed pull request contains an additional example of a test case with nested ternary operators.",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "R-29.12.1",
+      "target_branch": "R-29.12",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:36.790101Z",
+      "updated_at": "2025-11-06T14:56:36.913239Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:R-29.12.1",
+        "ref": "R-29.12.1",
+        "sha": "4d28835cb6f0a24b1321c14167a87e83125f3de9"
+      },
+      "target": {
+        "label": "divkit/divkit:R-29.12",
+        "ref": "R-29.12",
+        "sha": "81d245ba0fbf81981cdf12fcec1f6ebc9dc6f2c5"
+      }
+    },
+    {
+      "id": "019a59ab-6850-7244-91cd-a4516a28d38f",
+      "slug": "43",
+      "author": {
+        "id": "019a59ab-3e73-7bf1-bb32-48b7ba51f2f8",
+        "slug": "4330985-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-3e73-7bf1-bb32-48b7ba51f2f8",
+        "slug": "4330985-github"
+      },
+      "title": "Request to make build Android client on Windows possible",
+      "description": "Spent few hours trying to build divkit/client/android on my Windows 11 machine. Finally made demo app run. Is windows support not considered or I misunderstood something?\r\n\r\nThis PR is not necessarily the best way to go (it's just enough to make it run), maybe use it as a starting point?\r\n\r\nEncountered problems:\r\n* Shell script `api_generator.sh` (won't run via WSL/bash.exe as well)\r\n* Windows specific is to have backslash as separator in a path, which breaks strings in generated BuildConfig.\r\n* Python tried to use cp1251 encoding by default.\r\n\r\nI hereby agree to the terms of the CLA available at: https://yandex.ru/legal/cla/?lang=ru",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "fix/windows_build",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:36.944148Z",
+      "updated_at": "2025-11-06T14:56:37.179187Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:fix/windows_build",
+        "ref": "fix/windows_build",
+        "sha": "2da9383f7595e4e3088d31f13656ba2c82973e5e"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "3ee74b8f4a62c6c1973798b15390a40bac5788e3"
+      }
+    },
+    {
+      "id": "019a59ab-6957-7482-928d-4b828c80975b",
+      "slug": "42",
+      "author": {
+        "id": "019a59ab-5167-78b4-ac07-cd20c3393786",
+        "slug": "22362226-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-5167-78b4-ac07-cd20c3393786",
+        "slug": "22362226-github"
+      },
+      "title": "Timestamp Function",
+      "description": "",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "R-29.6-timestamp-function",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:37.207295Z",
+      "updated_at": "2025-11-06T14:56:37.330421Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:R-29.6-timestamp-function",
+        "ref": "R-29.6-timestamp-function",
+        "sha": "f68d46e6b748191ac0cb257b4d9f7d73ee529a7b"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "ab043d2cdbe918c04d7ec52e00b8308cca2daec6"
+      }
+    },
+    {
+      "id": "019a59ab-69e7-79fb-9e97-5dcb631de2fd",
+      "slug": "41",
+      "author": {
+        "id": "019a59ab-519d-76b7-a2b8-6bf2e56969ff",
+        "slug": "50011154-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-519d-76b7-a2b8-6bf2e56969ff",
+        "slug": "50011154-github"
+      },
+      "title": "Added support for SVG images.",
+      "description": "I hereby agree to the terms of the CLA available at: [link](https://yandex.ru/legal/cla/?lang=en)\r\n\r\n### Notes\r\nThis pull request contains the changes that support loading images in SVG format.\r\n\r\n1. SVG Image Loading\r\n  * To load SVG images, a separate image loader is created;\r\n  * [AndroidSVG](https://bigbadaboom.github.io/androidsvg/) library was used to decode SVG format;\r\n  * A simple in-memory cache was implemented to store downloaded vector images locally;\r\n  * Inside the app, vector images are represented in the format of PictureDrawable;\r\n  * To render SVG, a new `onSuccess(PictureDrawable)` method was added in the `DivImageDownloadCallback` interface.\r\n\r\n2. Picasso and Glide backward compatibility\r\n  * The interface of DivImageLoader has been extended to have `doesSupportSvg()` method indicating whether the image loader supports SVG;\r\n  * To make Picasso and Glide work with SVG images, a special `FlexibleImageLoader` bean was created;\r\n  * It represents a wrapper over the standard image loader which can replace it with the SvgImageLoader under the hood if SVG format is not supported by the chosen image loader;\r\n\r\n3. Rendering Vector Images\r\n  * Vector images are being rendered inside of `onSuccess(PictureDrawable)` method in a similar way as bitmaps;\r\n  * Images in vector format don't support tints and filters. To overcome this, DivImage `shouldBeRasterized` property was created which is being set to true if the tint or filters are overridden for the image;\r\n  * If it should be rasterized, then that image is converted into bitmap of the size of the original SVG;\r\n  * Background images don't support transparency and filters. When such properties are specified, then background image is converted to bitmap in a similar way.\r\n\r\n4. Previews\r\n  * To decode SVG images from base64, `DecodeBase64ImageTask` was extended to work with both formats;\r\n  * Instead of working only with Bitmaps, it now supports Bitmap and PictureDrawable which are aggregated under a newly created `ImageRepresentation` sealed template class.\r\n\r\n5. Samples and Testing Screens Updates\r\n  * To demonstrate the features of vector images, `Sample` and `Testing` screens were updated accordingly.\r\n\r\n<img src=\"https://github.com/divkit/divkit/assets/50011154/e8556b2c-e75a-4cf0-8cba-1ed9698ac905\" width=\"250\" height=\"525\">\r\n\r\n<img src=\"https://github.com/divkit/divkit/assets/50011154/599cf419-5eda-4b24-b04d-1a80f820f887\" width=\"250\" height=\"525\">\r\n\r\n<img src=\"https://github.com/divkit/divkit/assets/50011154/580aa030-8113-4808-a36c-8c12326cfc70\" width=\"250\" height=\"525\">\r\n\r\n\r\n",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "R-29.6",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:37.351654Z",
+      "updated_at": "2025-11-06T14:56:37.494029Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:R-29.6",
+        "ref": "R-29.6",
+        "sha": "1ecd3eface9507dc5c9676efa4a3f453566f047c"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "40222e8221e10e71b8b05a6d3d78f38b4f82f9bf"
+      }
+    },
+    {
+      "id": "019a59ab-6aa8-7eae-b8d5-40c7e4ca8363",
+      "slug": "39",
+      "author": {
+        "id": "019a59ab-5167-78b4-ac07-cd20c3393786",
+        "slug": "22362226-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-5167-78b4-ac07-cd20c3393786",
+        "slug": "22362226-github"
+      },
+      "title": "Support payload for URL actions",
+      "description": "I hereby agree to the terms of the CLA available at: [link](https://yandex.ru/legal/cla/?lang=en)\r\n\r\n### Notes:\r\n- Add payload into `DivActionInfo`\r\n- Update reporter `DivActionHandler` to pass the action payload.",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "logger-action-access",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:37.544962Z",
+      "updated_at": "2025-11-06T14:56:37.664107Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:logger-action-access",
+        "ref": "logger-action-access",
+        "sha": "029cc281769cac65e9e6bc37d8ef8be3b41bcc43"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "85953f277062c19468634efa7dd5599e15b05c8d"
+      }
+    },
+    {
+      "id": "019a59ab-6b37-742b-b0cb-c4dc2fb53410",
+      "slug": "37",
+      "author": {
+        "id": "019a59ab-519d-76b7-a2b8-6bf2e56969ff",
+        "slug": "50011154-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-519d-76b7-a2b8-6bf2e56969ff",
+        "slug": "50011154-github"
+      },
+      "title": "Supported Coil as another image loader in addition to Glide and Picasso.",
+      "description": "I hereby agree to the terms of the CLA available at: [link](https://yandex.ru/legal/cla/?lang=en)\r\n\r\n### Notes\r\n* Added Coil library for loading images and supported:\r\n  * SvgDecoder to load vector images;\r\n  * GifDecoder to load animatable images.\r\n* Changed image loader picker in the settings from boolean switch to slider to be able to choose between 3 options:\r\n<img width=\"307\" alt=\"Screenshot 2023-11-25 at 15 04 36\" src=\"https://github.com/divkit/divkit/assets/50011154/6a0f5b7a-f6db-4d2b-9311-c7a46aed5440\">",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "R-28.13",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:37.687273Z",
+      "updated_at": "2025-11-06T14:56:37.812064Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:R-28.13",
+        "ref": "R-28.13",
+        "sha": "d3d640310f5a63728fac21892ef135427bd63eb3"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "5cebd115ccab3f587cc046016a624b9f404d3fa5"
+      }
+    },
+    {
+      "id": "019a59ab-6c1a-7839-ab41-126c936f21f6",
+      "slug": "36",
+      "author": {
+        "id": "019a59ab-519d-76b7-a2b8-6bf2e56969ff",
+        "slug": "50011154-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-519d-76b7-a2b8-6bf2e56969ff",
+        "slug": "50011154-github"
+      },
+      "title": "Supported Coil as another image loader in addition to Glide and Picasso.",
+      "description": "I hereby agree to the terms of the CLA available at: [link](https://yandex.ru/legal/cla/?lang=en)\r\n\r\n### Notes\r\n* Added Coil library for loading images and supported:\r\n  * SvgDecoder to load vector images;\r\n  * GifDecoder to load animatable images.\r\n* Changed image loader picker in the settings from boolean switch to slider to be able to choose between 3 options:\r\n<img width=\"307\" alt=\"Screenshot 2023-11-25 at 15 04 36\" src=\"https://github.com/divkit/divkit/assets/50011154/6a0f5b7a-f6db-4d2b-9311-c7a46aed5440\">\r\n",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "R-28.13",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:37.914539Z",
+      "updated_at": "2025-11-06T14:56:38.047529Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:R-28.13",
+        "ref": "R-28.13",
+        "sha": "dfecb66a236fe5464adc4e0567f872e2cdd44887"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "7af7b4404ec3ddf0bba87f8f37ac55641ae0bf15"
+      }
+    },
+    {
+      "id": "019a59ab-6cb5-75a3-9353-cb5ac827a350",
+      "slug": "35",
+      "author": {
+        "id": "019a59ab-51d9-7a59-9d6b-3e367c123361",
+        "slug": "37830040-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-51d9-7a59-9d6b-3e367c123361",
+        "slug": "37830040-github"
+      },
+      "title": "ApiGenerator / Divan / header comments fix",
+      "description": "I hereby agree to the terms of the CLA available at: https://yandex.ru/legal/cla/\r\n\r\nString/Entity Enumeration header comments fix for better UX navigation in IDEA",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "api_generator/divan/comments_fix",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:38.069369Z",
+      "updated_at": "2025-11-06T14:56:38.190595Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:api_generator/divan/comments_fix",
+        "ref": "api_generator/divan/comments_fix",
+        "sha": "7643389e3f26688685c8629c6d9fcf70b0fbed80"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "762a62021ac49417e8606e96f9127ea87c0eedbb"
+      }
+    },
+    {
+      "id": "019a59ab-6d3f-7435-998c-7757e9fb6877",
+      "slug": "33",
+      "author": {
+        "id": "019a59ab-5202-7e25-8efd-cab990be800d",
+        "slug": "14818224-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-5202-7e25-8efd-cab990be800d",
+        "slug": "14818224-github"
+      },
+      "title": "Optimize time complexity",
+      "description": "I hereby agree to the terms of the CLA available at: https://yandex.ru/legal/cla/, https://yandex.ru/legal/cla/?lang=en.\r\n`variables.keys.contains(name)` is O(n)\r\n`variables[name] != nil` is O(1)",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "main",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:38.207276Z",
+      "updated_at": "2025-11-06T14:56:38.335836Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "1407222a4400ce268475cb1200885d63166f0218"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "496b97585812d91670dbcc1b2af0657c623f5abb"
+      }
+    },
+    {
+      "id": "019a59ab-6dd6-72f3-b29c-f1118c86461d",
+      "slug": "32",
+      "author": {
+        "id": "019a59ab-5202-7e25-8efd-cab990be800d",
+        "slug": "14818224-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-5202-7e25-8efd-cab990be800d",
+        "slug": "14818224-github"
+      },
+      "title": "Optimize time complexity",
+      "description": "https://yandex.ru/legal/cla/, https://yandex.ru/legal/cla/?lang=en\r\n`variables.keys.contains(name)` is O(n)\r\n`variables[name] != nil` is O(1)",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "main",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:38.358193Z",
+      "updated_at": "2025-11-06T14:56:38.480047Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "723edfed1fd8a949586b8253337d36521067b862"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "d982e4e25e753d12dcc5f98bcc9406a7c3f321bc"
+      }
+    },
+    {
+      "id": "019a59ab-6e67-73b5-b6c8-e945f058ae7e",
+      "slug": "31",
+      "author": {
+        "id": "019a59ab-5202-7e25-8efd-cab990be800d",
+        "slug": "14818224-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-5202-7e25-8efd-cab990be800d",
+        "slug": "14818224-github"
+      },
+      "title": "Optimize time complexity",
+      "description": "I hereby agree to the terms of the CLA available at: https://yandex.ru/legal/cla/, https://yandex.ru/legal/cla/?lang=en.\r\n`variables.keys.contains(name)` is O(n)\r\n`variables[name] != nil` is O(1)",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "main",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:38.503243Z",
+      "updated_at": "2025-11-06T14:56:38.658295Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "723edfed1fd8a949586b8253337d36521067b862"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "d982e4e25e753d12dcc5f98bcc9406a7c3f321bc"
+      }
+    },
+    {
+      "id": "019a59ab-6f16-7608-b5ed-c93bba3f7a81",
+      "slug": "25",
+      "author": {
+        "id": "019a59ab-5232-754e-86e8-5c9f3ba44ecd",
+        "slug": "41822761-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-5232-754e-86e8-5c9f3ba44ecd",
+        "slug": "41822761-github"
+      },
+      "title": "Refactor generator.py",
+      "description": "I hereby agree to the terms of the CLA available at: https://yandex.ru/legal/cla/.",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "patch-1",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:38.678395Z",
+      "updated_at": "2025-11-06T14:56:38.805259Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:patch-1",
+        "ref": "patch-1",
+        "sha": "18627d8aaff5e0e8a9f81dee249c25303a1105f4"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "399f7ad7de75fa57b2630227b030e4492ecfbc20"
+      }
+    },
+    {
+      "id": "019a59ab-6fa9-71d9-a910-e6a096309528",
+      "slug": "23",
+      "author": {
+        "id": "019a59ab-5202-7e25-8efd-cab990be800d",
+        "slug": "14818224-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-5202-7e25-8efd-cab990be800d",
+        "slug": "14818224-github"
+      },
+      "title": "resolve building error",
+      "description": "Xcode 14.3\r\nfix building error",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "main",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:38.825121Z",
+      "updated_at": "2025-11-06T14:56:38.939852Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "2fafa307d129322c19665d83a57b0c2f6b789d61"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "d982e4e25e753d12dcc5f98bcc9406a7c3f321bc"
+      }
+    },
+    {
+      "id": "019a59ab-702f-7b85-8c00-8905a804d650",
+      "slug": "22",
+      "author": {
+        "id": "019a59ab-4058-78fd-8fdb-8738ef3c500c",
+        "slug": "18092308-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-4058-78fd-8fdb-8738ef3c500c",
+        "slug": "18092308-github"
+      },
+      "title": "Use cache for rewriteTemplateVersions",
+      "description": "I hereby agree to the terms of the CLA available at: https://yandex.ru/legal/cla/.\r\n\r\n`hashes` object never updated",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "fix-template-helper-version",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:38.959755Z",
+      "updated_at": "2025-11-06T14:56:39.114793Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:fix-template-helper-version",
+        "ref": "fix-template-helper-version",
+        "sha": "ee585e46bb97a790d1ae7dc1f6826fa726535e88"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "d982e4e25e753d12dcc5f98bcc9406a7c3f321bc"
+      }
+    },
+    {
+      "id": "019a59ab-70e5-7bfc-a082-721a37723435",
+      "slug": "14",
+      "author": {
+        "id": "019a59ab-5268-76b6-80bc-2eac8926fc94",
+        "slug": "32358454-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-5268-76b6-80bc-2eac8926fc94",
+        "slug": "32358454-github"
+      },
+      "title": "Added custom checker for last symbol",
+      "description": "",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "TextInput_NewLineSolution",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:39.141785Z",
+      "updated_at": "2025-11-06T14:56:39.297414Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:TextInput_NewLineSolution",
+        "ref": "TextInput_NewLineSolution",
+        "sha": "3cab44e495b5d26cba33fc424e27e4677a47967c"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "7c3e4c096d3c6d0c96f12797679ec0ebdfd98b63"
+      }
+    },
+    {
+      "id": "019a59ab-7197-7dcb-aec5-7603c905d4bc",
+      "slug": "13",
+      "author": {
+        "id": "019a59ab-5295-7e41-9460-d03c4a62c27b",
+        "slug": "101454313-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-5295-7e41-9460-d03c4a62c27b",
+        "slug": "101454313-github"
+      },
+      "title": "Marketplace",
+      "description": "I hereby agree to the terms of the CLA available at: https://yandex.ru/legal/cla/?lang=ru",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "main",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:39.319904Z",
+      "updated_at": "2025-11-06T14:56:39.461311Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "aa7d67eaa9d6642680f07a8ef85b28bbd4069f02"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "81c549ab30e09e6e12035509ea65f65c68a5d00e"
+      }
+    },
+    {
+      "id": "019a59ab-723e-7252-9ca4-710d9a96bcba",
+      "slug": "10",
+      "author": {
+        "id": "019a59ab-52c5-71fe-b856-f583950a0535",
+        "slug": "9933710-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-52c5-71fe-b856-f583950a0535",
+        "slug": "9933710-github"
+      },
+      "title": "Block+Layout issue",
+      "description": "Fixed compile error and did some optimizations",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "feature/block-layout",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:39.486152Z",
+      "updated_at": "2025-11-06T14:56:39.629014Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:feature/block-layout",
+        "ref": "feature/block-layout",
+        "sha": "fc5df2af98c7372a71889302d1dd3b8ca5a7f888"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "02386fe5a2e384ff49b9193fc21e66a389c0e9cd"
+      }
+    },
+    {
+      "id": "019a59ab-72e3-79b8-9393-2b199ef031b3",
+      "slug": "4",
+      "author": {
+        "id": "019a59ab-52fe-7874-b271-a3ca87cdec6e",
+        "slug": "1763215-github"
+      },
+      "updated_by": {
+        "id": "019a59ab-52fe-7874-b271-a3ca87cdec6e",
+        "slug": "1763215-github"
+      },
+      "title": "Updated README.md structure",
+      "description": "",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "lunarstill-patch-readme",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:39.651637Z",
+      "updated_at": "2025-11-06T14:56:39.829762Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:lunarstill-patch-readme",
+        "ref": "lunarstill-patch-readme",
+        "sha": "18f818c76244e1b8beee0fb632fc12167697229f"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "c9cbe13bc073737a61dce240d365b03aaab8c34d"
+      }
+    },
+    {
+      "id": "019abce6-e730-71b9-8183-b5ceafa59721",
+      "slug": "122",
+      "author": {
+        "id": "01971bf5-7997-7fec-9e39-ab52348d47fa",
+        "slug": "akuleshov7"
+      },
+      "updated_by": {
+        "id": "01971bf5-7997-7fec-9e39-ab52348d47fa",
+        "slug": "akuleshov7"
+      },
+      "title": "R-32.25",
+      "description": "",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "R-32.25",
+      "target_branch": "main",
+      "status": "open",
+      "created_at": "2025-11-25T21:24:00.432113Z",
+      "updated_at": "2025-11-25T21:24:01.153306Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:R-32.25",
+        "ref": "R-32.25",
+        "sha": "037a7fd4b038410d4df4b5e238d7a49ede466fdf"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "3aa15085d3b0a8d3f998b710c63f3302a2a7c82f"
+      }
+    },
+    {
+      "id": "019ccd1f-a7f1-709f-b5bc-8066af37d43a",
+      "slug": "123",
+      "author": {
+        "id": "019ccd00-fa9f-7c11-92e2-fc42ad00099b",
+        "slug": "arhi555555"
+      },
+      "updated_by": {
+        "id": "019ccd00-fa9f-7c11-92e2-fc42ad00099b",
+        "slug": "arhi555555"
+      },
+      "title": "Security Test",
+      "description": "",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      },
+      "source_branch": "main",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2026-03-08T11:05:29.841041Z",
+      "updated_at": "2026-03-08T11:06:05.173467Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "bd933d6f34bdcc8260d47f552b6b794a4dfa61ca"
+      },
+      "target": {
+        "label": "divkit/divkit:main",
+        "ref": "main",
+        "sha": "bd933d6f34bdcc8260d47f552b6b794a4dfa61ca"
+      }
+    }
+  ]
+}

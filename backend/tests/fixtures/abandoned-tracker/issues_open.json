@@ -1,0 +1,644 @@
+{
+  "_meta": {
+    "endpoint": "/repos/divkit/divkit/issues",
+    "params": {
+      "page_size": 100,
+      "filter": "status=open"
+    },
+    "items_key": "issues",
+    "fetched_at": "2026-09-18T16:20:36.842271+00:00",
+    "pages_fetched": 1,
+    "truncated": false,
+    "item_count": 16
+  },
+  "items": [
+    {
+      "id": "019a59ab-4316-73b3-bcbf-6926b4e48885",
+      "slug": "125",
+      "title": "Images and Lottie files coded with Base64 no works in Android",
+      "description": "Here's a small example working in a web browser on the playground:\n\nhttps://github.com/user-attachments/assets/c38d5d65-ca03-4bbd-81bd-6f84ff5325eb\n\n\nAnd here is the screenshoot how it shows on android Divkit playground latest version form playstore, tested with Picasso, Glide and Coil:\n\n<img width=\"280\" height=\"400\" alt=\"Image\" src=\"https://github.com/user-attachments/assets/a894caa9-aac8-4c76-ac80-7246f519d6d3\" />",
+      "status": {
+        "id": "1",
+        "slug": "open",
+        "name": "Open",
+        "status_type": "initial"
+      },
+      "author": {
+        "id": "019a59ab-3973-7c6f-96ef-eccc68b143cc",
+        "slug": "31291125-github"
+      },
+      "updated_by": {
+        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
+        "slug": "sadsorceror"
+      },
+      "created_at": "2025-10-30T22:54:46Z",
+      "updated_at": "2025-10-30T22:54:46Z",
+      "labels": [],
+      "linked_prs": [],
+      "priority": "normal",
+      "visibility": "public",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      }
+    },
+    {
+      "id": "019a59ab-4316-73c0-a8eb-7a4583aaf270",
+      "slug": "124",
+      "title": "DivKit Breaks on Android when svg links are invalid or fails when fetched.",
+      "description": "When url is malformed, without \"http://\" divkit thinks it's a native asset and tries to open as a local asset which fails with FileNotFoundException:\n\nEg: `\"image_url\": \"assets.glaze.engineering/assets/flags/USD-squre-on.svg\"`\n\n`android.content.res.AssetManager.nativeOpenAsset (AssetManager.java)\nandroid.content.res.AssetManager.open (AssetManager.java:881)\nandroid.content.res.AssetManager.open (AssetManager.java:858)\ncom.yandex.div.svg.SvgDivImageLoader.getImageData (SvgDivImageLoader.kt:100)\ncom.yandex.div.svg.SvgDivImageLoader.access$getImageData (SvgDivImageLoader.kt:17)\ncom.yandex.div.svg.SvgDivImageLoader$loadImage$2$1.invokeSuspend (SvgDivImageLoader.kt:38)\nkotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith (ContinuationImpl.kt:33)\nkotlinx.coroutines.DispatchedTask.run (DispatchedTask.kt:100)\nkotlinx.coroutines.internal.LimitedDispatcher$Worker.run (LimitedDispatcher.kt:113)\nkotlinx.coroutines.scheduling.TaskImpl.run (Tasks.kt:89)\nkotlinx.coroutines.scheduling.CoroutineScheduler.runSafely (CoroutineScheduler.kt:586)\nkotlinx.coroutines.scheduling.CoroutineScheduler$Worker.executeTask (CoroutineScheduler.kt:820)\nkotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker (CoroutineScheduler.kt:717)\nkotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run (CoroutineScheduler.kt:704)\n`\n\nWhen fetching svg fails:\n`Process: co.x.android.staging, PID: 15591\n                                                                                                    java.lang.IllegalArgumentException: SVG document is empty\n                                                                                                    \tat com.caverock.androidsvg.SVG.getDocumentViewBox(SVG.java:836)\n                                                                                                    \tat com.yandex.div.svg.SvgDecoder.decode(SvgDecoder.kt:20)\n                                                                                                    \tat com.yandex.div.svg.SvgDivImageLoader$loadImage$2$1.invokeSuspend(SvgDivImageLoader.kt:43)\n                                                                                                    \tat kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:33)\n                                                                                                    \tat kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:100)\n                                                                                                    \tat kotlinx.coroutines.internal.LimitedDispatcher$Worker.run(LimitedDispatcher.kt:113)\n                                                                                                    \tat kotlinx.coroutines.scheduling.TaskImpl.run(Tasks.kt:89)\n                                                                                                    \tat kotlinx.coroutines.scheduling.CoroutineScheduler.runSafely(CoroutineScheduler.kt:586)\n                                                                                                    \tat kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.executeTask(CoroutineScheduler.kt:820)\n                                                                                                    \tat kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:717)\n                                                                                                    \tat kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:704)\n                                                                                                    \tSuppressed: kotlinx.coroutines.internal.DiagnosticCoroutineContextException: [StandaloneCoroutine{Cancelling}@3e1fe2c, Dispatchers.Main]`\n\nLet me know if I need to add more details for this issue",
+      "status": {
+        "id": "1",
+        "slug": "open",
+        "name": "Open",
+        "status_type": "initial"
+      },
+      "author": {
+        "id": "019a59ab-39b5-71af-9c8f-d7ddee64f7ef",
+        "slug": "20438065-github"
+      },
+      "updated_by": {
+        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
+        "slug": "sadsorceror"
+      },
+      "created_at": "2025-10-21T18:47:20Z",
+      "updated_at": "2025-10-21T18:56:41Z",
+      "labels": [],
+      "linked_prs": [],
+      "priority": "normal",
+      "visibility": "public",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      }
+    },
+    {
+      "id": "019a59ab-4316-73c6-982c-44ca538474a0",
+      "slug": "123",
+      "title": "Некорректная работа нескольких анимаций transition_in/transition_out",
+      "description": "В плейграунде некорректно работает анимация появления элемента - элемент сразу появляется при смене стейта, зато корректно работает анимация исчезновения. А в android наоборот - анимация появления работает нормально, а вот анимация исчезновения работает некорректно - длительность fade больше, чем указано, и кажется равна длительности slide.\n\nВерсия divkit - 32.21.0\n\n```{\n  \"card\": {\n    \"log_id\": \"screen_div\",\n    \"states\": [\n      {\n        \"state_id\": 0,\n        \"div\": {\n          \"type\": \"state\",\n          \"default_state_id\": \"screen_big\",\n          \"height\": {\n            \"type\": \"match_parent\"\n          },\n          \"id\": \"screen_state\",\n          \"states\": [\n            {\n              \"div\": {\n                \"type\": \"big_main_screen\",\n                \"action\": {\n                  \"log_id\": \"switch to small state\",\n                  \"typed\": {\n                    \"type\": \"set_state\",\n                    \"state_id\": \"0/screen_state/screen_small\",\n                    \"temporary\": 0\n                  }\n                }\n              },\n              \"state_id\": \"screen_big\"\n            },\n            {\n              \"div\": {\n                \"type\": \"small_main_screen\",\n                \"action\": {\n                  \"log_id\": \"switch to big state\",\n                  \"typed\": {\n                    \"type\": \"set_state\",\n                    \"state_id\": \"0/screen_state/screen_big\",\n                    \"temporary\": 0\n                  }\n                }\n              },\n              \"state_id\": \"screen_small\"\n            }\n          ],\n          \"width\": {\n            \"type\": \"match_parent\"\n          }\n        }\n      }\n    ]\n  },\n  \"templates\": {\n    \"big_main_screen\": {\n      \"type\": \"container\",\n      \"orientation\": \"overlap\",\n      \"action_animation\": {\n        \"name\": \"no_animation\"\n      },\n      \"border\": {\n        \"corner_radius\": 30,\n        \"stroke\": {\n          \"color\": \"#000000\",\n          \"width\": 3.0\n        }\n      },\n      \"height\": {\n        \"type\": \"match_parent\"\n      },\n      \"id\": \"screen_container\",\n      \"items\": [\n        {\n          \"type\": \"text\",\n          \"text\": \"\",\n          \"alignment_horizontal\": \"right\",\n          \"alignment_vertical\": \"bottom\",\n          \"background\": [\n            {\n              \"type\": \"solid\",\n              \"color\": \"#000000\"\n            }\n          ],\n          \"height\": {\n            \"type\": \"fixed\",\n            \"value\": 56\n          },\n          \"id\": \"text_element\",\n          \"margins\": {\n            \"bottom\": 30,\n            \"right\": 30\n          },\n          \"transition_in\": {\n            \"type\": \"set\",\n            \"items\": [\n              {\n                \"type\": \"fade\",\n                \"duration\": 500,\n                \"start_delay\": 500\n              },\n              {\n                \"type\": \"slide\",\n                \"distance\": {\n                  \"value\": 40.0\n                },\n                \"duration\": 1000,\n                \"edge\": \"left\"\n              }\n            ]\n          },\n          \"transition_out\": {\n            \"type\": \"set\",\n            \"items\": [\n              {\n                \"type\": \"fade\",\n                \"duration\": 200\n              },\n              {\n                \"type\": \"slide\",\n                \"duration\": 1000\n              }\n            ]\n          },\n          \"width\": {\n            \"type\": \"fixed\",\n            \"value\": 56\n          }\n        }\n      ],\n      \"transition_change\": {\n        \"type\": \"change_bounds\",\n        \"duration\": 1000\n      },\n      \"width\": {\n        \"type\": \"match_parent\"\n      }\n    },\n    \"small_main_screen\": {\n      \"type\": \"container\",\n      \"orientation\": \"overlap\",\n      \"alignment_horizontal\": \"center\",\n      \"alignment_vertical\": \"center\",\n      \"border\": {\n        \"corner_radius\": 30,\n        \"stroke\": {\n          \"color\": \"#000000\",\n          \"width\": 3.0\n        }\n      },\n      \"height\": {\n        \"type\": \"fixed\",\n        \"value\": 200\n      },\n      \"id\": \"screen_container\",\n      \"transition_change\": {\n        \"type\": \"change_bounds\",\n        \"duration\": 1000\n      },\n      \"width\": {\n        \"type\": \"fixed\",\n        \"value\": 200\n      }\n    }\n  }\n}```\n\n[test.json](https://github.com/user-attachments/files/22946838/test.json)",
+      "status": {
+        "id": "1",
+        "slug": "open",
+        "name": "Open",
+        "status_type": "initial"
+      },
+      "author": {
+        "id": "019a59ab-39f8-71aa-a048-cd25e87b767b",
+        "slug": "4969475-github"
+      },
+      "updated_by": {
+        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
+        "slug": "sadsorceror"
+      },
+      "created_at": "2025-10-16T10:21:41Z",
+      "updated_at": "2025-10-16T10:24:50Z",
+      "labels": [],
+      "linked_prs": [],
+      "priority": "normal",
+      "visibility": "public",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      }
+    },
+    {
+      "id": "019a59ab-4316-73d0-adb8-932fdede9a2e",
+      "slug": "122",
+      "title": "DivKit dependency on Datastore cause binary compatibility issues with firebase",
+      "description": "I've tried updating Firebase BOM to version ≥ 34.0.0 and got this exception:\njava.lang.ClassNotFoundException: androidx.datastore.datastore.preferences.anchor.R\n\nAfter checking the dependencies, I found that only Firebase and DivKit use Datastore in my entire dependency tree. This means I'm currently blocked by DivKit from upgrading the Firebase version.\n\nCould you please update the Datastore dependency in your project?\nFor reference, Firebase now uses Datastore 1.1.7.",
+      "status": {
+        "id": "1",
+        "slug": "open",
+        "name": "Open",
+        "status_type": "initial"
+      },
+      "author": {
+        "id": "019a59ab-3a29-77bc-9b09-dbe4d603c67f",
+        "slug": "9117565-github"
+      },
+      "updated_by": {
+        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
+        "slug": "sadsorceror"
+      },
+      "created_at": "2025-10-09T14:08:52Z",
+      "updated_at": "2025-10-09T14:08:52Z",
+      "labels": [],
+      "linked_prs": [],
+      "priority": "normal",
+      "visibility": "public",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      }
+    },
+    {
+      "id": "019a59ab-4316-73d9-bebd-812ddf5f595c",
+      "slug": "121",
+      "title": "tvOS Platform Support for DivKit",
+      "description": "Hello DivKit Team,\n\nWhile integrating DivKitExtensions (31.13.0) into a tvOS project, we encountered the following error during validation:\n\n- ERROR | [tvOS] unknown: Encountered an unknown error (The platform of the target `App` (tvOS 15.0) is not compatible with `DivKitExtensions (31.13.0)`, which does not support `tvOS`.)\n\n\nThis indicates that the current version of DivKitExtensions does not support tvOS.\n\nCould you please clarify if there are any plans for tvOS support in future releases, or if there are any recommended workarounds for using DivKit on tvOS?",
+      "status": {
+        "id": "1",
+        "slug": "open",
+        "name": "Open",
+        "status_type": "initial"
+      },
+      "author": {
+        "id": "019a59ab-3a6c-78a8-b8de-8c0d09344ac6",
+        "slug": "5164799-github"
+      },
+      "updated_by": {
+        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
+        "slug": "sadsorceror"
+      },
+      "created_at": "2025-09-27T06:13:00Z",
+      "updated_at": "2025-09-27T06:13:00Z",
+      "labels": [],
+      "linked_prs": [],
+      "priority": "normal",
+      "visibility": "public",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      }
+    },
+    {
+      "id": "019a59ab-4316-73f3-86b9-eb1cd7158b15",
+      "slug": "114",
+      "title": "pydivkit: data field in DivCollectionItemBuilder doesn't support Expr",
+      "description": "Hi folks, \n\nI was trying to use `item_builder` with the data coming from the array variable, but looks like the pydivkit doesn't support the Expr as a valid type for the `data` field.\nHere is the listing from the `div_collection_item_builder.py` (v32.6.0)\n```\nclass DivCollectionItemBuilder(BaseDiv):\n\n    def __init__(\n        self, *,\n        data: typing.Optional[typing.Sequence[typing.Any]] = None,\n        data_element_name: typing.Optional[typing.Union[Expr, str]] = None,\n        prototypes: typing.Optional[typing.Sequence[DivCollectionItemBuilderPrototype]] = None,\n        **kwargs: typing.Any,\n    ):\n        super().__init__(\n            data=data,\n            data_element_name=data_element_name,\n            prototypes=prototypes,\n            **kwargs,\n        )\n\n    data: typing.Sequence[typing.Any] = Field(\n        description=\"Data that will be used to create collection elements.\",\n    )\n    data_element_name: typing.Optional[typing.Union[Expr, str]] = Field(\n        description=(\n            \"Name for accessing the next `data` element in the \"\n            \"prototype. Working with thiselement is the same as with \"\n            \"dictionaries.\"\n        ),\n    )\n    prototypes: typing.Sequence[DivCollectionItemBuilderPrototype] = Field(\n        min_items=1, \n        description=(\n            \"Array of `div` elements from which the collection elements \"\n            \"will be created.\"\n        ),\n    )\n```\n\nEven though the JSON like \n```\n \"type\": \"container\",\n     \"item_builder\": {\n      \"data\": \"@{items}\",\n      \"prototypes\": [\n       {\n        \"div\": {\n         \"type\": \"container\",\n    ....\n```\nworks well in the web playground. An example in the docs mentions the variable as a valid data source too: https://divkit.tech/docs/en/concepts/item_builder#dynamic-dataset\n\nI expected the following to be a valid python code:\n```\ndk.DivContainer(\n    orientation=dk.DivContainerOrientation.HORIZONTAL,\n    item_builder=dk.DivCollectionItemBuilder(\n        data=dk.core.Expr(\"@{items}\"),\n        prototypes=[\n            dk.DivCollectionItemBuilderPrototype(\n                div=dk.DivContainer(\n                    height=dk.DivFixedSize(value=12),\n                    width=dk.DivMatchParentSize(weight=1),\n                    border=dk.DivBorder(corner_radius=16),\n                    background=[dk.DivSolidBackground(color=\"#FF00FF\")]\n                )\n            )\n        ]\n    )\n)\n```",
+      "status": {
+        "id": "1",
+        "slug": "open",
+        "name": "Open",
+        "status_type": "initial"
+      },
+      "author": {
+        "id": "019a59ab-3b02-7493-8e01-c8453755cb85",
+        "slug": "828849-github"
+      },
+      "updated_by": {
+        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
+        "slug": "sadsorceror"
+      },
+      "created_at": "2025-07-03T08:27:57Z",
+      "updated_at": "2025-07-03T08:31:58Z",
+      "labels": [],
+      "linked_prs": [],
+      "priority": "normal",
+      "visibility": "public",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      }
+    },
+    {
+      "id": "019a59ab-4316-7464-bf91-51bb4bdb9319",
+      "slug": "85",
+      "title": "Расширение для выбора даты или времени",
+      "description": "Нужно сделать расширение, которое навешивается на `input`, и при нажатии показывает системный пикер даты или времени (определяется параметром `mode`). Выбранное значение сохраняется в `text_variable`.\r\n```\r\n{\r\n    \"card\": {\r\n        \"log_id\": \"div2_sample_card\",\r\n        \"variables\": [\r\n            {\r\n                \"name\": \"value\",\r\n                \"type\": \"string\",\r\n                \"value\": \"\"\r\n            }\r\n        ],\r\n        \"states\": [\r\n            {\r\n                \"state_id\": 0,\r\n                \"div\": {\r\n                    \"type\": \"input\",\r\n                    \"text_variable\": \"value\",\r\n                    \"extensions\": [\r\n                        {\r\n                            \"id\": \"date_time_picker\",\r\n                            \"params\": {\r\n                                \"text_variable\": \"value\",\r\n                                \"mode\": \"date|time\"\r\n                            }\r\n                        }\r\n                    ],\r\n                    \"width\": {\r\n                        \"type\": \"fixed\",\r\n                        \"value\": 100\r\n                    },\r\n                    \"height\": {\r\n                        \"type\": \"fixed\",\r\n                        \"value\": 20\r\n                    }\r\n                }\r\n            }\r\n        ]\r\n    }\r\n}\r\n```",
+      "status": {
+        "id": "1",
+        "slug": "open",
+        "name": "Open",
+        "status_type": "initial"
+      },
+      "author": {
+        "id": "019a59ab-3d48-73ea-a14f-44c7fe4220ad",
+        "slug": "9565976-github"
+      },
+      "updated_by": {
+        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
+        "slug": "sadsorceror"
+      },
+      "created_at": "2024-12-13T15:33:49Z",
+      "updated_at": "2024-12-14T16:22:35Z",
+      "labels": [
+        {
+          "id": "019a59ab-2dec-7088-9990-27b95c842cff",
+          "slug": "",
+          "name": "android",
+          "color": "D3318C"
+        },
+        {
+          "id": "019a59ab-2dec-70ab-a150-577e285e4f6b",
+          "slug": "",
+          "name": "good first issue",
+          "color": "7057ff"
+        }
+      ],
+      "linked_prs": [],
+      "priority": "normal",
+      "visibility": "public",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      }
+    },
+    {
+      "id": "019a59ab-4316-7489-a620-6e32a61dd2c7",
+      "slug": "79",
+      "title": "Тригонометрическая функция asin",
+      "description": "Принимаемый тип `number` - значение синуса.\r\nВозвращаемое значение - угол в радианах.\r\n[Пример](https://github.com/divkit/divkit/commit/8fc01dcc683eb19779a299b8802b49fbd635b627) добавления тригонометрической функции.",
+      "status": {
+        "id": "1",
+        "slug": "open",
+        "name": "Open",
+        "status_type": "initial"
+      },
+      "author": {
+        "id": "019a59ab-3d48-73ea-a14f-44c7fe4220ad",
+        "slug": "9565976-github"
+      },
+      "updated_by": {
+        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
+        "slug": "sadsorceror"
+      },
+      "created_at": "2024-12-13T15:01:03Z",
+      "updated_at": "2024-12-15T08:08:18Z",
+      "labels": [
+        {
+          "id": "019a59ab-2dec-7088-9990-27b95c842cff",
+          "slug": "",
+          "name": "android",
+          "color": "D3318C"
+        },
+        {
+          "id": "019a59ab-2dec-70ab-a150-577e285e4f6b",
+          "slug": "",
+          "name": "good first issue",
+          "color": "7057ff"
+        }
+      ],
+      "linked_prs": [],
+      "priority": "normal",
+      "visibility": "public",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      }
+    },
+    {
+      "id": "019a59ab-4316-74a8-b6f6-b49651da9f25",
+      "slug": "75",
+      "title": "Тригонометрическая функция tan",
+      "description": "Принимаемый тип `number`, угол в радианах.\r\n[Пример](https://github.com/divkit/divkit/commit/8fc01dcc683eb19779a299b8802b49fbd635b627) добавления тригонометрической функции.",
+      "status": {
+        "id": "1",
+        "slug": "open",
+        "name": "Open",
+        "status_type": "initial"
+      },
+      "author": {
+        "id": "019a59ab-3d48-73ea-a14f-44c7fe4220ad",
+        "slug": "9565976-github"
+      },
+      "updated_by": {
+        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
+        "slug": "sadsorceror"
+      },
+      "created_at": "2024-12-13T14:56:43Z",
+      "updated_at": "2024-12-14T16:23:05Z",
+      "labels": [
+        {
+          "id": "019a59ab-2dec-7088-9990-27b95c842cff",
+          "slug": "",
+          "name": "android",
+          "color": "D3318C"
+        },
+        {
+          "id": "019a59ab-2dec-70ab-a150-577e285e4f6b",
+          "slug": "",
+          "name": "good first issue",
+          "color": "7057ff"
+        }
+      ],
+      "linked_prs": [],
+      "priority": "normal",
+      "visibility": "public",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      }
+    },
+    {
+      "id": "019a59ab-4316-74b6-b5b4-b25d0f8005e7",
+      "slug": "73",
+      "title": "Тригонометрическая функция ctan",
+      "description": "Принимаемый тип `number`, угол в радианах.\r\n[Пример](https://github.com/divkit/divkit/commit/8fc01dcc683eb19779a299b8802b49fbd635b627) добавления тригонометрической функции.",
+      "status": {
+        "id": "1",
+        "slug": "open",
+        "name": "Open",
+        "status_type": "initial"
+      },
+      "author": {
+        "id": "019a59ab-3d48-73ea-a14f-44c7fe4220ad",
+        "slug": "9565976-github"
+      },
+      "updated_by": {
+        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
+        "slug": "sadsorceror"
+      },
+      "created_at": "2024-12-13T14:55:29Z",
+      "updated_at": "2024-12-14T16:36:09Z",
+      "labels": [
+        {
+          "id": "019a59ab-2dec-7088-9990-27b95c842cff",
+          "slug": "",
+          "name": "android",
+          "color": "D3318C"
+        },
+        {
+          "id": "019a59ab-2dec-70ab-a150-577e285e4f6b",
+          "slug": "",
+          "name": "good first issue",
+          "color": "7057ff"
+        }
+      ],
+      "linked_prs": [],
+      "priority": "normal",
+      "visibility": "public",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      }
+    },
+    {
+      "id": "019a59ab-4316-74cb-a20e-6c13e8f8c573",
+      "slug": "70",
+      "title": "Тригонометрическая функция ctan",
+      "description": "Принимаемый тип `number`, угол в радианах.\r\n[Пример](https://github.com/divkit/divkit/commit/b497a1d1e2c9ffe3227267f14fea48be72405986) добавления тригонометрической функции.",
+      "status": {
+        "id": "1",
+        "slug": "open",
+        "name": "Open",
+        "status_type": "initial"
+      },
+      "author": {
+        "id": "019a59ab-3d48-73ea-a14f-44c7fe4220ad",
+        "slug": "9565976-github"
+      },
+      "updated_by": {
+        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
+        "slug": "sadsorceror"
+      },
+      "created_at": "2024-12-13T14:53:41Z",
+      "updated_at": "2024-12-14T16:53:13Z",
+      "labels": [
+        {
+          "id": "019a59ab-2dec-70ab-a150-577e285e4f6b",
+          "slug": "",
+          "name": "good first issue",
+          "color": "7057ff"
+        },
+        {
+          "id": "019a59ab-2dec-70bd-8d2b-6f302d8ba978",
+          "slug": "",
+          "name": "ios",
+          "color": "bfdadc"
+        }
+      ],
+      "linked_prs": [
+        {
+          "id": "019a59ab-5c06-7aee-8f5a-aef7ca3749a1",
+          "slug": ""
+        }
+      ],
+      "priority": "normal",
+      "visibility": "public",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      }
+    },
+    {
+      "id": "019a59ab-4316-750b-894d-470a28f88971",
+      "slug": "57",
+      "title": "Does divkit support align to the bottom of the parent?",
+      "description": "Hi Divkit team,\r\n\r\nwe've been using the sdk in our Android and ios app, we found it's difficult to align a view to the bottom of its parent, here's a sample code block\r\n\r\n{\r\n  \"type\": \"container\",\r\n  \"orientation\": \"vertical\",\r\n  \"height\": {\r\n    \"type\": \"fixed\",\r\n    \"value\": 184\r\n  },\r\n  \"items\": [\r\n    {\r\n      \"type\": \"text\",\r\n      \"text\": \"some text\",\r\n      \"line_height\": 18,\r\n      \"font_size\": 14,\r\n      \"font_weight\": \"bold\",\r\n      \"max_lines\": 2,\r\n      \"text_alignment_horizontal\": \"left\",\r\n      \"text_color\": \"#001833\",\r\n      \"margins\": {\r\n        \"end\": 8\r\n      },\r\n      \"paddings\": {\r\n        \"top\": 4\r\n      }\r\n    },\r\n    {\r\n      \"type\": \"text\",\r\n      \"text\": \"some text 1\",\r\n      \"line_height\": 16,\r\n      \"font_size\": 12,\r\n      \"font_weight\": \"medium\",\r\n      \"max_lines\": 1,\r\n      \"paddings\": {\r\n        \"bottom\": 2,\r\n        \"left\": 2,\r\n        \"right\": 2,\r\n        \"top\": 2\r\n      },\r\n      \"text_alignment_horizontal\": \"left\",\r\n      \"text_color\": \"#333\"\r\n    },\r\n    {\r\n      \"type\": \"text\",\r\n      \"text\": \"some text 2\",\r\n      \"line_height\": 16,\r\n      \"font_size\": 12,\r\n      \"font_weight\": \"medium\",\r\n      \"max_lines\": 1,\r\n      \"paddings\": {\r\n        \"bottom\": 2,\r\n        \"left\": 2,\r\n        \"right\": 2,\r\n        \"top\": 2\r\n      },\r\n      \"text_alignment_horizontal\": \"left\",\r\n      \"text_color\": \"#333\"\r\n    }\r\n  ],\r\n  \"margins\": {\r\n    \"left\": 8,\r\n    \"right\": 0\r\n  }\r\n}\r\n\r\nThe parent is a vertical container, its height is fixed, inside it, there are 3 text views. I want to align the last text view to the bottom of the container. I searched in the doc and the samples, but didn't see any property I can use to align to parent. Can you provide some guidance?\r\n\r\nThanks",
+      "status": {
+        "id": "1",
+        "slug": "open",
+        "name": "Open",
+        "status_type": "initial"
+      },
+      "author": {
+        "id": "019a59ab-3d8a-7e80-9e8a-fc7f5dc5d235",
+        "slug": "60978863-github"
+      },
+      "updated_by": {
+        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
+        "slug": "sadsorceror"
+      },
+      "created_at": "2024-12-05T15:40:40Z",
+      "updated_at": "2025-04-09T14:50:02Z",
+      "labels": [],
+      "linked_prs": [],
+      "priority": "normal",
+      "visibility": "public",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      }
+    },
+    {
+      "id": "019a59ab-4316-7513-88e9-4ac1ef00de56",
+      "slug": "56",
+      "title": "KEYCODE_DPAD_CENTER action not working in Android TV",
+      "description": "I have defined a scheme for handleAction on Cards on touch/click of which should take me to a different page. This works on a mobile application that is on touch but does not work on android tv application which is on click of Dpad Center.",
+      "status": {
+        "id": "1",
+        "slug": "open",
+        "name": "Open",
+        "status_type": "initial"
+      },
+      "author": {
+        "id": "019a59ab-3db9-78ee-bf24-7f875d405003",
+        "slug": "41724191-github"
+      },
+      "updated_by": {
+        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
+        "slug": "sadsorceror"
+      },
+      "created_at": "2024-11-07T06:34:19Z",
+      "updated_at": "2024-11-07T06:35:42Z",
+      "labels": [],
+      "linked_prs": [],
+      "priority": "normal",
+      "visibility": "public",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      }
+    },
+    {
+      "id": "019a59ab-4316-751b-bbeb-085809498be1",
+      "slug": "55",
+      "title": "Flutter (IOS) error: Break on 'ImpellerValidationBreak' to inspect point of failure",
+      "description": "**In some cases, when json is long, we have a error on IOS devices and simulator:**\r\n```\r\n[ERROR:flutter/impeller/base/validation.cc(59)] Break on 'ImpellerValidationBreak' to inspect point of failure: Requested texture size (1290, 16530) exceeds maximum supported size of (16384, 16384)\r\n[ERROR:flutter/impeller/base/validation.cc(59)] Break on 'ImpellerValidationBreak' to inspect point of failure: Could not create multisample color texture.\r\n[ERROR:flutter/impeller/base/validation.cc(59)] Break on 'ImpellerValidationBreak' to inspect point of failure: Render target does not have color attachment at index 0.\r\n[ERROR:flutter/impeller/base/validation.cc(59)] Break on 'ImpellerValidationBreak' to inspect point of failure: Render target does not have color attachment at index 0.\r\n[ERROR:flutter/impeller/base/validation.cc(59)] Break on 'ImpellerValidationBreak' to inspect point of failure: Subpass render target is invalid.\r\n```\r\n\r\nFlutter version: 3.24, 3.22\r\n\r\nWhen I remove part of json, error is gone.\r\n\r\nOn Android devices and emulator work fine. \r\n",
+      "status": {
+        "id": "1",
+        "slug": "open",
+        "name": "Open",
+        "status_type": "initial"
+      },
+      "author": {
+        "id": "019a59ab-3de8-7095-99cb-59c47cda50ff",
+        "slug": "8426935-github"
+      },
+      "updated_by": {
+        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
+        "slug": "sadsorceror"
+      },
+      "created_at": "2024-09-25T06:53:01Z",
+      "updated_at": "2024-09-30T10:49:12Z",
+      "labels": [],
+      "linked_prs": [],
+      "priority": "normal",
+      "visibility": "public",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      }
+    },
+    {
+      "id": "019a59ab-4316-75fd-811a-ccbdf3994732",
+      "slug": "5",
+      "title": "Make some suggestions",
+      "description": "Data-driven views have always shone in the web space, like low code, no code, etc.\r\n\r\nWhat's different about divkit is that it's not just for web, but also for android and iOs, which is cool.\r\n\r\nSpeaking from experience in the web domain, the focus of data-driven views is in three directions.\r\n\r\n1. specification of data protocols\r\n2. building the material ecology \r\n3. NCLC platform\r\n\r\n**When combined with no code, it greatly extends the application area and speeds up view generation.**\r\n\r\nCan be a reference. \r\n<img width=\"704\" alt=\"image\" src=\"https://user-images.githubusercontent.com/32236122/187130196-652970d9-8182-4939-a91f-b0b78b1b0ad5.png\">\r\n",
+      "status": {
+        "id": "1",
+        "slug": "open",
+        "name": "Open",
+        "status_type": "initial"
+      },
+      "author": {
+        "id": "019a59ab-4296-7b55-be3e-749b6e644997",
+        "slug": "32236122-github"
+      },
+      "updated_by": {
+        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
+        "slug": "sadsorceror"
+      },
+      "created_at": "2022-08-29T05:38:59Z",
+      "updated_at": "2022-08-29T08:18:19Z",
+      "labels": [
+        {
+          "id": "019a59ab-2dec-709e-a13d-d0fe22575087",
+          "slug": "",
+          "name": "enhancement",
+          "color": "a2eeef"
+        }
+      ],
+      "linked_prs": [],
+      "priority": "normal",
+      "visibility": "public",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      }
+    },
+    {
+      "id": "019a59ab-4316-7605-911d-772202588b8b",
+      "slug": "3",
+      "title": "Use Flatbuffers as Transfer Protocol in Production",
+      "description": "It's just an idea. \r\nHow about using [ FlatBuffers](https://google.github.io/flatbuffers/flatbuffers_benchmarks.html), binary data is lighter and doesn't need to be parsed.\r\n\r\n![image](https://user-images.githubusercontent.com/15249713/186868530-481c4d5d-2ea5-4a9f-a70f-f8c1200f3e1d.png)\r\n\r\n",
+      "status": {
+        "id": "1",
+        "slug": "open",
+        "name": "Open",
+        "status_type": "initial"
+      },
+      "author": {
+        "id": "01973740-74c2-72db-8d70-ddc026cf4e51",
+        "slug": "15249713-github"
+      },
+      "updated_by": {
+        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
+        "slug": "sadsorceror"
+      },
+      "created_at": "2022-08-26T09:03:50Z",
+      "updated_at": "2022-08-26T09:17:09Z",
+      "labels": [
+        {
+          "id": "019a59ab-2dec-709e-a13d-d0fe22575087",
+          "slug": "",
+          "name": "enhancement",
+          "color": "a2eeef"
+        }
+      ],
+      "linked_prs": [],
+      "priority": "normal",
+      "visibility": "public",
+      "repository": {
+        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+        "slug": "divkit",
+        "organization": {
+          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+          "slug": "divkit"
+        }
+      }
+    }
+  ]
+}

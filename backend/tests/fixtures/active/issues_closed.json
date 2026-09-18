@@ -1,0 +1,1411 @@
+{
+  "_meta": {
+    "endpoint": "/repos/k-5-45mm/dozzle-plus/issues",
+    "params": {
+      "page_size": 100,
+      "filter": "status=closed"
+    },
+    "items_key": "issues",
+    "fetched_at": "2026-09-18T16:29:33.815320+00:00",
+    "pages_fetched": 1,
+    "truncated": false,
+    "item_count": 35
+  },
+  "items": [
+    {
+      "id": "019fec65-1342-72b0-8102-2e8c9047464e",
+      "slug": "1",
+      "title": "[upstream][dozzle] Update core to v10.7.1",
+      "description": "A new stable Dozzle release is available.\n\nCurrent core version: `v10.6.14`\nLatest upstream version: `v10.7.1`\nRelease: v10.7.1\nPublished at: 2026-08-09T20:17:46Z\nRelease URL: https://github.com/amir20/dozzle/releases/tag/v10.7.1\n\nUpdate the pinned core version in the Docker build configuration, CI configuration and application defaults. Review upstream changes, rebuild the images and run the test suite before publishing a new Dozzle Plus release.",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "author": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "updated_by": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "created_at": "2026-08-10T15:57:54.882209Z",
+      "updated_at": "2026-08-11T01:18:22.173945Z",
+      "labels": [],
+      "linked_prs": [
+        {
+          "id": "019fee58-4239-7bb5-a149-9a399a71338d",
+          "slug": ""
+        }
+      ],
+      "priority": "normal",
+      "visibility": "public",
+      "completed_at": "2026-08-11T01:18:22.173943Z",
+      "repository": {
+        "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+        "slug": "dozzle-plus",
+        "organization": {
+          "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+          "slug": "k-5-45mm"
+        }
+      }
+    },
+    {
+      "id": "019feec4-2730-7ed6-aae0-55849a609a57",
+      "slug": "2",
+      "title": "[trivy][dozzle-plus] CVE-2026-24740 in github.com/amir20/dozzle (9524ece37a9a)",
+      "description": "Trivy found a new container vulnerability.\n\nImage: `registry.yandexcloud.net/cn1f8ou8bj00s0u25qqe/dozzle-plus:latest`\nTarget: `dozzle`\nPackage: `github.com/amir20/dozzle`\nVulnerability: `CVE-2026-24740`\nSeverity: `HIGH`\nInstalled version: `v1.1`\nFixed version: `1.29.1-0.20260125230338-620e59aa2463`\nFingerprint: `9524ece37a9a`\n\nDozzle Agent Label-Based Access Control Bypass Allows Unauthorized Container Shell Access\n\nhttps://avd.aquasec.com/nvd/cve-2026-24740\n\nSource commit: `1732c48c50228773a7cc05150c72dc96c3ba7d3b`\nSource ref: `main`",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "author": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "updated_by": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "created_at": "2026-08-11T03:01:00.336999Z",
+      "updated_at": "2026-08-12T17:10:27.560606Z",
+      "labels": [],
+      "linked_prs": [],
+      "priority": "normal",
+      "visibility": "public",
+      "completed_at": "2026-08-12T17:10:27.560604Z",
+      "repository": {
+        "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+        "slug": "dozzle-plus",
+        "organization": {
+          "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+          "slug": "k-5-45mm"
+        }
+      }
+    },
+    {
+      "id": "019ff911-36af-7594-9761-74d925b4205c",
+      "slug": "3",
+      "title": "[trivy][dozzle-plus] CVE-2026-24740 in github.com/amir20/dozzle (9524ece37a9a)",
+      "description": "Trivy found a new container vulnerability.\n\nImage: `registry.yandexcloud.net/cn1f8ou8bj00s0u25qqe/dozzle-plus:latest`\nTarget: `dozzle`\nPackage: `github.com/amir20/dozzle`\nVulnerability: `CVE-2026-24740`\nSeverity: `HIGH`\nInstalled version: `v1.2`\nFixed version: `1.29.1-0.20260125230338-620e59aa2463`\nFingerprint: `9524ece37a9a`\n\nDozzle Agent Label-Based Access Control Bypass Allows Unauthorized Container Shell Access\n\nhttps://avd.aquasec.com/nvd/cve-2026-24740\n\nSource commit: `d237268a45236ee5057ca03b977bcea5d37c6ad6`\nSource ref: `main`",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "author": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "updated_by": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "created_at": "2026-08-13T03:01:22.735424Z",
+      "updated_at": "2026-08-19T20:50:24.732148Z",
+      "labels": [],
+      "linked_prs": [
+        {
+          "id": "01a01bb6-4a1a-77d6-85dd-b26b30f5aca8",
+          "slug": ""
+        }
+      ],
+      "priority": "normal",
+      "visibility": "public",
+      "completed_at": "2026-08-19T20:50:24.732147Z",
+      "repository": {
+        "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+        "slug": "dozzle-plus",
+        "organization": {
+          "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+          "slug": "k-5-45mm"
+        }
+      }
+    },
+    {
+      "id": "019ffe37-52ac-7079-b0f2-53e6fd3abb34",
+      "slug": "4",
+      "title": "[trivy][dozzle-plus] CVE-2026-39821 in stdlib (10da76575658)",
+      "description": "Trivy found a new container vulnerability.\n\nImage: `registry.yandexcloud.net/cn1f8ou8bj00s0u25qqe/dozzle-plus:latest`\nTarget: `dozzle`\nPackage: `stdlib`\nVulnerability: `CVE-2026-39821`\nSeverity: `HIGH`\nInstalled version: `v1.26.5`\nFixed version: `1.25.13, 1.26.6, 1.27.0-rc.3`\nFingerprint: `10da76575658`\n\ngolang.org/x/net/idna: golang: net/http: golang.org/x/net/idna: Privilege escalation via incorrect Punycode label processing\n\nhttps://avd.aquasec.com/nvd/cve-2026-39821\n\nSource commit: `14dfe4f73f6989b0348ce32168fc18a938324e1f`\nSource ref: `main`",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "author": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "updated_by": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "created_at": "2026-08-14T03:01:06.348063Z",
+      "updated_at": "2026-08-19T20:50:17.190836Z",
+      "labels": [],
+      "linked_prs": [
+        {
+          "id": "01a01bb6-4a1a-77d6-85dd-b26b30f5aca8",
+          "slug": ""
+        }
+      ],
+      "priority": "normal",
+      "visibility": "public",
+      "completed_at": "2026-08-19T20:50:17.190835Z",
+      "repository": {
+        "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+        "slug": "dozzle-plus",
+        "organization": {
+          "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+          "slug": "k-5-45mm"
+        }
+      }
+    },
+    {
+      "id": "019ffe37-65df-721f-bc0f-050f97cc138f",
+      "slug": "5",
+      "title": "[trivy][dozzle-plus] CVE-2026-46600 in stdlib (636a6fee6df7)",
+      "description": "Trivy found a new container vulnerability.\n\nImage: `registry.yandexcloud.net/cn1f8ou8bj00s0u25qqe/dozzle-plus:latest`\nTarget: `dozzle`\nPackage: `stdlib`\nVulnerability: `CVE-2026-46600`\nSeverity: `HIGH`\nInstalled version: `v1.26.5`\nFixed version: `1.26.6, 1.27.0-rc.3`\nFingerprint: `636a6fee6df7`\n\ngolang.org/x/net/dns/dnsmessage: golang.org/x/net/dns/dnsmessage: Denial of Service via invalid DNS record parsing\n\nhttps://avd.aquasec.com/nvd/cve-2026-46600\n\nSource commit: `14dfe4f73f6989b0348ce32168fc18a938324e1f`\nSource ref: `main`",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "author": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "updated_by": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "created_at": "2026-08-14T03:01:11.263170Z",
+      "updated_at": "2026-08-19T20:50:10.011927Z",
+      "labels": [],
+      "linked_prs": [
+        {
+          "id": "01a01bb6-4a1a-77d6-85dd-b26b30f5aca8",
+          "slug": ""
+        }
+      ],
+      "priority": "normal",
+      "visibility": "public",
+      "completed_at": "2026-08-19T20:50:10.011925Z",
+      "repository": {
+        "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+        "slug": "dozzle-plus",
+        "organization": {
+          "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+          "slug": "k-5-45mm"
+        }
+      }
+    },
+    {
+      "id": "019ffe37-7827-7bb0-9c0e-9ed30e0357c6",
+      "slug": "6",
+      "title": "[trivy][dozzle-plus] CVE-2026-39821 in stdlib (be3e1f764a52)",
+      "description": "Trivy found a new container vulnerability.\n\nImage: `registry.yandexcloud.net/cn1f8ou8bj00s0u25qqe/dozzle-plus:latest`\nTarget: `usr/bin/docker`\nPackage: `stdlib`\nVulnerability: `CVE-2026-39821`\nSeverity: `HIGH`\nInstalled version: `v1.26.5`\nFixed version: `1.25.13, 1.26.6, 1.27.0-rc.3`\nFingerprint: `be3e1f764a52`\n\ngolang.org/x/net/idna: golang: net/http: golang.org/x/net/idna: Privilege escalation via incorrect Punycode label processing\n\nhttps://avd.aquasec.com/nvd/cve-2026-39821\n\nSource commit: `14dfe4f73f6989b0348ce32168fc18a938324e1f`\nSource ref: `main`",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "author": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "updated_by": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "created_at": "2026-08-14T03:01:15.943796Z",
+      "updated_at": "2026-08-19T20:50:01.891138Z",
+      "labels": [],
+      "linked_prs": [
+        {
+          "id": "01a01bb6-4a1a-77d6-85dd-b26b30f5aca8",
+          "slug": ""
+        }
+      ],
+      "priority": "normal",
+      "visibility": "public",
+      "completed_at": "2026-08-19T20:50:01.891136Z",
+      "repository": {
+        "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+        "slug": "dozzle-plus",
+        "organization": {
+          "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+          "slug": "k-5-45mm"
+        }
+      }
+    },
+    {
+      "id": "019ffe37-b1c3-7b72-ba6c-4711ca4b907d",
+      "slug": "7",
+      "title": "[trivy][dozzle-plus] CVE-2026-46600 in stdlib (e11fb8682a78)",
+      "description": "Trivy found a new container vulnerability.\n\nImage: `registry.yandexcloud.net/cn1f8ou8bj00s0u25qqe/dozzle-plus:latest`\nTarget: `usr/bin/docker`\nPackage: `stdlib`\nVulnerability: `CVE-2026-46600`\nSeverity: `HIGH`\nInstalled version: `v1.26.5`\nFixed version: `1.26.6, 1.27.0-rc.3`\nFingerprint: `e11fb8682a78`\n\ngolang.org/x/net/dns/dnsmessage: golang.org/x/net/dns/dnsmessage: Denial of Service via invalid DNS record parsing\n\nhttps://avd.aquasec.com/nvd/cve-2026-46600\n\nSource commit: `14dfe4f73f6989b0348ce32168fc18a938324e1f`\nSource ref: `main`",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "author": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "updated_by": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "created_at": "2026-08-14T03:01:30.691785Z",
+      "updated_at": "2026-08-19T20:49:52.566116Z",
+      "labels": [],
+      "linked_prs": [
+        {
+          "id": "01a01bb6-4a1a-77d6-85dd-b26b30f5aca8",
+          "slug": ""
+        }
+      ],
+      "priority": "normal",
+      "visibility": "public",
+      "completed_at": "2026-08-19T20:49:52.566114Z",
+      "repository": {
+        "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+        "slug": "dozzle-plus",
+        "organization": {
+          "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+          "slug": "k-5-45mm"
+        }
+      }
+    },
+    {
+      "id": "019ffe37-b20b-7e96-9195-7fa44c13c581",
+      "slug": "8",
+      "title": "[trivy][dozzle-plus] CVE-2026-46600 in stdlib (e11fb8682a78)",
+      "description": "Trivy found a new container vulnerability.\n\nImage: `registry.yandexcloud.net/cn1f8ou8bj00s0u25qqe/dozzle-plus:latest`\nTarget: `usr/bin/docker`\nPackage: `stdlib`\nVulnerability: `CVE-2026-46600`\nSeverity: `HIGH`\nInstalled version: `v1.26.5`\nFixed version: `1.26.6, 1.27.0-rc.3`\nFingerprint: `e11fb8682a78`\n\ngolang.org/x/net/dns/dnsmessage: golang.org/x/net/dns/dnsmessage: Denial of Service via invalid DNS record parsing\n\nhttps://avd.aquasec.com/nvd/cve-2026-46600\n\nSource commit: `14dfe4f73f6989b0348ce32168fc18a938324e1f`\nSource ref: `main`",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "author": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "updated_by": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "created_at": "2026-08-14T03:01:30.764Z",
+      "updated_at": "2026-08-19T20:49:44.165571Z",
+      "labels": [],
+      "linked_prs": [
+        {
+          "id": "01a01bb6-4a1a-77d6-85dd-b26b30f5aca8",
+          "slug": ""
+        }
+      ],
+      "priority": "normal",
+      "visibility": "public",
+      "completed_at": "2026-08-19T20:49:44.165569Z",
+      "repository": {
+        "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+        "slug": "dozzle-plus",
+        "organization": {
+          "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+          "slug": "k-5-45mm"
+        }
+      }
+    },
+    {
+      "id": "019ffe37-b4a9-7358-9c23-615b0dbae4a6",
+      "slug": "9",
+      "title": "[trivy][dozzle-plus] CVE-2026-39821 in stdlib (31c8a39cb350)",
+      "description": "Trivy found a new container vulnerability.\n\nImage: `registry.yandexcloud.net/cn1f8ou8bj00s0u25qqe/dozzle-plus:latest`\nTarget: `usr/libexec/docker/cli-plugins/docker-compose`\nPackage: `stdlib`\nVulnerability: `CVE-2026-39821`\nSeverity: `HIGH`\nInstalled version: `v1.26.5`\nFixed version: `1.25.13, 1.26.6, 1.27.0-rc.3`\nFingerprint: `31c8a39cb350`\n\ngolang.org/x/net/idna: golang: net/http: golang.org/x/net/idna: Privilege escalation via incorrect Punycode label processing\n\nhttps://avd.aquasec.com/nvd/cve-2026-39821\n\nSource commit: `14dfe4f73f6989b0348ce32168fc18a938324e1f`\nSource ref: `main`",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "author": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "updated_by": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "created_at": "2026-08-14T03:01:31.433251Z",
+      "updated_at": "2026-08-19T20:49:34.724774Z",
+      "labels": [],
+      "linked_prs": [
+        {
+          "id": "01a01bb6-4a1a-77d6-85dd-b26b30f5aca8",
+          "slug": ""
+        }
+      ],
+      "priority": "normal",
+      "visibility": "public",
+      "completed_at": "2026-08-19T20:49:34.724772Z",
+      "repository": {
+        "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+        "slug": "dozzle-plus",
+        "organization": {
+          "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+          "slug": "k-5-45mm"
+        }
+      }
+    },
+    {
+      "id": "019ffe37-b564-7460-8abd-7923c90fc7e5",
+      "slug": "10",
+      "title": "[trivy][dozzle-plus] CVE-2026-39821 in stdlib (31c8a39cb350)",
+      "description": "Trivy found a new container vulnerability.\n\nImage: `registry.yandexcloud.net/cn1f8ou8bj00s0u25qqe/dozzle-plus:latest`\nTarget: `usr/libexec/docker/cli-plugins/docker-compose`\nPackage: `stdlib`\nVulnerability: `CVE-2026-39821`\nSeverity: `HIGH`\nInstalled version: `v1.26.5`\nFixed version: `1.25.13, 1.26.6, 1.27.0-rc.3`\nFingerprint: `31c8a39cb350`\n\ngolang.org/x/net/idna: golang: net/http: golang.org/x/net/idna: Privilege escalation via incorrect Punycode label processing\n\nhttps://avd.aquasec.com/nvd/cve-2026-39821\n\nSource commit: `14dfe4f73f6989b0348ce32168fc18a938324e1f`\nSource ref: `main`",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "author": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "updated_by": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "created_at": "2026-08-14T03:01:31.620311Z",
+      "updated_at": "2026-08-19T20:49:24.056938Z",
+      "labels": [],
+      "linked_prs": [
+        {
+          "id": "01a01bb6-4a1a-77d6-85dd-b26b30f5aca8",
+          "slug": ""
+        }
+      ],
+      "priority": "normal",
+      "visibility": "public",
+      "completed_at": "2026-08-19T20:49:24.056936Z",
+      "repository": {
+        "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+        "slug": "dozzle-plus",
+        "organization": {
+          "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+          "slug": "k-5-45mm"
+        }
+      }
+    },
+    {
+      "id": "019ffe37-b78f-729d-aec9-df1610e7e06b",
+      "slug": "11",
+      "title": "[trivy][dozzle-plus] CVE-2026-46600 in stdlib (76fe473bf8c8)",
+      "description": "Trivy found a new container vulnerability.\n\nImage: `registry.yandexcloud.net/cn1f8ou8bj00s0u25qqe/dozzle-plus:latest`\nTarget: `usr/libexec/docker/cli-plugins/docker-compose`\nPackage: `stdlib`\nVulnerability: `CVE-2026-46600`\nSeverity: `HIGH`\nInstalled version: `v1.26.5`\nFixed version: `1.26.6, 1.27.0-rc.3`\nFingerprint: `76fe473bf8c8`\n\ngolang.org/x/net/dns/dnsmessage: golang.org/x/net/dns/dnsmessage: Denial of Service via invalid DNS record parsing\n\nhttps://avd.aquasec.com/nvd/cve-2026-46600\n\nSource commit: `14dfe4f73f6989b0348ce32168fc18a938324e1f`\nSource ref: `main`",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "author": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "updated_by": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "created_at": "2026-08-14T03:01:32.175204Z",
+      "updated_at": "2026-08-19T20:49:16.252752Z",
+      "labels": [],
+      "linked_prs": [
+        {
+          "id": "01a01bb6-4a1a-77d6-85dd-b26b30f5aca8",
+          "slug": ""
+        }
+      ],
+      "priority": "normal",
+      "visibility": "public",
+      "completed_at": "2026-08-19T20:49:16.252751Z",
+      "repository": {
+        "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+        "slug": "dozzle-plus",
+        "organization": {
+          "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+          "slug": "k-5-45mm"
+        }
+      }
+    },
+    {
+      "id": "019ffe37-b898-7361-bed9-318a58fcebfd",
+      "slug": "12",
+      "title": "[trivy][dozzle-plus] CVE-2026-46600 in stdlib (76fe473bf8c8)",
+      "description": "Trivy found a new container vulnerability.\n\nImage: `registry.yandexcloud.net/cn1f8ou8bj00s0u25qqe/dozzle-plus:latest`\nTarget: `usr/libexec/docker/cli-plugins/docker-compose`\nPackage: `stdlib`\nVulnerability: `CVE-2026-46600`\nSeverity: `HIGH`\nInstalled version: `v1.26.5`\nFixed version: `1.26.6, 1.27.0-rc.3`\nFingerprint: `76fe473bf8c8`\n\ngolang.org/x/net/dns/dnsmessage: golang.org/x/net/dns/dnsmessage: Denial of Service via invalid DNS record parsing\n\nhttps://avd.aquasec.com/nvd/cve-2026-46600\n\nSource commit: `14dfe4f73f6989b0348ce32168fc18a938324e1f`\nSource ref: `main`",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "author": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "updated_by": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "created_at": "2026-08-14T03:01:32.440256Z",
+      "updated_at": "2026-08-19T20:49:03.969601Z",
+      "labels": [],
+      "linked_prs": [
+        {
+          "id": "01a01bb6-4a1a-77d6-85dd-b26b30f5aca8",
+          "slug": ""
+        }
+      ],
+      "priority": "normal",
+      "visibility": "public",
+      "completed_at": "2026-08-19T20:49:03.969599Z",
+      "repository": {
+        "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+        "slug": "dozzle-plus",
+        "organization": {
+          "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+          "slug": "k-5-45mm"
+        }
+      }
+    },
+    {
+      "id": "01a00884-552b-7779-91c2-58a5a2267610",
+      "slug": "13",
+      "title": "[trivy][dozzle-plus] CVE-2026-33818 in stdlib (7aa777e4494c)",
+      "description": "Trivy found a new container vulnerability.\n\nImage: `registry.yandexcloud.net/cn1f8ou8bj00s0u25qqe/dozzle-plus:latest`\nTarget: `dozzle`\nPackage: `stdlib`\nVulnerability: `CVE-2026-33818`\nSeverity: `HIGH`\nInstalled version: `v1.26.5`\nFixed version: `1.25.13, 1.26.6, 1.27.0-rc.3`\nFingerprint: `7aa777e4494c`\n\nencoding/asn1: golang: Go encoding/asn1: Denial of Service via excessive recursion in Unmarshal\n\nhttps://avd.aquasec.com/nvd/cve-2026-33818\n\nSource commit: `14dfe4f73f6989b0348ce32168fc18a938324e1f`\nSource ref: `main`",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "author": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "updated_by": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "created_at": "2026-08-16T03:01:25.419514Z",
+      "updated_at": "2026-08-19T20:48:31.506220Z",
+      "labels": [],
+      "linked_prs": [
+        {
+          "id": "01a01bb6-4a1a-77d6-85dd-b26b30f5aca8",
+          "slug": ""
+        }
+      ],
+      "priority": "normal",
+      "visibility": "public",
+      "completed_at": "2026-08-19T20:48:31.506219Z",
+      "repository": {
+        "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+        "slug": "dozzle-plus",
+        "organization": {
+          "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+          "slug": "k-5-45mm"
+        }
+      }
+    },
+    {
+      "id": "01a00884-583c-77bf-ae28-2bf2e2b7f99c",
+      "slug": "14",
+      "title": "[trivy][dozzle-plus] CVE-2026-56853 in stdlib (115830029218)",
+      "description": "Trivy found a new container vulnerability.\n\nImage: `registry.yandexcloud.net/cn1f8ou8bj00s0u25qqe/dozzle-plus:latest`\nTarget: `dozzle`\nPackage: `stdlib`\nVulnerability: `CVE-2026-56853`\nSeverity: `HIGH`\nInstalled version: `v1.26.5`\nFixed version: `1.25.13, 1.26.6, 1.27.0-rc.3`\nFingerprint: `115830029218`\n\nnet/http: golang: Go net/http: Unencrypted HTTP/2 connections vulnerable to Denial of Service\n\nhttps://avd.aquasec.com/nvd/cve-2026-56853\n\nSource commit: `14dfe4f73f6989b0348ce32168fc18a938324e1f`\nSource ref: `main`",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "author": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "updated_by": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "created_at": "2026-08-16T03:01:26.204532Z",
+      "updated_at": "2026-08-19T20:48:18.645442Z",
+      "labels": [],
+      "linked_prs": [
+        {
+          "id": "01a01bb6-4a1a-77d6-85dd-b26b30f5aca8",
+          "slug": ""
+        }
+      ],
+      "priority": "normal",
+      "visibility": "public",
+      "completed_at": "2026-08-19T20:48:18.645440Z",
+      "repository": {
+        "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+        "slug": "dozzle-plus",
+        "organization": {
+          "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+          "slug": "k-5-45mm"
+        }
+      }
+    },
+    {
+      "id": "01a00884-5a46-7a7f-9391-bf966dd8f6a7",
+      "slug": "15",
+      "title": "[trivy][dozzle-plus] CVE-2026-56858 in stdlib (1cef1d4b0a79)",
+      "description": "Trivy found a new container vulnerability.\n\nImage: `registry.yandexcloud.net/cn1f8ou8bj00s0u25qqe/dozzle-plus:latest`\nTarget: `dozzle`\nPackage: `stdlib`\nVulnerability: `CVE-2026-56858`\nSeverity: `HIGH`\nInstalled version: `v1.26.5`\nFixed version: `1.25.13, 1.26.6, 1.27.0-rc.3`\nFingerprint: `1cef1d4b0a79`\n\nhtml/template: golang: Go html/template: Cross-Site Scripting via pathological input\n\nhttps://avd.aquasec.com/nvd/cve-2026-56858\n\nSource commit: `14dfe4f73f6989b0348ce32168fc18a938324e1f`\nSource ref: `main`",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "author": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "updated_by": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "created_at": "2026-08-16T03:01:26.726711Z",
+      "updated_at": "2026-08-19T20:48:02.326574Z",
+      "labels": [],
+      "linked_prs": [
+        {
+          "id": "01a01bb6-4a1a-77d6-85dd-b26b30f5aca8",
+          "slug": ""
+        }
+      ],
+      "priority": "normal",
+      "visibility": "public",
+      "completed_at": "2026-08-19T20:48:02.326573Z",
+      "repository": {
+        "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+        "slug": "dozzle-plus",
+        "organization": {
+          "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+          "slug": "k-5-45mm"
+        }
+      }
+    },
+    {
+      "id": "01a00884-5cf9-7cb5-a399-2357a546b55e",
+      "slug": "16",
+      "title": "[trivy][dozzle-plus] CVE-2026-56859 in stdlib (682b87908b6d)",
+      "description": "Trivy found a new container vulnerability.\n\nImage: `registry.yandexcloud.net/cn1f8ou8bj00s0u25qqe/dozzle-plus:latest`\nTarget: `dozzle`\nPackage: `stdlib`\nVulnerability: `CVE-2026-56859`\nSeverity: `HIGH`\nInstalled version: `v1.26.5`\nFixed version: `1.25.13, 1.26.6, 1.27.0-rc.3`\nFingerprint: `682b87908b6d`\n\nencoding/xml: golang: Go: Denial of Service via XML decoding recursion depth issue\n\nhttps://avd.aquasec.com/nvd/cve-2026-56859\n\nSource commit: `14dfe4f73f6989b0348ce32168fc18a938324e1f`\nSource ref: `main`",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "author": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "updated_by": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "created_at": "2026-08-16T03:01:27.417857Z",
+      "updated_at": "2026-08-19T20:47:47.655902Z",
+      "labels": [],
+      "linked_prs": [
+        {
+          "id": "01a01bb6-4a1a-77d6-85dd-b26b30f5aca8",
+          "slug": ""
+        }
+      ],
+      "priority": "normal",
+      "visibility": "public",
+      "completed_at": "2026-08-19T20:47:47.655900Z",
+      "repository": {
+        "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+        "slug": "dozzle-plus",
+        "organization": {
+          "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+          "slug": "k-5-45mm"
+        }
+      }
+    },
+    {
+      "id": "01a00884-5fb3-7386-8c02-095c51c2c49d",
+      "slug": "17",
+      "title": "[trivy][dozzle-plus] CVE-2026-56860 in stdlib (493d4e74baa1)",
+      "description": "Trivy found a new container vulnerability.\n\nImage: `registry.yandexcloud.net/cn1f8ou8bj00s0u25qqe/dozzle-plus:latest`\nTarget: `dozzle`\nPackage: `stdlib`\nVulnerability: `CVE-2026-56860`\nSeverity: `HIGH`\nInstalled version: `v1.26.5`\nFixed version: `1.25.13, 1.26.6, 1.27.0-rc.3`\nFingerprint: `493d4e74baa1`\n\nnet/url: golang: golang net/url: Denial of Service from quadratic complexity in path resolution\n\nhttps://avd.aquasec.com/nvd/cve-2026-56860\n\nSource commit: `14dfe4f73f6989b0348ce32168fc18a938324e1f`\nSource ref: `main`",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "author": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "updated_by": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "created_at": "2026-08-16T03:01:28.115248Z",
+      "updated_at": "2026-08-19T20:47:26.142742Z",
+      "labels": [],
+      "linked_prs": [
+        {
+          "id": "01a01bb6-4a1a-77d6-85dd-b26b30f5aca8",
+          "slug": ""
+        }
+      ],
+      "priority": "normal",
+      "visibility": "public",
+      "completed_at": "2026-08-19T20:47:26.142739Z",
+      "repository": {
+        "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+        "slug": "dozzle-plus",
+        "organization": {
+          "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+          "slug": "k-5-45mm"
+        }
+      }
+    },
+    {
+      "id": "01a00884-61a7-7530-8edf-449fb2ce1bf8",
+      "slug": "18",
+      "title": "[trivy][dozzle-plus] CVE-2026-56862 in stdlib (e9bc765ba2e2)",
+      "description": "Trivy found a new container vulnerability.\n\nImage: `registry.yandexcloud.net/cn1f8ou8bj00s0u25qqe/dozzle-plus:latest`\nTarget: `dozzle`\nPackage: `stdlib`\nVulnerability: `CVE-2026-56862`\nSeverity: `HIGH`\nInstalled version: `v1.26.5`\nFixed version: `1.25.13, 1.26.6, 1.27.0-rc.3`\nFingerprint: `e9bc765ba2e2`\n\ncrypto/tls: golang: Golang crypto/tls: Denial of Service via indefinite KeyUpdate messages\n\nhttps://avd.aquasec.com/nvd/cve-2026-56862\n\nSource commit: `14dfe4f73f6989b0348ce32168fc18a938324e1f`\nSource ref: `main`",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "author": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "updated_by": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "created_at": "2026-08-16T03:01:28.615366Z",
+      "updated_at": "2026-08-19T20:47:10.226472Z",
+      "labels": [],
+      "linked_prs": [
+        {
+          "id": "01a01bb6-4a1a-77d6-85dd-b26b30f5aca8",
+          "slug": ""
+        }
+      ],
+      "priority": "normal",
+      "visibility": "public",
+      "completed_at": "2026-08-19T20:47:10.226470Z",
+      "repository": {
+        "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+        "slug": "dozzle-plus",
+        "organization": {
+          "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+          "slug": "k-5-45mm"
+        }
+      }
+    },
+    {
+      "id": "01a00884-6466-74cc-8388-3522d722be12",
+      "slug": "19",
+      "title": "[trivy][dozzle-plus] CVE-2026-33818 in stdlib (2e29e1f603a7)",
+      "description": "Trivy found a new container vulnerability.\n\nImage: `registry.yandexcloud.net/cn1f8ou8bj00s0u25qqe/dozzle-plus:latest`\nTarget: `usr/bin/docker`\nPackage: `stdlib`\nVulnerability: `CVE-2026-33818`\nSeverity: `HIGH`\nInstalled version: `v1.26.5`\nFixed version: `1.25.13, 1.26.6, 1.27.0-rc.3`\nFingerprint: `2e29e1f603a7`\n\nencoding/asn1: golang: Go encoding/asn1: Denial of Service via excessive recursion in Unmarshal\n\nhttps://avd.aquasec.com/nvd/cve-2026-33818\n\nSource commit: `14dfe4f73f6989b0348ce32168fc18a938324e1f`\nSource ref: `main`",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "author": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "updated_by": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "created_at": "2026-08-16T03:01:29.318336Z",
+      "updated_at": "2026-08-19T20:46:33.746986Z",
+      "labels": [],
+      "linked_prs": [
+        {
+          "id": "01a01bb6-4a1a-77d6-85dd-b26b30f5aca8",
+          "slug": ""
+        }
+      ],
+      "priority": "normal",
+      "visibility": "public",
+      "completed_at": "2026-08-19T20:46:33.746984Z",
+      "repository": {
+        "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+        "slug": "dozzle-plus",
+        "organization": {
+          "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+          "slug": "k-5-45mm"
+        }
+      }
+    },
+    {
+      "id": "01a00884-6758-72e3-bd18-99cc4eea7f01",
+      "slug": "20",
+      "title": "[trivy][dozzle-plus] CVE-2026-56853 in stdlib (3a6069af33d1)",
+      "description": "Trivy found a new container vulnerability.\n\nImage: `registry.yandexcloud.net/cn1f8ou8bj00s0u25qqe/dozzle-plus:latest`\nTarget: `usr/bin/docker`\nPackage: `stdlib`\nVulnerability: `CVE-2026-56853`\nSeverity: `HIGH`\nInstalled version: `v1.26.5`\nFixed version: `1.25.13, 1.26.6, 1.27.0-rc.3`\nFingerprint: `3a6069af33d1`\n\nnet/http: golang: Go net/http: Unencrypted HTTP/2 connections vulnerable to Denial of Service\n\nhttps://avd.aquasec.com/nvd/cve-2026-56853\n\nSource commit: `14dfe4f73f6989b0348ce32168fc18a938324e1f`\nSource ref: `main`",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "author": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "updated_by": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "created_at": "2026-08-16T03:01:30.072221Z",
+      "updated_at": "2026-08-19T20:46:08.856543Z",
+      "labels": [],
+      "linked_prs": [
+        {
+          "id": "01a01bb6-4a1a-77d6-85dd-b26b30f5aca8",
+          "slug": ""
+        }
+      ],
+      "priority": "normal",
+      "visibility": "public",
+      "completed_at": "2026-08-19T20:46:08.856541Z",
+      "repository": {
+        "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+        "slug": "dozzle-plus",
+        "organization": {
+          "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+          "slug": "k-5-45mm"
+        }
+      }
+    },
+    {
+      "id": "01a00884-6a45-7215-9cec-e3af750b04cd",
+      "slug": "21",
+      "title": "[trivy][dozzle-plus] CVE-2026-56858 in stdlib (9b7b6bd2fa75)",
+      "description": "Trivy found a new container vulnerability.\n\nImage: `registry.yandexcloud.net/cn1f8ou8bj00s0u25qqe/dozzle-plus:latest`\nTarget: `usr/bin/docker`\nPackage: `stdlib`\nVulnerability: `CVE-2026-56858`\nSeverity: `HIGH`\nInstalled version: `v1.26.5`\nFixed version: `1.25.13, 1.26.6, 1.27.0-rc.3`\nFingerprint: `9b7b6bd2fa75`\n\nhtml/template: golang: Go html/template: Cross-Site Scripting via pathological input\n\nhttps://avd.aquasec.com/nvd/cve-2026-56858\n\nSource commit: `14dfe4f73f6989b0348ce32168fc18a938324e1f`\nSource ref: `main`",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "author": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "updated_by": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "created_at": "2026-08-16T03:01:30.821165Z",
+      "updated_at": "2026-08-19T20:45:58.224005Z",
+      "labels": [],
+      "linked_prs": [
+        {
+          "id": "01a01bb6-4a1a-77d6-85dd-b26b30f5aca8",
+          "slug": ""
+        }
+      ],
+      "priority": "normal",
+      "visibility": "public",
+      "completed_at": "2026-08-19T20:45:58.224003Z",
+      "repository": {
+        "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+        "slug": "dozzle-plus",
+        "organization": {
+          "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+          "slug": "k-5-45mm"
+        }
+      }
+    },
+    {
+      "id": "01a00884-6d41-794e-aca4-107073ef1456",
+      "slug": "22",
+      "title": "[trivy][dozzle-plus] CVE-2026-56859 in stdlib (7e65937dc49b)",
+      "description": "Trivy found a new container vulnerability.\n\nImage: `registry.yandexcloud.net/cn1f8ou8bj00s0u25qqe/dozzle-plus:latest`\nTarget: `usr/bin/docker`\nPackage: `stdlib`\nVulnerability: `CVE-2026-56859`\nSeverity: `HIGH`\nInstalled version: `v1.26.5`\nFixed version: `1.25.13, 1.26.6, 1.27.0-rc.3`\nFingerprint: `7e65937dc49b`\n\nencoding/xml: golang: Go: Denial of Service via XML decoding recursion depth issue\n\nhttps://avd.aquasec.com/nvd/cve-2026-56859\n\nSource commit: `14dfe4f73f6989b0348ce32168fc18a938324e1f`\nSource ref: `main`",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "author": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "updated_by": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "created_at": "2026-08-16T03:01:31.585636Z",
+      "updated_at": "2026-08-19T20:45:46.157154Z",
+      "labels": [],
+      "linked_prs": [
+        {
+          "id": "01a01bb6-4a1a-77d6-85dd-b26b30f5aca8",
+          "slug": ""
+        }
+      ],
+      "priority": "normal",
+      "visibility": "public",
+      "completed_at": "2026-08-19T20:45:46.157152Z",
+      "repository": {
+        "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+        "slug": "dozzle-plus",
+        "organization": {
+          "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+          "slug": "k-5-45mm"
+        }
+      }
+    },
+    {
+      "id": "01a00884-6f49-773d-935a-89c6ae04df48",
+      "slug": "23",
+      "title": "[trivy][dozzle-plus] CVE-2026-56860 in stdlib (01492cbe10ab)",
+      "description": "Trivy found a new container vulnerability.\n\nImage: `registry.yandexcloud.net/cn1f8ou8bj00s0u25qqe/dozzle-plus:latest`\nTarget: `usr/bin/docker`\nPackage: `stdlib`\nVulnerability: `CVE-2026-56860`\nSeverity: `HIGH`\nInstalled version: `v1.26.5`\nFixed version: `1.25.13, 1.26.6, 1.27.0-rc.3`\nFingerprint: `01492cbe10ab`\n\nnet/url: golang: golang net/url: Denial of Service from quadratic complexity in path resolution\n\nhttps://avd.aquasec.com/nvd/cve-2026-56860\n\nSource commit: `14dfe4f73f6989b0348ce32168fc18a938324e1f`\nSource ref: `main`",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "author": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "updated_by": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "created_at": "2026-08-16T03:01:32.105508Z",
+      "updated_at": "2026-08-19T20:45:33.643424Z",
+      "labels": [],
+      "linked_prs": [
+        {
+          "id": "01a01bb6-4a1a-77d6-85dd-b26b30f5aca8",
+          "slug": ""
+        }
+      ],
+      "priority": "normal",
+      "visibility": "public",
+      "completed_at": "2026-08-19T20:45:33.643423Z",
+      "repository": {
+        "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+        "slug": "dozzle-plus",
+        "organization": {
+          "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+          "slug": "k-5-45mm"
+        }
+      }
+    },
+    {
+      "id": "01a00884-715b-7d05-9090-0426a5d0c2a7",
+      "slug": "24",
+      "title": "[trivy][dozzle-plus] CVE-2026-56862 in stdlib (ae0750550f6d)",
+      "description": "Trivy found a new container vulnerability.\n\nImage: `registry.yandexcloud.net/cn1f8ou8bj00s0u25qqe/dozzle-plus:latest`\nTarget: `usr/bin/docker`\nPackage: `stdlib`\nVulnerability: `CVE-2026-56862`\nSeverity: `HIGH`\nInstalled version: `v1.26.5`\nFixed version: `1.25.13, 1.26.6, 1.27.0-rc.3`\nFingerprint: `ae0750550f6d`\n\ncrypto/tls: golang: Golang crypto/tls: Denial of Service via indefinite KeyUpdate messages\n\nhttps://avd.aquasec.com/nvd/cve-2026-56862\n\nSource commit: `14dfe4f73f6989b0348ce32168fc18a938324e1f`\nSource ref: `main`",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "author": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "updated_by": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "created_at": "2026-08-16T03:01:32.635877Z",
+      "updated_at": "2026-08-19T20:45:16.275793Z",
+      "labels": [],
+      "linked_prs": [
+        {
+          "id": "01a01bb6-4a1a-77d6-85dd-b26b30f5aca8",
+          "slug": ""
+        }
+      ],
+      "priority": "normal",
+      "visibility": "public",
+      "completed_at": "2026-08-19T20:45:16.275791Z",
+      "repository": {
+        "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+        "slug": "dozzle-plus",
+        "organization": {
+          "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+          "slug": "k-5-45mm"
+        }
+      }
+    },
+    {
+      "id": "01a00884-7357-7171-908f-8776e9c2f296",
+      "slug": "25",
+      "title": "[trivy][dozzle-plus] CVE-2026-33818 in stdlib (3b6384a3fa0c)",
+      "description": "Trivy found a new container vulnerability.\n\nImage: `registry.yandexcloud.net/cn1f8ou8bj00s0u25qqe/dozzle-plus:latest`\nTarget: `usr/libexec/docker/cli-plugins/docker-compose`\nPackage: `stdlib`\nVulnerability: `CVE-2026-33818`\nSeverity: `HIGH`\nInstalled version: `v1.26.5`\nFixed version: `1.25.13, 1.26.6, 1.27.0-rc.3`\nFingerprint: `3b6384a3fa0c`\n\nencoding/asn1: golang: Go encoding/asn1: Denial of Service via excessive recursion in Unmarshal\n\nhttps://avd.aquasec.com/nvd/cve-2026-33818\n\nSource commit: `14dfe4f73f6989b0348ce32168fc18a938324e1f`\nSource ref: `main`",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "author": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "updated_by": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "created_at": "2026-08-16T03:01:33.143123Z",
+      "updated_at": "2026-08-19T20:45:08.849502Z",
+      "labels": [],
+      "linked_prs": [
+        {
+          "id": "01a01bb6-4a1a-77d6-85dd-b26b30f5aca8",
+          "slug": ""
+        }
+      ],
+      "priority": "normal",
+      "visibility": "public",
+      "completed_at": "2026-08-19T20:45:08.849500Z",
+      "repository": {
+        "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+        "slug": "dozzle-plus",
+        "organization": {
+          "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+          "slug": "k-5-45mm"
+        }
+      }
+    },
+    {
+      "id": "01a00884-7615-7eb8-b50f-e8b5cb275758",
+      "slug": "26",
+      "title": "[trivy][dozzle-plus] CVE-2026-56853 in stdlib (f13b4230b93f)",
+      "description": "Trivy found a new container vulnerability.\n\nImage: `registry.yandexcloud.net/cn1f8ou8bj00s0u25qqe/dozzle-plus:latest`\nTarget: `usr/libexec/docker/cli-plugins/docker-compose`\nPackage: `stdlib`\nVulnerability: `CVE-2026-56853`\nSeverity: `HIGH`\nInstalled version: `v1.26.5`\nFixed version: `1.25.13, 1.26.6, 1.27.0-rc.3`\nFingerprint: `f13b4230b93f`\n\nnet/http: golang: Go net/http: Unencrypted HTTP/2 connections vulnerable to Denial of Service\n\nhttps://avd.aquasec.com/nvd/cve-2026-56853\n\nSource commit: `14dfe4f73f6989b0348ce32168fc18a938324e1f`\nSource ref: `main`",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "author": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "updated_by": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "created_at": "2026-08-16T03:01:33.845989Z",
+      "updated_at": "2026-08-19T20:45:01.806769Z",
+      "labels": [],
+      "linked_prs": [
+        {
+          "id": "01a01bb6-4a1a-77d6-85dd-b26b30f5aca8",
+          "slug": ""
+        }
+      ],
+      "priority": "normal",
+      "visibility": "public",
+      "completed_at": "2026-08-19T20:45:01.806766Z",
+      "repository": {
+        "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+        "slug": "dozzle-plus",
+        "organization": {
+          "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+          "slug": "k-5-45mm"
+        }
+      }
+    },
+    {
+      "id": "01a00884-78d6-7732-b917-1d9b7ecde6dc",
+      "slug": "27",
+      "title": "[trivy][dozzle-plus] CVE-2026-56858 in stdlib (54c6c2bbcfe1)",
+      "description": "Trivy found a new container vulnerability.\n\nImage: `registry.yandexcloud.net/cn1f8ou8bj00s0u25qqe/dozzle-plus:latest`\nTarget: `usr/libexec/docker/cli-plugins/docker-compose`\nPackage: `stdlib`\nVulnerability: `CVE-2026-56858`\nSeverity: `HIGH`\nInstalled version: `v1.26.5`\nFixed version: `1.25.13, 1.26.6, 1.27.0-rc.3`\nFingerprint: `54c6c2bbcfe1`\n\nhtml/template: golang: Go html/template: Cross-Site Scripting via pathological input\n\nhttps://avd.aquasec.com/nvd/cve-2026-56858\n\nSource commit: `14dfe4f73f6989b0348ce32168fc18a938324e1f`\nSource ref: `main`",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "author": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "updated_by": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "created_at": "2026-08-16T03:01:34.550503Z",
+      "updated_at": "2026-08-19T20:44:50.612248Z",
+      "labels": [],
+      "linked_prs": [
+        {
+          "id": "01a01bb6-4a1a-77d6-85dd-b26b30f5aca8",
+          "slug": ""
+        }
+      ],
+      "priority": "normal",
+      "visibility": "public",
+      "completed_at": "2026-08-19T20:44:50.612247Z",
+      "repository": {
+        "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+        "slug": "dozzle-plus",
+        "organization": {
+          "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+          "slug": "k-5-45mm"
+        }
+      }
+    },
+    {
+      "id": "01a00884-7acc-7370-802c-059863810685",
+      "slug": "28",
+      "title": "[trivy][dozzle-plus] CVE-2026-56859 in stdlib (86beffa016b9)",
+      "description": "Trivy found a new container vulnerability.\n\nImage: `registry.yandexcloud.net/cn1f8ou8bj00s0u25qqe/dozzle-plus:latest`\nTarget: `usr/libexec/docker/cli-plugins/docker-compose`\nPackage: `stdlib`\nVulnerability: `CVE-2026-56859`\nSeverity: `HIGH`\nInstalled version: `v1.26.5`\nFixed version: `1.25.13, 1.26.6, 1.27.0-rc.3`\nFingerprint: `86beffa016b9`\n\nencoding/xml: golang: Go: Denial of Service via XML decoding recursion depth issue\n\nhttps://avd.aquasec.com/nvd/cve-2026-56859\n\nSource commit: `14dfe4f73f6989b0348ce32168fc18a938324e1f`\nSource ref: `main`",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "author": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "updated_by": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "created_at": "2026-08-16T03:01:35.052264Z",
+      "updated_at": "2026-08-19T20:44:37.464083Z",
+      "labels": [],
+      "linked_prs": [
+        {
+          "id": "01a01bb6-4a1a-77d6-85dd-b26b30f5aca8",
+          "slug": ""
+        }
+      ],
+      "priority": "normal",
+      "visibility": "public",
+      "completed_at": "2026-08-19T20:44:37.464082Z",
+      "repository": {
+        "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+        "slug": "dozzle-plus",
+        "organization": {
+          "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+          "slug": "k-5-45mm"
+        }
+      }
+    },
+    {
+      "id": "01a00884-7d7b-7dc8-872a-d627534d42b6",
+      "slug": "29",
+      "title": "[trivy][dozzle-plus] CVE-2026-56860 in stdlib (ec518c004c88)",
+      "description": "Trivy found a new container vulnerability.\n\nImage: `registry.yandexcloud.net/cn1f8ou8bj00s0u25qqe/dozzle-plus:latest`\nTarget: `usr/libexec/docker/cli-plugins/docker-compose`\nPackage: `stdlib`\nVulnerability: `CVE-2026-56860`\nSeverity: `HIGH`\nInstalled version: `v1.26.5`\nFixed version: `1.25.13, 1.26.6, 1.27.0-rc.3`\nFingerprint: `ec518c004c88`\n\nnet/url: golang: golang net/url: Denial of Service from quadratic complexity in path resolution\n\nhttps://avd.aquasec.com/nvd/cve-2026-56860\n\nSource commit: `14dfe4f73f6989b0348ce32168fc18a938324e1f`\nSource ref: `main`",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "author": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "updated_by": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "created_at": "2026-08-16T03:01:35.739927Z",
+      "updated_at": "2026-08-19T20:44:23.681768Z",
+      "labels": [],
+      "linked_prs": [
+        {
+          "id": "01a01bb6-4a1a-77d6-85dd-b26b30f5aca8",
+          "slug": ""
+        }
+      ],
+      "priority": "normal",
+      "visibility": "public",
+      "completed_at": "2026-08-19T20:44:23.681767Z",
+      "repository": {
+        "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+        "slug": "dozzle-plus",
+        "organization": {
+          "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+          "slug": "k-5-45mm"
+        }
+      }
+    },
+    {
+      "id": "01a00884-8031-7218-8ca4-6316fb8913f5",
+      "slug": "30",
+      "title": "[trivy][dozzle-plus] CVE-2026-56862 in stdlib (0934558a47da)",
+      "description": "Trivy found a new container vulnerability.\n\nImage: `registry.yandexcloud.net/cn1f8ou8bj00s0u25qqe/dozzle-plus:latest`\nTarget: `usr/libexec/docker/cli-plugins/docker-compose`\nPackage: `stdlib`\nVulnerability: `CVE-2026-56862`\nSeverity: `HIGH`\nInstalled version: `v1.26.5`\nFixed version: `1.25.13, 1.26.6, 1.27.0-rc.3`\nFingerprint: `0934558a47da`\n\ncrypto/tls: golang: Golang crypto/tls: Denial of Service via indefinite KeyUpdate messages\n\nhttps://avd.aquasec.com/nvd/cve-2026-56862\n\nSource commit: `14dfe4f73f6989b0348ce32168fc18a938324e1f`\nSource ref: `main`",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "author": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "updated_by": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "created_at": "2026-08-16T03:01:36.433159Z",
+      "updated_at": "2026-08-19T20:44:09.104318Z",
+      "labels": [],
+      "linked_prs": [
+        {
+          "id": "01a01bb6-4a1a-77d6-85dd-b26b30f5aca8",
+          "slug": ""
+        }
+      ],
+      "priority": "normal",
+      "visibility": "public",
+      "completed_at": "2026-08-19T20:44:09.104316Z",
+      "repository": {
+        "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+        "slug": "dozzle-plus",
+        "organization": {
+          "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+          "slug": "k-5-45mm"
+        }
+      }
+    },
+    {
+      "id": "01a008ba-4b36-70b5-972e-fcae4f67693b",
+      "slug": "31",
+      "title": "[upstream][dozzle] Update core to v10.7.2",
+      "description": "A new stable Dozzle release is available.\n\nCurrent core version: `v10.7.1`\nLatest upstream version: `v10.7.2`\nRelease: v10.7.2\nPublished at: 2026-08-15T18:47:16Z\nRelease URL: https://github.com/amir20/dozzle/releases/tag/v10.7.2\n\nUpdate the pinned core version in the Docker build configuration, CI configuration and application defaults. Review upstream changes, rebuild the images and run the test suite before publishing a new Dozzle Plus release.",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "author": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "updated_by": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "created_at": "2026-08-16T04:00:21.814079Z",
+      "updated_at": "2026-08-19T20:43:53.420550Z",
+      "labels": [],
+      "linked_prs": [
+        {
+          "id": "01a01bb6-4a1a-77d6-85dd-b26b30f5aca8",
+          "slug": ""
+        }
+      ],
+      "priority": "normal",
+      "visibility": "public",
+      "completed_at": "2026-08-19T20:43:50.859860Z",
+      "repository": {
+        "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+        "slug": "dozzle-plus",
+        "organization": {
+          "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+          "slug": "k-5-45mm"
+        }
+      }
+    },
+    {
+      "id": "01a01d53-bae7-7d5f-839d-22b75929c041",
+      "slug": "35",
+      "title": "[upstream][dozzle] Update core to v10.7.3",
+      "description": "A new stable Dozzle release is available.\n\nCurrent core version: `v10.7.2`\nLatest upstream version: `v10.7.3`\nRelease: v10.7.3\nPublished at: 2026-08-19T14:18:40Z\nRelease URL: https://github.com/amir20/dozzle/releases/tag/v10.7.3\n\nUpdate the pinned core version in the Docker build configuration, CI configuration and application defaults. Review upstream changes, rebuild the images and run the test suite before publishing a new Dozzle Plus release.",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "author": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "updated_by": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "created_at": "2026-08-20T04:00:21.735901Z",
+      "updated_at": "2026-09-01T11:59:15.271975Z",
+      "labels": [],
+      "linked_prs": [
+        {
+          "id": "01a05cd1-b72e-7a31-8d87-6b04432c896b",
+          "slug": ""
+        }
+      ],
+      "priority": "normal",
+      "visibility": "public",
+      "completed_at": "2026-09-01T11:59:15.271973Z",
+      "repository": {
+        "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+        "slug": "dozzle-plus",
+        "organization": {
+          "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+          "slug": "k-5-45mm"
+        }
+      }
+    },
+    {
+      "id": "01a031ed-3776-75f3-8b9d-0b35bb8e32ec",
+      "slug": "36",
+      "title": "[upstream][dozzle] Update core to v10.7.4",
+      "description": "A new stable Dozzle release is available.\n\nCurrent core version: `v10.7.2`\nLatest upstream version: `v10.7.4`\nRelease: v10.7.4\nPublished at: 2026-08-23T16:08:12Z\nRelease URL: https://github.com/amir20/dozzle/releases/tag/v10.7.4\n\nUpdate the pinned core version in the Docker build configuration, CI configuration and application defaults. Review upstream changes, rebuild the images and run the test suite before publishing a new Dozzle Plus release.",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "author": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "updated_by": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "created_at": "2026-08-24T04:00:24.950429Z",
+      "updated_at": "2026-09-01T11:59:00.118069Z",
+      "labels": [],
+      "linked_prs": [
+        {
+          "id": "01a05cd1-b72e-7a31-8d87-6b04432c896b",
+          "slug": ""
+        }
+      ],
+      "priority": "normal",
+      "visibility": "public",
+      "completed_at": "2026-09-01T11:59:00.118068Z",
+      "repository": {
+        "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+        "slug": "dozzle-plus",
+        "organization": {
+          "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+          "slug": "k-5-45mm"
+        }
+      }
+    },
+    {
+      "id": "01a04bad-0623-77f7-a487-73f28eddab3b",
+      "slug": "39",
+      "title": "[upstream][dozzle] Update core to v10.7.5",
+      "description": "A new stable Dozzle release is available.\n\nCurrent core version: `v10.7.2`\nLatest upstream version: `v10.7.5`\nRelease: v10.7.5\nPublished at: 2026-08-28T15:47:01Z\nRelease URL: https://github.com/amir20/dozzle/releases/tag/v10.7.5\n\nUpdate the pinned core version in the Docker build configuration, CI configuration and application defaults. Review upstream changes, rebuild the images and run the test suite before publishing a new Dozzle Plus release.",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "author": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "updated_by": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "created_at": "2026-08-29T04:00:25.635546Z",
+      "updated_at": "2026-09-01T11:58:46.899496Z",
+      "labels": [],
+      "linked_prs": [
+        {
+          "id": "01a05cd1-b72e-7a31-8d87-6b04432c896b",
+          "slug": ""
+        }
+      ],
+      "priority": "normal",
+      "visibility": "public",
+      "completed_at": "2026-09-01T11:58:46.899494Z",
+      "repository": {
+        "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+        "slug": "dozzle-plus",
+        "organization": {
+          "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+          "slug": "k-5-45mm"
+        }
+      }
+    },
+    {
+      "id": "01a055f9-bfc5-7ad3-92e0-a0f73c794d01",
+      "slug": "40",
+      "title": "[upstream][dozzle] Update core to v10.8.0",
+      "description": "A new stable Dozzle release is available.\n\nCurrent core version: `v10.7.2`\nLatest upstream version: `v10.8.0`\nRelease: v10.8.0\nPublished at: 2026-08-31T01:56:04Z\nRelease URL: https://github.com/amir20/dozzle/releases/tag/v10.8.0\n\nUpdate the pinned core version in the Docker build configuration, CI configuration and application defaults. Review upstream changes, rebuild the images and run the test suite before publishing a new Dozzle Plus release.",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "author": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "updated_by": {
+        "id": "019ac2ae-b2d2-7947-a3d8-206710960225",
+        "slug": "k-5-45mm"
+      },
+      "created_at": "2026-08-31T04:00:26.053729Z",
+      "updated_at": "2026-09-01T11:58:32.721379Z",
+      "labels": [],
+      "linked_prs": [
+        {
+          "id": "01a05cd1-b72e-7a31-8d87-6b04432c896b",
+          "slug": ""
+        }
+      ],
+      "priority": "normal",
+      "visibility": "public",
+      "completed_at": "2026-09-01T11:58:32.721377Z",
+      "repository": {
+        "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+        "slug": "dozzle-plus",
+        "organization": {
+          "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+          "slug": "k-5-45mm"
+        }
+      }
+    }
+  ]
+}

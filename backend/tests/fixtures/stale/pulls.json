@@ -1,0 +1,366 @@
+{
+  "_meta": {
+    "endpoint": "/repos/brothersandksu/casesc/pulls",
+    "params": {
+      "page_size": 100
+    },
+    "items_key": "pull_requests",
+    "fetched_at": "2026-09-18T16:30:34.948563+00:00",
+    "pages_fetched": 1,
+    "truncated": false,
+    "item_count": 9
+  },
+  "items": [
+    {
+      "id": "019a1ddb-7490-7184-8a17-a0b3bb6e42b1",
+      "slug": "1",
+      "author": {
+        "id": "019a16c4-15c9-720c-bc8c-028eaebceca3",
+        "slug": "vory-kamur1209-mail-ru"
+      },
+      "updated_by": {
+        "id": "019a16c4-15c9-720c-bc8c-028eaebceca3",
+        "slug": "vory-kamur1209-mail-ru"
+      },
+      "title": "Test Pull Request",
+      "description": "This is a test PR created via CLI",
+      "repository": {
+        "id": "019a1698-1e96-71a3-adce-92d65c9f20db",
+        "slug": "casesc",
+        "organization": {
+          "id": "019a1682-8e5a-7583-93a4-1bc15a1c3da2",
+          "slug": "brothersandksu"
+        }
+      },
+      "source_branch": "main",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-10-26T00:11:52.848099Z",
+      "updated_at": "2025-10-26T07:29:08.430369Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "brothersandksu/casesc:main",
+        "ref": "main",
+        "sha": "4b647da89c00a85fd7ee98368fd8dddf84db914e"
+      },
+      "target": {
+        "label": "brothersandksu/casesc:main",
+        "ref": "main",
+        "sha": "4b647da89c00a85fd7ee98368fd8dddf84db914e"
+      }
+    },
+    {
+      "id": "019a1de8-1324-7133-b6e2-5ac2731758e1",
+      "slug": "2",
+      "author": {
+        "id": "019a16c4-15c9-720c-bc8c-028eaebceca3",
+        "slug": "vory-kamur1209-mail-ru"
+      },
+      "updated_by": {
+        "id": "019a16c4-15c9-720c-bc8c-028eaebceca3",
+        "slug": "vory-kamur1209-mail-ru"
+      },
+      "title": "test",
+      "description": "This is a test PR created via CLI",
+      "repository": {
+        "id": "019a1698-1e96-71a3-adce-92d65c9f20db",
+        "slug": "casesc",
+        "organization": {
+          "id": "019a1682-8e5a-7583-93a4-1bc15a1c3da2",
+          "slug": "brothersandksu"
+        }
+      },
+      "source_branch": "main",
+      "target_branch": "main",
+      "status": "open",
+      "created_at": "2025-10-26T00:25:39.876078Z",
+      "updated_at": "2025-10-26T11:10:00.530290Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "brothersandksu/casesc:main",
+        "ref": "main",
+        "sha": "65035b9800ea00a8bf6d98f605667599a088263e"
+      },
+      "target": {
+        "label": "brothersandksu/casesc:main",
+        "ref": "main",
+        "sha": "65035b9800ea00a8bf6d98f605667599a088263e"
+      }
+    },
+    {
+      "id": "019a1deb-6c2c-7e7e-a5d4-2933f9171510",
+      "slug": "3",
+      "author": {
+        "id": "019a16c4-15c9-720c-bc8c-028eaebceca3",
+        "slug": "vory-kamur1209-mail-ru"
+      },
+      "updated_by": {
+        "id": "019a16c4-15c9-720c-bc8c-028eaebceca3",
+        "slug": "vory-kamur1209-mail-ru"
+      },
+      "title": "New Feature",
+      "description": "Adding new feature",
+      "repository": {
+        "id": "019a1698-1e96-71a3-adce-92d65c9f20db",
+        "slug": "casesc",
+        "organization": {
+          "id": "019a1682-8e5a-7583-93a4-1bc15a1c3da2",
+          "slug": "brothersandksu"
+        }
+      },
+      "source_branch": "new-feature",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-10-26T00:29:19.276950Z",
+      "updated_at": "2025-10-26T01:08:40.758538Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "brothersandksu/casesc:new-feature",
+        "ref": "new-feature",
+        "sha": "8cb335ee2d8a8cdb460604c0a2b4d8148a897344"
+      },
+      "target": {
+        "label": "brothersandksu/casesc:main",
+        "ref": "main",
+        "sha": "61582efdaeb1689f1f07895fdaa17f0e58205eec"
+      }
+    },
+    {
+      "id": "019a1def-e44e-770a-929e-4ddc5693da72",
+      "slug": "4",
+      "author": {
+        "id": "019a16c4-15c9-720c-bc8c-028eaebceca3",
+        "slug": "vory-kamur1209-mail-ru"
+      },
+      "updated_by": {
+        "id": "019a1683-0047-762b-bd51-ef884728c4a0",
+        "slug": "dordjinimgirov19"
+      },
+      "title": "test1",
+      "description": "This is a test PR created via CLI",
+      "repository": {
+        "id": "019a1698-1e96-71a3-adce-92d65c9f20db",
+        "slug": "casesc",
+        "organization": {
+          "id": "019a1682-8e5a-7583-93a4-1bc15a1c3da2",
+          "slug": "brothersandksu"
+        }
+      },
+      "source_branch": "main",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-10-26T00:34:12.174461Z",
+      "updated_at": "2025-10-26T00:37:15.490297Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "brothersandksu/casesc:main",
+        "ref": "main",
+        "sha": "8d8e4acd75a9ddec0f2943843f187bb5131a081e"
+      },
+      "target": {
+        "label": "brothersandksu/casesc:main",
+        "ref": "main",
+        "sha": "8d8e4acd75a9ddec0f2943843f187bb5131a081e"
+      }
+    },
+    {
+      "id": "019a1df3-e9d9-7515-82c9-cff6d3773235",
+      "slug": "5",
+      "author": {
+        "id": "019a16c4-15c9-720c-bc8c-028eaebceca3",
+        "slug": "vory-kamur1209-mail-ru"
+      },
+      "updated_by": {
+        "id": "019a1683-0047-762b-bd51-ef884728c4a0",
+        "slug": "dordjinimgirov19"
+      },
+      "title": "test1",
+      "description": "This is a test PR created via CLI",
+      "repository": {
+        "id": "019a1698-1e96-71a3-adce-92d65c9f20db",
+        "slug": "casesc",
+        "organization": {
+          "id": "019a1682-8e5a-7583-93a4-1bc15a1c3da2",
+          "slug": "brothersandksu"
+        }
+      },
+      "source_branch": "main",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-10-26T00:38:35.737333Z",
+      "updated_at": "2025-10-26T01:07:51.868652Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "brothersandksu/casesc:main",
+        "ref": "main",
+        "sha": "8d8e4acd75a9ddec0f2943843f187bb5131a081e"
+      },
+      "target": {
+        "label": "brothersandksu/casesc:main",
+        "ref": "main",
+        "sha": "8d8e4acd75a9ddec0f2943843f187bb5131a081e"
+      }
+    },
+    {
+      "id": "019a1e01-2778-74f8-9dc8-0b2575cf22b2",
+      "slug": "6",
+      "author": {
+        "id": "019a1683-0047-762b-bd51-ef884728c4a0",
+        "slug": "dordjinimgirov19"
+      },
+      "updated_by": {
+        "id": "019a1683-0047-762b-bd51-ef884728c4a0",
+        "slug": "dordjinimgirov19"
+      },
+      "title": "Test PR",
+      "description": "Тестовый PR",
+      "repository": {
+        "id": "019a1698-1e96-71a3-adce-92d65c9f20db",
+        "slug": "casesc",
+        "organization": {
+          "id": "019a1682-8e5a-7583-93a4-1bc15a1c3da2",
+          "slug": "brothersandksu"
+        }
+      },
+      "source_branch": "main",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-10-26T00:53:03.480325Z",
+      "updated_at": "2025-10-26T01:04:07.853833Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "brothersandksu/casesc:main",
+        "ref": "main",
+        "sha": "8d8e4acd75a9ddec0f2943843f187bb5131a081e"
+      },
+      "target": {
+        "label": "brothersandksu/casesc:main",
+        "ref": "main",
+        "sha": "8d8e4acd75a9ddec0f2943843f187bb5131a081e"
+      }
+    },
+    {
+      "id": "019a1e0d-a547-7819-86a7-9f4e59b0a7d0",
+      "slug": "7",
+      "author": {
+        "id": "019a1683-0047-762b-bd51-ef884728c4a0",
+        "slug": "dordjinimgirov19"
+      },
+      "updated_by": {
+        "id": "019a1682-7c05-7cca-8617-e875413df8b5",
+        "slug": "rachiktavaratsyan"
+      },
+      "title": "Test Feature PR",
+      "description": "PR для тестирования мержа",
+      "repository": {
+        "id": "019a1698-1e96-71a3-adce-92d65c9f20db",
+        "slug": "casesc",
+        "organization": {
+          "id": "019a1682-8e5a-7583-93a4-1bc15a1c3da2",
+          "slug": "brothersandksu"
+        }
+      },
+      "source_branch": "test-feature",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-10-26T01:06:42.119530Z",
+      "updated_at": "2025-10-26T09:33:34.046735Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "brothersandksu/casesc:test-feature",
+        "ref": "test-feature",
+        "sha": "eb5fa0856e0bd7bcb3fe5255171d4887d0d82dcf"
+      },
+      "target": {
+        "label": "brothersandksu/casesc:main",
+        "ref": "main",
+        "sha": "8d8e4acd75a9ddec0f2943843f187bb5131a081e"
+      }
+    },
+    {
+      "id": "019a1e13-fd70-7ad8-ab00-352d7080bbfe",
+      "slug": "8",
+      "author": {
+        "id": "019a1683-0047-762b-bd51-ef884728c4a0",
+        "slug": "dordjinimgirov19"
+      },
+      "updated_by": {
+        "id": "019a16c4-15c9-720c-bc8c-028eaebceca3",
+        "slug": "vory-kamur1209-mail-ru"
+      },
+      "title": "Test PR1",
+      "description": "Тестовый PR",
+      "repository": {
+        "id": "019a1698-1e96-71a3-adce-92d65c9f20db",
+        "slug": "casesc",
+        "organization": {
+          "id": "019a1682-8e5a-7583-93a4-1bc15a1c3da2",
+          "slug": "brothersandksu"
+        }
+      },
+      "source_branch": "main",
+      "target_branch": "main",
+      "status": "open",
+      "created_at": "2025-10-26T01:13:37.904710Z",
+      "updated_at": "2025-10-26T11:10:00.621601Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "brothersandksu/casesc:main",
+        "ref": "main",
+        "sha": "65035b9800ea00a8bf6d98f605667599a088263e"
+      },
+      "target": {
+        "label": "brothersandksu/casesc:main",
+        "ref": "main",
+        "sha": "65035b9800ea00a8bf6d98f605667599a088263e"
+      }
+    },
+    {
+      "id": "019a1f69-4711-7410-a6b4-2b4d2c7a0e27",
+      "slug": "9",
+      "author": {
+        "id": "019a16c4-15c9-720c-bc8c-028eaebceca3",
+        "slug": "vory-kamur1209-mail-ru"
+      },
+      "updated_by": {
+        "id": "019a1682-7c05-7cca-8617-e875413df8b5",
+        "slug": "rachiktavaratsyan"
+      },
+      "title": "new-feature1",
+      "description": "",
+      "repository": {
+        "id": "019a1698-1e96-71a3-adce-92d65c9f20db",
+        "slug": "casesc",
+        "organization": {
+          "id": "019a1682-8e5a-7583-93a4-1bc15a1c3da2",
+          "slug": "brothersandksu"
+        }
+      },
+      "source_branch": "new-feature",
+      "target_branch": "main",
+      "status": "discarded",
+      "created_at": "2025-10-26T07:26:24.529266Z",
+      "updated_at": "2025-10-26T09:33:26.939830Z",
+      "linked_issues": [],
+      "labels": [],
+      "source": {
+        "label": "brothersandksu/casesc:new-feature",
+        "ref": "new-feature",
+        "sha": "8cb335ee2d8a8cdb460604c0a2b4d8148a897344"
+      },
+      "target": {
+        "label": "brothersandksu/casesc:main",
+        "ref": "main",
+        "sha": "61582efdaeb1689f1f07895fdaa17f0e58205eec"
+      }
+    }
+  ]
+}

@@ -217,6 +217,13 @@ def _in_period(moment: datetime, context: AnalysisContext) -> bool:
     return context.period_start <= moment <= context.period_end
 
 
+def _issue_url(repository: RepositoryRef, slug: str) -> str | None:
+    """Ссылка на задачу в интерфейсе SourceCraft; без web_url ссылка не придумывается."""
+    if not repository.web_url or not slug:
+        return None
+    return f"{repository.web_url.rstrip('/')}/issues/{slug}"
+
+
 def _stale_metric(
     facts: IssuesFacts, context: AnalysisContext
 ) -> tuple[MetricResult, float] | None:
@@ -240,6 +247,7 @@ def _stale_metric(
                 f"«{issue.title}» без изменений с {issue.updated_at.date().isoformat()} "
                 f"({(context.analyzed_at - issue.updated_at).days} дн.)"
             ),
+            url=_issue_url(context.repository, issue.slug),
         )
         for issue in sorted(stale, key=lambda issue: issue.updated_at)[:5]
     )
