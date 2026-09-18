@@ -1,0 +1,19 @@
+# Тестовый CI workflow для проверки интеграции с SourceCraft.
+# Не использует секреты, не публикует артефакты и не развёртывает приложение.
+on:
+  push:
+    - workflows: [backend-tests]
+      filter:
+        branches: ["ci/sourcecraft-smoke"]
+
+workflows:
+  backend-tests:
+    tasks:
+      - name: run-backend-checks
+        cubes:
+          - name: pytest-and-compile
+            image: docker.io/library/python:3.12-slim
+            script:
+              - python -m pip install --no-cache-dir -e ".[dev]"
+              - python -m pytest
+              - python -m compileall -q backend
