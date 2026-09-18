@@ -14,16 +14,21 @@
 
 Первый путь используют Docker healthcheck и инфраструктура. Второй — frontend через proxy.
 
-## Планируемый отчёт
+## Отчёты
 
-Следующим общим endpoint будет:
+### GET /api/v1/analyses/{analysis_id}/report
 
-~~~text
-GET /api/v1/analyses/{analysis_id}/report
-GET /api/v1/analyses/{analysis_id}/report.md
-~~~
+Возвращает JSON-отчёт готового снимка анализа. Если идентификатор неизвестен, backend отвечает `404`.
 
-Он пока не реализован. Модель отчёта уже строится в `backend/app/reporting/builder.py`: HTTP-слой будет получать из него готовый JSON.
+### GET /api/v1/analyses/{analysis_id}/report.md
+
+Возвращает Markdown для того же снимка и также отвечает `404` для неизвестного идентификатора.
+
+Пока снимки хранятся в памяти процесса, поэтому после перезапуска backend они недоступны. HTTP-слой зависит от `AnalysisStore`; PostgreSQL-реализация заменит временное хранилище без изменения endpoint’ов.
+
+## Формат JSON-отчёта
+
+JSON-модель строится в `backend/app/reporting/builder.py`; endpoint возвращает её без дополнительного преобразования.
 
 ~~~json
 {
