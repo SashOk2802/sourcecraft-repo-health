@@ -132,7 +132,7 @@ def render_markdown_report(
                 f"- Статус: {_STATUS_LABELS[category['status']]}",
                 f"- Оценка: {_format_number(category['score'])} / 100",
                 f"- Базовый вес: {_format_number(category['weight'])} %",
-                f"- Фактический вес: {_format_percentage(category['effectiveWeight'])}",
+                f"- Фактический вес: {_format_number(category['effectiveWeight'])} %",
                 f"- Вклад в Score: {_format_number(category['points'])}",
                 f"- {category['summary']}",
             )

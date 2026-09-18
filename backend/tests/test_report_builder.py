@@ -102,6 +102,8 @@ class ReportBuilderTest(unittest.TestCase):
         self.assertEqual(security["weight"], 25)
         self.assertEqual(security["effectiveWeight"], 25)
         self.assertEqual(security["points"], 22.5)
+        self.assertIn("- Фактический вес: 25 %", markdown)
+        self.assertNotIn("2500 %", markdown)
         self.assertEqual(security["evidence"][0]["evidence"][0]["source"], "sourcecraft-appsec")
         self.assertNotIn("facts", security)
         self.assertEqual(report["recommendations"][0]["expectedScoreDelta"], 30)
