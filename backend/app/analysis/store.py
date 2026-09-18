@@ -178,7 +178,7 @@ def _normalize_database_url(database_url: str) -> str:
 def _json_object(value: object) -> dict[str, object]:
     decoded = json.loads(value) if isinstance(value, str) else value
     if not isinstance(decoded, dict):
-        raise ValueError("stored report must be a JSON object")
+        raise TypeError("stored report must be a JSON object")
     return json.loads(json.dumps(decoded, ensure_ascii=False))
 
 
