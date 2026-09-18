@@ -6,10 +6,13 @@ from backend.app.analysis.runner import (
     CategoryEvaluator,
     run_analysis,
 )
+from backend.app.analysis.store import AnalysisStore, InMemoryAnalysisStore
 
 __all__ = [
     "AnalysisExecution",
+    "AnalysisStore",
     "AnalyzerRegistration",
     "CategoryEvaluator",
+    "InMemoryAnalysisStore",
     "run_analysis",
 ]
