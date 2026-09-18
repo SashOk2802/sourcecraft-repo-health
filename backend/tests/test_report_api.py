@@ -43,6 +43,16 @@ class ReportApiTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(response.headers["content-type"].startswith("text/markdown"))
         self.assertIn("Анализ `analysis-42`", response.text)
         self.assertIn("Предварительная оценка: да.", response.text)
+    async def test_normalizes_identifier_before_lookup_and_rendering(self) -> None:
+        async with api_client(self.app) as client:
+            json_response = await client.get("/api/v1/analyses/analysis-42%20/report")
+            markdown_response = await client.get("/api/v1/analyses/analysis-42%20/report.md")
+
+        self.assertEqual(json_response.status_code, 200)
+        self.assertEqual(json_response.json()["analysis"]["id"], "analysis-42")
+        self.assertEqual(markdown_response.status_code, 200)
+        self.assertIn("Анализ `analysis-42`", markdown_response.text)
+        self.assertNotIn("Анализ `analysis-42 `", markdown_response.text)
 
     async def test_unknown_analysis_returns_not_found(self) -> None:
         async with api_client(self.app) as client:

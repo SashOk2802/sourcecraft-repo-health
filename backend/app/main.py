@@ -34,8 +34,9 @@ def create_app(*, analysis_store: AnalysisStore | None = None) -> FastAPI:
     def get_report(analysis_id: str) -> dict[str, object]:
         """Возвращает JSON-отчёт для одного сохранённого снимка анализа."""
 
-        execution = _require_execution(store, analysis_id)
-        return build_report_payload(execution, analysis_id=analysis_id)
+        normalized_id = _normalize_analysis_id(analysis_id)
+        execution = _require_execution(store, normalized_id)
+        return build_report_payload(execution, analysis_id=normalized_id)
 
     @app.get(
         "/api/v1/analyses/{analysis_id}/report.md",
@@ -45,14 +46,20 @@ def create_app(*, analysis_store: AnalysisStore | None = None) -> FastAPI:
     def get_markdown_report(analysis_id: str) -> PlainTextResponse:
         """Возвращает Markdown-отчёт по тому же снимку анализа."""
 
-        execution = _require_execution(store, analysis_id)
+        normalized_id = _normalize_analysis_id(analysis_id)
+        execution = _require_execution(store, normalized_id)
         return PlainTextResponse(
-            render_markdown_report(execution, analysis_id=analysis_id),
+            render_markdown_report(execution, analysis_id=normalized_id),
             media_type="text/markdown",
         )
 
     return app
 
+def _normalize_analysis_id(analysis_id: str) -> str:
+    normalized_id = analysis_id.strip()
+    if not normalized_id:
+        raise HTTPException(status_code=404, detail="Analysis not found.")
+    return normalized_id
 
 def _require_execution(store: AnalysisStore, analysis_id: str) -> AnalysisExecution:
     execution = store.get(analysis_id)
