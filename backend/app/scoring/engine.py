@@ -9,6 +9,8 @@ from types import MappingProxyType
 
 from backend.app.contracts import CategoryResult, DataStatus
 
+METHODOLOGY_VERSION = "v1"
+
 CATEGORY_WEIGHTS = MappingProxyType(
     {
         "security": 25.0,

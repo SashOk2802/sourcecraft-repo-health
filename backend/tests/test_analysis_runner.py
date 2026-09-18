@@ -1,5 +1,6 @@
 import unittest
 from datetime import UTC, datetime
+from unittest.mock import patch
 
 from backend.app.analysis.runner import AnalyzerRegistration, run_analysis
 from backend.app.contracts import (
@@ -10,6 +11,7 @@ from backend.app.contracts import (
     RecommendationPriority,
     RepositoryRef,
 )
+from backend.app.scoring.engine import METHODOLOGY_VERSION
 
 
 class AnalysisRunnerTest(unittest.TestCase):
@@ -37,6 +39,7 @@ class AnalysisRunnerTest(unittest.TestCase):
         )
 
         self.assertEqual(execution.analysis.score, 67)
+        self.assertEqual(execution.analysis.methodology_version, METHODOLOGY_VERSION)
         self.assertEqual(execution.score_summary.coverage, 1)
         self.assertEqual(
             tuple(category.category for category in execution.analysis.categories),
@@ -65,17 +68,18 @@ class AnalysisRunnerTest(unittest.TestCase):
         def fail(_: AnalysisContext) -> CategoryResult:
             raise RuntimeError("source is unavailable")
 
-        execution = run_analysis(
-            self.context,
-            (
-                AnalyzerRegistration("security", fail),
-                registration("cicd", 100),
-                registration("documentation", 100),
-                registration("activity", 100),
-                registration("issues", 100),
-                registration("code_health", 100),
-            ),
-        )
+        with patch("backend.app.analysis.runner.logger"):
+            execution = run_analysis(
+                self.context,
+                (
+                    AnalyzerRegistration("security", fail),
+                    registration("cicd", 100),
+                    registration("documentation", 100),
+                    registration("activity", 100),
+                    registration("issues", 100),
+                    registration("code_health", 100),
+                ),
+            )
 
         self.assertEqual(execution.analysis.score, 100)
         self.assertAlmostEqual(execution.score_summary.coverage, 0.75)
@@ -86,6 +90,18 @@ class AnalysisRunnerTest(unittest.TestCase):
         self.assertEqual(
             category_by_code(execution.analysis.categories, "security").reason,
             "analyzer_execution_failed",
+        )
+
+    def test_analyzer_failure_is_logged_with_category_and_repository(self) -> None:
+        def fail(_: AnalysisContext) -> CategoryResult:
+            raise RuntimeError("source is unavailable")
+
+        with patch("backend.app.analysis.runner.logger") as logger:
+            run_analysis(self.context, (AnalyzerRegistration("security", fail),))
+
+        logger.exception.assert_called_once_with(
+            "Ошибка выполнения анализатора.",
+            extra={"category": "security", "repository_id": "repo-42"},
         )
 
     def test_recommendations_are_deduplicated_and_sorted_by_priority(self) -> None:

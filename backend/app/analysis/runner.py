@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
@@ -13,7 +14,15 @@ from backend.app.contracts import (
     Recommendation,
     RecommendationPriority,
 )
-from backend.app.scoring.engine import CATEGORY_WEIGHTS, ScoreLimit, ScoreSummary, calculate_score
+from backend.app.scoring.engine import (
+    CATEGORY_WEIGHTS,
+    METHODOLOGY_VERSION,
+    ScoreLimit,
+    ScoreSummary,
+    calculate_score,
+)
+
+logger = logging.getLogger(__name__)
 
 CategoryEvaluator = Callable[[AnalysisContext], CategoryResult]
 
@@ -45,7 +54,6 @@ def run_analysis(
     context: AnalysisContext,
     analyzers: Iterable[AnalyzerRegistration],
     *,
-    methodology_version: str = "v1",
     score_limit: ScoreLimit | None = None,
 ) -> AnalysisExecution:
     """Выполняет анализаторы независимо и собирает итог из шести категорий."""
@@ -64,7 +72,7 @@ def run_analysis(
             analyzed_at=context.analyzed_at,
             categories=categories,
             score=score_summary.score,
-            methodology_version=methodology_version,
+            methodology_version=METHODOLOGY_VERSION,
             recommendations=recommendations,
         ),
         score_summary=score_summary,
@@ -103,8 +111,12 @@ def _run_category(
 
     try:
         result = registration.evaluate(context)
-    except Exception:  # noqa: BLE001
+    except Exception:
         # Ошибка одного анализатора не должна отменять сбор остальных категорий.
+        logger.exception(
+            "Ошибка выполнения анализатора.",
+            extra={"category": category, "repository_id": context.repository.id},
+        )
         return CategoryResult(
             category=category,
             status=DataStatus.ERROR,
