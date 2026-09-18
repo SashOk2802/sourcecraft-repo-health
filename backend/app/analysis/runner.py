@@ -70,6 +70,7 @@ def run_analysis(
         analysis=AnalysisResult(
             repository=context.repository,
             analyzed_at=context.analyzed_at,
+            commit_sha=context.commit_sha,
             categories=categories,
             score=score_summary.score,
             methodology_version=METHODOLOGY_VERSION,
