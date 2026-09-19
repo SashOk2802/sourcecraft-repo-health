@@ -5,7 +5,15 @@ import unittest
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
-from backend.app.analysis import AnalysisJob, AnalysisJobStatus, PostgresAnalysisJobStore
+from backend.app.analysis import (
+    AnalysisJob,
+    AnalysisJobStatus,
+    AnalyzerRegistration,
+    PostgresAnalysisJobStore,
+    PostgresAnalysisStore,
+    run_analysis,
+)
+from backend.app.contracts import AnalysisContext, CategoryResult, DataStatus, RepositoryRef
 
 
 @unittest.skipUnless(
@@ -16,16 +24,24 @@ class PostgresAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         self.created_at = datetime(2026, 9, 19, 10, tzinfo=UTC)
         self.analysis_id = f"integration-{uuid4().hex}"
-        self.store = PostgresAnalysisJobStore(os.environ["DATABASE_URL"])
-        await self.store.start()
+        database_url = os.environ["DATABASE_URL"]
+        self.job_store = PostgresAnalysisJobStore(database_url)
+        self.snapshot_store = PostgresAnalysisStore(database_url)
+        await self.job_store.start()
+        await self.snapshot_store.start()
 
     async def asyncTearDown(self) -> None:
-        pool = self.store._require_pool()
+        pool = self.job_store._require_pool()
+        await pool.execute(
+            "DELETE FROM analysis_snapshots WHERE analysis_id = $1",
+            self.analysis_id,
+        )
         await pool.execute(
             "DELETE FROM analysis_jobs WHERE analysis_id = $1",
             self.analysis_id,
         )
-        await self.store.close()
+        await self.snapshot_store.close()
+        await self.job_store.close()
 
     async def test_persists_a_complete_lifecycle(self) -> None:
         job = AnalysisJob.queued(
@@ -34,17 +50,91 @@ class PostgresAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
             created_at=self.created_at,
         )
 
-        await self.store.create(job)
-        await self.store.mark_running(
+        await self.job_store.create(job)
+        await self.job_store.mark_running(
             self.analysis_id,
             self.created_at + timedelta(seconds=1),
         )
-        partial = await self.store.finish(
+        partial = await self.job_store.finish(
             self.analysis_id,
             status=AnalysisJobStatus.PARTIAL,
             finished_at=self.created_at + timedelta(seconds=2),
         )
 
-        restored = await self.store.get(self.analysis_id)
+        restored = await self.job_store.get(self.analysis_id)
         self.assertEqual(partial.status, AnalysisJobStatus.PARTIAL)
         self.assertEqual(restored, partial)
+
+    async def test_saves_snapshot_and_terminal_state_in_one_transaction(self) -> None:
+        job = AnalysisJob.queued(
+            analysis_id=self.analysis_id,
+            repository_id="repo-42",
+            created_at=self.created_at,
+        )
+        execution = run_analysis(_context(self.created_at), (activity_registration(),))
+
+        await self.job_store.create(job)
+        await self.job_store.mark_running(
+            self.analysis_id,
+            self.created_at + timedelta(seconds=1),
+        )
+        completed = await self.snapshot_store.save_and_finish(
+            self.analysis_id,
+            execution,
+            status=AnalysisJobStatus.PARTIAL,
+            finished_at=self.created_at + timedelta(seconds=2),
+        )
+
+        self.assertEqual(completed.status, AnalysisJobStatus.PARTIAL)
+        self.assertEqual((await self.job_store.get(self.analysis_id)).status, completed.status)
+        self.assertIsNotNone(await self.snapshot_store.get(self.analysis_id))
+
+    async def test_does_not_finish_job_when_snapshot_insert_fails(self) -> None:
+        job = AnalysisJob.queued(
+            analysis_id=self.analysis_id,
+            repository_id="repo-42",
+            created_at=self.created_at,
+        )
+        execution = run_analysis(_context(self.created_at), (activity_registration(),))
+
+        await self.job_store.create(job)
+        await self.job_store.mark_running(
+            self.analysis_id,
+            self.created_at + timedelta(seconds=1),
+        )
+        await self.snapshot_store.save(self.analysis_id, execution)
+
+        with self.assertRaisesRegex(ValueError, "analysis_id already exists"):
+            await self.snapshot_store.save_and_finish(
+                self.analysis_id,
+                execution,
+                status=AnalysisJobStatus.PARTIAL,
+                finished_at=self.created_at + timedelta(seconds=2),
+            )
+
+        self.assertEqual(
+            (await self.job_store.get(self.analysis_id)).status,
+            AnalysisJobStatus.RUNNING,
+        )
+
+
+def _context(timestamp: datetime) -> AnalysisContext:
+    return AnalysisContext(
+        repository=RepositoryRef("repo-42", "team", "platform-api"),
+        commit_sha="abc123",
+        analyzed_at=timestamp,
+        period_start=timestamp,
+        period_end=timestamp,
+    )
+
+
+def activity_registration() -> AnalyzerRegistration:
+    def evaluate(_: AnalysisContext) -> CategoryResult:
+        return CategoryResult(
+            category="activity",
+            status=DataStatus.MEASURED,
+            score=80,
+            summary="Активность измерена.",
+        )
+
+    return AnalyzerRegistration("activity", evaluate)
