@@ -6,7 +6,6 @@ import json
 from dataclasses import asdict, dataclass, is_dataclass
 from datetime import datetime
 from enum import Enum
-from re import compile
 from threading import RLock
 from typing import Protocol
 
@@ -14,9 +13,6 @@ import asyncpg
 
 from backend.app.analysis.runner import AnalysisExecution
 from backend.app.reporting import build_report_payload, render_markdown_report
-
-
-_ANALYSIS_ID_PATTERN = compile(r"[A-Za-z0-9][A-Za-z0-9._~-]{0,127}\Z")
 
 
 @dataclass(frozen=True, slots=True)
@@ -170,7 +166,17 @@ def normalize_analysis_id(analysis_id: str) -> str:
     """Нормализует ID, безопасный для одного сегмента URL и ключа хранилища."""
 
     normalized_id = analysis_id.strip()
-    if not _ANALYSIS_ID_PATTERN.fullmatch(normalized_id):
+    first_character = normalized_id[:1]
+    contains_only_url_safe_characters = all(
+        character.isascii() and (character.isalnum() or character in "._~-")
+        for character in normalized_id
+    )
+    if (
+        not 1 <= len(normalized_id) <= 128
+        or not first_character.isascii()
+        or not first_character.isalnum()
+        or not contains_only_url_safe_characters
+    ):
         raise ValueError(
             "analysis_id must contain 1-128 URL-safe characters and start with a letter or digit"
         )
