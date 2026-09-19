@@ -1,0 +1,125 @@
+.my-repos__invite,
+.my-repos__connect {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  max-width: 760px;
+}
+
+.my-repos__steps {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 20px;
+  color: var(--g-color-text-secondary);
+  list-style: decimal;
+}
+
+.my-repos__token-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+}
+
+.my-repos__token-input {
+  max-width: 420px;
+}
+
+.my-repos__connection {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 0 14px;
+  border-bottom: 1px solid var(--g-color-line-generic);
+}
+
+.my-repos__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.my-repos__table th {
+  padding: 12px 12px 10px 0;
+  border-bottom: 1px solid var(--g-color-line-generic);
+  color: var(--g-color-text-secondary);
+  font-size: var(--g-text-body-1-font-size);
+  font-weight: 400;
+  text-align: left;
+}
+
+.my-repos__table td {
+  padding: 12px 12px 12px 0;
+  border-bottom: 1px solid var(--g-color-line-generic);
+  vertical-align: middle;
+}
+
+.my-repos__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.my-repos__link {
+  color: var(--g-color-text-primary);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+a.my-repos__link:hover {
+  color: var(--g-color-text-link-hover);
+}
+
+.my-repos__org {
+  color: var(--g-color-text-secondary);
+  font-weight: 400;
+}
+
+.my-repos__about {
+  display: block;
+}
+
+.my-repos__last {
+  width: 220px;
+}
+
+.my-repos__score {
+  width: 84px;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.my-repos__score_band_mid {
+  color: var(--g-color-text-warning-heavy);
+}
+
+.my-repos__score_band_low {
+  color: var(--g-color-text-danger);
+}
+
+.my-repos__actions {
+  width: 260px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.my-repos__actions-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.my-repos__error {
+  margin-top: 16px;
+}
+
+@media (max-width: 900px) {
+  .my-repos__last {
+    display: none;
+  }
+
+  .my-repos__actions {
+    width: auto;
+  }
+}

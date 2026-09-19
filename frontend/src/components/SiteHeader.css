@@ -70,8 +70,12 @@
 .site-header__user {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   margin-left: auto;
+}
+
+.site-header__user-name {
+  white-space: nowrap;
 }
 
 @media (max-width: 900px) {

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatDate,
   formatDateTime,
+  formatDateTimeCompact,
   formatDuration,
   formatInteger,
   formatLikes,
@@ -55,6 +56,12 @@ describe("даты", () => {
   it("пишет дату без «г.»", () => {
     expect(formatDate("2026-09-16T11:05:00Z", "UTC")).toBe("16 сентября 2026");
     expect(formatDateTime("2026-09-16T11:05:00Z", "Europe/Moscow")).toBe("16 сентября 2026, 14:05");
+  });
+
+  it("опускает текущий год", () => {
+    const now = new Date(2026, 8, 17);
+    expect(formatDateTimeCompact("2026-09-15T03:04:00Z", now, "Europe/Moscow")).toBe("15 сентября, 06:04");
+    expect(formatDateTimeCompact("2025-12-31T09:00:00Z", now, "UTC")).toBe("31 декабря 2025, 09:00");
   });
 
   it("говорит о давности по-человечески", () => {

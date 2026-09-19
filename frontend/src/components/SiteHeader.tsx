@@ -1,6 +1,8 @@
 import { Pulse } from "@gravity-ui/icons";
 import { Button, Icon, Text } from "@gravity-ui/uikit";
 
+import { mocksEnabled } from "../api/mockMode";
+import { useAuth } from "../auth/AuthContext";
 import { cn } from "../lib/classNames";
 import { yandexAuthPendingHint, yandexAuthReady } from "../lib/featureFlags";
 import { Link } from "../router";
@@ -53,19 +55,39 @@ export function SiteHeader({ route }: { route: Route }) {
 
         <div className="site-header__user">
           <ThemeSwitch />
-          <SignInButton />
+          <UserArea />
         </div>
       </div>
     </header>
   );
 }
 
-/*
- * Пока backend не поднял /api/v1/auth/yandex, кнопка показывается выключенной:
- * переход на несуществующий endpoint отдавал 404.
- */
-function SignInButton() {
-  if (!yandexAuthReady) {
+function UserArea() {
+  const auth = useAuth();
+
+  if (auth.status === "unknown") {
+    return null;
+  }
+
+  if (auth.user) {
+    return (
+      <>
+        <Text variant="body-2" color="secondary" className="site-header__user-name">
+          {auth.user.displayName}
+        </Text>
+        <Button view="flat" size="m" onClick={() => void auth.signOut()}>
+          Выйти
+        </Button>
+      </>
+    );
+  }
+
+  /*
+   * На mock-данных вход работает локально, а с настоящим API ведёт на
+   * /api/v1/auth/yandex, которого backend ещё не поднял: там был 404.
+   * Пока endpoint нет, кнопка показывается выключенной.
+   */
+  if (!mocksEnabled && !yandexAuthReady) {
     return (
       <span className="site-header__signin" title={yandexAuthPendingHint}>
         <Button view="outlined" size="m" disabled>
@@ -79,7 +101,7 @@ function SignInButton() {
   }
 
   return (
-    <Button view="outlined" size="m" href="/api/v1/auth/yandex/start">
+    <Button view="outlined" size="m" onClick={() => auth.signIn(paths.myRepositories())}>
       Войти через Яндекс ID
     </Button>
   );

@@ -4,10 +4,13 @@ import type { CategoryMetric, Recommendation, ReportCategory, RepositoryReport }
 import {
   findMockRepositoryByAnalysisId,
   mockAnalysisId,
+  mockRepositories,
   type MockCategoryCode,
   type MockRepository,
 } from "./catalog";
+import { findRun, finishedAt, MOCK_ANALYSIS_DURATION_MS } from "./runs";
 import { scoreMockCategories, type MockScoredCategory } from "./scoring";
+import { mockSession } from "./session";
 import { minutesAgo } from "./time";
 
 /*
@@ -33,16 +36,41 @@ interface CategoryDetails {
 
 interface ReportDetails {
   analyzedMinutesAgo?: number;
+  /** Точное время анализа, если он только что прошёл. */
+  analyzedAt?: string;
+  /** Идентификатор снимка: у запуска пользователя он свой. */
+  analysisId?: string;
   categories?: Partial<Record<MockCategoryCode, CategoryDetails>>;
   recommendations?: Recommendation[];
   scoreLimitSummary?: string;
 }
 
 export function findMockReport(analysisId: string): RepositoryReport | null {
-  const repository = findMockRepositoryByAnalysisId(analysisId);
+  const run = findRun(analysisId);
+  const repository = run
+    ? mockRepositories.find((item) => item.id === run.repositoryId)
+    : findMockRepositoryByAnalysisId(analysisId);
+
   if (!repository || repository.categories === null) {
     return null;
   }
+  // Как и настоящий backend, не выдаём, что закрытый репозиторий существует.
+  if (repository.visibility === "private" && !mockSession.isSignedIn()) {
+    return null;
+  }
+
+  if (run) {
+    // Отчёт по запуску пользователя: свежие время и идентификатор снимка.
+    if (Date.now() - run.createdAt < MOCK_ANALYSIS_DURATION_MS) {
+      return null;
+    }
+    return buildMockReport(repository, {
+      ...detailsFor(repository),
+      analysisId: run.id,
+      analyzedAt: finishedAt(run),
+    });
+  }
+
   if (repository.awaitingFirstAnalysis || repository.lastAnalysisFailed) {
     return null;
   }
@@ -86,9 +114,9 @@ export function buildMockReport(repository: MockRepository, details: ReportDetai
       url: sourceCraftUrl(repository),
     },
     analysis: {
-      id: mockAnalysisId(repository),
+      id: details.analysisId ?? mockAnalysisId(repository),
       status: scored.status,
-      analyzedAt: minutesAgo(details.analyzedMinutesAgo ?? 190),
+      analyzedAt: details.analyzedAt ?? minutesAgo(details.analyzedMinutesAgo ?? 190),
       commitSha: fakeCommitSha(repository.id),
       methodologyVersion: "v1",
       coverage: scored.coverage,
