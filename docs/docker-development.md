@@ -32,10 +32,16 @@ docker compose up --build
 
 3. Открыть http://localhost:5173. API-документация доступна на http://localhost:8000/docs.
 
-При следующих запусках достаточно:
+Перед запуском FastAPI Docker применяет все миграции PostgreSQL. При следующих запусках достаточно:
 
 ~~~powershell
 docker compose up
+~~~
+
+Текущую версию схемы можно посмотреть командой:
+
+~~~powershell
+docker compose exec backend alembic current
 ~~~
 
 Остановить контейнеры:
