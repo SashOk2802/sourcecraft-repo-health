@@ -224,27 +224,12 @@ class PostgresAnalysisJobStore:
         return self._database_url
 
     async def start(self) -> None:
-        """Открывает пул и создаёт таблицу MVP для запусков анализа."""
+        """Открывает пул подключений после применения миграций Alembic."""
 
         if self._pool is not None:
             return
 
         self._pool = await asyncpg.create_pool(self._database_url)
-        await self._pool.execute(
-            """
-            CREATE TABLE IF NOT EXISTS analysis_jobs (
-                analysis_id TEXT PRIMARY KEY,
-                repository_id TEXT NOT NULL,
-                status TEXT NOT NULL
-                    CHECK (status IN ('queued', 'running', 'completed', 'partial', 'failed')),
-                created_at TIMESTAMPTZ NOT NULL,
-                started_at TIMESTAMPTZ NULL,
-                finished_at TIMESTAMPTZ NULL,
-                error_code TEXT NULL,
-                error_summary TEXT NULL
-            )
-            """
-        )
 
     async def close(self) -> None:
         """Закрывает пул подключений PostgreSQL."""

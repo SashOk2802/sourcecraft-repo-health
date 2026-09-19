@@ -78,23 +78,12 @@ class PostgresAnalysisStore:
         self._pool: asyncpg.Pool | None = None
 
     async def start(self) -> None:
-        """Открывает пул подключений и создаёт таблицу MVP при первом запуске."""
+        """Открывает пул подключений после применения миграций Alembic."""
 
         if self._pool is not None:
             return
 
         self._pool = await asyncpg.create_pool(self._database_url)
-        await self._pool.execute(
-            """
-            CREATE TABLE IF NOT EXISTS analysis_snapshots (
-                analysis_id TEXT PRIMARY KEY,
-                payload JSONB NOT NULL,
-                report JSONB NOT NULL,
-                markdown TEXT NOT NULL,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-            )
-            """
-        )
 
     async def close(self) -> None:
         """Закрывает пул подключений PostgreSQL."""

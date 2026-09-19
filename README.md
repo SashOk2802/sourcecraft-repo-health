@@ -49,6 +49,7 @@ compose.yaml         единый локальный запуск
 - [Frontend: граница ответственности](docs/frontend-workspace.md)
 - [Контракт API frontend ↔ backend](docs/api-contract.md)
 - [CI и тесты](docs/ci-testing-guide.md)
+- [Миграции PostgreSQL](docs/database-migrations.md)
 
 ## Работа в команде
 

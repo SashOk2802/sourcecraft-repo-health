@@ -18,7 +18,7 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    command: uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: sh -c "alembic upgrade head && uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload"
     environment:
       APP_ENV: development
       DATABASE_URL: postgresql+asyncpg://repo_health:repo_health@postgres:5432/repo_health
