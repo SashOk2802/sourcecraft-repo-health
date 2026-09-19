@@ -179,54 +179,54 @@ class PostgresAnalysisStore:
                 connection.transaction(),
             ):
                 current_row = await connection.fetchrow(
-                        """
-                        SELECT
-                            analysis_id, repository_id, status, created_at,
-                            started_at, finished_at, error_code, error_summary
-                        FROM analysis_jobs
-                        WHERE analysis_id = $1
-                        FOR UPDATE
-                        """,
-                        normalized_id,
-                    )
-                    if current_row is None:
-                        raise AnalysisJobNotFoundError("analysis job not found")
+                    """
+                    SELECT
+                        analysis_id, repository_id, status, created_at,
+                        started_at, finished_at, error_code, error_summary
+                    FROM analysis_jobs
+                    WHERE analysis_id = $1
+                    FOR UPDATE
+                    """,
+                    normalized_id,
+                )
+                if current_row is None:
+                    raise AnalysisJobNotFoundError("analysis job not found")
 
-                    current = _job_from_row(current_row)
-                    updated = current.finished(
-                        status=status,
-                        finished_at=finished_at,
+                current = _job_from_row(current_row)
+                updated = current.finished(
+                    status=status,
+                    finished_at=finished_at,
+                )
+                await connection.execute(
+                    """
+                    INSERT INTO analysis_snapshots (analysis_id, payload, report, markdown)
+                    VALUES ($1, $2::jsonb, $3::jsonb, $4)
+                    """,
+                    normalized_id,
+                    payload,
+                    report,
+                    snapshot.markdown,
+                )
+                updated_row = await connection.fetchrow(
+                    """
+                    UPDATE analysis_jobs
+                    SET status = $2, finished_at = $3, error_code = $4, error_summary = $5
+                    WHERE analysis_id = $1 AND status = $6
+                    RETURNING
+                        analysis_id, repository_id, status, created_at,
+                        started_at, finished_at, error_code, error_summary
+                    """,
+                    updated.analysis_id,
+                    updated.status.value,
+                    updated.finished_at,
+                    updated.error_code,
+                    updated.error_summary,
+                    AnalysisJobStatus.RUNNING.value,
+                )
+                if updated_row is None:
+                    raise AnalysisJobTransitionError(
+                        "job state changed before it could finish"
                     )
-                    await connection.execute(
-                        """
-                        INSERT INTO analysis_snapshots (analysis_id, payload, report, markdown)
-                        VALUES ($1, $2::jsonb, $3::jsonb, $4)
-                        """,
-                        normalized_id,
-                        payload,
-                        report,
-                        snapshot.markdown,
-                    )
-                    updated_row = await connection.fetchrow(
-                        """
-                        UPDATE analysis_jobs
-                        SET status = $2, finished_at = $3, error_code = $4, error_summary = $5
-                        WHERE analysis_id = $1 AND status = $6
-                        RETURNING
-                            analysis_id, repository_id, status, created_at,
-                            started_at, finished_at, error_code, error_summary
-                        """,
-                        updated.analysis_id,
-                        updated.status.value,
-                        updated.finished_at,
-                        updated.error_code,
-                        updated.error_summary,
-                        AnalysisJobStatus.RUNNING.value,
-                    )
-                    if updated_row is None:
-                        raise AnalysisJobTransitionError(
-                            "job state changed before it could finish"
-                        )
         except asyncpg.UniqueViolationError as error:
             raise ValueError("analysis_id already exists") from error
 
