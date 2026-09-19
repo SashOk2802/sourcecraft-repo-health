@@ -10,7 +10,7 @@ CI — это автоматическая проверка GitHub Actions. Он
 | Frontend | Проверяет TypeScript и собирает production-версию интерфейса. |
 | Docker Compose | Проверяет, что `compose.yaml` корректно описывает окружение. |
 
-CI не запускает настоящее сканирование SourceCraft и не обращается к интернету, базе данных или Redis. Тесты должны работать изолированно и быстро.
+CI не запускает настоящее сканирование SourceCraft, не обращается к интернету и не использует Redis. Для PostgreSQL-интеграционных тестов GitHub Actions поднимает отдельную временную базу и применяет миграции Alembic. Тесты должны работать изолированно и быстро.
 
 ## Перед созданием pull request
 
@@ -24,9 +24,10 @@ CI не запускает настоящее сканирование SourceCra
 python -m pip install -e ".[dev]"
 ~~~
 
-После изменений backend:
+После изменений backend, затрагивающих PostgreSQL:
 
 ~~~powershell
+alembic upgrade head
 python -m unittest discover -s backend/tests -v
 ruff check backend --ignore EXE002
 ~~~
@@ -34,6 +35,7 @@ ruff check backend --ignore EXE002
 Если используете Docker Desktop, команды можно выполнять в том же контейнере, что и backend:
 
 ~~~powershell
+docker compose run --rm --no-deps backend alembic upgrade head
 docker compose run --rm --no-deps backend python -m unittest discover -s backend/tests -v
 docker compose run --rm --no-deps backend ruff check backend --ignore EXE002
 ~~~
