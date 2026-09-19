@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import json
-import re
 from dataclasses import asdict, dataclass, is_dataclass
 from datetime import datetime
 from enum import Enum
+from re import compile
 from threading import RLock
 from typing import Protocol
 
@@ -16,7 +16,7 @@ from backend.app.analysis.runner import AnalysisExecution
 from backend.app.reporting import build_report_payload, render_markdown_report
 
 
-_ANALYSIS_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._~-]{0,127}\Z")
+_ANALYSIS_ID_PATTERN = compile(r"[A-Za-z0-9][A-Za-z0-9._~-]{0,127}\Z")
 
 
 @dataclass(frozen=True, slots=True)
