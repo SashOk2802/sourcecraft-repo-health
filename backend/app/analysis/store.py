@@ -7,12 +7,15 @@ from dataclasses import asdict, dataclass, is_dataclass
 from datetime import datetime
 from enum import Enum
 from threading import RLock
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 import asyncpg
 
 from backend.app.analysis.runner import AnalysisExecution
 from backend.app.reporting import build_report_payload, render_markdown_report
+
+if TYPE_CHECKING:
+    from backend.app.analysis.jobs import AnalysisJob, AnalysisJobStatus
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,9 +156,9 @@ class PostgresAnalysisStore:
         analysis_id: str,
         execution: AnalysisExecution,
         *,
-        status: "AnalysisJobStatus",
+        status: AnalysisJobStatus,
         finished_at: datetime,
-    ) -> "AnalysisJob":
+    ) -> AnalysisJob:
         """Сохраняет снимок и terminal-статус задания одной PostgreSQL-транзакцией."""
 
         from backend.app.analysis.jobs import (
@@ -171,9 +174,11 @@ class PostgresAnalysisStore:
         report = json.dumps(snapshot.report, ensure_ascii=False, separators=(",", ":"))
 
         try:
-            async with self._require_pool().acquire() as connection:
-                async with connection.transaction():
-                    current_row = await connection.fetchrow(
+            async with (
+                self._require_pool().acquire() as connection,
+                connection.transaction(),
+            ):
+                current_row = await connection.fetchrow(
                         """
                         SELECT
                             analysis_id, repository_id, status, created_at,
