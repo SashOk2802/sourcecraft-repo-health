@@ -1,0 +1,118 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+h1,
+h2,
+h3,
+h4,
+p,
+ul,
+ol,
+dl,
+dd,
+figure {
+  margin: 0;
+}
+
+ul,
+ol {
+  padding: 0;
+  list-style: none;
+}
+
+/* Раскладка страницы */
+
+.page {
+  min-height: calc(100vh - 165px);
+  padding: 0 20px 56px;
+}
+
+.page__inner {
+  max-width: var(--rh-page-width);
+  margin: 0 auto;
+}
+
+.page__breadcrumbs {
+  padding: 14px 0 8px;
+}
+
+.page__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px 32px;
+  margin: 10px 0 20px;
+}
+
+.page__title {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.page__lead {
+  max-width: 760px;
+  color: var(--g-color-text-secondary);
+}
+
+.card {
+  padding: 20px 24px;
+  border: 1px solid var(--g-color-line-generic);
+  border-radius: var(--g-border-radius-l);
+  background: var(--g-color-base-float);
+}
+
+.section {
+  margin-top: 24px;
+}
+
+.section__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  margin-bottom: 12px;
+}
+
+/* Мелочи */
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+.text-secondary {
+  color: var(--g-color-text-secondary);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.row-gap-8 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 900px) {
+  .page {
+    padding: 0 12px 40px;
+  }
+
+  .card {
+    padding: 16px;
+  }
+}

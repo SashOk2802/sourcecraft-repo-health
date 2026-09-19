@@ -1,0 +1,30 @@
+/*
+ * Интерфейс построен на Gravity UI — дизайн-системе Яндекса, на которой сделан SourceCraft.
+ * Здесь только то, чего в ней нет, и несколько токенов, выровненных под SourceCraft:
+ * чёрный акцент вместо жёлтого и синие ссылки.
+ */
+.g-root {
+  --g-font-family-sans: "Onest", "Helvetica Neue", Arial, sans-serif;
+
+  --g-color-base-brand: var(--g-color-private-black-900-solid);
+  --g-color-base-brand-hover: var(--g-color-private-black-1000-solid);
+  --g-color-text-brand-contrast: var(--g-color-text-light-primary);
+  --g-color-line-brand: var(--g-color-private-black-900-solid);
+  --g-color-text-link: #4e79eb;
+  --g-color-text-link-hover: #2f5ad0;
+
+  /* Полосы оценки: цвета берём из палитры Gravity, чтобы не изобретать свои. */
+  --rh-band-high: var(--g-color-base-positive-heavy);
+  --rh-band-mid: var(--g-color-base-warning-heavy);
+  --rh-band-low: var(--g-color-base-danger-heavy);
+  --rh-track: var(--g-color-base-generic);
+
+  /* «Нет данных» — штриховка: её невозможно спутать с низкой оценкой. */
+  --rh-hatch: repeating-linear-gradient(
+    -45deg,
+    var(--g-color-line-generic-accent) 0 1.5px,
+    transparent 1.5px 5px
+  );
+
+  --rh-page-width: 1200px;
+}

@@ -1,0 +1,42 @@
+.score-bar {
+  position: relative;
+  display: block;
+  height: 8px;
+  border-radius: var(--g-border-radius-xs);
+  background: var(--rh-track);
+  overflow: hidden;
+}
+
+.score-bar_size_s {
+  height: 6px;
+}
+
+.score-bar__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: var(--rh-band-high);
+}
+
+.score-bar_band_mid .score-bar__fill {
+  background: var(--rh-band-mid);
+}
+
+.score-bar_band_low .score-bar__fill {
+  background: var(--rh-band-low);
+}
+
+/* Нет данных — штриховка, а не пустая или короткая полоса. */
+.score-bar_status_unavailable,
+.score-bar_status_insufficient_sample,
+.score-bar_status_error {
+  background: var(--rh-hatch);
+  box-shadow: inset 0 0 0 1px var(--g-color-line-generic);
+}
+
+.score-bar_status_not_applicable {
+  height: 0;
+  margin: 4px 0;
+  border-top: 1px dashed var(--g-color-line-generic-active);
+  background: none;
+}
