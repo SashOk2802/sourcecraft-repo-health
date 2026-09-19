@@ -14,6 +14,7 @@ from backend.app.analysis import (
     AnalysisStore,
     InMemoryAnalysisStore,
     PostgresAnalysisStore,
+    normalize_analysis_id,
 )
 
 
@@ -50,6 +51,14 @@ def create_app(*, analysis_store: AnalysisStore | None = None) -> FastAPI:
 
         return {"status": "ok"}
 
+    @app.get("/api/v1/analyses/{analysis_id}", tags=["analyses"])
+    async def get_analysis_status(analysis_id: str) -> dict[str, object]:
+        """Возвращает состояние и ссылки на материалы сохранённого анализа."""
+
+        normalized_id = _normalize_analysis_id(analysis_id)
+        snapshot = await _require_snapshot(store, normalized_id)
+        return _analysis_status_payload(snapshot, normalized_id)
+
     @app.get("/api/v1/analyses/{analysis_id}/report", tags=["reports"])
     async def get_report(analysis_id: str) -> dict[str, object]:
         """Возвращает JSON-отчёт для одного сохранённого снимка анализа."""
@@ -79,10 +88,10 @@ def _default_analysis_store() -> AnalysisStore:
 
 
 def _normalize_analysis_id(analysis_id: str) -> str:
-    normalized_id = analysis_id.strip()
-    if not normalized_id:
-        raise HTTPException(status_code=404, detail="Analysis not found.")
-    return normalized_id
+    try:
+        return normalize_analysis_id(analysis_id)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail="Analysis not found.") from error
 
 
 async def _require_snapshot(store: AnalysisStore, analysis_id: str) -> AnalysisSnapshot:
@@ -90,6 +99,22 @@ async def _require_snapshot(store: AnalysisStore, analysis_id: str) -> AnalysisS
     if snapshot is None:
         raise HTTPException(status_code=404, detail="Analysis not found.")
     return snapshot
+
+
+def _analysis_status_payload(
+    snapshot: AnalysisSnapshot,
+    analysis_id: str,
+) -> dict[str, object]:
+    analysis = snapshot.report["analysis"]
+    return {
+        "id": analysis_id,
+        "status": analysis["status"],
+        "repository": snapshot.report["repository"],
+        "score": snapshot.report["score"],
+        "isPreliminary": analysis["isPreliminary"],
+        "reportUrl": f"/api/v1/analyses/{analysis_id}/report",
+        "markdownReportUrl": f"/api/v1/analyses/{analysis_id}/report.md",
+    }
 
 
 app = create_app()
