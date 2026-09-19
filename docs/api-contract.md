@@ -26,6 +26,25 @@
 
 При заданной переменной DATABASE_URL снимки хранятся в PostgreSQL и доступны после перезапуска backend. Без DATABASE_URL используется временное хранилище в памяти только для локальных тестов. Подробнее — в docs/postgres-analysis-store.md.
 
+
+### GET /api/v1/analyses/{analysis_id}
+
+Возвращает состояние уже сохранённого анализа, итоговый Score и ссылки на его JSON- и Markdown-отчёты. Этот маршрут возвращает terminal-состояния completed и partial; состояния очереди появятся вместе с запуском фонового анализа.
+
+Пример:
+
+~~~json
+{
+  "id": "analysis-2026-09-15",
+  "status": "partial",
+  "repository": { "id": "repo-42", "name": "team/platform-api" },
+  "score": 73.4,
+  "isPreliminary": true,
+  "reportUrl": "/api/v1/analyses/analysis-2026-09-15/report",
+  "markdownReportUrl": "/api/v1/analyses/analysis-2026-09-15/report.md"
+}
+~~~
+
 ## Формат JSON-отчёта
 
 JSON-модель строится в `backend/app/reporting/builder.py`; endpoint возвращает её без дополнительного преобразования.

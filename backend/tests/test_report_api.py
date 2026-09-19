@@ -25,6 +25,30 @@ class ReportApiTest(unittest.IsolatedAsyncioTestCase):
         await self.store.save("analysis-42", self.execution)
         self.app = create_app(analysis_store=self.store)
 
+    async def test_returns_status_for_saved_analysis(self) -> None:
+        async with api_client(self.app) as client:
+            response = await client.get("/api/v1/analyses/analysis-42")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json(),
+            {
+                "id": "analysis-42",
+                "status": "partial",
+                "repository": {
+                    "id": "repo-42",
+                    "organizationSlug": "team",
+                    "repositorySlug": "platform-api",
+                    "name": "team/platform-api",
+                    "url": None,
+                },
+                "score": 80,
+                "isPreliminary": True,
+                "reportUrl": "/api/v1/analyses/analysis-42/report",
+                "markdownReportUrl": "/api/v1/analyses/analysis-42/report.md",
+            },
+        )
+
     async def test_returns_json_report_for_saved_analysis(self) -> None:
         async with api_client(self.app) as client:
             response = await client.get("/api/v1/analyses/analysis-42/report")
