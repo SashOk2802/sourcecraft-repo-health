@@ -54,6 +54,8 @@ class AnalysisJob:
     error_summary: str | None = None
 
     def __post_init__(self) -> None:
+        if not isinstance(self.status, AnalysisJobStatus):
+            raise TypeError("status must be an AnalysisJobStatus")
         if self.analysis_id != normalize_analysis_id(self.analysis_id):
             raise ValueError("analysis_id must not contain surrounding whitespace")
         if not self.repository_id.strip():
