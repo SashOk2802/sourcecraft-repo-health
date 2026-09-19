@@ -11,6 +11,7 @@ from backend.app.analysis.store import (
     AnalysisStore,
     InMemoryAnalysisStore,
     PostgresAnalysisStore,
+    normalize_analysis_id,
 )
 
 __all__ = [
@@ -21,5 +22,6 @@ __all__ = [
     "CategoryEvaluator",
     "InMemoryAnalysisStore",
     "PostgresAnalysisStore",
+    "normalize_analysis_id",
     "run_analysis",
 ]

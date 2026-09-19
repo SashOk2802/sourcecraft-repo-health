@@ -29,6 +29,12 @@ class InMemoryAnalysisStoreTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(snapshot.report["analysis"]["id"], "analysis-42")
         self.assertIn("Анализ " + chr(96) + "analysis-42" + chr(96), snapshot.markdown)
 
+    async def test_rejects_identifier_with_a_slash(self) -> None:
+        store = InMemoryAnalysisStore()
+
+        with self.assertRaisesRegex(ValueError, "URL-safe characters"):
+            await store.save("analysis/part", self.execution)
+
     async def test_snapshot_identifier_cannot_be_reused(self) -> None:
         store = InMemoryAnalysisStore()
         await store.save("analysis-42", self.execution)

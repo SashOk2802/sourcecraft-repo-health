@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from urllib.parse import quote
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import PlainTextResponse
@@ -15,6 +14,7 @@ from backend.app.analysis import (
     AnalysisStore,
     InMemoryAnalysisStore,
     PostgresAnalysisStore,
+    normalize_analysis_id,
 )
 
 
@@ -88,10 +88,10 @@ def _default_analysis_store() -> AnalysisStore:
 
 
 def _normalize_analysis_id(analysis_id: str) -> str:
-    normalized_id = analysis_id.strip()
-    if not normalized_id:
-        raise HTTPException(status_code=404, detail="Analysis not found.")
-    return normalized_id
+    try:
+        return normalize_analysis_id(analysis_id)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail="Analysis not found.") from error
 
 
 async def _require_snapshot(store: AnalysisStore, analysis_id: str) -> AnalysisSnapshot:
@@ -106,15 +106,14 @@ def _analysis_status_payload(
     analysis_id: str,
 ) -> dict[str, object]:
     analysis = snapshot.report["analysis"]
-    encoded_id = quote(analysis_id, safe="")
     return {
         "id": analysis_id,
         "status": analysis["status"],
         "repository": snapshot.report["repository"],
         "score": snapshot.report["score"],
         "isPreliminary": analysis["isPreliminary"],
-        "reportUrl": f"/api/v1/analyses/{encoded_id}/report",
-        "markdownReportUrl": f"/api/v1/analyses/{encoded_id}/report.md",
+        "reportUrl": f"/api/v1/analyses/{analysis_id}/report",
+        "markdownReportUrl": f"/api/v1/analyses/{analysis_id}/report.md",
     }
 
 

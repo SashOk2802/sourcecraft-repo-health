@@ -49,22 +49,12 @@ class ReportApiTest(unittest.IsolatedAsyncioTestCase):
             },
         )
 
-    async def test_escapes_analysis_identifier_in_report_links(self) -> None:
-        analysis_id = "analysis?retry=1"
-        await self.store.save(analysis_id, self.execution)
-
+    async def test_rejects_unsafe_identifier_in_status_endpoint(self) -> None:
         async with api_client(self.app) as client:
             response = await client.get("/api/v1/analyses/analysis%3Fretry%3D1")
 
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(
-            response.json()["reportUrl"],
-            "/api/v1/analyses/analysis%3Fretry%3D1/report",
-        )
-        self.assertEqual(
-            response.json()["markdownReportUrl"],
-            "/api/v1/analyses/analysis%3Fretry%3D1/report.md",
-        )
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.json(), {"detail": "Analysis not found."})
 
     async def test_returns_json_report_for_saved_analysis(self) -> None:
         async with api_client(self.app) as client:

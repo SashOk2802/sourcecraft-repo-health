@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import asdict, dataclass, is_dataclass
 from datetime import datetime
 from enum import Enum
@@ -13,6 +14,9 @@ import asyncpg
 
 from backend.app.analysis.runner import AnalysisExecution
 from backend.app.reporting import build_report_payload, render_markdown_report
+
+
+_ANALYSIS_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._~-]{0,127}\Z")
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,11 +58,11 @@ class InMemoryAnalysisStore:
 
     async def get(self, analysis_id: str) -> AnalysisSnapshot | None:
         with self._lock:
-            snapshot = self._snapshots.get(_normalize_analysis_id(analysis_id))
+            snapshot = self._snapshots.get(normalize_analysis_id(analysis_id))
             return _copy_snapshot(snapshot) if snapshot is not None else None
 
     async def save(self, analysis_id: str, execution: AnalysisExecution) -> None:
-        normalized_id = _normalize_analysis_id(analysis_id)
+        normalized_id = normalize_analysis_id(analysis_id)
         snapshot = _build_snapshot(execution, normalized_id)
 
         with self._lock:
@@ -103,7 +107,7 @@ class PostgresAnalysisStore:
     async def get(self, analysis_id: str) -> AnalysisSnapshot | None:
         """Читает готовый JSON- и Markdown-отчёт без повторного расчёта Score."""
 
-        normalized_id = _normalize_analysis_id(analysis_id)
+        normalized_id = normalize_analysis_id(analysis_id)
         row = await self._require_pool().fetchrow(
             """
             SELECT report, markdown
@@ -123,7 +127,7 @@ class PostgresAnalysisStore:
     async def save(self, analysis_id: str, execution: AnalysisExecution) -> None:
         """Сохраняет исходный результат runner и готовые представления одного запуска."""
 
-        normalized_id = _normalize_analysis_id(analysis_id)
+        normalized_id = normalize_analysis_id(analysis_id)
         snapshot = _build_snapshot(execution, normalized_id)
         payload = json.dumps(_to_json_value(execution), ensure_ascii=False, separators=(",", ":"))
         report = json.dumps(snapshot.report, ensure_ascii=False, separators=(",", ":"))
@@ -162,10 +166,14 @@ def _copy_snapshot(snapshot: AnalysisSnapshot) -> AnalysisSnapshot:
     )
 
 
-def _normalize_analysis_id(analysis_id: str) -> str:
+def normalize_analysis_id(analysis_id: str) -> str:
+    """Нормализует ID, безопасный для одного сегмента URL и ключа хранилища."""
+
     normalized_id = analysis_id.strip()
-    if not normalized_id:
-        raise ValueError("analysis_id must not be empty")
+    if not _ANALYSIS_ID_PATTERN.fullmatch(normalized_id):
+        raise ValueError(
+            "analysis_id must contain 1-128 URL-safe characters and start with a letter or digit"
+        )
     return normalized_id
 
 
