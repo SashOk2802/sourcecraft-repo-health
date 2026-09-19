@@ -1,0 +1,152 @@
+.methodology__toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  padding: 12px 0;
+  border-top: 1px solid var(--g-color-line-generic);
+  border-bottom: 1px solid var(--g-color-line-generic);
+  font-size: var(--g-text-body-2-font-size);
+}
+
+.methodology__toc a {
+  color: var(--g-color-text-secondary);
+  text-decoration: none;
+}
+
+.methodology__toc a:hover {
+  color: var(--g-color-text-primary);
+}
+
+/* Разделы пронумерованы на полях, как в документе. */
+.methodology__section {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 0 8px;
+  padding-top: 28px;
+  scroll-margin-top: 16px;
+}
+
+.methodology__number {
+  padding-top: 4px;
+}
+
+.methodology__body {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+  max-width: 900px;
+}
+
+.methodology__heading {
+  width: 100%;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--g-color-line-generic);
+}
+
+.methodology__table,
+.methodology__example {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--g-text-body-2-font-size);
+}
+
+.methodology__table th,
+.methodology__table td,
+.methodology__example th,
+.methodology__example td {
+  padding: 10px 14px 10px 0;
+  border-bottom: 1px solid var(--g-color-line-generic);
+  text-align: left;
+  vertical-align: top;
+}
+
+.methodology__table thead th,
+.methodology__example thead th {
+  padding-top: 0;
+  color: var(--g-color-text-secondary);
+  font-size: var(--g-text-body-1-font-size);
+  font-weight: 400;
+}
+
+.methodology__table tbody th {
+  width: 150px;
+  font-weight: 500;
+}
+
+.methodology__weight {
+  width: 72px;
+  padding-right: 24px !important;
+  text-align: right !important;
+}
+
+.methodology__caveat {
+  color: var(--g-color-text-secondary);
+}
+
+.methodology__example {
+  max-width: 560px;
+}
+
+.methodology__example caption {
+  padding-bottom: 6px;
+  color: var(--g-color-text-secondary);
+  font-size: var(--g-text-body-1-font-size);
+  text-align: left;
+}
+
+.methodology__example td {
+  text-align: right;
+}
+
+.methodology__example tfoot th,
+.methodology__example tfoot td {
+  border-top: 1px solid var(--g-color-line-generic);
+  border-bottom: 0;
+  font-weight: 500;
+}
+
+.methodology__formula {
+  padding: 10px 14px;
+  border-radius: var(--g-border-radius-m);
+  background: var(--g-color-base-generic);
+  font-size: var(--g-text-body-2-font-size);
+  overflow-wrap: anywhere;
+}
+
+.methodology__statuses,
+.methodology__priorities {
+  display: grid;
+  width: 100%;
+}
+
+.methodology__statuses li {
+  display: grid;
+  grid-template-columns: 80px 170px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--g-color-line-generic);
+}
+
+.methodology__priorities li {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--g-color-line-generic);
+}
+
+@media (max-width: 900px) {
+  .methodology__section {
+    grid-template-columns: 1fr;
+  }
+
+  .methodology__statuses li {
+    grid-template-columns: 70px minmax(0, 1fr);
+  }
+
+  .methodology__statuses li > :last-child {
+    grid-column: 1 / -1;
+  }
+}
