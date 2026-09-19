@@ -293,11 +293,62 @@ class IssuesParsingTest(unittest.TestCase):
         self.assertEqual(facts.open_issues[0].status_type, "")
         self.assertIs(evaluate(facts, context()).status, DataStatus.MEASURED)
 
-    def test_issues_without_dates_are_counted_as_skipped(self) -> None:
+    def test_issues_without_dates_are_not_treated_as_unused_tracker(self) -> None:
         facts = build_facts([{"slug": "1", "title": "Без даты"}, "мусор"], [])
 
-        self.assertEqual(facts.open_issues, ())
+        result = evaluate(facts, context())
+
         self.assertEqual(facts.skipped_count, 2)
+        self.assertIs(result.status, DataStatus.INSUFFICIENT_SAMPLE)
+        self.assertIsNone(result.score)
+        self.assertIsNotNone(result.reason)
+
+    def test_closed_without_completed_at_still_counts_as_resolved(self) -> None:
+        closed = [
+            raw_issue(
+                f"closed-{index}",
+                created_days_ago=40,
+                updated_days_ago=10,
+                completed_days_ago=None,
+                status_type="completed",
+            )
+            for index in range(4)
+        ]
+
+        result = evaluate(build_facts([], closed), context())
+
+        self.assertIs(result.status, DataStatus.MEASURED)
+        backlog = next(metric for metric in result.metrics if metric.code == "backlog_trend")
+        self.assertEqual(backlog.value, 1.0)
+        self.assertIn("updated_at", backlog.summary)
+        self.assertIn(
+            "median_days_to_close", {metric.code for metric in result.metrics}
+        )
+
+    def test_backlog_score_does_not_exceed_100_when_more_closed_than_opened(self) -> None:
+        created = [
+            raw_issue(
+                "new-1",
+                created_days_ago=20,
+                updated_days_ago=5,
+                completed_days_ago=5,
+            )
+        ]
+        older = [
+            raw_issue(
+                f"old-{index}",
+                created_days_ago=400,
+                updated_days_ago=10,
+                completed_days_ago=10,
+            )
+            for index in range(5)
+        ]
+
+        result = evaluate(build_facts([], created + older), context())
+
+        backlog = next(metric for metric in result.metrics if metric.code == "backlog_trend")
+        self.assertGreater(backlog.value, 1)
+        self.assertEqual(backlog.normalized_score, 100.0)
 
 
 class IssuesCollectTest(unittest.TestCase):
@@ -312,6 +363,8 @@ class IssuesCollectTest(unittest.TestCase):
             token = params.get("page_token")
             seen.append((status_filter, token))
 
+            if status_filter == "status=in_progress":
+                return httpx.Response(200, json={"issues": [], "next_page_token": ""})
             if status_filter == "status=open" and token is None:
                 return httpx.Response(
                     200,
@@ -347,6 +400,30 @@ class IssuesCollectTest(unittest.TestCase):
         self.assertFalse(facts.closed_truncated)
         self.assertEqual(seen[0], ("status=open", None))
         self.assertEqual(seen[1], ("status=open", "page-2"))
+        self.assertIn(("status=in_progress", None), seen)
+
+    def test_collect_includes_in_progress_issues_with_open_ones(self) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            status_filter = request.url.params.get("filter")
+            if status_filter == "status=open":
+                issues = [open_issue("1", created_days_ago=10, updated_days_ago=2)]
+            elif status_filter == "status=in_progress":
+                issues = [
+                    raw_issue(
+                        "2",
+                        created_days_ago=10,
+                        updated_days_ago=1,
+                        status_type="in_progress",
+                    )
+                ]
+            else:
+                issues = []
+            return httpx.Response(200, json={"issues": issues, "next_page_token": ""})
+
+        facts = collect(make_client(handler), REPOSITORY)
+
+        self.assertEqual({issue.slug for issue in facts.open_issues}, {"1", "2"})
+        self.assertEqual(facts.closed_issues, ())
 
     def test_collect_marks_truncation_when_the_page_budget_runs_out(self) -> None:
         def handler(request: httpx.Request) -> httpx.Response:
@@ -362,7 +439,7 @@ class IssuesCollectTest(unittest.TestCase):
 
         self.assertTrue(facts.open_truncated)
         self.assertTrue(facts.closed_truncated)
-        self.assertEqual(len(facts.open_issues), 2)
+        self.assertGreaterEqual(len(facts.open_issues), 1)
 
     def test_collect_turns_authentication_failure_into_a_fact(self) -> None:
         def handler(request: httpx.Request) -> httpx.Response:

@@ -70,6 +70,11 @@ METRIC_WEIGHTS = {
 STATUS_COMPLETED = "completed"
 STATUS_CANCELLED = "cancelled"
 
+# Фильтр API: open / in_progress / closed. Задачи в работе — это ещё открытый
+# трекер, а не решённые; без in_progress они выпадали из обеих выборок.
+OPEN_STATUS_FILTERS = ("open", "in_progress")
+CLOSED_STATUS_FILTERS = ("closed",)
+
 PAGE_SIZE = 100
 
 # Бюджет страниц рассчитан на самый крупный трекер платформы (около 2400 задач).
@@ -263,6 +268,52 @@ def _fetch_status(
     return items, truncated, None
 
 
+def _dedupe_raw_issues(items: list[Any]) -> list[Any]:
+    """Убирает пересечение open и in_progress по id, иначе по slug."""
+    unique: list[Any] = []
+    seen: set[str] = set()
+    for item in items:
+        if not isinstance(item, dict):
+            unique.append(item)
+            continue
+        key = str(item.get("id") or item.get("slug") or "")
+        if key:
+            if key in seen:
+                continue
+            seen.add(key)
+        unique.append(item)
+    return unique
+
+
+def _fetch_status_group(
+    client: SourceCraftClient,
+    path: str,
+    *,
+    statuses: tuple[str, ...],
+    max_pages: int,
+) -> tuple[list[Any], bool, str | None]:
+    """Собирает несколько статусов. Ошибка одного фильтра не затирает остальные."""
+    combined: list[Any] = []
+    truncated = False
+    errors: list[str] = []
+    successes = 0
+
+    for status in statuses:
+        items, is_truncated, error = _fetch_status(
+            client, path, status=status, max_pages=max_pages
+        )
+        if error is not None:
+            errors.append(error)
+            continue
+        successes += 1
+        combined.extend(items)
+        truncated = truncated or is_truncated
+
+    if successes == 0:
+        return [], False, "; ".join(errors)
+    return _dedupe_raw_issues(combined), truncated, None
+
+
 def collect(
     client: SourceCraftClient,
     repository: RepositoryRef,
@@ -270,13 +321,15 @@ def collect(
     max_pages: int = DEFAULT_MAX_PAGES,
 ) -> IssuesFacts:
     """Обращается к SourceCraft и возвращает факты. Оценок не выставляет."""
-    path = f"/repos/{repository.organization_slug}/{repository.repository_slug}/issues"
+    org = urllib.parse.quote(repository.organization_slug, safe="")
+    repo = urllib.parse.quote(repository.repository_slug, safe="")
+    path = f"/repos/{org}/{repo}/issues"
 
-    open_items, open_truncated, open_error = _fetch_status(
-        client, path, status="open", max_pages=max_pages
+    open_items, open_truncated, open_error = _fetch_status_group(
+        client, path, statuses=OPEN_STATUS_FILTERS, max_pages=max_pages
     )
-    closed_items, closed_truncated, closed_error = _fetch_status(
-        client, path, status="closed", max_pages=max_pages
+    closed_items, closed_truncated, closed_error = _fetch_status_group(
+        client, path, statuses=CLOSED_STATUS_FILTERS, max_pages=max_pages
     )
 
     return build_facts(
@@ -311,6 +364,22 @@ def _issue_url(repository: RepositoryRef, slug: str) -> str | None:
 
 def _age_in_days(context: AnalysisContext, moment: datetime) -> int:
     return (context.analyzed_at - moment).days
+
+
+def _closed_at(issue: IssueFact) -> datetime | None:
+    """Дата выхода задачи из открытого состояния.
+
+    У части репозиториев (часто после миграции с GitHub) completed_at пуст.
+    Тогда единственная доступная отметка — updated_at закрытой задачи.
+    """
+    if not (issue.is_resolved or issue.is_cancelled):
+        return None
+    return issue.completed_at or issue.updated_at
+
+
+def _closed_in_period(issue: IssueFact, context: AnalysisContext) -> bool:
+    closed = _closed_at(issue)
+    return closed is not None and _in_period(closed, context)
 
 
 def _stale_metric(
@@ -377,16 +446,12 @@ def _backlog_metric(
     resolved = [
         issue
         for issue in facts.closed_issues
-        if issue.is_resolved
-        and issue.completed_at is not None
-        and _in_period(issue.completed_at, context)
+        if issue.is_resolved and _closed_in_period(issue, context)
     ]
     cancelled = [
         issue
         for issue in facts.closed_issues
-        if issue.is_cancelled
-        and issue.completed_at is not None
-        and _in_period(issue.completed_at, context)
+        if issue.is_cancelled and _closed_in_period(issue, context)
     ]
 
     if not created:
@@ -394,9 +459,12 @@ def _backlog_metric(
         return None
 
     ratio = len(resolved) / len(created)
-    score = _linear_score(ratio, best=BACKLOG_RATIO_BEST, worst=BACKLOG_RATIO_WORST)
+    score = _linear_score(min(ratio, 1.0), best=BACKLOG_RATIO_BEST, worst=BACKLOG_RATIO_WORST)
 
     summary = f"за период создано {len(created)} задач, решено {len(resolved)}"
+    fallback = sum(1 for issue in resolved if issue.completed_at is None)
+    if fallback:
+        summary += f"; для {fallback} дата закрытия взята из updated_at"
     if cancelled:
         summary += f", отменено {len(cancelled)} (в решённые не входят)"
 
@@ -420,9 +488,8 @@ def _resolution_time_metric(
         issue
         for issue in facts.closed_issues
         if issue.is_resolved
-        and issue.completed_at is not None
-        and _in_period(issue.completed_at, context)
-        and issue.completed_at >= issue.created_at
+        and _closed_in_period(issue, context)
+        and (_closed_at(issue) or issue.created_at) >= issue.created_at
     ]
 
     # Поле completed_at заполняется не всеми проектами; на единичных наблюдениях
@@ -431,9 +498,9 @@ def _resolution_time_metric(
         return None
 
     durations = {
-        issue.slug: (issue.completed_at - issue.created_at).total_seconds() / SECONDS_PER_DAY
+        issue.slug: ((_closed_at(issue) or issue.created_at) - issue.created_at).total_seconds()
+        / SECONDS_PER_DAY
         for issue in resolved
-        if issue.completed_at is not None
     }
     value = float(median(durations.values()))
     score = _linear_score(value, best=RESOLUTION_DAYS_BEST, worst=RESOLUTION_DAYS_WORST)
@@ -552,6 +619,15 @@ def _unmeasured_result(facts: IssuesFacts, summary: str) -> CategoryResult:
             reason="Списки задач прочитаны не полностью: доли и динамика не определяются.",
         )
 
+    if facts.skipped_count:
+        return CategoryResult(
+            category=CATEGORY_CODE,
+            status=DataStatus.INSUFFICIENT_SAMPLE,
+            score=None,
+            summary=summary,
+            reason=f"{facts.skipped_count} задач пропущены из-за неполных данных.",
+        )
+
     return CategoryResult(
         category=CATEGORY_CODE,
         status=DataStatus.INSUFFICIENT_SAMPLE,
@@ -573,6 +649,16 @@ def evaluate(facts: IssuesFacts, context: AnalysisContext) -> CategoryResult:
         )
 
     if facts.open_available and facts.closed_available and facts.total_count == 0:
+        if facts.skipped_count:
+            return CategoryResult(
+                category=CATEGORY_CODE,
+                status=DataStatus.INSUFFICIENT_SAMPLE,
+                score=None,
+                summary=(
+                    f"Получено {facts.skipped_count} задач, но ни у одной нет обязательных дат."
+                ),
+                reason="Записи без created_at или updated_at нельзя измерить.",
+            )
         return CategoryResult(
             category=CATEGORY_CODE,
             status=DataStatus.NOT_APPLICABLE,
