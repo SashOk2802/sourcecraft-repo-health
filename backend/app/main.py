@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from urllib.parse import quote
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import PlainTextResponse
@@ -105,14 +106,15 @@ def _analysis_status_payload(
     analysis_id: str,
 ) -> dict[str, object]:
     analysis = snapshot.report["analysis"]
+    encoded_id = quote(analysis_id, safe="")
     return {
         "id": analysis_id,
         "status": analysis["status"],
         "repository": snapshot.report["repository"],
         "score": snapshot.report["score"],
         "isPreliminary": analysis["isPreliminary"],
-        "reportUrl": f"/api/v1/analyses/{analysis_id}/report",
-        "markdownReportUrl": f"/api/v1/analyses/{analysis_id}/report.md",
+        "reportUrl": f"/api/v1/analyses/{encoded_id}/report",
+        "markdownReportUrl": f"/api/v1/analyses/{encoded_id}/report.md",
     }
 
 
