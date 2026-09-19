@@ -217,6 +217,12 @@ class PostgresAnalysisJobStore:
         self._database_url = _normalize_database_url(database_url)
         self._pool: asyncpg.Pool | None = None
 
+    @property
+    def database_url(self) -> str:
+        """Возвращает нормализованный URL базы для проверки конфигурации."""
+
+        return self._database_url
+
     async def start(self) -> None:
         """Открывает пул и создаёт таблицу MVP для запусков анализа."""
 
