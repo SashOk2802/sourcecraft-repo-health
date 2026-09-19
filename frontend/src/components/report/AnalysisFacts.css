@@ -1,0 +1,21 @@
+.analysis-facts {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.analysis-facts__list {
+  display: grid;
+  gap: 8px;
+}
+
+.analysis-facts__row {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+}
+
+.analysis-facts__row dd {
+  overflow-wrap: anywhere;
+}

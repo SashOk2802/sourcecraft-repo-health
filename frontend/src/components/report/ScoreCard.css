@@ -1,0 +1,117 @@
+.score-card {
+  display: grid;
+  gap: 14px;
+}
+
+.score-card__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 24px;
+}
+
+.score-card__value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.score-card__value {
+  font-size: 56px;
+  line-height: 60px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.score-card__value_empty {
+  font-size: 28px;
+  line-height: 40px;
+  color: var(--g-color-text-secondary);
+}
+
+.score-card__labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.score-card__note {
+  max-width: 720px;
+}
+
+.score-card__limit {
+  margin-top: 2px;
+}
+
+/* Разбор баллов */
+
+.breakdown {
+  padding-top: 8px;
+  border-top: 1px solid var(--g-color-line-generic);
+}
+
+.breakdown .section__head {
+  margin-top: 12px;
+}
+
+.breakdown__bar,
+.breakdown__labels {
+  display: flex;
+  gap: 4px;
+}
+
+.breakdown__segment {
+  position: relative;
+  flex-basis: 0;
+  height: 24px;
+  border-radius: var(--g-border-radius-xs);
+  background: var(--rh-track);
+  overflow: hidden;
+}
+
+.breakdown__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--rh-band-high);
+}
+
+.breakdown__segment_band_mid .breakdown__fill {
+  background: var(--rh-band-mid);
+}
+
+.breakdown__segment_band_low .breakdown__fill {
+  background: var(--rh-band-low);
+}
+
+.breakdown__labels {
+  margin-top: 6px;
+}
+
+.breakdown__label {
+  display: flex;
+  flex-direction: column;
+  flex-basis: 0;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+/* Узкий последний отрезок подписываем от правого края, чтобы текст не вылезал за карточку. */
+.breakdown__label:last-child {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.breakdown__explain {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+@media (max-width: 700px) {
+  .breakdown__labels {
+    display: none;
+  }
+}

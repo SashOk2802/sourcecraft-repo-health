@@ -1,0 +1,104 @@
+.breadcrumb {
+  color: var(--g-color-text-secondary);
+  text-decoration: none;
+}
+
+.breadcrumb:hover {
+  color: var(--g-color-text-primary);
+}
+
+.breadcrumb__separator {
+  margin: 0 8px;
+  color: var(--g-color-text-hint);
+}
+
+.report__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 24px;
+  margin-bottom: 20px;
+}
+
+.report__org {
+  color: var(--g-color-text-secondary);
+  font-weight: 400;
+}
+
+.report__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  margin-top: 6px;
+}
+
+.report__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.report__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 16px;
+  align-items: start;
+}
+
+.report__main {
+  display: grid;
+  gap: 24px;
+}
+
+.no-report {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  padding: 24px 0;
+}
+
+.no-report > div {
+  margin-top: 8px;
+}
+
+@media (max-width: 1000px) {
+  .report__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* PDF — это печать страницы: остаются только данные отчёта. */
+@media print {
+  @page {
+    margin: 12mm;
+  }
+
+  .site-header,
+  .site-footer,
+  .page__breadcrumbs,
+  .report__actions {
+    display: none;
+  }
+
+  .page {
+    min-height: 0;
+    padding: 0;
+  }
+
+  .report__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .card {
+    border-color: var(--g-color-line-generic-accent);
+  }
+
+  /* Шкалы и штриховка нарисованы фоном: без этого браузер их не напечатает. */
+  .report,
+  .report * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
