@@ -6,13 +6,20 @@ from backend.app.analysis.runner import (
     CategoryEvaluator,
     run_analysis,
 )
-from backend.app.analysis.store import AnalysisStore, InMemoryAnalysisStore
+from backend.app.analysis.store import (
+    AnalysisSnapshot,
+    AnalysisStore,
+    InMemoryAnalysisStore,
+    PostgresAnalysisStore,
+)
 
 __all__ = [
     "AnalysisExecution",
+    "AnalysisSnapshot",
     "AnalysisStore",
     "AnalyzerRegistration",
     "CategoryEvaluator",
     "InMemoryAnalysisStore",
+    "PostgresAnalysisStore",
     "run_analysis",
 ]
