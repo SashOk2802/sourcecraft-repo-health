@@ -51,11 +51,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    """Удаляет таблицы постоянных анализов при откате до пустой схемы."""
+    """Не удаляет таблицы: baseline не отличает legacy-данные от новых."""
 
-    existing_tables = set(sa.inspect(op.get_bind()).get_table_names())
-
-    if "analysis_jobs" in existing_tables:
-        op.drop_table("analysis_jobs")
-    if "analysis_snapshots" in existing_tables:
-        op.drop_table("analysis_snapshots")
+    # При downgrade Alembic удалит запись о ревизии, но данные останутся нетронутыми.
