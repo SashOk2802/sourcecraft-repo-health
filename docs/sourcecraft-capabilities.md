@@ -32,11 +32,11 @@ SourceCraft. Реальные slug, идентификаторы и время �
 | Источник | Нужные данные | Наблюдавшийся способ | Пагинация | Статус данных | Готовность анализатора | Доказательство и следующий шаг |
 | --- | --- | --- | --- | --- | --- | --- |
 | Список репозиториев | ID, имя, приватность, ветка по умолчанию, язык, число веток | `src api orgs/{organization_slug}/repos` с доступом к приватному репозиторию | не проверено | measured | insufficient_sample | Fixture `repositories_page.json` сохраняет форму ответа. Пустой токен следующей страницы не доказывает обход второй страницы; не проверены также пустой ответ и ошибка. |
-| CI runs | Номер запуска, статус, тип события, время, workflow | `src run list -R {organization_slug}/{repository_slug}` с доступом к приватному репозиторию | не проверено | measured | insufficient_sample | Fixture `ci_runs.json` сохраняет форму ответа. Не проверены пустой список и ошибка конкретного endpoint. |
+| CI runs | Номер запуска, статус, тип события, время, workflow | `src api -X GET repos/{organization_slug}/{repository_slug}/cicd/runs -f page_size=1 --paginate` с доступом к приватному репозиторию | проверено на двух реальных страницах | measured | insufficient_sample | Fixture `ci_runs.json` сохраняет форму ответа. Не проверены пустой список и ошибка конкретного endpoint. |
 | CI config | Наличие конфигурации и путь | Проверочная ветка, файл `.sourcecraft/ci.yaml` | не применимо | measured | insufficient_sample | Конфигурация была прочитана только в проверочной ветке; fixture и обработка ошибки ещё не добавлены. |
-| SAST | ID finding, severity, статус, false positive, время, безопасное доказательство | `src appsec defect list -R {organization_slug}/{repository_slug}`; AppSec-аддон недоступен | не проверено | unavailable | unavailable | Fixture `appsec_defects_null.json` и тест подтверждают преобразование `null` в `unavailable`. Для findings нужен подключённый AppSec-аддон и успешное сканирование. |
-| SCA | Зависимость, vulnerability, severity, статус | Отдельный источник не подтверждён | не проверено | unavailable | unavailable | Не найден доступный результат сканирования зависимостей. Не выводить нулевое число уязвимостей. |
-| Secret scanning | Тип секрета, статус, время, безопасное доказательство | Отдельный источник не подтверждён | не проверено | unavailable | unavailable | Не найден доступный результат secret-scanning. Никогда не сохранять само значение секрета или фрагмент кода с ним. |
+| SAST | ID finding, severity, статус, false positive, время, безопасное доказательство | `src appsec defect list -R {organization_slug}/{repository_slug} --type SAST`; ответ `null` | не проверено | unavailable | unavailable | Fixture `appsec_defects_null.json` и тест подтверждают преобразование `null` в `unavailable`. Для findings нужен подключённый AppSec-аддон и успешное сканирование. |
+| SCA | Зависимость, vulnerability, severity, статус | `src appsec defect list -R {organization_slug}/{repository_slug} --type SCA`; ответ `null` | не проверено | unavailable | unavailable | Не выводить нулевое число уязвимостей: нужны подключённый источник SCA и успешное сканирование. |
+| Secret scanning | Тип секрета, статус, время, безопасное доказательство | `src appsec defect list -R {organization_slug}/{repository_slug} --type SECRETS`; ответ `null` | не проверено | unavailable | unavailable | Никогда не сохранять само значение секрета или фрагмент кода с ним. Нужен доступный результат secret-scanning. |
 
 ## Единые состояния данных
 
@@ -70,5 +70,5 @@ SourceCraft. Реальные slug, идентификаторы и время �
 | Источник | Результат | Проверил |
 | --- | --- | --- |
 | Список репозиториев | Получен один приватный репозиторий; `next_page_token` пуст. Пагинация не проверена. | Артём Е. |
-| CI runs | Получен один ручной успешный запуск. | Артём Е. |
-| AppSec defects | Команда вернула `null`: статус источника — `unavailable`, а не ноль findings. | Артём Е. |
+| CI runs | Получены два последовательных ручных успешных запуска; при `page_size=1` API прошёл две страницы. | Артём Е. |
+| AppSec defects | Команды для SAST, SCA и SECRETS вернули `null`: статус источников — `unavailable`, а не ноль findings. | Артём Е. |
