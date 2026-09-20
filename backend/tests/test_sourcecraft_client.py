@@ -96,6 +96,82 @@ class SourceCraftClientTest(unittest.TestCase):
 
         self.assertEqual(len(requests), 2)
 
+    def test_get_paginated_objects_rejects_invalid_page_shapes(self) -> None:
+        invalid_payloads: tuple[object, ...] = (
+            [{"id": "not-an-envelope"}],
+            {"runs": {"id": "not-a-list"}},
+            {"runs": ["not-an-object"]},
+            {"runs": [], "next_page_token": 42},
+        )
+
+        for payload in invalid_payloads:
+            with self.subTest(payload=payload):
+                http_client = httpx.Client(
+                    base_url="https://api.sourcecraft.tech",
+                    transport=httpx.MockTransport(
+                        lambda request, payload=payload: httpx.Response(200, json=payload)
+                    ),
+                )
+                client = SourceCraftClient("test-token", http_client=http_client)
+
+                with self.assertRaises(SourceCraftResponseError):
+                    client.get_paginated_objects(
+                        "/repos/example-org/example-repo/cicd/runs",
+                        items_field="runs",
+                    )
+
+    def test_get_paginated_objects_stops_at_configured_page_limit(self) -> None:
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            return httpx.Response(
+                200,
+                json={"runs": [], "next_page_token": f"page-{len(requests)}"},
+            )
+
+        http_client = httpx.Client(
+            base_url="https://api.sourcecraft.tech",
+            transport=httpx.MockTransport(handler),
+        )
+        client = SourceCraftClient("test-token", http_client=http_client)
+
+        with self.assertRaisesRegex(SourceCraftResponseError, "page limit"):
+            client.get_paginated_objects(
+                "/repos/example-org/example-repo/cicd/runs",
+                items_field="runs",
+                max_pages=2,
+            )
+
+        self.assertEqual(len(requests), 2)
+
+    def test_get_paginated_objects_validates_configuration_before_request(self) -> None:
+        requests: list[httpx.Request] = []
+        http_client = httpx.Client(
+            base_url="https://api.sourcecraft.tech",
+            transport=httpx.MockTransport(
+                lambda request: requests.append(request) or httpx.Response(200, json={"runs": []})
+            ),
+        )
+        client = SourceCraftClient("test-token", http_client=http_client)
+
+        with self.assertRaises(ValueError):
+            client.get_paginated_objects("/repos/example-org/example-repo/cicd/runs", items_field="")
+        with self.assertRaises(ValueError):
+            client.get_paginated_objects(
+                "/repos/example-org/example-repo/cicd/runs",
+                items_field="runs",
+                page_size=0,
+            )
+        with self.assertRaises(ValueError):
+            client.get_paginated_objects(
+                "/repos/example-org/example-repo/cicd/runs",
+                items_field="runs",
+                max_pages=0,
+            )
+
+        self.assertEqual(requests, [])
+
     def test_authentication_error_does_not_include_token(self) -> None:
         secret_token = "token-that-must-not-appear-in-errors"
         http_client = httpx.Client(

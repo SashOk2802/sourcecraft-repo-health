@@ -74,6 +74,57 @@ class SourceCraftCicdClientTest(unittest.TestCase):
         with self.assertRaisesRegex(SourceCraftResponseError, "unknown CI run status"):
             client.list_runs(_repository())
 
+    def test_list_runs_combines_pages_and_normalizes_timezones(self) -> None:
+        first_page = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+        first_page["next_page_token"] = "next-page"
+        second_page = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+        second_page["runs"][0]["slug"] = "18"
+        second_page["runs"][0]["dates"]["created_at"] = "2026-01-01T03:00:00+03:00"
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            payload = second_page if request.url.params.get("page_token") == "next-page" else first_page
+            return httpx.Response(200, json=payload)
+
+        http_client = httpx.Client(
+            base_url="https://api.sourcecraft.tech",
+            transport=httpx.MockTransport(handler),
+        )
+        client = SourceCraftCicdClient(SourceCraftClient("test-token", http_client=http_client))
+
+        runs = client.list_runs(_repository(), page_size=1)
+
+        self.assertEqual(tuple(run.slug for run in runs), ("17", "18"))
+        self.assertEqual(runs[1].created_at.isoformat(), "2026-01-01T00:00:00+00:00")
+        self.assertEqual(len(requests), 2)
+        self.assertEqual(requests[0].url.params["page_size"], "1")
+        self.assertEqual(requests[1].url.params["page_token"], "next-page")
+
+    def test_list_runs_rejects_unknown_event_type_and_naive_timestamp(self) -> None:
+        for field, value, message in (
+            ("event_type", "new-event", "unknown CI event type"),
+            ("dates.created_at", "2026-01-01T00:00:00", "must include a timezone"),
+        ):
+            with self.subTest(field=field):
+                payload = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+                if field == "dates.created_at":
+                    payload["runs"][0]["dates"]["created_at"] = value
+                else:
+                    payload["runs"][0][field] = value
+                http_client = httpx.Client(
+                    base_url="https://api.sourcecraft.tech",
+                    transport=httpx.MockTransport(
+                        lambda request, payload=payload: httpx.Response(200, json=payload)
+                    ),
+                )
+                client = SourceCraftCicdClient(
+                    SourceCraftClient("test-token", http_client=http_client)
+                )
+
+                with self.assertRaisesRegex(SourceCraftResponseError, message):
+                    client.list_runs(_repository())
+
 
 def _repository() -> RepositoryRef:
     return RepositoryRef(
