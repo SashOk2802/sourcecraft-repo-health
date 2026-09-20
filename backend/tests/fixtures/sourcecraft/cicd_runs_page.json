@@ -1,0 +1,37 @@
+{
+  "runs": [
+    {
+      "id": "run-id-redacted",
+      "slug": "17",
+      "dates": {
+        "created_at": "2026-01-01T00:00:00Z",
+        "started_at": "2026-01-01T00:00:02Z",
+        "finished_at": "2026-01-01T00:00:30Z",
+        "updated_at": "2026-01-01T00:00:31Z"
+      },
+      "status": "success",
+      "workflows": [
+        {
+          "id": "workflow-id-redacted",
+          "slug": "example-workflow",
+          "description": "",
+          "dates": {
+            "created_at": "2026-01-01T00:00:02Z",
+            "started_at": "2026-01-01T00:00:02Z",
+            "finished_at": "2026-01-01T00:00:30Z",
+            "updated_at": "2026-01-01T00:00:31Z"
+          },
+          "status": "success",
+          "tasks": []
+        }
+      ],
+      "event_type": "manual",
+      "error_messages": [],
+      "user": {
+        "id": "user-id-redacted",
+        "slug": "example-user"
+      }
+    }
+  ],
+  "next_page_token": ""
+}

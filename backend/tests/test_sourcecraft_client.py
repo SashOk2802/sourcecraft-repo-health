@@ -49,6 +49,53 @@ class SourceCraftClientTest(unittest.TestCase):
 
         self.assertIsNone(client.get_json("/appsec/defects"))
 
+    def test_get_paginated_objects_follows_next_page_token(self) -> None:
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            if request.url.params.get("page_token") == "page-2":
+                return httpx.Response(
+                    200,
+                    json={"runs": [{"id": "run-2"}], "next_page_token": ""},
+                )
+            return httpx.Response(
+                200,
+                json={"runs": [{"id": "run-1"}], "next_page_token": "page-2"},
+            )
+
+        http_client = httpx.Client(
+            base_url="https://api.sourcecraft.tech",
+            transport=httpx.MockTransport(handler),
+        )
+        client = SourceCraftClient("test-token", http_client=http_client)
+
+        runs = client.get_paginated_objects("/repos/example-org/example-repo/cicd/runs", items_field="runs")
+
+        self.assertEqual(runs, [{"id": "run-1"}, {"id": "run-2"}])
+        self.assertEqual(len(requests), 2)
+        self.assertEqual(requests[0].url.params["page_size"], "100")
+        self.assertNotIn("page_token", requests[0].url.params)
+        self.assertEqual(requests[1].url.params["page_token"], "page-2")
+
+    def test_get_paginated_objects_rejects_repeated_page_token(self) -> None:
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            return httpx.Response(200, json={"runs": [], "next_page_token": "same-token"})
+
+        http_client = httpx.Client(
+            base_url="https://api.sourcecraft.tech",
+            transport=httpx.MockTransport(handler),
+        )
+        client = SourceCraftClient("test-token", http_client=http_client)
+
+        with self.assertRaisesRegex(SourceCraftResponseError, "repeated next_page_token"):
+            client.get_paginated_objects("/repos/example-org/example-repo/cicd/runs", items_field="runs")
+
+        self.assertEqual(len(requests), 2)
+
     def test_authentication_error_does_not_include_token(self) -> None:
         secret_token = "token-that-must-not-appear-in-errors"
         http_client = httpx.Client(
