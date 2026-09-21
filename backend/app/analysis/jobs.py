@@ -116,6 +116,24 @@ class AnalysisJob:
             error_summary=error_summary,
         )
 
+    def interrupted(self, finished_at: datetime) -> AnalysisJob:
+        """Помечает queued или running задание ошибкой после перезапуска worker."""
+
+        if self.status not in {AnalysisJobStatus.QUEUED, AnalysisJobStatus.RUNNING}:
+            raise AnalysisJobTransitionError("only incomplete jobs can be recovered")
+        _require_timezone(finished_at, "finished_at")
+        started_at = self.started_at or self.created_at
+        if finished_at < started_at:
+            raise AnalysisJobTransitionError("finished_at must not be before started_at")
+        return replace(
+            self,
+            status=AnalysisJobStatus.FAILED,
+            started_at=started_at,
+            finished_at=finished_at,
+            error_code="worker_interrupted",
+            error_summary="Анализ прерван перезапуском обработчика.",
+        )
+
 
 class AnalysisJobStore(Protocol):
     """Хранилище состояния запусков анализа."""
@@ -145,6 +163,9 @@ class AnalysisJobStore(Protocol):
         error_summary: str | None = None,
     ) -> AnalysisJob:
         """Атомарно переводит running в terminal-состояние."""
+
+    async def recover_interrupted(self, finished_at: datetime) -> tuple[AnalysisJob, ...]:
+        """Завершает задания, оставшиеся после остановки in-process worker."""
 
 
 class InMemoryAnalysisJobStore:
@@ -202,6 +223,19 @@ class InMemoryAnalysisJobStore:
             )
             self._jobs[normalized_id] = updated
             return updated
+
+    async def recover_interrupted(self, finished_at: datetime) -> tuple[AnalysisJob, ...]:
+        """Помечает queued и running задания прерванными при новом старте процесса."""
+
+        with self._lock:
+            recovered = tuple(
+                job.interrupted(finished_at)
+                for job in self._jobs.values()
+                if job.status
+                in {AnalysisJobStatus.QUEUED, AnalysisJobStatus.RUNNING}
+            )
+            self._jobs.update({job.analysis_id: job for job in recovered})
+            return recovered
 
     def _require_job(self, analysis_id: str) -> AnalysisJob:
         job = self._jobs.get(analysis_id)
@@ -341,6 +375,50 @@ class PostgresAnalysisJobStore:
         if row is None:
             raise AnalysisJobTransitionError("job state changed before it could finish")
         return _job_from_row(row)
+
+    async def recover_interrupted(self, finished_at: datetime) -> tuple[AnalysisJob, ...]:
+        """Помечает задания, пережившие остановку in-process worker, как failed."""
+
+        rows = await self._require_pool().fetch(
+            """
+            SELECT
+                analysis_id, repository_id, status, created_at,
+                started_at, finished_at, error_code, error_summary
+            FROM analysis_jobs
+            WHERE status = ANY($1::text[])
+            ORDER BY created_at
+            """,
+            [AnalysisJobStatus.QUEUED.value, AnalysisJobStatus.RUNNING.value],
+        )
+        recovered: list[AnalysisJob] = []
+        for row in rows:
+            current = _job_from_row(row)
+            updated = current.interrupted(finished_at)
+            saved = await self._require_pool().fetchrow(
+                """
+                UPDATE analysis_jobs
+                SET
+                    status = $2,
+                    started_at = $3,
+                    finished_at = $4,
+                    error_code = $5,
+                    error_summary = $6
+                WHERE analysis_id = $1 AND status = $7
+                RETURNING
+                    analysis_id, repository_id, status, created_at,
+                    started_at, finished_at, error_code, error_summary
+                """,
+                updated.analysis_id,
+                updated.status.value,
+                updated.started_at,
+                updated.finished_at,
+                updated.error_code,
+                updated.error_summary,
+                current.status.value,
+            )
+            if saved is not None:
+                recovered.append(_job_from_row(saved))
+        return tuple(recovered)
 
     async def _require_existing_job(self, analysis_id: str) -> AnalysisJob:
         job = await self.get(analysis_id)
