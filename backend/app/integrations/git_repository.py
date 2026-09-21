@@ -1,8 +1,8 @@
 import os
 import shutil
-import tempfile
 import subprocess
-from typing import Optional
+import tempfile
+
 
 class LocalGitRepository:
     """Управляет временной рабочей областью для анализа файлов репозитория."""
@@ -10,7 +10,7 @@ class LocalGitRepository:
     def __init__(self, repo_url: str, branch: str = "main"):
         self.repo_url = repo_url
         self.branch = branch
-        self.temp_dir: Optional[str] = None
+        self.temp_dir: str | None = None  # Заменено на современный str | None по правилу UP045
 
     def clone(self) -> str:
         """Клонирует репозиторий (только 1 последний коммит для скорости) во временную папку."""
@@ -33,7 +33,7 @@ class LocalGitRepository:
             return False
         return os.path.exists(os.path.join(self.temp_dir, relative_path))
 
-    def read_file(self, relative_path: str) -> Optional[str]:
+    def read_file(self, relative_path: str) -> str | None:  # Заменено на str | None
         """Безопасно читает содержимое файла."""
         if not self.file_exists(relative_path):
             return None
@@ -41,7 +41,7 @@ class LocalGitRepository:
         try:
             with open(full_path, "r", encoding="utf-8", errors="ignore") as f:
                 return f.read()
-        except Exception:
+        except OSError:  # Заменено на конкретный OSError по правилу BLE001
             return None
 
     def cleanup(self) -> None:
