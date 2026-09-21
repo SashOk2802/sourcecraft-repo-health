@@ -147,6 +147,7 @@ class PostgresAnalysisStore:
         *,
         status: AnalysisJobStatus,
         finished_at: datetime,
+        worker_id: str | None = None,
     ) -> AnalysisJob:
         """Сохраняет снимок и terminal-статус задания одной PostgreSQL-транзакцией."""
 
@@ -171,7 +172,7 @@ class PostgresAnalysisStore:
                     """
                     SELECT
                         analysis_id, repository_id, status, created_at,
-                        started_at, finished_at, error_code, error_summary
+                        started_at, finished_at, error_code, error_summary, worker_id
                     FROM analysis_jobs
                     WHERE analysis_id = $1
                     FOR UPDATE
@@ -182,6 +183,8 @@ class PostgresAnalysisStore:
                     raise AnalysisJobNotFoundError("analysis job not found")
 
                 current = _job_from_row(current_row)
+                if current.worker_id != worker_id:
+                    raise AnalysisJobTransitionError("job belongs to another worker")
                 updated = current.finished(
                     status=status,
                     finished_at=finished_at,
@@ -201,9 +204,10 @@ class PostgresAnalysisStore:
                     UPDATE analysis_jobs
                     SET status = $2, finished_at = $3, error_code = $4, error_summary = $5
                     WHERE analysis_id = $1 AND status = $6
+                        AND worker_id IS NOT DISTINCT FROM $7
                     RETURNING
                         analysis_id, repository_id, status, created_at,
-                        started_at, finished_at, error_code, error_summary
+                        started_at, finished_at, error_code, error_summary, worker_id
                     """,
                     updated.analysis_id,
                     updated.status.value,
@@ -211,6 +215,7 @@ class PostgresAnalysisStore:
                     updated.error_code,
                     updated.error_summary,
                     AnalysisJobStatus.RUNNING.value,
+                    worker_id,
                 )
                 if updated_row is None:
                     raise AnalysisJobTransitionError(
