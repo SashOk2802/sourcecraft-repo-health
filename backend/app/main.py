@@ -7,7 +7,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
-from fastapi import FastAPI, HTTPException, Request, status
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import PlainTextResponse
 
 from backend.app.analysis import (
@@ -83,7 +83,7 @@ def create_app(
     @app.post(
         "/api/v1/repositories/{repository_id}/analyses",
         tags=["analyses"],
-        status_code=status.HTTP_202_ACCEPTED,
+        status_code=202,
     )
     async def request_analysis(
         repository_id: str,
@@ -108,7 +108,7 @@ def create_app(
             principal = await principal_provider(request)
         except (PermissionError, ValueError) as error:
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
+                status_code=401,
                 detail="Authentication required.",
             ) from error
 
