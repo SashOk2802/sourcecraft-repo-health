@@ -5,30 +5,45 @@ from __future__ import annotations
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import datetime
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, status
 from fastapi.responses import PlainTextResponse
 
 from backend.app.analysis import (
+    AnalysisDispatcher,
+    AnalysisJob,
     AnalysisSnapshot,
     AnalysisStore,
+    InMemoryAnalysisJobStore,
     InMemoryAnalysisStore,
+    PostgresAnalysisJobStore,
     PostgresAnalysisStore,
     normalize_analysis_id,
 )
 
 
-def create_app(*, analysis_store: AnalysisStore | None = None) -> FastAPI:
-    """Создаёт HTTP-приложение с переданным хранилищем снимков анализа."""
+def create_app(
+    *,
+    analysis_store: AnalysisStore | None = None,
+    job_store: AnalysisJobStore | None = None,
+    analysis_dispatcher: AnalysisDispatcher | None = None,
+) -> FastAPI:
+    """Создаёт HTTP-приложение с хранилищами и необязательным worker анализа."""
 
     store = analysis_store or _default_analysis_store()
+    jobs = job_store or _default_analysis_job_store()
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         await store.start()
+        await jobs.start()
         try:
             yield
         finally:
+            if analysis_dispatcher is not None:
+                await analysis_dispatcher.close()
+            await jobs.close()
             await store.close()
 
     app = FastAPI(
@@ -38,6 +53,8 @@ def create_app(*, analysis_store: AnalysisStore | None = None) -> FastAPI:
         lifespan=lifespan,
     )
     app.state.analysis_store = store
+    app.state.analysis_job_store = jobs
+    app.state.analysis_dispatcher = analysis_dispatcher
 
     @app.get("/health", tags=["system"])
     async def health() -> dict[str, str]:
@@ -51,13 +68,46 @@ def create_app(*, analysis_store: AnalysisStore | None = None) -> FastAPI:
 
         return {"status": "ok"}
 
+    @app.post(
+        "/api/v1/repositories/{repository_id}/analyses",
+        tags=["analyses"],
+        status_code=status.HTTP_202_ACCEPTED,
+    )
+    async def request_analysis(repository_id: str) -> dict[str, object]:
+        """Создаёт queued-анализ и передаёт выполнение зарегистрированному worker."""
+
+        if not repository_id.strip():
+            raise HTTPException(status_code=422, detail="Repository id must not be empty.")
+        if analysis_dispatcher is None:
+            raise HTTPException(
+                status_code=503,
+                detail="Analysis dispatch is not configured.",
+            )
+
+        try:
+            job = await analysis_dispatcher.submit(repository_id)
+        except LookupError as error:
+            raise HTTPException(status_code=404, detail="Repository not found.") from error
+        except PermissionError as error:
+            raise HTTPException(status_code=403, detail="Repository access denied.") from error
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail="Invalid analysis request.") from error
+
+        return _analysis_job_status_payload(job, snapshot=None)
+
     @app.get("/api/v1/analyses/{analysis_id}", tags=["analyses"])
     async def get_analysis_status(analysis_id: str) -> dict[str, object]:
-        """Возвращает состояние и ссылки на материалы сохранённого анализа."""
+        """Возвращает queued, running или terminal-состояние одного анализа."""
 
         normalized_id = _normalize_analysis_id(analysis_id)
-        snapshot = await _require_snapshot(store, normalized_id)
-        return _analysis_status_payload(snapshot, normalized_id)
+        job = await jobs.get(normalized_id)
+        snapshot = await store.get(normalized_id)
+
+        if job is not None:
+            return _analysis_job_status_payload(job, snapshot)
+        if snapshot is not None:
+            return _analysis_status_payload(snapshot, normalized_id)
+        raise HTTPException(status_code=404, detail="Analysis not found.")
 
     @app.get("/api/v1/analyses/{analysis_id}/report", tags=["reports"])
     async def get_report(analysis_id: str) -> dict[str, object]:
@@ -85,6 +135,13 @@ def _default_analysis_store() -> AnalysisStore:
     if database_url:
         return PostgresAnalysisStore(database_url)
     return InMemoryAnalysisStore()
+
+
+def _default_analysis_job_store() -> AnalysisJobStore:
+    database_url = os.getenv("DATABASE_URL")
+    if database_url:
+        return PostgresAnalysisJobStore(database_url)
+    return InMemoryAnalysisJobStore()
 
 
 def _normalize_analysis_id(analysis_id: str) -> str:
@@ -115,6 +172,48 @@ def _analysis_status_payload(
         "reportUrl": f"/api/v1/analyses/{analysis_id}/report",
         "markdownReportUrl": f"/api/v1/analyses/{analysis_id}/report.md",
     }
+
+
+def _analysis_job_status_payload(
+    job: AnalysisJob,
+    snapshot: AnalysisSnapshot | None,
+) -> dict[str, object]:
+    """Строит единый ответ для queued, running, failed и готового анализа."""
+
+    error = (
+        {"code": job.error_code, "summary": job.error_summary}
+        if job.error_code is not None
+        else None
+    )
+    payload: dict[str, object] = {
+        "id": job.analysis_id,
+        "status": job.status.value,
+        "repository": {"id": job.repository_id},
+        "score": None,
+        "isPreliminary": None,
+        "createdAt": _format_timestamp(job.created_at),
+        "startedAt": _format_timestamp(job.started_at),
+        "finishedAt": _format_timestamp(job.finished_at),
+        "error": error,
+        "reportUrl": None,
+        "markdownReportUrl": None,
+    }
+    if snapshot is None:
+        return payload
+
+    payload.update(_analysis_status_payload(snapshot, job.analysis_id))
+    payload["status"] = job.status.value
+    payload["createdAt"] = _format_timestamp(job.created_at)
+    payload["startedAt"] = _format_timestamp(job.started_at)
+    payload["finishedAt"] = _format_timestamp(job.finished_at)
+    payload["error"] = error
+    return payload
+
+
+def _format_timestamp(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    return value.isoformat().replace("+00:00", "Z")
 
 
 app = create_app()
