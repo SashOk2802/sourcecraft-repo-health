@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import StrEnum
 from threading import RLock
 from typing import Protocol
@@ -150,12 +150,7 @@ class AnalysisJobStore(Protocol):
         """Освобождает внешние ресурсы."""
 
     async def heartbeat_worker(self, worker_id: str, heartbeat_at: datetime) -> None:
-        """Сохраняет heartbeat worker для имитации lease в тестах."""
-
-        _require_worker_id(worker_id)
-        _require_timezone(heartbeat_at, "heartbeat_at")
-        with self._lock:
-            self._worker_heartbeats[worker_id] = heartbeat_at
+        """Продляет lease активного in-process worker."""
 
     async def create(self, job: AnalysisJob) -> AnalysisJob:
         """Сохраняет новое задание в состоянии queued."""
@@ -163,8 +158,14 @@ class AnalysisJobStore(Protocol):
     async def get(self, analysis_id: str) -> AnalysisJob | None:
         """Возвращает задание по идентификатору."""
 
-    async def mark_running(self, analysis_id: str, started_at: datetime) -> AnalysisJob:
-        """Атомарно переводит queued в running."""
+    async def mark_running(
+        self,
+        analysis_id: str,
+        started_at: datetime,
+        *,
+        worker_id: str | None = None,
+    ) -> AnalysisJob:
+        """Атомарно переводит queued в running для владельца lease."""
 
     async def finish(
         self,
@@ -174,8 +175,9 @@ class AnalysisJobStore(Protocol):
         finished_at: datetime,
         error_code: str | None = None,
         error_summary: str | None = None,
+        worker_id: str | None = None,
     ) -> AnalysisJob:
-        """Атомарно переводит running в terminal-состояние."""
+        """Атомарно переводит running в terminal-состояние для владельца lease."""
 
     async def heartbeat_worker(self, worker_id: str, heartbeat_at: datetime) -> None:
         """Продляет lease активного in-process worker."""
@@ -203,6 +205,14 @@ class InMemoryAnalysisJobStore:
     async def close(self) -> None:
         """Не удерживает внешние ресурсы."""
 
+    async def heartbeat_worker(self, worker_id: str, heartbeat_at: datetime) -> None:
+        """Сохраняет heartbeat worker для имитации lease в тестах."""
+
+        _require_worker_id(worker_id)
+        _require_timezone(heartbeat_at, "heartbeat_at")
+        with self._lock:
+            self._worker_heartbeats[worker_id] = heartbeat_at
+
     async def create(self, job: AnalysisJob) -> AnalysisJob:
         if job.status is not AnalysisJobStatus.QUEUED:
             raise AnalysisJobTransitionError("new jobs must be queued")
@@ -217,10 +227,17 @@ class InMemoryAnalysisJobStore:
         with self._lock:
             return self._jobs.get(normalize_analysis_id(analysis_id))
 
-    async def mark_running(self, analysis_id: str, started_at: datetime) -> AnalysisJob:
+    async def mark_running(
+        self,
+        analysis_id: str,
+        started_at: datetime,
+        *,
+        worker_id: str | None = None,
+    ) -> AnalysisJob:
         normalized_id = normalize_analysis_id(analysis_id)
         with self._lock:
             job = self._require_job(normalized_id)
+            _require_job_owner(job, worker_id)
             updated = job.started(started_at)
             self._jobs[normalized_id] = updated
             return updated
@@ -233,10 +250,12 @@ class InMemoryAnalysisJobStore:
         finished_at: datetime,
         error_code: str | None = None,
         error_summary: str | None = None,
+        worker_id: str | None = None,
     ) -> AnalysisJob:
         normalized_id = normalize_analysis_id(analysis_id)
         with self._lock:
             job = self._require_job(normalized_id)
+            _require_job_owner(job, worker_id)
             updated = job.finished(
                 status=status,
                 finished_at=finished_at,
