@@ -3,16 +3,17 @@
 from __future__ import annotations
 
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import UTC, datetime
 
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import PlainTextResponse
 
 from backend.app.analysis import (
     AnalysisDispatcher,
     AnalysisJob,
+    AnalysisPrincipal,
     AnalysisJobStore,
     AnalysisSnapshot,
     AnalysisStore,
@@ -24,11 +25,15 @@ from backend.app.analysis import (
 )
 
 
+PrincipalProvider = Callable[[Request], Awaitable[AnalysisPrincipal]]
+
+
 def create_app(
     *,
     analysis_store: AnalysisStore | None = None,
     job_store: AnalysisJobStore | None = None,
     analysis_dispatcher: AnalysisDispatcher | None = None,
+    principal_provider: PrincipalProvider | None = None,
 ) -> FastAPI:
     """Создаёт HTTP-приложение с хранилищами и необязательным worker анализа."""
 
@@ -43,6 +48,7 @@ def create_app(
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         await store.start()
         await jobs.start()
+        await jobs.recover_interrupted(_utc_now())
         try:
             yield
         finally:
@@ -60,6 +66,7 @@ def create_app(
     app.state.analysis_store = store
     app.state.analysis_job_store = jobs
     app.state.analysis_dispatcher = analysis_dispatcher
+    app.state.principal_provider = principal_provider
 
     @app.get("/health", tags=["system"])
     async def health() -> dict[str, str]:
@@ -78,8 +85,11 @@ def create_app(
         tags=["analyses"],
         status_code=status.HTTP_202_ACCEPTED,
     )
-    async def request_analysis(repository_id: str) -> dict[str, object]:
-        """Создаёт queued-анализ и передаёт выполнение зарегистрированному worker."""
+    async def request_analysis(
+        repository_id: str,
+        request: Request,
+    ) -> dict[str, object]:
+        """Создаёт queued-анализ от имени проверенного пользователя."""
 
         if not repository_id.strip():
             raise HTTPException(status_code=422, detail="Repository id must not be empty.")
@@ -88,9 +98,22 @@ def create_app(
                 status_code=503,
                 detail="Analysis dispatch is not configured.",
             )
+        if principal_provider is None:
+            raise HTTPException(
+                status_code=503,
+                detail="Analysis authentication is not configured.",
+            )
 
         try:
-            job = await analysis_dispatcher.submit(repository_id)
+            principal = await principal_provider(request)
+        except (PermissionError, ValueError) as error:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required.",
+            ) from error
+
+        try:
+            job = await analysis_dispatcher.submit(repository_id, principal)
         except LookupError as error:
             raise HTTPException(status_code=404, detail="Repository not found.") from error
         except PermissionError as error:
@@ -147,6 +170,10 @@ def _default_analysis_job_store() -> AnalysisJobStore:
     if database_url:
         return PostgresAnalysisJobStore(database_url)
     return InMemoryAnalysisJobStore()
+
+
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
 
 
 def _normalize_analysis_id(analysis_id: str) -> str:
