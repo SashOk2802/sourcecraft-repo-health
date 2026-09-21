@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
+from datetime import datetime
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import PlainTextResponse
@@ -47,7 +47,8 @@ def create_app(
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         await store.start()
         await jobs.start()
-        await jobs.recover_interrupted(_utc_now())
+        if analysis_dispatcher is not None:
+            await analysis_dispatcher.start()
         try:
             yield
         finally:
@@ -169,10 +170,6 @@ def _default_analysis_job_store() -> AnalysisJobStore:
     if database_url:
         return PostgresAnalysisJobStore(database_url)
     return InMemoryAnalysisJobStore()
-
-
-def _utc_now() -> datetime:
-    return datetime.now(UTC)
 
 
 def _normalize_analysis_id(analysis_id: str) -> str:
