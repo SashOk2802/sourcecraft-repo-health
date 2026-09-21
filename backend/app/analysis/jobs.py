@@ -499,27 +499,27 @@ class PostgresAnalysisJobStore:
             updated = current.interrupted(finished_at)
             saved = await self._require_pool().fetchrow(
                 """
-                UPDATE analysis_jobs
+                UPDATE analysis_jobs AS job
                 SET
                     status = $2,
                     started_at = $3,
                     finished_at = $4,
                     error_code = $5,
                     error_summary = $6
-                WHERE analysis_id = $1 AND status = $7
-                    AND worker_id IS NOT DISTINCT FROM $8
+                WHERE job.analysis_id = $1 AND job.status = $7
+                    AND job.worker_id IS NOT DISTINCT FROM $8
                     AND (
                         (
-                            worker_id IS NOT NULL
+                            job.worker_id IS NOT NULL
                             AND NOT EXISTS (
                                 SELECT 1
                                 FROM analysis_worker_leases AS current_lease
-                                WHERE current_lease.worker_id = analysis_jobs.worker_id
+                                WHERE current_lease.worker_id = job.worker_id
                                     AND current_lease.heartbeat_at >= $9
                             )
                         )
                         OR (
-                            worker_id IS NULL
+                            job.worker_id IS NULL
                             AND EXISTS (
                                 SELECT 1
                                 FROM analysis_job_recovery_state AS recovery_state
