@@ -79,3 +79,60 @@ class InMemoryAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(completed.status, AnalysisJobStatus.COMPLETED)
         self.assertEqual((await store.get("analysis-42")).finished_at, completed.finished_at)
+
+
+    async def test_marks_incomplete_jobs_failed_after_worker_restart(self) -> None:
+        created_at = datetime(2026, 9, 19, 10, tzinfo=UTC)
+        recovery_at = created_at + timedelta(seconds=3)
+        store = InMemoryAnalysisJobStore()
+        queued = AnalysisJob.queued(
+            analysis_id="analysis-queued",
+            repository_id="repo-42",
+            created_at=created_at,
+        )
+        running = AnalysisJob.queued(
+            analysis_id="analysis-running",
+            repository_id="repo-42",
+            created_at=created_at,
+        )
+        completed = AnalysisJob.queued(
+            analysis_id="analysis-completed",
+            repository_id="repo-42",
+            created_at=created_at,
+        )
+
+        await store.create(queued)
+        await store.create(running)
+        await store.create(completed)
+        await store.mark_running(
+            running.analysis_id,
+            created_at + timedelta(seconds=1),
+        )
+        await store.mark_running(
+            completed.analysis_id,
+            created_at + timedelta(seconds=1),
+        )
+        await store.finish(
+            completed.analysis_id,
+            status=AnalysisJobStatus.COMPLETED,
+            finished_at=created_at + timedelta(seconds=2),
+        )
+
+        recovered = await store.recover_interrupted(recovery_at)
+
+        self.assertEqual(
+            {job.analysis_id for job in recovered},
+            {queued.analysis_id, running.analysis_id},
+        )
+        self.assertEqual(
+            (await store.get(queued.analysis_id)).status,
+            AnalysisJobStatus.FAILED,
+        )
+        self.assertEqual(
+            (await store.get(running.analysis_id)).error_code,
+            "worker_interrupted",
+        )
+        self.assertEqual(
+            (await store.get(completed.analysis_id)).status,
+            AnalysisJobStatus.COMPLETED,
+        )
