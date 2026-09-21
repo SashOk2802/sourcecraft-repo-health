@@ -496,6 +496,12 @@ class PostgresAnalysisJobStore:
                     error_code = $5,
                     error_summary = $6
                 WHERE analysis_id = $1 AND status = $7 AND worker_id = $8
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM analysis_worker_leases AS current_lease
+                        WHERE current_lease.worker_id = analysis_jobs.worker_id
+                            AND current_lease.heartbeat_at >= $9
+                    )
                 RETURNING
                     analysis_id, repository_id, status, created_at,
                     started_at, finished_at, error_code, error_summary, worker_id
@@ -508,6 +514,7 @@ class PostgresAnalysisJobStore:
                 updated.error_summary,
                 current.status.value,
                 current.worker_id,
+                stale_before,
             )
             if saved is not None:
                 recovered.append(_job_from_row(saved))
