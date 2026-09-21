@@ -27,6 +27,8 @@ from backend.app.integrations.sourcecraft import SourceCraftClient
 
 # Фабрика обязана вернуть новый клиент на каждый вызов. Модуль закроет его сам.
 # Нельзя отдавать клиент из внешнего with: к моменту collect соединение уже мёртвое.
+# SourceCraftClient.close() отпускает пул только если создал его сам. Фабрика,
+# которая передаёт свой httpx.Client, должна закрывать этот пул сама.
 ClientFactory = Callable[[AnalysisContext], SourceCraftClient]
 
 
@@ -39,6 +41,8 @@ def project_life_analyzer_provider(open_client: ClientFactory) -> AnalyzerProvid
     """
 
     def provide(context: AnalysisContext) -> tuple[AnalyzerRegistration, ...]:
+        # Здесь контекст не нужен: фабрика получит его в evaluate, уже в потоке collect.
+        # Токена в AnalysisContext нет, выбирать токен пользователя на этом шве нельзя.
         del context
         return (
             AnalyzerRegistration(ACTIVITY_CODE, partial(_run_activity, open_client)),

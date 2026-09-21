@@ -20,9 +20,6 @@ PERIOD_START = datetime(2026, 3, 15, 12, 0, tzinfo=UTC)
 REPOSITORY_PATH = "/repos/team/platform"
 PAGE_SIZE = "100"
 
-# Код чужой категории берётся из ядра, а не из отдельной строковой копии теста.
-SECURITY_CODE = next(code for code in CATEGORY_WEIGHTS if code == "security")
-
 REPOSITORY = RepositoryRef(
     id="repo-1",
     organization_slug="team",
@@ -91,10 +88,16 @@ class RecordingOpener:
         self.clients.append(client)
         return client
 
-    def close_leftovers(self) -> None:
-        for client in self.clients:
-            if not client.closed:
-                client.close()
+    def close_leftovers(self) -> list[OwnedClient]:
+        """Закрывает только то, что evaluate не закрыл, и возвращает этот список.
+
+        Пустой список — норма. Непустой значит, что инвариант шва нарушен и
+        соединения спасены уже уборкой теста.
+        """
+        leaked = [client for client in self.clients if not client.closed]
+        for client in leaked:
+            client.close()
+        return leaked
 
 
 def issue(slug: str, *, created_days_ago: int, updated_days_ago: int, status_type: str) -> dict:
@@ -165,11 +168,11 @@ def live_payload(path: str, status_filter: str | None) -> dict:
 class ProjectLifeRegistrationTest(unittest.TestCase):
     """Проверяет шов между диспетчером и категориями Activity и Issues."""
 
-    def test_provider_matches_dispatcher_and_opens_client_only_inside_evaluate(self) -> None:
-        """submit получает регистрации без сети; клиент живёт только внутри evaluate."""
+    def test_client_opens_inside_evaluate_and_closes_before_return(self) -> None:
+        """Регистрации собираются без сети; клиент открывается и закрывается внутри evaluate."""
         opener = RecordingOpener(lambda request: httpx.Response(500))
-        provider = project_life_analyzer_provider(opener)
-        registrations = provider(context())
+        analysis = context()
+        registrations = project_life_analyzer_provider(opener)(analysis)
 
         self.assertEqual(
             tuple(item.category for item in registrations),
@@ -178,13 +181,13 @@ class ProjectLifeRegistrationTest(unittest.TestCase):
         self.assertEqual(opener.clients, [])
 
         try:
-            run_analysis(context(), registrations)
+            run_analysis(analysis, registrations)
+            self.assertEqual(len(opener.clients), 2)
+            self.assert_clients_closed_by_evaluate(opener)
+            self.assert_factory_received_analysis(opener, analysis)
         finally:
-            opener.close_leftovers()
-
-        self.assertEqual(len(opener.clients), 2)
-        self.assertTrue(all(client.closed for client in opener.clients))
-        self.assertEqual(len(opener.contexts), 2)
+            leaked = opener.close_leftovers()
+        self.assertEqual(leaked, [])
 
     def test_run_analysis_reads_every_activity_and_issues_endpoint(self) -> None:
         """Оценка держится на MR, релизах, участниках и задачах, не на одной давности."""
@@ -204,10 +207,14 @@ class ProjectLifeRegistrationTest(unittest.TestCase):
             return httpx.Response(200, json=payload)
 
         opener = RecordingOpener(handler)
+        analysis = context()
         try:
-            execution = run_analysis(context(), project_life_analyzer_provider(opener)(context()))
+            execution = run_analysis(analysis, project_life_analyzer_provider(opener)(analysis))
+            self.assert_clients_closed_by_evaluate(opener)
+            self.assert_factory_received_analysis(opener, analysis)
         finally:
-            opener.close_leftovers()
+            leaked = opener.close_leftovers()
+        self.assertEqual(leaked, [])
 
         activity = category(execution, ACTIVITY_CODE)
         issues = category(execution, ISSUES_CODE)
@@ -224,7 +231,14 @@ class ProjectLifeRegistrationTest(unittest.TestCase):
         )
         self.assertIn("stale_open_ratio", metric_codes(issues))
         self.assertIn("median_days_to_close", metric_codes(issues))
-        self.assertEqual(category(execution, SECURITY_CODE).reason, "analyzer_not_configured")
+        for code in CATEGORY_WEIGHTS:
+            if code in {ACTIVITY_CODE, ISSUES_CODE}:
+                continue
+            self.assertEqual(
+                category(execution, code).reason,
+                "analyzer_not_configured",
+                msg=code,
+            )
         self.assertEqual(
             seen,
             [
@@ -237,7 +251,6 @@ class ProjectLifeRegistrationTest(unittest.TestCase):
                 (f"{REPOSITORY_PATH}/issues", "status=closed", PAGE_SIZE),
             ],
         )
-        self.assertTrue(all(client.closed for client in opener.clients))
 
     def test_issues_outage_keeps_activity_measured(self) -> None:
         """500 только на задачах не обнуляет Activity."""
@@ -272,10 +285,34 @@ class ProjectLifeRegistrationTest(unittest.TestCase):
             return httpx.Response(200, json=payload)
 
         opener = RecordingOpener(handler)
+        analysis = context()
         try:
-            return run_analysis(context(), project_life_analyzer_provider(opener)(context()))
+            execution = run_analysis(analysis, project_life_analyzer_provider(opener)(analysis))
+            self.assert_clients_closed_by_evaluate(opener)
+            self.assert_factory_received_analysis(opener, analysis)
         finally:
-            opener.close_leftovers()
+            leaked = opener.close_leftovers()
+        self.assertEqual(leaked, [])
+        return execution
+
+    def assert_clients_closed_by_evaluate(self, opener: RecordingOpener) -> None:
+        """Клиенты уже закрыты до уборки. Иначе тест зелёный даже без close() в шве."""
+        self.assertTrue(opener.clients)
+        self.assertTrue(all(client.closed for client in opener.clients))
+
+    def assert_factory_received_analysis(
+        self,
+        opener: RecordingOpener,
+        analysis: AnalysisContext,
+    ) -> None:
+        """Фабрика видит тот же запуск, что и run_analysis, а не другой объект с тем же id."""
+        self.assertEqual(len(opener.contexts), len(opener.clients))
+        for seen in opener.contexts:
+            self.assertIs(seen, analysis)
+            self.assertEqual(seen.repository, analysis.repository)
+            self.assertEqual(seen.commit_sha, analysis.commit_sha)
+            self.assertEqual(seen.period_start, analysis.period_start)
+            self.assertEqual(seen.period_end, analysis.period_end)
 
 
 if __name__ == "__main__":
