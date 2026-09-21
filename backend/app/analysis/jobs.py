@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import StrEnum
 from threading import RLock
 from typing import Protocol
@@ -52,6 +52,7 @@ class AnalysisJob:
     finished_at: datetime | None = None
     error_code: str | None = None
     error_summary: str | None = None
+    worker_id: str | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.status, AnalysisJobStatus):
@@ -60,6 +61,8 @@ class AnalysisJob:
             raise ValueError("analysis_id must not contain surrounding whitespace")
         if not self.repository_id.strip():
             raise ValueError("repository_id must not be empty")
+        if self.worker_id is not None and not self.worker_id.strip():
+            raise ValueError("worker_id must not be empty")
         _require_timezone(self.created_at, "created_at")
         _validate_job_state(self)
 
@@ -70,6 +73,7 @@ class AnalysisJob:
         analysis_id: str,
         repository_id: str,
         created_at: datetime,
+        worker_id: str | None = None,
     ) -> AnalysisJob:
         """Создаёт задание, ожидающее обработчик."""
 
@@ -78,6 +82,7 @@ class AnalysisJob:
             repository_id=repository_id.strip(),
             status=AnalysisJobStatus.QUEUED,
             created_at=created_at,
+            worker_id=worker_id.strip() if worker_id is not None else None,
         )
 
     def started(self, started_at: datetime) -> AnalysisJob:
@@ -144,6 +149,14 @@ class AnalysisJobStore(Protocol):
     async def close(self) -> None:
         """Освобождает внешние ресурсы."""
 
+    async def heartbeat_worker(self, worker_id: str, heartbeat_at: datetime) -> None:
+        """Сохраняет heartbeat worker для имитации lease в тестах."""
+
+        _require_worker_id(worker_id)
+        _require_timezone(heartbeat_at, "heartbeat_at")
+        with self._lock:
+            self._worker_heartbeats[worker_id] = heartbeat_at
+
     async def create(self, job: AnalysisJob) -> AnalysisJob:
         """Сохраняет новое задание в состоянии queued."""
 
@@ -164,8 +177,16 @@ class AnalysisJobStore(Protocol):
     ) -> AnalysisJob:
         """Атомарно переводит running в terminal-состояние."""
 
-    async def recover_interrupted(self, finished_at: datetime) -> tuple[AnalysisJob, ...]:
-        """Завершает задания, оставшиеся после остановки in-process worker."""
+    async def heartbeat_worker(self, worker_id: str, heartbeat_at: datetime) -> None:
+        """Продляет lease активного in-process worker."""
+
+    async def recover_abandoned(
+        self,
+        *,
+        finished_at: datetime,
+        stale_before: datetime,
+    ) -> tuple[AnalysisJob, ...]:
+        """Завершает задания только с просроченной lease владельца."""
 
 
 class InMemoryAnalysisJobStore:
@@ -173,6 +194,7 @@ class InMemoryAnalysisJobStore:
 
     def __init__(self) -> None:
         self._jobs: dict[str, AnalysisJob] = {}
+        self._worker_heartbeats: dict[str, datetime] = {}
         self._lock = RLock()
 
     async def start(self) -> None:
@@ -224,15 +246,26 @@ class InMemoryAnalysisJobStore:
             self._jobs[normalized_id] = updated
             return updated
 
-    async def recover_interrupted(self, finished_at: datetime) -> tuple[AnalysisJob, ...]:
-        """Помечает queued и running задания прерванными при новом старте процесса."""
+    async def recover_abandoned(
+        self,
+        *,
+        finished_at: datetime,
+        stale_before: datetime,
+    ) -> tuple[AnalysisJob, ...]:
+        """Завершает только задания, владелец которых не продлил lease."""
 
+        _require_timezone(finished_at, "finished_at")
+        _require_timezone(stale_before, "stale_before")
         with self._lock:
             recovered = tuple(
                 job.interrupted(finished_at)
                 for job in self._jobs.values()
-                if job.status
-                in {AnalysisJobStatus.QUEUED, AnalysisJobStatus.RUNNING}
+                if job.status in {AnalysisJobStatus.QUEUED, AnalysisJobStatus.RUNNING}
+                and job.worker_id is not None
+                and (
+                    self._worker_heartbeats.get(job.worker_id) is None
+                    or self._worker_heartbeats[job.worker_id] < stale_before
+                )
             )
             self._jobs.update({job.analysis_id: job for job in recovered})
             return recovered
@@ -283,9 +316,9 @@ class PostgresAnalysisJobStore:
                 """
                 INSERT INTO analysis_jobs (
                     analysis_id, repository_id, status, created_at,
-                    started_at, finished_at, error_code, error_summary
+                    started_at, finished_at, error_code, error_summary, worker_id
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                 """,
                 job.analysis_id,
                 job.repository_id,
@@ -295,6 +328,7 @@ class PostgresAnalysisJobStore:
                 job.finished_at,
                 job.error_code,
                 job.error_summary,
+                job.worker_id,
             )
         except asyncpg.UniqueViolationError as error:
             raise ValueError("analysis_id already exists") from error
@@ -307,7 +341,7 @@ class PostgresAnalysisJobStore:
             """
             SELECT
                 analysis_id, repository_id, status, created_at,
-                started_at, finished_at, error_code, error_summary
+                started_at, finished_at, error_code, error_summary, worker_id
             FROM analysis_jobs
             WHERE analysis_id = $1
             """,
@@ -315,24 +349,33 @@ class PostgresAnalysisJobStore:
         )
         return _job_from_row(row) if row is not None else None
 
-    async def mark_running(self, analysis_id: str, started_at: datetime) -> AnalysisJob:
-        """Переводит queued в running, не перезаписывая другой переход."""
+    async def mark_running(
+        self,
+        analysis_id: str,
+        started_at: datetime,
+        *,
+        worker_id: str | None = None,
+    ) -> AnalysisJob:
+        """Переводит queued в running, не перезаписывая lease другого worker."""
 
         current = await self._require_existing_job(analysis_id)
+        _require_job_owner(current, worker_id)
         updated = current.started(started_at)
         row = await self._require_pool().fetchrow(
             """
             UPDATE analysis_jobs
             SET status = $2, started_at = $3
             WHERE analysis_id = $1 AND status = $4
+                AND worker_id IS NOT DISTINCT FROM $5
             RETURNING
                 analysis_id, repository_id, status, created_at,
-                started_at, finished_at, error_code, error_summary
+                started_at, finished_at, error_code, error_summary, worker_id
             """,
             updated.analysis_id,
             updated.status.value,
             updated.started_at,
             AnalysisJobStatus.QUEUED.value,
+            worker_id,
         )
         if row is None:
             raise AnalysisJobTransitionError("job state changed before it could start")
@@ -346,10 +389,12 @@ class PostgresAnalysisJobStore:
         finished_at: datetime,
         error_code: str | None = None,
         error_summary: str | None = None,
+        worker_id: str | None = None,
     ) -> AnalysisJob:
-        """Переводит running в terminal-состояние, не перезаписывая другой переход."""
+        """Переводит running в terminal-состояние, не перезаписывая другой lease."""
 
         current = await self._require_existing_job(analysis_id)
+        _require_job_owner(current, worker_id)
         updated = current.finished(
             status=status,
             finished_at=finished_at,
@@ -361,9 +406,10 @@ class PostgresAnalysisJobStore:
             UPDATE analysis_jobs
             SET status = $2, finished_at = $3, error_code = $4, error_summary = $5
             WHERE analysis_id = $1 AND status = $6
+                AND worker_id IS NOT DISTINCT FROM $7
             RETURNING
                 analysis_id, repository_id, status, created_at,
-                started_at, finished_at, error_code, error_summary
+                started_at, finished_at, error_code, error_summary, worker_id
             """,
             updated.analysis_id,
             updated.status.value,
@@ -371,24 +417,54 @@ class PostgresAnalysisJobStore:
             updated.error_code,
             updated.error_summary,
             AnalysisJobStatus.RUNNING.value,
+            worker_id,
         )
         if row is None:
             raise AnalysisJobTransitionError("job state changed before it could finish")
         return _job_from_row(row)
 
-    async def recover_interrupted(self, finished_at: datetime) -> tuple[AnalysisJob, ...]:
-        """Помечает задания, пережившие остановку in-process worker, как failed."""
+    async def heartbeat_worker(self, worker_id: str, heartbeat_at: datetime) -> None:
+        """Создаёт или продлевает PostgreSQL lease одного worker."""
 
+        _require_worker_id(worker_id)
+        _require_timezone(heartbeat_at, "heartbeat_at")
+        await self._require_pool().execute(
+            """
+            INSERT INTO analysis_worker_leases (worker_id, heartbeat_at)
+            VALUES ($1, $2)
+            ON CONFLICT (worker_id)
+            DO UPDATE SET heartbeat_at = EXCLUDED.heartbeat_at
+            """,
+            worker_id,
+            heartbeat_at,
+        )
+
+    async def recover_abandoned(
+        self,
+        *,
+        finished_at: datetime,
+        stale_before: datetime,
+    ) -> tuple[AnalysisJob, ...]:
+        """Завершает только задания владельцев с истёкшей PostgreSQL lease."""
+
+        _require_timezone(finished_at, "finished_at")
+        _require_timezone(stale_before, "stale_before")
         rows = await self._require_pool().fetch(
             """
             SELECT
-                analysis_id, repository_id, status, created_at,
-                started_at, finished_at, error_code, error_summary
-            FROM analysis_jobs
-            WHERE status = ANY($1::text[])
-            ORDER BY created_at
+                job.analysis_id, job.repository_id, job.status, job.created_at,
+                job.started_at, job.finished_at, job.error_code,
+                job.error_summary, job.worker_id
+            FROM analysis_jobs AS job
+            LEFT JOIN analysis_worker_leases AS lease
+                ON lease.worker_id = job.worker_id
+            WHERE job.status = ANY($1::text[])
+                AND job.worker_id IS NOT NULL
+                AND (lease.worker_id IS NULL OR lease.heartbeat_at < $2)
+            ORDER BY job.created_at
             """,
             [AnalysisJobStatus.QUEUED.value, AnalysisJobStatus.RUNNING.value],
+            stale_before,
         )
         recovered: list[AnalysisJob] = []
         for row in rows:
@@ -403,10 +479,10 @@ class PostgresAnalysisJobStore:
                     finished_at = $4,
                     error_code = $5,
                     error_summary = $6
-                WHERE analysis_id = $1 AND status = $7
+                WHERE analysis_id = $1 AND status = $7 AND worker_id = $8
                 RETURNING
                     analysis_id, repository_id, status, created_at,
-                    started_at, finished_at, error_code, error_summary
+                    started_at, finished_at, error_code, error_summary, worker_id
                 """,
                 updated.analysis_id,
                 updated.status.value,
@@ -415,6 +491,7 @@ class PostgresAnalysisJobStore:
                 updated.error_code,
                 updated.error_summary,
                 current.status.value,
+                current.worker_id,
             )
             if saved is not None:
                 recovered.append(_job_from_row(saved))
@@ -430,6 +507,16 @@ class PostgresAnalysisJobStore:
         if self._pool is None:
             raise RuntimeError("Analysis job store is not started.")
         return self._pool
+
+
+def _require_job_owner(job: AnalysisJob, worker_id: str | None) -> None:
+    if job.worker_id != worker_id:
+        raise AnalysisJobTransitionError("job belongs to another worker")
+
+
+def _require_worker_id(worker_id: str) -> None:
+    if not worker_id.strip():
+        raise ValueError("worker_id must not be empty")
 
 
 def _require_timezone(value: datetime, field_name: str) -> None:
@@ -475,6 +562,7 @@ def _job_from_row(row: asyncpg.Record) -> AnalysisJob:
         finished_at=row["finished_at"],
         error_code=row["error_code"],
         error_summary=row["error_summary"],
+        worker_id=row["worker_id"],
     )
 
 
