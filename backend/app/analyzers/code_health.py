@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import os
 import re
 
@@ -37,8 +38,9 @@ def collect(context: AnalysisContext) -> dict:
                 except OSError:
                     # Заменили общий Exception на конкретный OSError по требованию линтера
                     continue
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         return {"error": str(e)}
+
     finally:
         repo.cleanup()
         
