@@ -1,0 +1,41 @@
+{
+  "repositories": [
+    {
+      "id": "repository-id-redacted",
+      "name": "example-private-repository",
+      "default_branch": "main",
+      "organization": {
+        "id": "organization-id-redacted",
+        "slug": "example-organization"
+      },
+      "slug": "example-private-repository",
+      "template_type": "not_a_template",
+      "is_empty": false,
+      "description": "",
+      "visibility": "private",
+      "clone_url": {
+        "https": "https://git@git.sourcecraft.dev/example-organization/example-private-repository.git",
+        "ssh": "ssh://ssh.sourcecraft.dev/example-organization/example-private-repository.git"
+      },
+      "web_url": "https://sourcecraft.dev/example-organization/example-private-repository",
+      "links": [],
+      "counters": {
+        "forks": "0",
+        "pull_requests": "0",
+        "issues": "0",
+        "tags": "0",
+        "branches": "2"
+      },
+      "last_updated": "2026-01-01T00:00:00Z",
+      "language": {
+        "name": "Python",
+        "color": "#3572A5"
+      },
+      "rating": {
+        "value": 0,
+        "reaction_counts": []
+      }
+    }
+  ],
+  "next_page_token": ""
+}
