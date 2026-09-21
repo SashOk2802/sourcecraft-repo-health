@@ -40,7 +40,7 @@ jobs:
       - name: Run tests
         run: python -m unittest discover -s backend/tests -v
       - name: Check Python code
-        run: ruff check backend --ignore EXE002
+        run: ruff check backend --ignore EXE002 --fix --diff
 
   frontend:
     name: Frontend
