@@ -2,6 +2,7 @@
 
 from backend.app.analysis.dispatch import (
     AnalysisDispatcher,
+    AnalysisPrincipal,
     AnalyzerProvider,
     InProcessAnalysisDispatcher,
     RepositoryContextResolver,
@@ -35,6 +36,7 @@ __all__ = [
     "AnalysisExecution",
     "AnalysisExecutionService",
     "AnalysisJob",
+    "AnalysisPrincipal",
     "AnalysisJobNotFoundError",
     "AnalysisJobStatus",
     "AnalysisJobStore",
