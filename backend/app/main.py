@@ -33,7 +33,11 @@ def create_app(
     """Создаёт HTTP-приложение с хранилищами и необязательным worker анализа."""
 
     store = analysis_store or _default_analysis_store()
-    jobs = job_store or _default_analysis_job_store()
+    jobs = job_store or (
+        InMemoryAnalysisJobStore()
+        if analysis_store is not None
+        else _default_analysis_job_store()
+    )
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
