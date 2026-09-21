@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Callable, Iterable
 from datetime import UTC, datetime
@@ -87,7 +88,11 @@ class AnalysisExecutionService:
             )
 
         try:
-            execution = run_analysis(context, analyzers)
+            execution = await asyncio.to_thread(
+                run_analysis,
+                context,
+                tuple(analyzers),
+            )
             status = (
                 AnalysisJobStatus.PARTIAL
                 if execution.score_summary.is_preliminary
