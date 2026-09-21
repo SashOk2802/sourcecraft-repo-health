@@ -146,6 +146,7 @@ class InProcessAnalysisDispatcher:
         while True:
             await asyncio.sleep(self._heartbeat_interval.total_seconds())
             await self._execution_service.heartbeat_worker(self._worker_id)
+            await self._execution_service.recover_abandoned_workers()
 
     async def _execute(
         self,
