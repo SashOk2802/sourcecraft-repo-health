@@ -69,6 +69,15 @@ class AnalysisExecutionService:
 
         await self._job_store.heartbeat_worker(worker_id, self._clock())
 
+    async def recover_abandoned_workers(self) -> tuple[AnalysisJob, ...]:
+        """Завершает задания владельцев, не продливших lease за допустимое время."""
+
+        now = self._clock()
+        return await self._job_store.recover_abandoned(
+            finished_at=now,
+            stale_before=now - self._worker_lease_timeout,
+        )
+
     async def create_job(
         self,
         context: AnalysisContext,
