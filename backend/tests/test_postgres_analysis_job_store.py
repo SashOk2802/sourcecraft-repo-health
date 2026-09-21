@@ -24,6 +24,7 @@ class PostgresAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         self.created_at = datetime(2026, 9, 19, 10, tzinfo=UTC)
         self.analysis_id = f"integration-{uuid4().hex}"
+        self.worker_ids: set[str] = set()
         database_url = os.environ["DATABASE_URL"]
         self.job_store = PostgresAnalysisJobStore(database_url)
         self.snapshot_store = PostgresAnalysisStore(database_url)
@@ -40,6 +41,11 @@ class PostgresAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
             "DELETE FROM analysis_jobs WHERE analysis_id = $1",
             self.analysis_id,
         )
+        if self.worker_ids:
+            await pool.execute(
+                "DELETE FROM analysis_worker_leases WHERE worker_id = ANY($1::text[])",
+                list(self.worker_ids),
+            )
         await self.snapshot_store.close()
         await self.job_store.close()
 
@@ -117,31 +123,47 @@ class PostgresAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
             AnalysisJobStatus.RUNNING,
         )
 
-    async def test_marks_running_job_failed_after_store_restarts(self) -> None:
+    async def test_second_store_does_not_finish_job_with_active_first_worker_lease(
+        self,
+    ) -> None:
+        first_worker = f"worker-first-{uuid4().hex}"
+        second_worker = f"worker-second-{uuid4().hex}"
+        self.worker_ids.update((first_worker, second_worker))
         job = AnalysisJob.queued(
             analysis_id=self.analysis_id,
             repository_id="repo-42",
             created_at=self.created_at,
+            worker_id=first_worker,
+        )
+        await self.job_store.heartbeat_worker(
+            first_worker,
+            self.created_at + timedelta(seconds=1),
         )
         await self.job_store.create(job)
         await self.job_store.mark_running(
             self.analysis_id,
             self.created_at + timedelta(seconds=1),
+            worker_id=first_worker,
         )
 
-        await self.job_store.close()
-        restarted_store = PostgresAnalysisJobStore(os.environ["DATABASE_URL"])
-        await restarted_store.start()
-        self.job_store = restarted_store
+        second_store = PostgresAnalysisJobStore(os.environ["DATABASE_URL"])
+        await second_store.start()
+        try:
+            await second_store.heartbeat_worker(
+                second_worker,
+                self.created_at + timedelta(seconds=2),
+            )
+            recovered = await second_store.recover_abandoned(
+                finished_at=self.created_at + timedelta(seconds=2),
+                stale_before=self.created_at,
+            )
+            restored = await second_store.get(self.analysis_id)
+        finally:
+            await second_store.close()
 
-        recovered = await self.job_store.recover_interrupted(
-            self.created_at + timedelta(seconds=2),
-        )
-        restored = await self.job_store.get(self.analysis_id)
-
-        self.assertEqual([job.analysis_id for job in recovered], [self.analysis_id])
-        self.assertEqual(restored.status, AnalysisJobStatus.FAILED)
-        self.assertEqual(restored.error_code, "worker_interrupted")
+        self.assertEqual(recovered, ())
+        self.assertEqual(restored.status, AnalysisJobStatus.RUNNING)
+        self.assertEqual(restored.worker_id, first_worker)
 
 
 def _context(timestamp: datetime) -> AnalysisContext:
