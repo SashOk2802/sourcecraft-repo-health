@@ -14,24 +14,47 @@
 
 Первый путь используют Docker healthcheck и инфраструктура. Второй — frontend через proxy.
 
-## Отчёты
+## Запуск и состояние анализа
 
-### GET /api/v1/analyses/{analysis_id}/report
+### POST /api/v1/repositories/{repository_id}/analyses
 
-Возвращает JSON-отчёт готового снимка анализа. Если идентификатор неизвестен, backend отвечает `404`.
+Создаёт задание в состоянии `queued` от имени аутентифицированного пользователя и передаёт его обработчику. Возвращает `202 Accepted`.
 
-### GET /api/v1/analyses/{analysis_id}/report.md
+~~~json
+{
+  "id": "analysis-2026-09-21",
+  "status": "queued",
+  "repository": { "id": "repo-42" },
+  "score": null,
+  "isPreliminary": null,
+  "createdAt": "2026-09-21T12:30:00Z",
+  "startedAt": null,
+  "finishedAt": null,
+  "error": null,
+  "reportUrl": null,
+  "markdownReportUrl": null
+}
+~~~
 
-Возвращает Markdown для того же снимка и также отвечает `404` для неизвестного идентификатора.
+Ошибки:
 
-При заданной переменной DATABASE_URL снимки хранятся в PostgreSQL и доступны после перезапуска backend. Без DATABASE_URL используется временное хранилище в памяти только для локальных тестов. Подробнее — в docs/postgres-analysis-store.md.
+| Статус | Причина |
+| --- | --- |
+| 401 | Запрос не содержит проверенную пользовательскую идентичность |
+| 403 | У пользователя нет доступа к репозиторию |
+| 404 | Репозиторий не найден |
+| 422 | Передан некорректный ID репозитория |
+| 503 | Не настроен SourceCraft-dispatcher или слой аутентификации |
 
+HTTP-слой передаёт в dispatcher только проверенный `AnalysisPrincipal` без токенов и секретов. Resolver обязан проверять этим principal доступ к каждому репозиторию; отказ возвращается как `403`. До подключения аутентификации и реального SourceCraft-resolver стандартное приложение корректно отвечает `503`, а не анализирует репозитории сервисным токеном от имени любого клиента. Для тестов и локальной интеграции `create_app` принимает готовые dispatcher и principal provider.
 
 ### GET /api/v1/analyses/{analysis_id}
 
-Возвращает состояние уже сохранённого анализа, итоговый Score и ссылки на его JSON- и Markdown-отчёты. Этот маршрут возвращает terminal-состояния completed и partial; состояния очереди появятся вместе с запуском фонового анализа.
+Возвращает актуальное состояние одного анализа: `queued`, `running`, `completed`, `partial` или `failed`.
 
-Пример:
+Пока запуск выполняется, `score`, `isPreliminary` и ссылки на отчёты равны `null`. После `completed` или `partial` backend подставляет Score, данные репозитория и ссылки на сохранённый отчёт. Для `failed` поле `error` содержит безопасный код и текст ошибки.
+
+Пример завершённого частичного анализа:
 
 ~~~json
 {
@@ -40,10 +63,26 @@
   "repository": { "id": "repo-42", "name": "team/platform-api" },
   "score": 73.4,
   "isPreliminary": true,
+  "createdAt": "2026-09-15T12:00:00Z",
+  "startedAt": "2026-09-15T12:00:01Z",
+  "finishedAt": "2026-09-15T12:00:04Z",
+  "error": null,
   "reportUrl": "/api/v1/analyses/analysis-2026-09-15/report",
   "markdownReportUrl": "/api/v1/analyses/analysis-2026-09-15/report.md"
 }
 ~~~
+
+## Отчёты
+
+### GET /api/v1/analyses/{analysis_id}/report
+
+Возвращает JSON-отчёт готового снимка анализа. Пока отчёта нет или идентификатор неизвестен, backend отвечает `404`.
+
+### GET /api/v1/analyses/{analysis_id}/report.md
+
+Возвращает Markdown для того же снимка и также отвечает `404`, пока результат не сохранён.
+
+При заданной переменной DATABASE_URL снимки и задания хранятся в PostgreSQL и доступны после перезапуска backend. Без DATABASE_URL используется временное хранилище в памяти только для локальных тестов. Подробнее — в docs/postgres-analysis-store.md.
 
 ## Формат JSON-отчёта
 

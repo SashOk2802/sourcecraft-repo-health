@@ -79,3 +79,54 @@ class InMemoryAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(completed.status, AnalysisJobStatus.COMPLETED)
         self.assertEqual((await store.get("analysis-42")).finished_at, completed.finished_at)
+
+
+    async def test_recovers_only_jobs_of_workers_with_expired_leases(self) -> None:
+        created_at = datetime(2026, 9, 19, 10, tzinfo=UTC)
+        active_worker = "worker-active"
+        abandoned_worker = "worker-abandoned"
+        store = InMemoryAnalysisJobStore()
+        active = AnalysisJob.queued(
+            analysis_id="analysis-active",
+            repository_id="repo-42",
+            created_at=created_at,
+            worker_id=active_worker,
+        )
+        abandoned = AnalysisJob.queued(
+            analysis_id="analysis-abandoned",
+            repository_id="repo-42",
+            created_at=created_at,
+            worker_id=abandoned_worker,
+        )
+
+        await store.create(active)
+        await store.create(abandoned)
+        await store.mark_running(
+            active.analysis_id,
+            created_at + timedelta(seconds=1),
+            worker_id=active_worker,
+        )
+        await store.mark_running(
+            abandoned.analysis_id,
+            created_at + timedelta(seconds=1),
+            worker_id=abandoned_worker,
+        )
+        await store.heartbeat_worker(
+            active_worker,
+            created_at + timedelta(seconds=2),
+        )
+
+        recovered = await store.recover_abandoned(
+            finished_at=created_at + timedelta(seconds=3),
+            stale_before=created_at + timedelta(seconds=1),
+        )
+
+        self.assertEqual([job.analysis_id for job in recovered], [abandoned.analysis_id])
+        self.assertEqual(
+            (await store.get(active.analysis_id)).status,
+            AnalysisJobStatus.RUNNING,
+        )
+        self.assertEqual(
+            (await store.get(abandoned.analysis_id)).error_code,
+            "worker_interrupted",
+        )

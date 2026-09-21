@@ -1,5 +1,12 @@
 """Оркестрация запуска анализаторов и сборка общего результата."""
 
+from backend.app.analysis.dispatch import (
+    AnalysisDispatcher,
+    AnalysisPrincipal,
+    AnalyzerProvider,
+    InProcessAnalysisDispatcher,
+    RepositoryContextResolver,
+)
 from backend.app.analysis.executor import AnalysisExecutionService
 from backend.app.analysis.jobs import (
     AnalysisJob,
@@ -25,6 +32,7 @@ from backend.app.analysis.store import (
 )
 
 __all__ = [
+    "AnalysisDispatcher",
     "AnalysisExecution",
     "AnalysisExecutionService",
     "AnalysisJob",
@@ -32,14 +40,18 @@ __all__ = [
     "AnalysisJobStatus",
     "AnalysisJobStore",
     "AnalysisJobTransitionError",
+    "AnalysisPrincipal",
     "AnalysisSnapshot",
     "AnalysisStore",
+    "AnalyzerProvider",
     "AnalyzerRegistration",
     "CategoryEvaluator",
     "InMemoryAnalysisJobStore",
     "InMemoryAnalysisStore",
+    "InProcessAnalysisDispatcher",
     "PostgresAnalysisJobStore",
     "PostgresAnalysisStore",
+    "RepositoryContextResolver",
     "normalize_analysis_id",
     "run_analysis",
 ]
