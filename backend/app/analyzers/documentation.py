@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 from app.contracts import AnalysisContext, CategoryResult, DataStatus, MetricItem, Recommendation
 from app.integrations.git_repository import LocalGitRepository
 
