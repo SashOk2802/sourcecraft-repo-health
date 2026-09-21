@@ -117,7 +117,6 @@ class PostgresAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
             AnalysisJobStatus.RUNNING,
         )
 
-
     async def test_marks_running_job_failed_after_store_restarts(self) -> None:
         job = AnalysisJob.queued(
             analysis_id=self.analysis_id,
