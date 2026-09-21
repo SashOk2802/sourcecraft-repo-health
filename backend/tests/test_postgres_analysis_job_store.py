@@ -164,6 +164,70 @@ class PostgresAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(restored.status, AnalysisJobStatus.RUNNING)
         self.assertEqual(restored.worker_id, first_worker)
 
+    async def test_recovers_legacy_ownerless_job_after_migration_grace_period(
+        self,
+    ) -> None:
+        job = AnalysisJob.queued(
+            analysis_id=self.analysis_id,
+            repository_id="repo-42",
+            created_at=self.created_at,
+        )
+        await self.job_store.create(job)
+        await self.job_store.mark_running(
+            self.analysis_id,
+            self.created_at + timedelta(seconds=1),
+        )
+
+        pool = self.job_store._require_pool()
+        original_grace_deadline = await pool.fetchval(
+            """
+            SELECT ownerless_recovery_after
+            FROM analysis_job_recovery_state
+            WHERE id = 1
+            """
+        )
+        try:
+            await pool.execute(
+                """
+                UPDATE analysis_job_recovery_state
+                SET ownerless_recovery_after = $1
+                WHERE id = 1
+                """,
+                self.created_at + timedelta(seconds=3),
+            )
+            during_grace = await self.job_store.recover_abandoned(
+                finished_at=self.created_at + timedelta(seconds=2),
+                stale_before=self.created_at,
+            )
+
+            await pool.execute(
+                """
+                UPDATE analysis_job_recovery_state
+                SET ownerless_recovery_after = $1
+                WHERE id = 1
+                """,
+                self.created_at + timedelta(seconds=2),
+            )
+            recovered = await self.job_store.recover_abandoned(
+                finished_at=self.created_at + timedelta(seconds=3),
+                stale_before=self.created_at,
+            )
+        finally:
+            await pool.execute(
+                """
+                UPDATE analysis_job_recovery_state
+                SET ownerless_recovery_after = $1
+                WHERE id = 1
+                """,
+                original_grace_deadline,
+            )
+
+        restored = await self.job_store.get(self.analysis_id)
+        self.assertEqual(during_grace, ())
+        self.assertEqual([item.analysis_id for item in recovered], [self.analysis_id])
+        self.assertEqual(restored.status, AnalysisJobStatus.FAILED)
+        self.assertEqual(restored.error_code, "worker_interrupted")
+
 
 def _context(timestamp: datetime) -> AnalysisContext:
     return AnalysisContext(
