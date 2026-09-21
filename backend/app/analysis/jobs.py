@@ -185,7 +185,7 @@ class AnalysisJobStore(Protocol):
         finished_at: datetime,
         stale_before: datetime,
     ) -> tuple[AnalysisJob, ...]:
-        """Завершает задания только с просроченной lease владельца."""
+        """Завершает задания с просроченной lease и legacy-задачи после drain."""
 
 
 class InMemoryAnalysisJobStore:
@@ -461,7 +461,7 @@ class PostgresAnalysisJobStore:
         finished_at: datetime,
         stale_before: datetime,
     ) -> tuple[AnalysisJob, ...]:
-        """Завершает только задания владельцев с истёкшей PostgreSQL lease."""
+        """Завершает задания с истёкшей lease и ownerless legacy-задачи после drain."""
 
         _require_timezone(finished_at, "finished_at")
         _require_timezone(stale_before, "stale_before")
