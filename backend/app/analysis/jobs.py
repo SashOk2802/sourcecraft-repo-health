@@ -149,9 +149,6 @@ class AnalysisJobStore(Protocol):
     async def close(self) -> None:
         """Освобождает внешние ресурсы."""
 
-    async def heartbeat_worker(self, worker_id: str, heartbeat_at: datetime) -> None:
-        """Продляет lease активного in-process worker."""
-
     async def create(self, job: AnalysisJob) -> AnalysisJob:
         """Сохраняет новое задание в состоянии queued."""
 
