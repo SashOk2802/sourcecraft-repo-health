@@ -118,6 +118,33 @@ class PostgresAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
         )
 
 
+    async def test_marks_running_job_failed_after_store_restarts(self) -> None:
+        job = AnalysisJob.queued(
+            analysis_id=self.analysis_id,
+            repository_id="repo-42",
+            created_at=self.created_at,
+        )
+        await self.job_store.create(job)
+        await self.job_store.mark_running(
+            self.analysis_id,
+            self.created_at + timedelta(seconds=1),
+        )
+
+        await self.job_store.close()
+        restarted_store = PostgresAnalysisJobStore(os.environ["DATABASE_URL"])
+        await restarted_store.start()
+        self.job_store = restarted_store
+
+        recovered = await self.job_store.recover_interrupted(
+            self.created_at + timedelta(seconds=2),
+        )
+        restored = await self.job_store.get(self.analysis_id)
+
+        self.assertEqual([job.analysis_id for job in recovered], [self.analysis_id])
+        self.assertEqual(restored.status, AnalysisJobStatus.FAILED)
+        self.assertEqual(restored.error_code, "worker_interrupted")
+
+
 def _context(timestamp: datetime) -> AnalysisContext:
     return AnalysisContext(
         repository=RepositoryRef("repo-42", "team", "platform-api"),
