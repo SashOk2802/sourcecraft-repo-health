@@ -81,58 +81,52 @@ class InMemoryAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await store.get("analysis-42")).finished_at, completed.finished_at)
 
 
-    async def test_marks_incomplete_jobs_failed_after_worker_restart(self) -> None:
+    async def test_recovers_only_jobs_of_workers_with_expired_leases(self) -> None:
         created_at = datetime(2026, 9, 19, 10, tzinfo=UTC)
-        recovery_at = created_at + timedelta(seconds=3)
+        active_worker = "worker-active"
+        abandoned_worker = "worker-abandoned"
         store = InMemoryAnalysisJobStore()
-        queued = AnalysisJob.queued(
-            analysis_id="analysis-queued",
+        active = AnalysisJob.queued(
+            analysis_id="analysis-active",
             repository_id="repo-42",
             created_at=created_at,
+            worker_id=active_worker,
         )
-        running = AnalysisJob.queued(
-            analysis_id="analysis-running",
+        abandoned = AnalysisJob.queued(
+            analysis_id="analysis-abandoned",
             repository_id="repo-42",
             created_at=created_at,
-        )
-        completed = AnalysisJob.queued(
-            analysis_id="analysis-completed",
-            repository_id="repo-42",
-            created_at=created_at,
+            worker_id=abandoned_worker,
         )
 
-        await store.create(queued)
-        await store.create(running)
-        await store.create(completed)
+        await store.create(active)
+        await store.create(abandoned)
         await store.mark_running(
-            running.analysis_id,
+            active.analysis_id,
             created_at + timedelta(seconds=1),
+            worker_id=active_worker,
         )
         await store.mark_running(
-            completed.analysis_id,
+            abandoned.analysis_id,
             created_at + timedelta(seconds=1),
+            worker_id=abandoned_worker,
         )
-        await store.finish(
-            completed.analysis_id,
-            status=AnalysisJobStatus.COMPLETED,
-            finished_at=created_at + timedelta(seconds=2),
+        await store.heartbeat_worker(
+            active_worker,
+            created_at + timedelta(seconds=2),
         )
 
-        recovered = await store.recover_interrupted(recovery_at)
+        recovered = await store.recover_abandoned(
+            finished_at=created_at + timedelta(seconds=3),
+            stale_before=created_at + timedelta(seconds=1),
+        )
 
+        self.assertEqual([job.analysis_id for job in recovered], [abandoned.analysis_id])
         self.assertEqual(
-            {job.analysis_id for job in recovered},
-            {queued.analysis_id, running.analysis_id},
+            (await store.get(active.analysis_id)).status,
+            AnalysisJobStatus.RUNNING,
         )
         self.assertEqual(
-            (await store.get(queued.analysis_id)).status,
-            AnalysisJobStatus.FAILED,
-        )
-        self.assertEqual(
-            (await store.get(running.analysis_id)).error_code,
+            (await store.get(abandoned.analysis_id)).error_code,
             "worker_interrupted",
-        )
-        self.assertEqual(
-            (await store.get(completed.analysis_id)).status,
-            AnalysisJobStatus.COMPLETED,
         )
