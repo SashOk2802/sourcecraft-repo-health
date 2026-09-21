@@ -13,6 +13,7 @@ from fastapi.responses import PlainTextResponse
 from backend.app.analysis import (
     AnalysisDispatcher,
     AnalysisJob,
+    AnalysisJobStore,
     AnalysisSnapshot,
     AnalysisStore,
     InMemoryAnalysisJobStore,
