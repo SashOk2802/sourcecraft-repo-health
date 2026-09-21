@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Callable, Iterable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from backend.app.analysis.jobs import (
     AnalysisJob,
@@ -29,6 +29,7 @@ class AnalysisExecutionService:
         job_store: AnalysisJobStore,
         snapshot_store: AnalysisStore,
         clock: Callable[[], datetime] | None = None,
+        worker_lease_timeout: timedelta = timedelta(seconds=30),
     ) -> None:
         job_store_is_postgres = isinstance(job_store, PostgresAnalysisJobStore)
         snapshot_store_is_postgres = isinstance(snapshot_store, PostgresAnalysisStore)
@@ -48,15 +49,40 @@ class AnalysisExecutionService:
         self._postgres_snapshot_store = (
             snapshot_store if snapshot_store_is_postgres else None
         )
+        if worker_lease_timeout <= timedelta():
+            raise ValueError("worker_lease_timeout must be positive")
         self._clock = clock or _utc_now
+        self._worker_lease_timeout = worker_lease_timeout
 
-    async def create_job(self, context: AnalysisContext, analysis_id: str) -> AnalysisJob:
+    async def start_worker(self, worker_id: str) -> tuple[AnalysisJob, ...]:
+        """Продлевает собственную lease и завершает только задания мёртвых worker."""
+
+        now = self._clock()
+        await self._job_store.heartbeat_worker(worker_id, now)
+        return await self._job_store.recover_abandoned(
+            finished_at=now,
+            stale_before=now - self._worker_lease_timeout,
+        )
+
+    async def heartbeat_worker(self, worker_id: str) -> None:
+        """Продлевает lease worker во время длительных запусков."""
+
+        await self._job_store.heartbeat_worker(worker_id, self._clock())
+
+    async def create_job(
+        self,
+        context: AnalysisContext,
+        analysis_id: str,
+        *,
+        worker_id: str | None = None,
+    ) -> AnalysisJob:
         """Создаёт queued-запуск до постановки его в очередь обработчику."""
 
         job = AnalysisJob.queued(
             analysis_id=analysis_id,
             repository_id=context.repository.id,
             created_at=self._clock(),
+            worker_id=worker_id,
         )
         return await self._job_store.create(job)
 
@@ -66,10 +92,15 @@ class AnalysisExecutionService:
         analysis_id: str,
         context: AnalysisContext,
         analyzers: Iterable[AnalyzerRegistration],
+        worker_id: str | None = None,
     ) -> AnalysisJob:
         """Выполняет анализаторы и сохраняет terminal-состояние вместо исключения наружу."""
 
-        job = await self._job_store.mark_running(analysis_id, self._clock())
+        job = await self._job_store.mark_running(
+            analysis_id,
+            self._clock(),
+            worker_id=worker_id,
+        )
         if job.repository_id != context.repository.id:
             logger.error(
                 "Контекст запуска не соответствует репозиторию задания.",
@@ -85,6 +116,7 @@ class AnalysisExecutionService:
                 finished_at=self._clock(),
                 error_code="repository_mismatch",
                 error_summary="Контекст запуска относится к другому репозиторию.",
+                worker_id=worker_id,
             )
 
         try:
@@ -104,6 +136,7 @@ class AnalysisExecutionService:
                     execution,
                     status=status,
                     finished_at=self._clock(),
+                    worker_id=worker_id,
                 )
 
             await self._snapshot_store.save(job.analysis_id, execution)
@@ -111,6 +144,7 @@ class AnalysisExecutionService:
                 job.analysis_id,
                 status=status,
                 finished_at=self._clock(),
+                worker_id=worker_id,
             )
         except Exception:
             logger.exception(
@@ -123,6 +157,7 @@ class AnalysisExecutionService:
                 finished_at=self._clock(),
                 error_code="analysis_execution_failed",
                 error_summary="Не удалось выполнить анализ репозитория.",
+                worker_id=worker_id,
             )
 
 
