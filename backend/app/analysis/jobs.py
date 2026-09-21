@@ -474,13 +474,24 @@ class PostgresAnalysisJobStore:
             FROM analysis_jobs AS job
             LEFT JOIN analysis_worker_leases AS lease
                 ON lease.worker_id = job.worker_id
+            LEFT JOIN analysis_job_recovery_state AS recovery_state
+                ON recovery_state.id = 1
             WHERE job.status = ANY($1::text[])
-                AND job.worker_id IS NOT NULL
-                AND (lease.worker_id IS NULL OR lease.heartbeat_at < $2)
+                AND (
+                    (
+                        job.worker_id IS NOT NULL
+                        AND (lease.worker_id IS NULL OR lease.heartbeat_at < $2)
+                    )
+                    OR (
+                        job.worker_id IS NULL
+                        AND recovery_state.ownerless_recovery_after <= $3
+                    )
+                )
             ORDER BY job.created_at
             """,
             [AnalysisJobStatus.QUEUED.value, AnalysisJobStatus.RUNNING.value],
             stale_before,
+            finished_at,
         )
         recovered: list[AnalysisJob] = []
         for row in rows:
@@ -495,12 +506,27 @@ class PostgresAnalysisJobStore:
                     finished_at = $4,
                     error_code = $5,
                     error_summary = $6
-                WHERE analysis_id = $1 AND status = $7 AND worker_id = $8
-                    AND NOT EXISTS (
-                        SELECT 1
-                        FROM analysis_worker_leases AS current_lease
-                        WHERE current_lease.worker_id = analysis_jobs.worker_id
-                            AND current_lease.heartbeat_at >= $9
+                WHERE analysis_id = $1 AND status = $7
+                    AND worker_id IS NOT DISTINCT FROM $8
+                    AND (
+                        (
+                            worker_id IS NOT NULL
+                            AND NOT EXISTS (
+                                SELECT 1
+                                FROM analysis_worker_leases AS current_lease
+                                WHERE current_lease.worker_id = analysis_jobs.worker_id
+                                    AND current_lease.heartbeat_at >= $9
+                            )
+                        )
+                        OR (
+                            worker_id IS NULL
+                            AND EXISTS (
+                                SELECT 1
+                                FROM analysis_job_recovery_state AS recovery_state
+                                WHERE recovery_state.id = 1
+                                    AND recovery_state.ownerless_recovery_after <= $10
+                            )
+                        )
                     )
                 RETURNING
                     analysis_id, repository_id, status, created_at,
@@ -515,6 +541,7 @@ class PostgresAnalysisJobStore:
                 current.status.value,
                 current.worker_id,
                 stale_before,
+                finished_at,
             )
             if saved is not None:
                 recovered.append(_job_from_row(saved))
