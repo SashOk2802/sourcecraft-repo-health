@@ -26,13 +26,36 @@ def upgrade() -> None:
             sa.Column("worker_id", sa.Text(), nullable=True),
         )
 
-    if "analysis_worker_leases" not in set(inspector.get_table_names()):
+    existing_tables = set(inspector.get_table_names())
+    if "analysis_worker_leases" not in existing_tables:
         op.create_table(
             "analysis_worker_leases",
             sa.Column("worker_id", sa.Text(), primary_key=True),
             sa.Column("heartbeat_at", sa.DateTime(timezone=True), nullable=False),
         )
 
+    if "analysis_job_recovery_state" not in existing_tables:
+        op.create_table(
+            "analysis_job_recovery_state",
+            sa.Column("id", sa.SmallInteger(), primary_key=True),
+            sa.Column(
+                "ownerless_recovery_after",
+                sa.DateTime(timezone=True),
+                nullable=False,
+            ),
+            sa.CheckConstraint("id = 1", name="ck_analysis_job_recovery_state_id"),
+        )
+
+    op.execute(
+        sa.text(
+            """
+            INSERT INTO analysis_job_recovery_state (id, ownerless_recovery_after)
+            VALUES (1, CURRENT_TIMESTAMP + INTERVAL '5 minutes')
+            ON CONFLICT (id) DO NOTHING
+            """
+        )
+    )
+
 
 def downgrade() -> None:
-    """Не удаляет lease и worker_id, чтобы downgrade не потерял состояние заданий."""
+    """Не удаляет lease и recovery-state, чтобы downgrade не потерял состояние."""
