@@ -1,5 +1,7 @@
+#!/usr/bin/env python
 from app.contracts import AnalysisContext, CategoryResult, DataStatus, MetricItem, Recommendation
 from app.integrations.git_repository import LocalGitRepository
+
 
 def collect(context: AnalysisContext) -> dict:
     """Собирает факты о наличии документации."""
@@ -14,8 +16,9 @@ def collect(context: AnalysisContext) -> dict:
         # Проверяем, есть ли в README упоминания про запуск/тесты
         readme_content = repo.read_file("README.md") or ""
         facts["has_shortcuts"] = any(x in readme_content.lower() for x in ["docker", "run", "pytest", "test"])
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         facts["error"] = str(e)
+
     finally:
         repo.cleanup()
         
