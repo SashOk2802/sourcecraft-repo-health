@@ -303,7 +303,7 @@ def _fetch_status_group(
             client, path, status=status, max_pages=max_pages
         )
         if error is not None:
-            errors.append(error)
+            errors.append(f"{status}: {error}")
             continue
         successes += 1
         combined.extend(items)
@@ -311,7 +311,9 @@ def _fetch_status_group(
 
     if successes == 0:
         return [], False, "; ".join(errors)
-    return _dedupe_raw_issues(combined), truncated, None
+    # Частичный сбой нельзя прятать: иначе неполный open+in_progress выглядит как полный список.
+    partial_error = "; ".join(errors) if errors else None
+    return _dedupe_raw_issues(combined), truncated, partial_error
 
 
 def collect(

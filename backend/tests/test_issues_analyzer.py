@@ -478,6 +478,49 @@ class IssuesCollectTest(unittest.TestCase):
         self.assertEqual(len(facts.open_issues), 1)
         self.assertIs(evaluate(facts, context()).status, DataStatus.MEASURED)
 
+    def test_collect_keeps_partial_open_error_when_in_progress_fails(self) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            status_filter = request.url.params.get("filter")
+            if status_filter == "status=in_progress":
+                return httpx.Response(500)
+            if status_filter == "status=closed":
+                return httpx.Response(
+                    200,
+                    json={
+                        "issues": [
+                            raw_issue(
+                                f"closed-{index}",
+                                created_days_ago=20,
+                                updated_days_ago=5,
+                                completed_days_ago=5,
+                            )
+                            for index in range(3)
+                        ],
+                        "next_page_token": "",
+                    },
+                )
+            return httpx.Response(
+                200,
+                json={
+                    "issues": [open_issue("1", created_days_ago=400, updated_days_ago=200)],
+                    "next_page_token": "",
+                },
+            )
+
+        facts = collect(make_client(handler), REPOSITORY)
+
+        self.assertIsNotNone(facts.open_error)
+        self.assertIn("in_progress", facts.open_error or "")
+        self.assertEqual(len(facts.open_issues), 1)
+        self.assertIsNone(facts.closed_error)
+        self.assertEqual(len(facts.closed_issues), 3)
+
+        result = evaluate(facts, context())
+
+        self.assertIs(result.status, DataStatus.MEASURED)
+        self.assertEqual({metric.code for metric in result.metrics}, {"median_days_to_close"})
+        self.assertIn("часть данных недоступна", result.summary)
+
 
 if __name__ == "__main__":
     unittest.main()

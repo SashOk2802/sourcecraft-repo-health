@@ -6,54 +6,25 @@
   "item": {
     "id": "0198c7be-d6b9-7a10-ada3-2781be8eaefa",
     "name": "userver",
-    "default_branch": "develop",
-    "organization": {
-      "id": "01989b92-2dc6-7a00-90b0-a3f7a6f6dd14",
-      "slug": "userver"
-    },
     "slug": "userver",
-    "template_type": "not_a_template",
-    "is_empty": false,
-    "description": "Production-ready C++ Asynchronous Framework with rich functionality",
     "visibility": "public",
-    "logo": {
-      "url": "https://storage.yandexcloud.net/yc-sourcecraft-user-uploads/272350bf-5077-41ea-8b31-8161e4d5ee19"
-    },
-    "clone_url": {
-      "https": "https://git@git.sourcecraft.dev/userver/userver.git",
-      "ssh": "ssh://ssh.sourcecraft.dev/userver/userver.git"
-    },
     "web_url": "https://sourcecraft.dev/userver/userver",
-    "links": [],
+    "last_updated": "2026-09-18T13:52:16.652533Z",
+    "default_branch": "develop",
+    "is_empty": false,
+    "language": {
+      "name": "C++"
+    },
     "counters": {
-      "forks": "1",
-      "pull_requests": "0",
       "issues": "0",
+      "pull_requests": "0",
+      "forks": "1",
       "tags": "13",
       "branches": "11"
     },
-    "last_updated": "2026-09-18T13:52:16.652533Z",
-    "language": {
-      "name": "C++",
-      "color": "#f34b7d"
-    },
-    "rating": {
-      "value": 61.5,
-      "percentile": 2,
-      "reaction_counts": [
-        {
-          "type": "positive_low",
-          "count": "4"
-        },
-        {
-          "type": "positive_medium",
-          "count": "1"
-        },
-        {
-          "type": "positive_high",
-          "count": "11"
-        }
-      ]
+    "organization": {
+      "id": "01989b92-2dc6-7a00-90b0-a3f7a6f6dd14",
+      "slug": "userver"
     }
   }
 }

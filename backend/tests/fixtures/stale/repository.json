@@ -6,51 +6,25 @@
   "item": {
     "id": "019a1698-1e96-71a3-adce-92d65c9f20db",
     "name": "casesc",
-    "default_branch": "main",
-    "organization": {
-      "id": "019a1682-8e5a-7583-93a4-1bc15a1c3da2",
-      "slug": "brothersandksu"
-    },
     "slug": "casesc",
-    "template_type": "not_a_template",
-    "is_empty": false,
-    "description": "",
     "visibility": "public",
-    "clone_url": {
-      "https": "https://git@git.sourcecraft.dev/brothersandksu/casesc.git",
-      "ssh": "ssh://ssh.sourcecraft.dev/brothersandksu/casesc.git"
-    },
     "web_url": "https://sourcecraft.dev/brothersandksu/casesc",
-    "links": [],
+    "last_updated": "2025-10-26T11:09:59.857733Z",
+    "default_branch": "main",
+    "is_empty": false,
+    "language": {
+      "name": "Go"
+    },
     "counters": {
-      "forks": "3",
-      "pull_requests": "9",
       "issues": "6",
+      "pull_requests": "9",
+      "forks": "3",
       "tags": "0",
       "branches": "1"
     },
-    "last_updated": "2025-10-26T11:09:59.857733Z",
-    "language": {
-      "name": "Go",
-      "color": "#00ADD8"
-    },
-    "rating": {
-      "value": 98.5,
-      "percentile": 2,
-      "reaction_counts": [
-        {
-          "type": "positive_low",
-          "count": "1"
-        },
-        {
-          "type": "positive_medium",
-          "count": "1"
-        },
-        {
-          "type": "positive_high",
-          "count": "19"
-        }
-      ]
+    "organization": {
+      "id": "019a1682-8e5a-7583-93a4-1bc15a1c3da2",
+      "slug": "brothersandksu"
     }
   }
 }

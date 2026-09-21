@@ -27,6 +27,23 @@ def load_envelope(label: str, name: str) -> dict[str, Any]:
     return json.loads((FIXTURES / label / f"{name}.json").read_text(encoding="utf-8"))
 
 
+def _collect_forbidden_keys(
+    payload: Any,
+    forbidden: set[str],
+    prefix: str,
+    offenders: list[str],
+) -> None:
+    if isinstance(payload, dict):
+        for key, value in payload.items():
+            location = f"{prefix}.{key}"
+            if key in forbidden:
+                offenders.append(location)
+            _collect_forbidden_keys(value, forbidden, location, offenders)
+    elif isinstance(payload, list):
+        for index, item in enumerate(payload):
+            _collect_forbidden_keys(item, forbidden, f"{prefix}[{index}]", offenders)
+
+
 def analyze(label: str) -> CategoryResult:
     repository_raw = load_envelope(label, "repository")["item"]
     organization = repository_raw.get("organization") or {}
@@ -38,15 +55,25 @@ def analyze(label: str) -> CategoryResult:
     )
 
     open_envelope = load_envelope(label, "issues_open")
+    in_progress_envelope = load_envelope(label, "issues_in_progress")
     closed_envelope = load_envelope(label, "issues_closed")
+    open_errors = [
+        error
+        for error in (
+            open_envelope["_meta"].get("error"),
+            in_progress_envelope["_meta"].get("error"),
+        )
+        if error
+    ]
     facts = build_facts(
-        open_envelope["items"],
+        list(open_envelope["items"]) + list(in_progress_envelope["items"]),
         closed_envelope["items"],
-        open_truncated=bool(open_envelope["_meta"]["truncated"]),
+        open_truncated=bool(open_envelope["_meta"]["truncated"])
+        or bool(in_progress_envelope["_meta"]["truncated"]),
         closed_truncated=bool(closed_envelope["_meta"]["truncated"]),
         # Скрипт сбора записывает сбой источника в _meta.error; без переноса в факты
         # пустой ответ после ошибки выглядел бы как «задач нет».
-        open_error=open_envelope["_meta"].get("error"),
+        open_error="; ".join(open_errors) or None,
         closed_error=closed_envelope["_meta"].get("error"),
     )
 
@@ -72,7 +99,7 @@ class IssuesOnRealRepositoriesTest(unittest.TestCase):
         self.assertIsNotNone(result.reason)
 
     def test_popular_project_with_abandoned_tracker_scores_zero(self) -> None:
-        """divkit/divkit: код обновляется, но ни одна из 16 задач не двигалась год."""
+        """divkit/divkit: код обновляется, но открытые и in_progress задачи стоят год."""
         result = analyze("abandoned-tracker")
 
         self.assertIs(result.status, DataStatus.MEASURED)
@@ -136,6 +163,54 @@ class IssuesOnRealRepositoriesTest(unittest.TestCase):
 
         self.assertEqual(first.score, second.score)
         self.assertEqual(first.summary, second.summary)
+
+    def test_loader_merges_in_progress_with_open(self) -> None:
+        """Production-анализатор складывает open и in_progress; фикстуры должны делать так же."""
+        open_items = load_envelope("abandoned-tracker", "issues_open")["items"]
+        in_progress_items = load_envelope("abandoned-tracker", "issues_in_progress")["items"]
+        closed_items = load_envelope("abandoned-tracker", "issues_closed")["items"]
+
+        self.assertTrue(in_progress_items)
+        facts = build_facts(list(open_items) + list(in_progress_items), closed_items)
+
+        self.assertEqual(len(facts.open_issues), len(open_items) + len(in_progress_items))
+
+    def test_fixture_payloads_omit_personal_and_sensitive_fields(self) -> None:
+        forbidden = {
+            "author",
+            "avatar",
+            "bio",
+            "city",
+            "clone_url",
+            "description",
+            "display_name",
+            "links",
+            "location",
+            "release_notes",
+            "updated_by",
+        }
+        offenders: list[str] = []
+        for path in FIXTURES.rglob("*.json"):
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            _collect_forbidden_keys(
+                payload,
+                forbidden,
+                str(path.relative_to(FIXTURES)),
+                offenders,
+            )
+        self.assertEqual(offenders, [])
+
+    def test_contributors_keep_only_identity_fields(self) -> None:
+        allowed = {"id", "username"}
+        for path in FIXTURES.glob("*/contributors.json"):
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            for index, item in enumerate(payload["items"]):
+                extra = set(item) - allowed
+                self.assertEqual(
+                    extra,
+                    set(),
+                    msg=f"{path.parent.name} contributors[{index}]: {sorted(extra)}",
+                )
 
 
 if __name__ == "__main__":

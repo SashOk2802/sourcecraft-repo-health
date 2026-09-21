@@ -13,14 +13,7 @@
   "items": [
     {
       "id": "0198c323-3c15-7d6d-bf87-fa6b2e24804b",
-      "display_name": "Антон П.",
-      "username": "yndx-antoshkka",
-      "bio": "",
-      "links": [],
-      "avatar": {
-        "url": ""
-      },
-      "visibility": "public"
+      "username": "yndx-antoshkka"
     }
   ]
 }

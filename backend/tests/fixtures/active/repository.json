@@ -6,43 +6,25 @@
   "item": {
     "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
     "name": "dozzle-plus",
-    "default_branch": "main",
-    "organization": {
-      "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
-      "slug": "k-5-45mm"
-    },
     "slug": "dozzle-plus",
-    "template_type": "not_a_template",
-    "is_empty": false,
-    "description": "Базовый Dozzle закрывает ежедневный просмотр логов и работу с контейнерами. Plus добавляет изоляцию окружений, сохраняемый контекст и инструменты эксплуатации.\n",
     "visibility": "public",
-    "clone_url": {
-      "https": "https://git@git.sourcecraft.dev/k-5-45mm/dozzle-plus.git",
-      "ssh": "ssh://ssh.sourcecraft.dev/k-5-45mm/dozzle-plus.git"
-    },
     "web_url": "https://sourcecraft.dev/k-5-45mm/dozzle-plus",
-    "links": [],
+    "last_updated": "2026-09-15T04:00:31.852941Z",
+    "default_branch": "main",
+    "is_empty": false,
+    "language": {
+      "name": "Go"
+    },
     "counters": {
-      "forks": "0",
-      "pull_requests": "79",
       "issues": "73",
+      "pull_requests": "79",
+      "forks": "0",
       "tags": "17",
       "branches": "1"
     },
-    "last_updated": "2026-09-15T04:00:31.852941Z",
-    "language": {
-      "name": "Go",
-      "color": "#00ADD8"
-    },
-    "rating": {
-      "value": 25,
-      "percentile": 4,
-      "reaction_counts": [
-        {
-          "type": "positive_high",
-          "count": "5"
-        }
-      ]
+    "organization": {
+      "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+      "slug": "k-5-45mm"
     }
   }
 }

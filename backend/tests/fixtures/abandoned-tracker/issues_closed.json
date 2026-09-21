@@ -16,2126 +16,716 @@
       "id": "019a59ab-4316-73e2-9c72-171f8825e1f5",
       "slug": "117",
       "title": "bug: focus loose of `input` inside `tabs` container in iOS",
-      "description": "It seems like `input` looses focus when being embedded into the `tabs` container due to an infinite cycle in `TextInputBlock+UIViewRenderable`\n\n- `UICollectionView` inside `TabContentsView` resigns responder right after `reloadData`.\n- `reloadData` is triggered because of changing TextInput `isFocus` and `text` properties (oldState != newState)\n\n\nMRE: https://divkit.tech/playground/?uuid=dd5704a0-08dd-46f0-b9d9-827f73962e1e",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3a9d-73f8-b771-2f419da3120b",
-        "slug": "6831397-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2025-08-18T13:34:39Z",
-      "updated_at": "2025-08-19T10:05:01Z",
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2025-08-19T10:05:01Z"
     },
     {
       "id": "019a59ab-4316-73ea-9d3f-e485683e56d0",
       "slug": "115",
       "title": "May I ask why there is no custom action (actionHandler) on the web side like the app? If there is, please let me know how to use it",
-      "description": "<img width=\"1392\" height=\"550\" alt=\"Image\" src=\"https://github.com/user-attachments/assets/3f7a8284-ca70-4d90-acf8-4a9e784cf86f\" />",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3ad2-7a6f-8eb7-f05cde23e19e",
-        "slug": "113511379-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2025-07-08T10:42:24Z",
-      "updated_at": "2025-07-08T18:59:55Z",
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2025-07-08T18:59:55Z"
     },
     {
       "id": "019a59ab-4316-7406-acdf-fb93a41689ab",
       "slug": "112",
       "title": "Не работает font_family",
-      "description": "### Шаги воспроизведения\n1. Открыл https://divkit.tech/playground?design=1\n2. Добавил элемент текст\n3. Установил font_family в cursive\n\n### Полученный результат\nШрифт не поменялся\n<img width=\"708\" alt=\"Image\" src=\"https://github.com/user-attachments/assets/83ce6b3c-b508-4b6e-9fbf-c408fde4b870\" />\n\n### Ожидаемый результат\nШрифт поменяется\n\n### Дополнительная информация\nПоглядел, функция `typefaceProvider` вызывается, но видимо её значение в итоге не вставляется в верстку на вебе",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3b55-7e81-91a9-58d879e2d297",
-        "slug": "93006259-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2025-06-11T18:42:29Z",
-      "updated_at": "2025-06-12T00:14:58Z",
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2025-06-12T00:14:58Z"
     },
     {
       "id": "019a59ab-4316-740d-b7d5-57dbd1ceb36b",
       "slug": "111",
       "title": "Editor does not seem to have a clean way to hook in an asset system",
-      "description": "Is there a way to replace the image selection dialog in the editor? This seems like an easy thing considering how advanced DivKit is, but I can't seem to figure it out.",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3b7f-7235-9d12-5cc63637bf10",
-        "slug": "5068507-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2025-06-04T21:53:33Z",
-      "updated_at": "2025-09-26T12:28:43Z",
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2025-09-26T12:28:43Z"
     },
     {
       "id": "019a59ab-4316-7417-8a92-74a0dd92c17b",
       "slug": "110",
       "title": "Please update to Coil3",
-      "description": "Please update Coil from 2 to Coil3. Or at least provide alternative dependency with coil3 support\n\nCoil2 is an outdated version of Coil with no later support. \nhttps://coil-kt.github.io/coil/upgrading_to_coil3/",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3a29-77bc-9b09-dbe4d603c67f",
-        "slug": "9117565-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2025-05-30T13:29:54Z",
-      "updated_at": "2025-06-27T07:35:07Z",
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2025-06-27T07:35:07Z"
     },
     {
       "id": "019a59ab-4316-741e-994a-a04504c2d085",
       "slug": "108",
       "title": "Контроль темы в WEB версии DivKit",
-      "description": "Добрый день, вопрос по использованию темы в WEB DivKit. Вопрос в том как на сегодняшний день правильно сделать темизацию, так как такие параметры как theme помечены deprecated. Я так полагаю можно реализовать темизацию через variables? Если ошибаюсь, можете пожалуйста подсказать поправить?",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3bc3-71f4-856f-ff7f40e49551",
-        "slug": "33493261-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2025-04-02T09:34:21Z",
-      "updated_at": "2025-04-09T13:50:26Z",
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2025-04-09T13:50:26Z"
     },
     {
       "id": "019a59ab-4316-7427-bed5-54b338715b39",
       "slug": "107",
       "title": "Как вытащить из divkit json после применения applyPatch на WEB",
-      "description": "Есть след инстанс дивкита:\n\n```\nthis.instance = render({\n      id: \"divkit_root\",\n      target: this.target,\n      globalVariablesController: this.getGlobalVariablesController(),\n      onCustomAction: this.actionHandler.handleAction,\n      json: divData,\n    });\n```\n\nВопрос в том, как мне получить json этого инстанса после применения  патча **`this.instance.applyPatch({ patch: value });`** ?\n\nВсе что есть у данного инстанса это:\n\n<img width=\"569\" alt=\"Image\" src=\"https://github.com/user-attachments/assets/f01c40a4-535d-4ca8-a860-324e9a477ea6\" />\n\n\n**Есть ли что-то типа getData для получения текущего json который лежит в инстансе  после применения applyPatch?**",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3bc3-71f4-856f-ff7f40e49551",
-        "slug": "33493261-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2025-03-25T13:17:55Z",
-      "updated_at": "2025-04-09T13:50:43Z",
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2025-04-09T13:50:43Z"
     },
     {
       "id": "019a59ab-4316-742e-bd89-e3d826d077ea",
       "slug": "105",
       "title": "В @divkitframework/divkit 31.6.0+ сломана типизация для TS",
-      "description": "вот этот коммит https://github.com/divkit/divkit/commit/6298661ecd89621f7b0e4961204652582b236d4a принёс вот эту строку https://github.com/divkit/divkit/blob/6298661ecd89621f7b0e4961204652582b236d4a/client/web/divkit/typings/common.d.ts#L1, и типизация навернулась\n\n```\nnode_modules/@divkitframework/divkit/typings/common.d.ts:1:39 - error TS2307: Cannot find module '../src/types/componentContext'.\n\n1 import type { ComponentContext } from '../src/types/componentContext';\n```\n",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3bf7-7355-825b-201cc82b77e8",
-        "slug": "1595684-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2025-03-19T15:02:06Z",
-      "updated_at": "2025-03-20T13:02:37Z",
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2025-03-20T13:02:37Z"
     },
     {
       "id": "019a59ab-4316-7439-8b6e-80d187c37b55",
       "slug": "104",
       "title": "How to apply patch in swift?",
-      "description": "There is no func applyPatch. I found flow applying patch via url. But I want to apply patch directly like in Kotlin project",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3c26-79b8-a88f-ea4be6c24a89",
-        "slug": "28484380-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2025-03-07T10:17:08Z",
-      "updated_at": "2025-04-09T13:49:17Z",
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2025-04-09T13:49:17Z"
     },
     {
       "id": "019a59ab-4316-7443-81cb-4ef4f4e2b2ec",
       "slug": "103",
       "title": "Crash on Android devices API 35",
-      "description": "I am running the version below of divkit, but it also crashes on latest version `31.5.0`.\n\ndef divKitVersion = \"30.33.1\"\nimplementation \"com.yandex.div:div:$divKitVersion\"\nimplementation \"com.yandex.div:div-core:$divKitVersion\"\nimplementation \"com.yandex.div:div-json:$divKitVersion\"\nimplementation \"com.yandex.div:utils:$divKitVersion\"\nimplementation \"com.yandex.div:picasso:$divKitVersion\"\nimplementation \"com.yandex.div:div-rive:$divKitVersion\"\nimplementation \"com.squareup.picasso:picasso:2.8\"\n\n\nOn other SDK-s it's working fine apart from SDK 35.\n\n----\n\n\nHere are the crash logs:\n\n ```\n java.lang.UnsatisfiedLinkError: dlopen failed: empty/missing DT_HASH/DT_GNU_HASH in \"/data/data/com.app.sampleapp/app_lib/libjnirivebridge.so\" (new hash type from the future?)\n                                                                                                    \tat java.lang.Runtime.load0(Runtime.java:933)\n                                                                                                    \tat java.lang.System.load(System.java:1729)\n                                                                                                    \tat com.getkeepsafe.relinker.SystemLibraryLoader.loadPath(SystemLibraryLoader.java:31)\n                                                                                                    \tat com.getkeepsafe.relinker.ReLinkerInstance.loadLibraryInternal(ReLinkerInstance.java:204)\n                                                                                                    \tat com.getkeepsafe.relinker.ReLinkerInstance.loadLibrary(ReLinkerInstance.java:136)\n                                                                                                    \tat com.getkeepsafe.relinker.ReLinker.loadLibrary(ReLinker.java:70)\n                                                                                                    \tat com.getkeepsafe.relinker.ReLinker.loadLibrary(ReLinker.java:51)\n                                                                                                    \tat app.rive.runtime.kotlin.core.Rive.init(Rive.kt:30)\n                                                                                                    \tat com.yandex.div.rive.RiveCustomViewAdapter.<init>(RiveCustomViewAdapter.kt:32)\n                                                                                                    \tat com.yandex.div.rive.RiveCustomViewAdapter.<init>(Unknown Source:0)\n                                                                                                    \tat com.yandex.div.rive.RiveCustomViewAdapter$Builder.build(RiveCustomViewAdapter.kt:106)\n                                                                                                    \tat com.DivKitHelper.createDivConfiguration(DivKitHelper.kt:139)\n                                                                                                    \tat com.DivKitHelper.getDivKitUIView(DivKitHelper.kt:116)\n                                                                                                    \tat com.ProActivity.onCreate(ProActivity.kt:59)\n                                                                                                    \tat android.app.Activity.performCreate(Activity.java:9002)\n                                                                                                    \tat android.app.Activity.performCreate(Activity.java:8980)\n                                                                                                    \tat android.app.Instrumentation.callActivityOnCreate(Instrumentation.java:1526)\n                                                                                                    \tat android.app.ActivityThread.performLaunchActivity(ActivityThread.java:4030)\n                                                                                                    \tat android.app.ActivityThread.handleLaunchActivity(ActivityThread.java:4235)\n                                                                                                    \tat android.app.servertransaction.LaunchActivityItem.execute(LaunchActivityItem.java:112)\n                                                                                                    \tat android.app.servertransaction.TransactionExecutor.executeNonLifecycleItem(TransactionExecutor.java:174)\n                                                                                                    \tat android.app.servertransaction.TransactionExecutor.executeTransactionItems(TransactionExecutor.java:109)\n                                                                                                    \tat android.app.servertransaction.TransactionExecutor.execute(TransactionExecutor.java:81)\n                                                                                                    \tat android.app.ActivityThread$H.handleMessage(ActivityThread.java:2636)\n                                                                                                    \tat android.os.Handler.dispatchMessage(Handler.java:107)\n                                                                                                    \tat android.os.Looper.loopOnce(Looper.java:232)\n                                                                                                    \tat android.os.Looper.loop(Looper.java:317)\n                                                                                                    \tat android.app.ActivityThread.main(ActivityThread.java:8705)\n                                                                                                    \tat java.lang.reflect.Method.invoke(Native Method)\n                                                                                                    \tat com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:580)\n                                                                                                    \tat com.android.internal.os.ZygoteInit.main(ZygoteInit.java:886)\n```\n\n",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3c56-7d00-aa13-0fbb90ff85ef",
-        "slug": "6317835-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2025-03-05T11:26:24Z",
-      "updated_at": "2025-03-07T22:19:42Z",
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2025-03-07T22:19:42Z"
     },
     {
       "id": "019a59ab-4316-7453-acdb-9b94f7688482",
       "slug": "100",
       "title": "Tab Content Visibility Issue with item_builder in JSON Patch Update",
-      "description": "When the JSON obtained via a patch consists of a tab's content area built using item_builder, switching tabs causes the item_builder content area of the previous tab to become invisible. I have attached a sample JSON file for reference.\n\nhttps://github.com/user-attachments/assets/9441c45a-b045-4732-818a-b95a6a3c4a59\n\n[test.json](https://github.com/user-attachments/files/18474500/test.json)\n[test_tab1.txt](https://github.com/user-attachments/files/18474499/test_tab1.txt)\n[test_tab2.txt](https://github.com/user-attachments/files/18474501/test_tab2.txt)",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3cd8-7263-8e9a-c55bf09a8a0f",
-        "slug": "147621716-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2025-01-20T08:38:24Z",
-      "updated_at": "2025-01-24T00:26:00Z",
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2025-01-24T00:26:00Z"
     },
     {
       "id": "019a59ab-4316-745c-8a67-418d5f640103",
       "slug": "99",
       "title": "DivKit не видит глобальной переменной",
-      "description": "Использую nextjs 15, соответственно компонент должен рендериться на сервере. На всякий случай перед рендером проверяю существует ли переменная. Контроллер считает, что она есть. То что внутри DivKit так не думает(((\n\n```\nimport React from \"react\";\n// @ts-expect-error I can't do anything\nimport { GlobalVariablesController } from \"@divkitframework/divkit/typings/variables\";\nimport {\n    createGlobalVariablesController,\n    createVariable\n} from \"@divkitframework/divkit/client-hydratable\";\n// @ts-expect-error I can't do anything\nimport {DivKit, DivKitProps} from \"@divkitframework/react\";\nimport \"@divkitframework/divkit/dist/client.css\";\n\nexport default function MyDivKit( { json }: {json: DivKitProps.json}) {\n    const varController: GlobalVariablesController = createGlobalVariablesController();\n    const themeVar = createVariable<'string'>('theme', 'string', 'dark');\n    varController.setVariable(themeVar);\n\n    if (varController.getVariable('theme')) {\n        return (\n            <DivKit globalVariablesController={varController}\n                            json={{\n                                \"card\": {\n                                    \"log_id\": \"div2_sample_card\",\n                                    \"states\": [\n                                        {\n                                            \"state_id\": 0,\n                                            \"div\": {\n                                                \"type\": \"text\",\n                                                \"text\": \"@{theme}\",\n                                                \"font_size\": 20,\n                                            }\n                                        }\n                                    ]\n                                },\n                            }} id=\"app\">\n            </DivKit>\n        );\n    }\n    else\n        return <></>\n}\n```\n\nОшибка:\n```\nmessage: \"Expression execution error\",\nadditional: {\n  message: \"Variable 'theme' is missing.\",\n  path: \"0/text\"\n}\n```\n",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3d04-76fa-bad0-8e184a29a8a4",
-        "slug": "72204100-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2025-01-19T20:46:46Z",
-      "updated_at": "2025-04-09T13:51:02Z",
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2025-04-09T13:51:02Z"
     },
     {
       "id": "019a59ab-4316-746d-b6f2-cf7bb154165b",
       "slug": "84",
       "title": "Расширение для выбора даты или времени",
-      "description": "Нужно сделать расширение, которое навешивается на `input`, и при нажатии показывает системный пикер даты или времени (определяется параметром `mode`). Выбранное значение сохраняется в `text_variable`.\r\n```\r\n{\r\n    \"card\": {\r\n        \"log_id\": \"div2_sample_card\",\r\n        \"variables\": [\r\n            {\r\n                \"name\": \"value\",\r\n                \"type\": \"string\",\r\n                \"value\": \"\"\r\n            }\r\n        ],\r\n        \"states\": [\r\n            {\r\n                \"state_id\": 0,\r\n                \"div\": {\r\n                    \"type\": \"input\",\r\n                    \"text_variable\": \"value\",\r\n                    \"extensions\": [\r\n                        {\r\n                            \"id\": \"date_time_picker\",\r\n                            \"params\": {\r\n                                \"text_variable\": \"value\",\r\n                                \"mode\": \"date|time\"\r\n                            }\r\n                        }\r\n                    ],\r\n                    \"width\": {\r\n                        \"type\": \"fixed\",\r\n                        \"value\": 100\r\n                    },\r\n                    \"height\": {\r\n                        \"type\": \"fixed\",\r\n                        \"value\": 20\r\n                    }\r\n                }\r\n            }\r\n        ]\r\n    }\r\n}\r\n```",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3d48-73ea-a14f-44c7fe4220ad",
-        "slug": "9565976-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2024-12-13T15:32:55Z",
-      "updated_at": "2025-04-09T13:52:28Z",
-      "labels": [
-        {
-          "id": "019a59ab-2dec-70ab-a150-577e285e4f6b",
-          "slug": "",
-          "name": "good first issue",
-          "color": "7057ff"
-        },
-        {
-          "id": "019a59ab-2dec-70bd-8d2b-6f302d8ba978",
-          "slug": "",
-          "name": "ios",
-          "color": "bfdadc"
-        }
-      ],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2025-04-09T13:52:28Z"
     },
     {
       "id": "019a59ab-4316-7477-afab-1008d9b8566c",
       "slug": "81",
       "title": "Тригонометрическая функция atan",
-      "description": "Принимаемый тип `number` - значение тангенса.\r\nВозвращаемое значение - угол в радианах.\r\n[Пример](https://github.com/divkit/divkit/commit/8fc01dcc683eb19779a299b8802b49fbd635b627) добавления тригонометрической функции.",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3d48-73ea-a14f-44c7fe4220ad",
-        "slug": "9565976-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2024-12-13T15:02:58Z",
-      "updated_at": "2024-12-26T09:35:44Z",
-      "labels": [
-        {
-          "id": "019a59ab-2dec-7088-9990-27b95c842cff",
-          "slug": "",
-          "name": "android",
-          "color": "D3318C"
-        },
-        {
-          "id": "019a59ab-2dec-70ab-a150-577e285e4f6b",
-          "slug": "",
-          "name": "good first issue",
-          "color": "7057ff"
-        }
-      ],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2024-12-26T09:35:44Z"
     },
     {
       "id": "019a59ab-4316-7480-84f8-1a6f88f36917",
       "slug": "80",
       "title": "Тригонометрическая функция acos",
-      "description": "Принимаемый тип `number` - значение косинуса.\r\nВозвращаемое значение - угол в радианах.\r\n[Пример](https://github.com/divkit/divkit/commit/8fc01dcc683eb19779a299b8802b49fbd635b627) добавления тригонометрической функции.",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3d48-73ea-a14f-44c7fe4220ad",
-        "slug": "9565976-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2024-12-13T15:01:52Z",
-      "updated_at": "2024-12-26T09:35:43Z",
-      "labels": [
-        {
-          "id": "019a59ab-2dec-7088-9990-27b95c842cff",
-          "slug": "",
-          "name": "android",
-          "color": "D3318C"
-        },
-        {
-          "id": "019a59ab-2dec-70ab-a150-577e285e4f6b",
-          "slug": "",
-          "name": "good first issue",
-          "color": "7057ff"
-        }
-      ],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2024-12-26T09:35:43Z"
     },
     {
       "id": "019a59ab-4316-7490-9e38-f6eeaf6b69d8",
       "slug": "78",
       "title": "Тригонометрическая функция atan",
-      "description": "Принимаемый тип `number` - значение тангенса.\r\nВозвращаемое значение - угол в радианах.\r\n[Пример](https://github.com/divkit/divkit/commit/b497a1d1e2c9ffe3227267f14fea48be72405986) добавления тригонометрической функции.",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3d48-73ea-a14f-44c7fe4220ad",
-        "slug": "9565976-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2024-12-13T15:00:05Z",
-      "updated_at": "2024-12-26T09:40:36Z",
-      "labels": [
-        {
-          "id": "019a59ab-2dec-70ab-a150-577e285e4f6b",
-          "slug": "",
-          "name": "good first issue",
-          "color": "7057ff"
-        },
-        {
-          "id": "019a59ab-2dec-70bd-8d2b-6f302d8ba978",
-          "slug": "",
-          "name": "ios",
-          "color": "bfdadc"
-        }
-      ],
-      "linked_prs": [
-        {
-          "id": "019a59ab-5d50-717a-8af7-078652e3d12a",
-          "slug": ""
-        }
-      ],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2024-12-26T09:40:36Z"
     },
     {
       "id": "019a59ab-4316-7498-8e0e-1cea1caa5160",
       "slug": "77",
       "title": "Тригонометрическая функция acos",
-      "description": "Принимаемый тип `number` - значение косинуса.\r\nВозвращаемое значение - угол в радианах.\r\n[Пример](https://github.com/divkit/divkit/commit/b497a1d1e2c9ffe3227267f14fea48be72405986) добавления тригонометрической функции.",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3d48-73ea-a14f-44c7fe4220ad",
-        "slug": "9565976-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2024-12-13T14:59:24Z",
-      "updated_at": "2025-03-25T17:14:39Z",
-      "labels": [
-        {
-          "id": "019a59ab-2dec-70ab-a150-577e285e4f6b",
-          "slug": "",
-          "name": "good first issue",
-          "color": "7057ff"
-        },
-        {
-          "id": "019a59ab-2dec-70bd-8d2b-6f302d8ba978",
-          "slug": "",
-          "name": "ios",
-          "color": "bfdadc"
-        }
-      ],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2025-03-25T17:14:39Z"
     },
     {
       "id": "019a59ab-4316-74a1-9930-0236a7c04b97",
       "slug": "76",
       "title": "Тригонометрическая функция asin",
-      "description": "Принимаемый тип `number` - значение синуса.\r\nВозвращаемое значение - угол в радианах.\r\n[Пример](https://github.com/divkit/divkit/commit/b497a1d1e2c9ffe3227267f14fea48be72405986) добавления тригонометрической функции.",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3d48-73ea-a14f-44c7fe4220ad",
-        "slug": "9565976-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2024-12-13T14:58:48Z",
-      "updated_at": "2025-03-25T17:14:42Z",
-      "labels": [
-        {
-          "id": "019a59ab-2dec-70ab-a150-577e285e4f6b",
-          "slug": "",
-          "name": "good first issue",
-          "color": "7057ff"
-        },
-        {
-          "id": "019a59ab-2dec-70bd-8d2b-6f302d8ba978",
-          "slug": "",
-          "name": "ios",
-          "color": "bfdadc"
-        }
-      ],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2025-03-25T17:14:42Z"
     },
     {
       "id": "019a59ab-4316-74af-866c-bb6910c6ce7a",
       "slug": "74",
       "title": "Тригонометрическая функция cos",
-      "description": "Принимаемый тип `number`, угол в радианах.\r\n[Пример](https://github.com/divkit/divkit/commit/8fc01dcc683eb19779a299b8802b49fbd635b627) добавления тригонометрической функции.",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3d48-73ea-a14f-44c7fe4220ad",
-        "slug": "9565976-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2024-12-13T14:56:10Z",
-      "updated_at": "2024-12-26T09:40:36Z",
-      "labels": [
-        {
-          "id": "019a59ab-2dec-7088-9990-27b95c842cff",
-          "slug": "",
-          "name": "android",
-          "color": "D3318C"
-        },
-        {
-          "id": "019a59ab-2dec-70ab-a150-577e285e4f6b",
-          "slug": "",
-          "name": "good first issue",
-          "color": "7057ff"
-        }
-      ],
-      "linked_prs": [
-        {
-          "id": "019a59ab-6367-7b81-b877-9d2fa881add3",
-          "slug": ""
-        }
-      ],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2024-12-26T09:40:36Z"
     },
     {
       "id": "019a59ab-4316-74bd-b0e7-31b3c2cf7f6d",
       "slug": "72",
       "title": "Тригонометрическая функция tan",
-      "description": "Принимаемый тип `number`, угол в радианах.\r\n[Пример](https://github.com/divkit/divkit/commit/b497a1d1e2c9ffe3227267f14fea48be72405986) добавления тригонометрической функции.",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3d48-73ea-a14f-44c7fe4220ad",
-        "slug": "9565976-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2024-12-13T14:54:53Z",
-      "updated_at": "2024-12-26T09:35:43Z",
-      "labels": [
-        {
-          "id": "019a59ab-2dec-70ab-a150-577e285e4f6b",
-          "slug": "",
-          "name": "good first issue",
-          "color": "7057ff"
-        },
-        {
-          "id": "019a59ab-2dec-70bd-8d2b-6f302d8ba978",
-          "slug": "",
-          "name": "ios",
-          "color": "bfdadc"
-        }
-      ],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2024-12-26T09:35:43Z"
     },
     {
       "id": "019a59ab-4316-74c4-ab4a-b3ebd5ba443e",
       "slug": "71",
       "title": "Тригонометрическая функция cos",
-      "description": "Принимаемый тип `number`, угол в радианах.\r\n[Пример](https://github.com/divkit/divkit/commit/b497a1d1e2c9ffe3227267f14fea48be72405986) добавления тригонометрической функции.",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3d48-73ea-a14f-44c7fe4220ad",
-        "slug": "9565976-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2024-12-13T14:54:12Z",
-      "updated_at": "2024-12-26T09:40:35Z",
-      "labels": [
-        {
-          "id": "019a59ab-2dec-70ab-a150-577e285e4f6b",
-          "slug": "",
-          "name": "good first issue",
-          "color": "7057ff"
-        },
-        {
-          "id": "019a59ab-2dec-70bd-8d2b-6f302d8ba978",
-          "slug": "",
-          "name": "ios",
-          "color": "bfdadc"
-        }
-      ],
-      "linked_prs": [
-        {
-          "id": "019a59ab-63f6-7d8c-b87f-2b5683678357",
-          "slug": ""
-        }
-      ],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2024-12-26T09:40:35Z"
     },
     {
       "id": "019a59ab-4316-74d3-8a65-afa04963b32a",
       "slug": "68",
       "title": "Метод avg для массива",
-      "description": "Работает только если все элементы имеют тип `integer` или `number`. \r\nЕсли встречается элемент другого типа, то должен выбрасывать ошибку `unsupportedType`.\r\nДелать можно по аналогии с методом [isEmpty](https://github.com/divkit/divkit/blob/main/client/android/div-evaluable/src/main/java/com/yandex/div/evaluable/function/ArrayFunctions.kt#L475).\r\nПример использования\r\n```\r\n{\r\n    \"card\": {\r\n        \"log_id\": \"div2_sample_card\",\r\n        \"states\": [\r\n            {\r\n                \"state_id\": 0,\r\n                \"div\": {\r\n                    \"variables\": [\r\n                        {\r\n                            \"name\": \"source\",\r\n                            \"type\": \"array\",\r\n                            \"value\": [10, 9, 8]\r\n                        }\r\n                    ],\r\n                    \"type\": \"text\",\r\n                    \"text\": \"@{source.avg()}\"   \r\n                }\r\n            }\r\n        ]\r\n    }\r\n}\r\n```",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3d48-73ea-a14f-44c7fe4220ad",
-        "slug": "9565976-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2024-12-13T14:46:49Z",
-      "updated_at": "2025-04-09T13:54:37Z",
-      "labels": [
-        {
-          "id": "019a59ab-2dec-7088-9990-27b95c842cff",
-          "slug": "",
-          "name": "android",
-          "color": "D3318C"
-        },
-        {
-          "id": "019a59ab-2dec-70ab-a150-577e285e4f6b",
-          "slug": "",
-          "name": "good first issue",
-          "color": "7057ff"
-        }
-      ],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2025-04-09T13:54:37Z"
     },
     {
       "id": "019a59ab-4316-74db-a93a-ad6f85f7ed8e",
       "slug": "67",
       "title": "Метод max для массива",
-      "description": "Работает только если все элементы имеют тип `integer` или `number`. \r\nЕсли встречается элемент другого типа, то должен выбрасывать ошибку `unsupportedType`.\r\nДелать можно по аналогии с методом [isEmpty](https://github.com/divkit/divkit/blob/main/client/android/div-evaluable/src/main/java/com/yandex/div/evaluable/function/ArrayFunctions.kt#L475).\r\nПример использования\r\n```\r\n{\r\n    \"card\": {\r\n        \"log_id\": \"div2_sample_card\",\r\n        \"states\": [\r\n            {\r\n                \"state_id\": 0,\r\n                \"div\": {\r\n                    \"variables\": [\r\n                        {\r\n                            \"name\": \"source\",\r\n                            \"type\": \"array\",\r\n                            \"value\": [10, 9, 8]\r\n                        }\r\n                    ],\r\n                    \"type\": \"text\",\r\n                    \"text\": \"@{source.max()}\"   \r\n                }\r\n            }\r\n        ]\r\n    }\r\n}\r\n```",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3d48-73ea-a14f-44c7fe4220ad",
-        "slug": "9565976-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2024-12-13T14:46:20Z",
-      "updated_at": "2025-04-09T13:55:19Z",
-      "labels": [
-        {
-          "id": "019a59ab-2dec-7088-9990-27b95c842cff",
-          "slug": "",
-          "name": "android",
-          "color": "D3318C"
-        },
-        {
-          "id": "019a59ab-2dec-70ab-a150-577e285e4f6b",
-          "slug": "",
-          "name": "good first issue",
-          "color": "7057ff"
-        }
-      ],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2025-04-09T13:55:19Z"
     },
     {
       "id": "019a59ab-4316-74e2-98fa-455c71cff892",
       "slug": "66",
       "title": "Метод min для массива",
-      "description": "Работает только если все элементы имеют тип `integer` или `number`. \r\nЕсли встречается элемент другого типа, то должен выбрасывать ошибку `unsupportedType`.\r\nДелать можно по аналогии с методом [isEmpty](https://github.com/divkit/divkit/blob/main/client/android/div-evaluable/src/main/java/com/yandex/div/evaluable/function/ArrayFunctions.kt#L475).\r\nПример использования\r\n```\r\n{\r\n    \"card\": {\r\n        \"log_id\": \"div2_sample_card\",\r\n        \"states\": [\r\n            {\r\n                \"state_id\": 0,\r\n                \"div\": {\r\n                    \"variables\": [\r\n                        {\r\n                            \"name\": \"source\",\r\n                            \"type\": \"array\",\r\n                            \"value\": [10, 9, 8]\r\n                        }\r\n                    ],\r\n                    \"type\": \"text\",\r\n                    \"text\": \"@{source.min()}\"   \r\n                }\r\n            }\r\n        ]\r\n    }\r\n}\r\n```",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3d48-73ea-a14f-44c7fe4220ad",
-        "slug": "9565976-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2024-12-13T14:45:49Z",
-      "updated_at": "2025-04-09T13:55:39Z",
-      "labels": [
-        {
-          "id": "019a59ab-2dec-7088-9990-27b95c842cff",
-          "slug": "",
-          "name": "android",
-          "color": "D3318C"
-        },
-        {
-          "id": "019a59ab-2dec-70ab-a150-577e285e4f6b",
-          "slug": "",
-          "name": "good first issue",
-          "color": "7057ff"
-        }
-      ],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2025-04-09T13:55:39Z"
     },
     {
       "id": "019a59ab-4316-74e8-a86c-31c5180e802e",
       "slug": "64",
       "title": "Метод avg для массива",
-      "description": "Работает только если все элементы имеют тип `integer` или `number`. \r\nЕсли встречается элемент другого типа, то должен выбрасывать ошибку `unsupportedType`.\r\nДелать можно по аналогии с методом [isEmpty](https://github.com/divkit/divkit/blob/main/client/ios/DivKit/Expressions/Functions/ArrayFunctions.swift#L43).\r\nПример использования\r\n```\r\n{\r\n    \"card\": {\r\n        \"log_id\": \"div2_sample_card\",\r\n        \"states\": [\r\n            {\r\n                \"state_id\": 0,\r\n                \"div\": {\r\n                    \"variables\": [\r\n                        {\r\n                            \"name\": \"source\",\r\n                            \"type\": \"array\",\r\n                            \"value\": [10, 9, 8]\r\n                        }\r\n                    ],\r\n                    \"type\": \"text\",\r\n                    \"text\": \"@{source.avg()}\"   \r\n                }\r\n            }\r\n        ]\r\n    }\r\n}\r\n```",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3d48-73ea-a14f-44c7fe4220ad",
-        "slug": "9565976-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2024-12-13T14:37:19Z",
-      "updated_at": "2024-12-26T09:35:42Z",
-      "labels": [
-        {
-          "id": "019a59ab-2dec-70ab-a150-577e285e4f6b",
-          "slug": "",
-          "name": "good first issue",
-          "color": "7057ff"
-        },
-        {
-          "id": "019a59ab-2dec-70bd-8d2b-6f302d8ba978",
-          "slug": "",
-          "name": "ios",
-          "color": "bfdadc"
-        }
-      ],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2024-12-26T09:35:42Z"
     },
     {
       "id": "019a59ab-4316-74f1-8489-42d27f19727f",
       "slug": "63",
       "title": "Метод max для массива",
-      "description": "Работает только если все элементы имеют тип `integer` или `number`. \r\nЕсли встречается элемент другого типа, то должен выбрасывать ошибку `unsupportedType`.\r\nДелать можно по аналогии с методом [isEmpty](https://github.com/divkit/divkit/blob/main/client/ios/DivKit/Expressions/Functions/ArrayFunctions.swift#L43).\r\nПример использования\r\n```\r\n{\r\n    \"card\": {\r\n        \"log_id\": \"div2_sample_card\",\r\n        \"states\": [\r\n            {\r\n                \"state_id\": 0,\r\n                \"div\": {\r\n                    \"variables\": [\r\n                        {\r\n                            \"name\": \"source\",\r\n                            \"type\": \"array\",\r\n                            \"value\": [10, 9, 8]\r\n                        }\r\n                    ],\r\n                    \"type\": \"text\",\r\n                    \"text\": \"@{source.max()}\"   \r\n                }\r\n            }\r\n        ]\r\n    }\r\n}\r\n```",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3d48-73ea-a14f-44c7fe4220ad",
-        "slug": "9565976-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2024-12-13T14:36:27Z",
-      "updated_at": "2025-04-09T13:57:03Z",
-      "labels": [
-        {
-          "id": "019a59ab-2dec-70ab-a150-577e285e4f6b",
-          "slug": "",
-          "name": "good first issue",
-          "color": "7057ff"
-        },
-        {
-          "id": "019a59ab-2dec-70bd-8d2b-6f302d8ba978",
-          "slug": "",
-          "name": "ios",
-          "color": "bfdadc"
-        }
-      ],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2025-04-09T13:57:03Z"
     },
     {
       "id": "019a59ab-4316-74f9-ad1a-6117651832b9",
       "slug": "62",
       "title": "Метод min для массива",
-      "description": "Работает только если все элементы имеют тип `integer` или `number`. \r\nЕсли встречается элемент другого типа, то должен выбрасывать ошибку `unsupportedType`.\r\nДелать можно по аналогии с методом [isEmpty](https://github.com/divkit/divkit/blob/main/client/ios/DivKit/Expressions/Functions/ArrayFunctions.swift#L43).\r\nПример использования\r\n```\r\n{\r\n    \"card\": {\r\n        \"log_id\": \"div2_sample_card\",\r\n        \"states\": [\r\n            {\r\n                \"state_id\": 0,\r\n                \"div\": {\r\n                    \"variables\": [\r\n                        {\r\n                            \"name\": \"source\",\r\n                            \"type\": \"array\",\r\n                            \"value\": [10, 9, 8]\r\n                        }\r\n                    ],\r\n                    \"type\": \"text\",\r\n                    \"text\": \"@{source.min()}\"   \r\n                }\r\n            }\r\n        ]\r\n    }\r\n}\r\n```",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3d48-73ea-a14f-44c7fe4220ad",
-        "slug": "9565976-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2024-12-13T14:35:28Z",
-      "updated_at": "2025-04-09T13:57:23Z",
-      "labels": [
-        {
-          "id": "019a59ab-2dec-70ab-a150-577e285e4f6b",
-          "slug": "",
-          "name": "good first issue",
-          "color": "7057ff"
-        },
-        {
-          "id": "019a59ab-2dec-70bd-8d2b-6f302d8ba978",
-          "slug": "",
-          "name": "ios",
-          "color": "bfdadc"
-        }
-      ],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2025-04-09T13:57:23Z"
     },
     {
       "id": "019a59ab-4316-7502-9bd6-ed8e459aa456",
       "slug": "59",
       "title": "Поддержать is_enabled в slider",
-      "description": "Свойство должно отключать возможность взаимодействия со слайдером из UI. Но оставлять обновление через переменные. Реализация под Android была [тут](https://github.com/divkit/divkit/commit/e86e9bf45af4ae859b1e71dccfacb41994c9535c).",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3d48-73ea-a14f-44c7fe4220ad",
-        "slug": "9565976-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2024-12-13T13:23:22Z",
-      "updated_at": "2025-04-09T13:57:41Z",
-      "labels": [
-        {
-          "id": "019a59ab-2dec-70ab-a150-577e285e4f6b",
-          "slug": "",
-          "name": "good first issue",
-          "color": "7057ff"
-        },
-        {
-          "id": "019a59ab-2dec-70bd-8d2b-6f302d8ba978",
-          "slug": "",
-          "name": "ios",
-          "color": "bfdadc"
-        }
-      ],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2025-04-09T13:57:41Z"
     },
     {
       "id": "019a59ab-4316-7522-9fb5-83b17d570c5e",
       "slug": "51",
       "title": "https://www.upwork.com/nx/proposals/job/~01862e9581d41feb7f/apply/",
-      "description": "`I need help organizing, and deleting unused code from an open-source repository.\r\n\r\nOpen-source repo: https://github.com/divkit/divkit/tree/main/client\r\n\r\nFor the ios, android, and web client, I would like the structure, folders, and file names to be identical.`\r\n\r\nI have just read this post in Upwork.\r\n\r\nI want to get this task and guide me how I can join this project.\r\n\r\nI look forward to hear from you.\r\n\r\nThanks",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3e1b-7648-9c22-1a70e8ed9cef",
-        "slug": "134603790-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2024-08-19T16:06:35Z",
-      "updated_at": "2024-09-25T13:16:14Z",
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2024-09-25T13:16:14Z"
     },
     {
       "id": "019a59ab-4316-752c-96e8-a240e2ada66c",
       "slug": "49",
       "title": "Overflow Error When JSON Exceeds Screen Height in Flutter Version",
-      "description": "Hello,\r\n\r\nI have encountered an issue in the Flutter version of DivKit. When the JSON content exceeds the screen height, the screen does not scroll and instead displays an overflow error.\r\n\r\n\r\n**Steps to Reproduce:**\r\n1. Load a JSON configuration where the content height exceeds the screen height.\r\n2. Observe the overflow error and lack of scrolling.\r\n\r\n\r\n**Expected Behavior:**\r\nThe screen should scroll to accommodate the content that exceeds the screen height.\r\n\r\n\r\n**Actual Behavior:**\r\nThe screen displays an overflow error and does not scroll.\r\n\r\n\r\n**Screenshots:**\r\n![Screenshot (2)](https://github.com/user-attachments/assets/f621f7f7-7288-400e-9e69-ea3d857617a1)\r\n\r\n\r\n**Environment:**\r\nFlutter version: (3.22.1)\r\n\r\n\r\nAdditional Context:\r\nWe are working on integrating DivKit into our project and would like to help resolve this issue. Could you provide guidance on how to fix this problem?\r\n\r\nThank you for your assistance.\r\n\r\nBest regards,",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3e47-70ea-86bf-c0f19e1b905f",
-        "slug": "47780958-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2024-07-13T07:11:49Z",
-      "updated_at": "2024-09-02T11:20:22Z",
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2024-09-02T11:20:22Z"
     },
     {
       "id": "019a59ab-4316-7535-802a-93f067011353",
       "slug": "48",
       "title": "Issue on Android - Horizontal list doesn't scroll when it's in HorizontalPager",
-      "description": "Hi,\r\nI'm integrating the divkit sdk into our android app project.\r\nIn my template, there's a horizontal list, and it's supposed to be scrollable. Usually it works well, but when the Div2View is put inside a page of a HorizontalPager, the horizontal list was no longer scrollable, which is not the expected behavior. Can you take a look? Thanks\r\n\r\nI'm able to reproduce it with the sample project attached.\r\n[Sample.zip](https://github.com/user-attachments/files/15920456/Sample.zip)\r\n",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3d8a-7e80-9e8a-fc7f5dc5d235",
-        "slug": "60978863-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2024-06-20T21:49:54Z",
-      "updated_at": "2024-06-26T19:20:35Z",
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2024-06-26T19:20:35Z"
     },
     {
       "id": "019a59ab-4316-753d-9a8d-269b80f693e2",
       "slug": "47",
       "title": "Is the DivKit Playground Open Source or Planned to be Open Sourced?",
-      "description": "Hello,\r\n\r\nI have been exploring the DivKit project and noticed the [DivKit Playground](https://divkit.tech/playground) available on your website. It's a fantastic tool for experimenting with DivKit features.\r\n\r\nHowever, I could not find the source code for the playground in the repository. I have a few questions:\r\n\r\n1. Is the source code for the DivKit Playground currently available, and if so, where can I find it?\r\n2. If it is not open source, are there any plans to make the DivKit Playground open source in the future?\r\n\r\nHaving access to the playground's source code would be incredibly beneficial for deeper exploration and customization. Thank you for your time and for providing such a powerful UI toolkit!\r\n\r\nBest regards,\r\nAli Azimoshan\r\n",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3e47-70ea-86bf-c0f19e1b905f",
-        "slug": "47780958-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2024-06-08T08:16:47Z",
-      "updated_at": "2024-06-11T07:22:30Z",
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2024-06-11T07:22:30Z"
     },
     {
       "id": "019a59ab-4316-7545-ac27-02d1eac0ccf9",
       "slug": "44",
       "title": "Gradle could not resolve all task dependencies",
-      "description": "Hello! Tried to build **divkit-demo-app** for android.\r\n```\r\nCould not find com.yandex:pulse:2.2.4.\r\n     Searched in the following locations:\r\n       - https://dl.google.com/dl/android/maven2/com/yandex/pulse/2.2.4/pulse-2.2.4.pom\r\n       - https://repo.maven.apache.org/maven2/com/yandex/pulse/2.2.4/pulse-2.2.4.pom\r\n     Required by:\r\n         project :divkit-perftests\r\n```\r\n\r\nCommenting out `implementation \"com.yandex:pulse:$versions.pulse\"` seems to not cause any problems.",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3e73-7bf1-bb32-48b7ba51f2f8",
-        "slug": "4330985-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2024-02-13T07:44:34Z",
-      "updated_at": "2024-02-26T11:26:12Z",
-      "assignee": {
-        "id": "019a59ab-3ea1-7d5d-a215-9f52e404d9db",
-        "slug": "46243922-github"
-      },
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2024-02-26T11:26:12Z"
     },
     {
       "id": "019a59ab-4316-754e-ae84-51df74979c5b",
       "slug": "40",
       "title": "DivPercentageSize bug? (python)",
-      "description": "Hi!\r\n\r\nCould you please help to check if this is a bug?\r\n\r\nThis code in python:\r\n`mydiv = dk.DivContainer(\r\n    ...\r\n    width = dk.DivPercentageSize(value=100),\r\n    ...\r\n)`\r\n\r\nproduces the following error:\r\n`ValueError: Value <pydivkit.div.div_percentage_size.DivPercentageSize object at 0x102d79e90> has wrong type. Expected type is typing.Union[pydivkit.div.div_fixed_size.DivFixedSize, pydivkit.div.div_match_parent_size.DivMatchParentSize, pydivkit.div.div_wrap_content_size.DivWrapContentSize, NoneType].`\r\n\r\nI'm trying to have a 100% width for an element.\r\n\r\nBR, Ivan",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3ed2-7483-8f6b-3fda65e08e4d",
-        "slug": "128909186-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2024-01-24T05:29:50Z",
-      "updated_at": "2024-01-24T09:07:13Z",
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2024-01-24T09:07:13Z"
     },
     {
       "id": "019a59ab-4316-7557-b01a-cd3048ad4225",
       "slug": "38",
       "title": "How i can launch site locally?",
-      "description": "Hello,\r\n\r\nI am not a web developer, and I'm unsure how to run the project located in the following folder: [site](https://github.com/divkit/divkit/tree/main/site).\r\n\r\nI would appreciate any assistance or guidance.\r\n\r\nThank you.",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3f01-7afe-b037-522e8c1eb1be",
-        "slug": "78256107-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2023-12-27T18:40:17Z",
-      "updated_at": "2024-01-24T09:13:15Z",
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2024-01-24T09:13:15Z"
     },
     {
       "id": "019a59ab-4316-755f-bb9e-17e6a1d243d3",
       "slug": "34",
       "title": "Getting issue :                                                                                                     java.lang.NoSuchFieldError: No static field listPopupWindowStyle of type I in class Lcom/yandex/div/R$attr; or its superclasses (declaration of 'com.yandex.div.R$attr' appears in /data/app/com.tokopedia.tkpd-IDj84M0I7f-d4y5tvmWhPg==/base.apk!classes19.dex)",
-      "description": "Hi guys I am getting this crash some times while scrolling and loading the components. \r\nCan you help identify the reason ? \r\n\r\nStack trace : \r\n\r\nFATAL EXCEPTION: ViewPoolThread\r\n                                                                                                    Process: com.tokopedia.tkpd, PID: 14190\r\n                                                                                                    java.lang.NoSuchFieldError: No static field listPopupWindowStyle of type I in class Lcom/yandex/div/R$attr; or its superclasses (declaration of 'com.yandex.div.R$attr' appears in /data/app/com.tokopedia.tkpd-IDj84M0I7f-d4y5tvmWhPg==/base.apk!classes19.dex)\r\n                                                                                                    \tat com.yandex.div.internal.widget.SelectView$PopupWindow.<init>(SelectView.kt:91)\r\n                                                                                                    \tat com.yandex.div.internal.widget.SelectView.<init>(SelectView.kt:34)\r\n                                                                                                    \tat com.yandex.div.core.view2.divs.widgets.DivSelectView.<init>(DivSelectView.kt:15)\r\n                                                                                                    \tat com.yandex.div.core.view2.DivViewCreator.lambda-18$lambda-17$lambda-15(DivViewCreator.kt:66)\r\n                                                                                                    \tat com.yandex.div.core.view2.DivViewCreator.$r8$lambda$K0SPGPC2Ad7KsxuvG2cgeoYgIvo(Unknown Source:0)\r\n                                                                                                    \tat com.yandex.div.core.view2.DivViewCreator$$ExternalSyntheticLambda13.createView(Unknown Source:2)\r\n                                                                                                    \tat com.yandex.div.internal.viewpool.AdvanceViewPool$Channel.createAndEnqueueView(AdvanceViewPool.kt:121)\r\n                                                                                                    \tat com.yandex.div.internal.viewpool.ViewCreator$CreateViewTask.run(ViewCreator.kt:89)\r\n                                                                                                    \tat com.yandex.div.internal.viewpool.ViewCreator$ViewCreatorThread.createView(ViewCreator.kt:77)\r\n                                                                                                    \tat com.yandex.div.internal.viewpool.ViewCreator$ViewCreatorThread.run(ViewCreator.kt:54)\r\n",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3f29-798d-bad9-7247fe5cee95",
-        "slug": "45751168-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2023-11-01T10:35:20Z",
-      "updated_at": "2024-05-24T09:12:02Z",
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2024-05-24T09:12:02Z"
     },
     {
       "id": "019a59ab-4316-7568-9b4a-cf9cc16744a3",
       "slug": "30",
       "title": "What is the correct response format for apply the patch?",
-      "description": "I have config:\r\n```\r\n{\r\n  \"templates\": {\r\n    \"main\": {\r\n      \"type\": \"container\",\r\n      \"height\": {\r\n        \"type\": \"match_parent\"\r\n      },\r\n      \"visibility_action\": {\r\n        \"log_id\": \"load_data\",\r\n        \"url\": \"div-action://download?url=http://example.com/patch\",\r\n        \"visibility_duration\": 1,\r\n        \"visibility_percentage\": 1\r\n      }\r\n    }\r\n  },\r\n  \"card\": {\r\n    \"log_id\": \"card\",\r\n    \"states\": [\r\n      {\r\n        \"div\": {\r\n          \"type\": \"main\",\r\n          \"id\": \"main\",\r\n          \"items\": [\r\n            {\r\n              \"type\": \"text\",\r\n              \"id\": \"wellcome\",\r\n              \"text\": \"wellcome\"\r\n            }\r\n          ]\r\n        },\r\n        \"state_id\": 0\r\n      }\r\n    ]\r\n  }\r\n}\r\n```\r\nhttp://example.com/patch:\r\n```\r\n{\r\n  \"changes\": [\r\n    {\r\n      \"id\": \"main\",\r\n      \"items\": [\r\n        {\r\n          \"type\": \"text\",\r\n          \"id\": \"goodbye\",\r\n          \"text\": \"goodbye\"\r\n        }\r\n      ]\r\n    }\r\n  ]\r\n}\r\n```\r\nIn the logs I see that a request for a patch occurs but is not applied. Testing in DivKit Playground demo android",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3f52-75fb-958a-b10ac901cb4f",
-        "slug": "8347864-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2023-08-02T12:47:42Z",
-      "updated_at": "2024-01-24T09:08:02Z",
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2024-01-24T09:08:02Z"
     },
     {
       "id": "019a59ab-4316-7570-b5df-9bffc0256ef8",
       "slug": "29",
       "title": "Unknown type of action (url=div-action://download?url=",
-      "description": "The instruction (https://divkit.tech/en/doc/overview/concepts/interaction.html#loading-data) say use div-action://download but json-builder and web playground don`t know this action type. How to use Loading more data?",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3f52-75fb-958a-b10ac901cb4f",
-        "slug": "8347864-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2023-08-01T14:06:27Z",
-      "updated_at": "2023-08-02T12:27:05Z",
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2023-08-02T12:27:05Z"
     },
     {
       "id": "019a59ab-4316-7577-999a-6053da61efbb",
       "slug": "28",
       "title": "How to access dict value inside expression block is this possible?",
-      "description": "If I have a variable defined like this \r\n```\r\n\"variables\": [\r\n      ...\r\n      {\r\n          \"name\": \"main_value\",\r\n          \"type\": \"dict\",\r\n          \"value\": {\r\n              \"name\": \"some name\",\r\n              \"surname\": \"some surname\"\r\n          }\r\n      }\r\n      ...\r\n    ],\r\n```\r\nHow can I access `name` in the expressions? \r\n`\"@{main_value.name}\"` for example doesn't work nor \r\n`\"@{main_value[name]}\"` nor `\"@{main_value['name']}\"`\r\n```\r\n {\r\n    \"type\": \"subtitle\",\r\n     \"text\": \"Name: @{main_value.name}\",\r\n      \"text_color\": \"#@{text_color_var}\",\r\n        \"margins\": {\r\n            \"bottom\": 24\r\n       }\r\n },\r\n ```\r\n I cannot find such info inside docs anywhere.\r\n Thank you in advance for the help\r\n \r\n Update: \r\n Figured it out from js tests\r\n `@{getDictString(main_value, 'name')}` is the answer",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3f7e-79df-967d-ecf0a27a93d5",
-        "slug": "5727941-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2023-06-29T11:48:03Z",
-      "updated_at": "2023-06-29T11:53:22Z",
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2023-06-29T11:53:22Z"
     },
     {
       "id": "019a59ab-4316-7587-aace-2209a164519b",
       "slug": "26",
       "title": "How can I subscribe to a variable in my custom view on Android?",
-      "description": "I'd like to implement a custom native radio group in Android. However, I'm having trouble finding information on how to observe the state variable that is defined in the variables section of the containing card. Here is an example of the state variable definition:\r\n\r\n`{\r\n          name: 'checked_index',\r\n          type: 'integer',\r\n          value: 0,\r\n }`\r\n\r\nThis variable can be set directly via `Div2View.setVariable()`. But I can't find how to observe changes to update each radio element accordingly.\r\nThe `Div2View` class includes a `variableController` property, which appears to be useful. However, it is currently inaccessible from outside the class. \r\n\r\n`\r\n    private val variableController: VariableController?\r\n`\r\n\r\nI would appreciate any guidance on how to observe the state variable using the `variableController` or any other available methods or approaches.\r\n",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-3fe3-7d7b-b7a9-83522d008f6b",
-        "slug": "1217481-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2023-05-30T12:32:31Z",
-      "updated_at": "2023-06-06T12:08:31Z",
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2023-06-06T12:08:31Z"
     },
     {
       "id": "019a59ab-4316-7598-9b04-0a4caf3983ca",
       "slug": "21",
       "title": "Support jsx syntax for typescript on server side",
-      "description": "This could be done with custom jsxTransform\r\nhttps://babeljs.io/docs/babel-plugin-transform-react-jsx\r\nor \r\nhttps://www.typescriptlang.org/tsconfig#jsxFactory\r\n\r\nI can implements this, but honestly not really good with docs",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-4058-78fd-8fdb-8738ef3c500c",
-        "slug": "18092308-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2023-05-03T19:58:13Z",
-      "updated_at": "2023-08-01T16:52:49Z",
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2023-08-01T16:52:49Z"
     },
     {
       "id": "019a59ab-4316-759f-8900-23e8ce7edb54",
       "slug": "20",
       "title": "Is https://npm.yandex-team.ru worked?",
-      "description": "I'm trying to ping https://npm.yandex-team.ru but it's fail. ",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-407e-71d0-b7e0-28b7ae2772a4",
-        "slug": "760595-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2023-04-13T10:40:51Z",
-      "updated_at": "2023-04-13T12:36:27Z",
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2023-04-13T12:36:27Z"
     },
     {
       "id": "019a59ab-4316-75a7-93a8-b8b92b68fd83",
       "slug": "19",
       "title": "Could you consider supporting tabbarItem",
-      "description": "A lot of apps have four tabs, but we don't have this component, so I think we need it because it's client-friendly",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-40a5-756f-92c5-d2fd3e5d45ab",
-        "slug": "30347253-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2023-04-07T12:27:59Z",
-      "updated_at": "2024-01-24T09:09:23Z",
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2024-01-24T09:09:23Z"
     },
     {
       "id": "019a59ab-4316-75ae-a2e6-5c7f6b5004a5",
       "slug": "18",
       "title": "How do you use non-local variables in react?",
-      "description": "The documentation [https://divkit.tech/en/doc/overview/concepts/variables.html] explains how to use non-local variables in Android but not in React or Web in general. Given that the id field is not used in the HTML, it is not possible to just grab an element and listen for clicks for instance. Ideally you could do this. It would also be great if state could be changed by other parts of the web page which are in another Divkit or not even Divkit, e.g. a React component. \r\n\r\nMany thanks for a great open source product. I tried for weeks to get Adaptive Cards working consistently and couldn't. Where DivKit was easy and just works.",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-40cc-741b-b66c-7b0783610f8f",
-        "slug": "597236-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2023-02-25T08:47:55Z",
-      "updated_at": "2023-03-01T11:46:21Z",
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2023-03-01T11:46:21Z"
     },
     {
       "id": "019a59ab-4316-75b6-a7de-393d6f55083f",
       "slug": "17",
       "title": "Any plans to add camera support?",
-      "description": "Barcode scanning would be super helpful.",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-40f4-710c-aefb-5a95ce749baa",
-        "slug": "13549141-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2023-02-20T17:57:41Z",
-      "updated_at": "2023-08-01T16:55:09Z",
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2023-08-01T16:55:09Z"
     },
     {
       "id": "019a59ab-4316-75be-9655-aea84265b173",
       "slug": "16",
       "title": "com.yandex.div.json.ParsingException: Value for key 'log_id' is missing",
-      "description": "I keep getting this exception trying to call the constructor of DivData (inside the function parsePayload in the code). Am I doing something wrong here?\r\n\r\n```Kotlin\r\n        com.yandex.div.json.ParsingException: Value for key 'log_id' is missing\r\n         at com.yandex.div.json.ParsingExceptionKt.missingValue(ParsingException.kt:17)\r\n         at com.yandex.div.json.JsonParser.read(JsonParser.java:432)\r\n         at com.yandex.div.json.JsonParser.read(JsonParser.java:354)\r\n         at com.yandex.div2.DivData$Companion.fromJson(DivData.kt:50)\r\n         at me.greentail.test.DivkitIntegration.parsePayload(DivkitIntegration.kt:52)\r\n         at me.greentail.test.ui.adapter.delegate.DivkitCardAdapterDelegate$divkitCardAdapterDelegate$2$2.invoke(DivkitCardAdapterDelegate.kt:31)\r\n         at me.greentail.test.ui.adapter.delegate.DivkitCardAdapterDelegate$divkitCardAdapterDelegate$2$2.invoke(DivkitCardAdapterDelegate.kt:30)\r\n         at com.hannesdorfmann.adapterdelegates4.dsl.DslLayoutContainerListAdapterDelegate.onBindViewHolder(LayoutContainerListAdapterDelegateDsl.kt:81)\r\n         at com.hannesdorfmann.adapterdelegates4.dsl.DslLayoutContainerListAdapterDelegate.onBindViewHolder(LayoutContainerListAdapterDelegateDsl.kt:57)\r\n         at com.hannesdorfmann.adapterdelegates4.AbsListItemAdapterDelegate.onBindViewHolder(AbsListItemAdapterDelegate.java:53)\r\n         at com.hannesdorfmann.adapterdelegates4.AbsListItemAdapterDelegate.onBindViewHolder(AbsListItemAdapterDelegate.java:42)\r\n         at com.hannesdorfmann.adapterdelegates4.AdapterDelegatesManager.onBindViewHolder(AdapterDelegatesManager.java:299)\r\n         at com.hannesdorfmann.adapterdelegates4.AsyncListDifferDelegationAdapter.onBindViewHolder(AsyncListDifferDelegationAdapter.java:127)\r\n         at androidx.recyclerview.widget.RecyclerView$Adapter.bindViewHolder(RecyclerView.java:7337)\r\n         at androidx.recyclerview.widget.RecyclerView$Recycler.tryBindViewHolderByDeadline(RecyclerView.java:6194)\r\n         at androidx.recyclerview.widget.RecyclerView$Recycler.tryGetViewHolderForPositionByDeadline(RecyclerView.java:6460)\r\n         at androidx.recyclerview.widget.RecyclerView$Recycler.getViewForPosition(RecyclerView.java:6300)\r\n         at androidx.recyclerview.widget.RecyclerView$Recycler.getViewForPosition(RecyclerView.java:6296)\r\n         at androidx.recyclerview.widget.LinearLayoutManager$LayoutState.next(LinearLayoutManager.java:2330)\r\n         at androidx.recyclerview.widget.LinearLayoutManager.layoutChunk(LinearLayoutManager.java:1631)\r\n         at androidx.recyclerview.widget.LinearLayoutManager.fill(LinearLayoutManager.java:1591)\r\n         at androidx.recyclerview.widget.LinearLayoutManager.onLayoutChildren(LinearLayoutManager.java:668)\r\n         at androidx.recyclerview.widget.RecyclerView.dispatchLayoutStep2(RecyclerView.java:4309)\r\n         at androidx.recyclerview.widget.RecyclerView.dispatchLayout(RecyclerView.java:4012)\r\n         at androidx.recyclerview.widget.RecyclerView.onLayout(RecyclerView.java:4578)\r\n         at android.view.View.layout(View.java:22131)\r\n         at android.view.ViewGroup.layout(ViewGroup.java:6438)\r\n         at androidx.swiperefreshlayout.widget.SwipeRefreshLayout.onLayout(SwipeRefreshLayout.java:689)\r\n         at android.view.View.layout(View.java:22131)\r\n         at android.view.ViewGroup.layout(ViewGroup.java:6438)\r\n         at androidx.constraintlayout.widget.ConstraintLayout.onLayout(ConstraintLayout.java:1873)\r\n         at android.view.View.layout(View.java:22131)\r\n         at android.view.ViewGroup.layout(ViewGroup.java:6438)\r\n         at com.google.android.material.appbar.HeaderScrollingViewBehavior.layoutChild(HeaderScrollingViewBehavior.java:149)\r\n         at com.google.android.material.appbar.ViewOffsetBehavior.onLayoutChild(ViewOffsetBehavior.java:43)\r\n         at com.google.android.material.appbar.AppBarLayout$ScrollingViewBehavior.onLayoutChild(AppBarLayout.java:2253)\r\n         at androidx.coordinatorlayout.widget.CoordinatorLayout.onLayout(CoordinatorLayout.java:953)\r\n         at android.view.View.layout(View.java:22131)\r\n         at android.view.ViewGroup.layout(ViewGroup.java:6438)\r\n         at android.widget.FrameLayout.layoutChildren(FrameLayout.java:334)\r\n         at android.widget.FrameLayout.onLayout(FrameLayout.java:270)\r\n         at android.view.View.layout(View.java:22131)\r\n         at android.view.ViewGroup.layout(ViewGroup.java:6438)\r\n         at android.widget.FrameLayout.layoutChildren(FrameLayout.java:334)\r\n```\r\n\r\nCodes\r\n\r\n```Kotlin\r\nobject DivkitIntegration {\r\n    val gson = Gson()\r\n\r\n    fun divConfiguration(context: Context, activity: Activity): DivConfiguration.Builder {\r\n        return DivConfiguration.Builder(ImageLoader(context))\r\n            .enableVisibilityBeacons()\r\n            .enableLongtapActionsPassingToChild()\r\n            .tooltipRestrictor { _, _ -> true }\r\n            .divDownloader(DemoDivDownloader())\r\n            .supportHyphenation(true)\r\n            .visualErrorsEnabled(true)\r\n    }\r\n\r\n    fun parsePayload(jsonPayload: String): DivData {\r\n        val data = JSONObject(jsonPayload)\r\n        val env = DivParsingEnvironment(ParsingErrorLogger.LOG)\r\n        return DivData(env, data)\r\n    }\r\n\r\n    class ImageLoader(context: Context) : DivImageLoader {\r\n        override fun loadImage(imageUrl: String, callback: DivImageDownloadCallback) = LoadReference {}\r\n\r\n        override fun loadImage(imageUrl: String, imageView: ImageView) = LoadReference {}\r\n\r\n        override fun loadImageBytes(imageUrl: String, callback: DivImageDownloadCallback) = LoadReference {}\r\n    }\r\n\r\n    class DemoDivDownloader : DivDownloader {\r\n\r\n        override fun downloadPatch(divView: Div2View, downloadUrl: String, callback: DivPatchDownloadCallback): LoadReference {\r\n            val job = GlobalScope.launch(Dispatchers.Main) {\r\n                callback.onFail()\r\n            }\r\n            return LoadReference {\r\n                job.cancel(\"cancel all downloads\")\r\n            }\r\n        }\r\n    }\r\n}\r\n```\r\n\r\n```Kotlin\r\nobject DivkitCardAdapterDelegate {\r\n\r\n    fun getDivkitView(context: Context): View {\r\n        val contextWrapper = ContextThemeWrapper(context, context.theme)\r\n        return Div2View(Div2Context(contextWrapper, DivkitIntegration.divConfiguration(context, context.activity!!).build()))\r\n    }\r\n\r\n    internal fun divkitCardAdapterDelegate(): AdapterDelegate<List<ICardItem>> =\r\n        adapterDelegateView<DivkitCarItem, ICardItem>(::getDivkitView) {\r\n            bind {\r\n                val data = DivkitIntegration.parsePayload(item.divkitPayload)\r\n                (itemView as Div2View).setData(data, DivDataTag(\"divkit_tag_123\"))\r\n            }\r\n        }\r\n}\r\n```\r\n\r\nJson\r\n\r\n```json\r\n{\r\n    \"card\": {\r\n        \"log_id\": \"sample_card\",\r\n        \"states\": [\r\n            {\r\n                \"state_id\": 0,\r\n                \"div\": {\r\n                    \"type\": \"container\",\r\n                    \"orientation\": \"vertical\",\r\n                    \"margins\": {\r\n                        \"top\": 24,\r\n                        \"bottom\": 24\r\n                    },\r\n                    \"items\": [\r\n                        {\r\n                            \"type\": \"container\",\r\n                            \"orientation\": \"vertical\",\r\n                            \"margins\": {\r\n                                \"bottom\": 12\r\n                            },\r\n                            \"items\": [\r\n                                {\r\n                                    \"type\": \"image\",\r\n                                    \"height\": {\r\n                                        \"type\": \"fixed\",\r\n                                        \"value\": 200\r\n                                    },\r\n                                    \"image_url\": \"https://yastatic.net/s3/home/yandex-app/div_demo/containers.png\"\r\n                                },\r\n                                {\r\n                                    \"type\": \"image\",\r\n                                    \"height\": {\r\n                                        \"type\": \"fixed\",\r\n                                        \"value\": 200\r\n                                    },\r\n                                    \"alpha\": 0.5,\r\n                                    \"image_url\": \"https://yastatic.net/s3/home/yandex-app/div_demo/containers.png\"\r\n                                }\r\n                            ]\r\n                        }\r\n                    ]\r\n                }\r\n            }\r\n        ]\r\n    }\r\n}\r\n```",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-411c-7f3c-8dc4-eaadd9a1f015",
-        "slug": "31704619-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2023-02-13T08:03:29Z",
-      "updated_at": "2023-02-15T14:20:27Z",
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2023-02-15T14:20:27Z"
     },
     {
       "id": "019a59ab-4316-75c6-89d5-8a11514ed890",
       "slug": "15",
       "title": "[QUESTION] Coding Environment",
-      "description": "Hi, \r\n\r\nCan I write json code in VSCode? Do I have to use playground in the divkit website? ",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-4142-77b9-8a9c-1b49123521c5",
-        "slug": "12694849-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2023-01-30T18:39:33Z",
-      "updated_at": "2023-02-02T21:42:19Z",
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2023-02-02T21:42:19Z"
     },
     {
       "id": "019a59ab-4316-75ce-87f2-07154b430a8d",
       "slug": "12",
       "title": "Swift JSON Builder",
-      "description": "Any plans for supporting Swift as JSON Builder language, used with Vapor possibly ?",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-4175-7899-bd1c-16ccdd7c408f",
-        "slug": "3121810-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2022-11-29T09:45:01Z",
-      "updated_at": "2023-08-01T16:51:25Z",
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2023-08-01T16:51:25Z"
     },
     {
       "id": "019a59ab-4316-75d6-a1c5-f7eb57ecad1b",
       "slug": "11",
       "title": "В доке ошибка \"модицикации\"",
-      "description": "На странице https://divkit.tech/ru/doc/",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-41a7-7c8f-92af-1920c3714569",
-        "slug": "24827-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2022-11-21T21:13:47Z",
-      "updated_at": "2023-01-24T09:00:21Z",
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2023-01-24T09:00:21Z"
     },
     {
       "id": "019a59ab-4316-75de-aed1-579ddc536385",
       "slug": "9",
       "title": "Possible perfomance issue",
-      "description": "https://github.com/divkit/divkit/blob/310b5fe043c58433ab2c3e3b61d4568a8050267b/json-builder/typescript/src/helper.ts#L23\r\n\r\nImplementation of Array.shift can be slow\r\n\r\nhttps://bugs.chromium.org/p/v8/issues/detail?id=12730",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-41d0-74b4-8c8b-7e2b51dad031",
-        "slug": "1584156-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2022-09-21T20:46:17Z",
-      "updated_at": "2023-01-24T14:23:34Z",
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2023-01-24T14:23:34Z"
     },
     {
       "id": "019a59ab-4316-75e5-aee8-e898c354e1d7",
       "slug": "8",
       "title": "Flutter client-side support",
-      "description": "Please vote via 👍 emoji on this issue if you'd like to see this feature.\r\nPlease use reaction button, not a comment.",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-41f9-7439-bffb-c0eef674e0e2",
-        "slug": "259405-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2022-09-05T08:26:26Z",
-      "updated_at": "2024-05-23T04:27:54Z",
-      "labels": [
-        {
-          "id": "019a59ab-2dec-70a4-9297-17e67e87f4e8",
-          "slug": "",
-          "name": "feature-vote",
-          "color": "91F6AA"
-        }
-      ],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2024-05-23T04:27:54Z"
     },
     {
       "id": "019a59ab-4316-75ed-bef7-fbfcacfed08a",
       "slug": "7",
       "title": "divkit website down?",
-      "description": "For two days I get when trying to visit your website. I tried using several VPN's. No issue with other websites/services. \r\n\r\nThis site can’t be reacheddivkit.tech’s DNS address could not be found. Diagnosing the problem.\r\nDNS_PROBE_STARTED\r\n\r\n",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-4226-777e-b7e4-70ea0b8bedcb",
-        "slug": "1760616-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2022-09-01T07:36:07Z",
-      "updated_at": "2022-09-01T12:07:40Z",
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2022-09-01T12:07:40Z"
     },
     {
       "id": "019a59ab-4316-75f5-89b8-7e7272a80a8e",
       "slug": "6",
       "title": "WYSIWYG",
-      "description": "In the blog post, there is a mention of a WYSIWYG layout designer/editor. Is that open sourced already or is on the roadmap to become so? ",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-4268-7068-ac11-539e78954d0b",
-        "slug": "7927822-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2022-09-01T03:11:27Z",
-      "updated_at": "2024-01-24T09:09:37Z",
-      "labels": [
-        {
-          "id": "019a59ab-2dec-70c3-be3d-768dfea7b1a7",
-          "slug": "",
-          "name": "question",
-          "color": "d876e3"
-        }
-      ],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2024-01-24T09:09:37Z"
     },
     {
       "id": "019a59ab-4316-760d-80f7-d9828dd682d1",
       "slug": "2",
       "title": "Can't build android client: Could not install Gradle  from app artifactory.yandex.net ",
-      "description": "looks like artifactory.yandex.net  is not reachable:\r\nCould not install Gradle distribution from 'https://artifactory.yandex.net/artifactory/gradle-distributions/distributions/gradle-7.4.1-all.zip'.\r\n",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-42ce-7abd-9521-84204432dd75",
-        "slug": "1109620-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2022-08-26T08:27:37Z",
-      "updated_at": "2022-09-05T13:52:10Z",
-      "labels": [
-        {
-          "id": "019a59ab-2dec-708e-b646-cf24750fa9e8",
-          "slug": "",
-          "name": "bug",
-          "color": "d73a4a"
-        }
-      ],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2022-09-05T13:52:10Z"
     },
     {
       "id": "019a59ab-4316-7614-806c-96b02914b23c",
       "slug": "1",
       "title": "Is it could be used with ReactNative?",
-      "description": "",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a59ab-42fc-7cb9-9894-9a81a3d8f353",
-        "slug": "17068034-github"
-      },
-      "updated_by": {
-        "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-        "slug": "sadsorceror"
-      },
       "created_at": "2022-08-26T07:03:41Z",
-      "updated_at": "2024-01-24T09:11:41Z",
-      "labels": [
-        {
-          "id": "019a59ab-2dec-70c3-be3d-768dfea7b1a7",
-          "slug": "",
-          "name": "question",
-          "color": "d876e3"
-        }
-      ],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "repository": {
-        "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
-        "slug": "divkit",
-        "organization": {
-          "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-          "slug": "divkit"
-        }
-      }
+      "updated_at": "2024-01-24T09:11:41Z"
     }
   ]
 }

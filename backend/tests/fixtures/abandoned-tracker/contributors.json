@@ -13,14 +13,7 @@
   "items": [
     {
       "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
-      "display_name": "Александр",
-      "username": "sadsorceror",
-      "bio": "",
-      "links": [],
-      "avatar": {
-        "url": ""
-      },
-      "visibility": "public"
+      "username": "sadsorceror"
     }
   ]
 }

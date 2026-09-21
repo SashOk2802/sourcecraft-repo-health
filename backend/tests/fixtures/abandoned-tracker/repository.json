@@ -6,59 +6,25 @@
   "item": {
     "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
     "name": "divkit",
-    "default_branch": "main",
-    "organization": {
-      "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
-      "slug": "divkit"
-    },
     "slug": "divkit",
-    "template_type": "not_a_template",
-    "is_empty": false,
-    "description": "DivKit is an open source Server-Driven UI (SDUI) framework. SDUI is a an emerging technique that leverage the server to build the user interfaces of their mobile app",
     "visibility": "public",
-    "logo": {
-      "url": "https://storage.yandexcloud.net/yc-sourcecraft-user-uploads/59287a5d-f2b6-4db8-a37a-8a393f66e70b"
-    },
-    "clone_url": {
-      "https": "https://git@git.sourcecraft.dev/divkit/divkit.git",
-      "ssh": "ssh://ssh.sourcecraft.dev/divkit/divkit.git"
-    },
     "web_url": "https://sourcecraft.dev/divkit/divkit",
-    "links": [
-      {
-        "link": "https://github.com/divkit/divkit",
-        "type": "default"
-      }
-    ],
+    "last_updated": "2026-09-18T15:31:14.201508Z",
+    "default_branch": "main",
+    "is_empty": false,
+    "language": {
+      "name": "Kotlin"
+    },
     "counters": {
-      "forks": "6",
-      "pull_requests": "45",
       "issues": "0",
+      "pull_requests": "45",
+      "forks": "6",
       "tags": "160",
       "branches": "138"
     },
-    "last_updated": "2026-09-18T15:31:14.201508Z",
-    "language": {
-      "name": "Kotlin",
-      "color": "#A97BFF"
-    },
-    "rating": {
-      "value": 4061.5,
-      "percentile": 1,
-      "reaction_counts": [
-        {
-          "type": "positive_low",
-          "count": "14"
-        },
-        {
-          "type": "positive_medium",
-          "count": "3"
-        },
-        {
-          "type": "positive_high",
-          "count": "7"
-        }
-      ]
+    "organization": {
+      "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+      "slug": "divkit"
     }
   }
 }

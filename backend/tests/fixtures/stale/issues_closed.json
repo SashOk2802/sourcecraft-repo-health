@@ -16,75 +16,29 @@
       "id": "019a1a6f-047a-7335-b17b-f8932f53e233",
       "slug": "1",
       "title": "Новый заголовок",
-      "description": "Новое описание",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a1682-7c05-7cca-8617-e875413df8b5",
-        "slug": "rachiktavaratsyan"
-      },
-      "updated_by": {
-        "id": "019a16c4-15c9-720c-bc8c-028eaebceca3",
-        "slug": "vory-kamur1209-mail-ru"
-      },
       "created_at": "2025-10-25T08:14:34.618230Z",
       "updated_at": "2025-10-26T08:14:08.855588Z",
-      "assignee": {
-        "id": "019a1682-10b2-739c-bf7d-439f336a9c34",
-        "slug": "artembely04"
-      },
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "completed_at": "2025-10-26T08:04:16.064127Z",
-      "repository": {
-        "id": "019a1698-1e96-71a3-adce-92d65c9f20db",
-        "slug": "casesc",
-        "organization": {
-          "id": "019a1682-8e5a-7583-93a4-1bc15a1c3da2",
-          "slug": "brothersandksu"
-        }
-      }
+      "completed_at": "2025-10-26T08:04:16.064127Z"
     },
     {
       "id": "019a1b47-79da-7379-95b0-d78b2c95bb3e",
       "slug": "2",
       "title": "dozhik",
-      "description": "",
       "status": {
         "id": "4",
         "slug": "closed",
         "name": "Closed",
         "status_type": "completed"
       },
-      "author": {
-        "id": "019a1682-7c05-7cca-8617-e875413df8b5",
-        "slug": "rachiktavaratsyan"
-      },
-      "updated_by": {
-        "id": "019a1682-7c05-7cca-8617-e875413df8b5",
-        "slug": "rachiktavaratsyan"
-      },
       "created_at": "2025-10-25T12:11:00.442253Z",
       "updated_at": "2025-10-26T11:32:12.544374Z",
-      "labels": [],
-      "linked_prs": [],
-      "priority": "normal",
-      "visibility": "public",
-      "completed_at": "2025-10-26T11:32:12.529390Z",
-      "repository": {
-        "id": "019a1698-1e96-71a3-adce-92d65c9f20db",
-        "slug": "casesc",
-        "organization": {
-          "id": "019a1682-8e5a-7583-93a4-1bc15a1c3da2",
-          "slug": "brothersandksu"
-        }
-      }
+      "completed_at": "2025-10-26T11:32:12.529390Z"
     }
   ]
 }

@@ -9,6 +9,7 @@
 Использование:
     python scripts/fetch_fixtures.py discover
     python scripts/fetch_fixtures.py capture <org>/<repo> --label active
+    python scripts/fetch_fixtures.py capture <org>/<repo> --label active --allow-private
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ import os
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import httpx
 
@@ -41,9 +42,127 @@ DEFAULT_MAX_PAGES = 5
 
 TOKEN_VARIABLE = "SOURCECRAFT_TOKEN"
 
+ISSUE_KEYS = (
+    "id",
+    "slug",
+    "title",
+    "status",
+    "created_at",
+    "updated_at",
+    "completed_at",
+)
+ISSUE_STATUS_KEYS = ("id", "slug", "name", "status_type")
+PULL_KEYS = ("id", "slug", "title", "status", "created_at", "updated_at")
+RELEASE_KEYS = (
+    "id",
+    "tag",
+    "title",
+    "status",
+    "is_pre_release",
+    "created_at",
+    "updated_at",
+    "released_at",
+)
+CONTRIBUTOR_KEYS = ("id", "username")
+REPOSITORY_KEYS = (
+    "id",
+    "name",
+    "slug",
+    "visibility",
+    "web_url",
+    "last_updated",
+    "default_branch",
+    "is_empty",
+    "language",
+    "counters",
+    "organization",
+)
+ORGANIZATION_KEYS = ("id", "slug")
+LANGUAGE_KEYS = ("name",)
+COUNTER_KEYS = ("issues", "pull_requests", "forks", "tags", "branches")
+
 
 class FixtureError(RuntimeError):
     """Ошибка инструмента, текст которой можно показать пользователю."""
+
+
+def _pick(payload: dict[str, Any], keys: tuple[str, ...]) -> dict[str, Any]:
+    return {key: payload[key] for key in keys if key in payload}
+
+
+def _project_nested(
+    payload: dict[str, Any],
+    field: str,
+    keys: tuple[str, ...],
+) -> None:
+    nested = payload.get(field)
+    if isinstance(nested, dict):
+        payload[field] = _pick(nested, keys)
+
+
+def project_issue(item: dict[str, Any]) -> dict[str, Any]:
+    projected = _pick(item, ISSUE_KEYS)
+    _project_nested(projected, "status", ISSUE_STATUS_KEYS)
+    return projected
+
+
+def project_pull(item: dict[str, Any]) -> dict[str, Any]:
+    return _pick(item, PULL_KEYS)
+
+
+def project_release(item: dict[str, Any]) -> dict[str, Any]:
+    return _pick(item, RELEASE_KEYS)
+
+
+def project_contributor(item: dict[str, Any]) -> dict[str, Any]:
+    return _pick(item, CONTRIBUTOR_KEYS)
+
+
+def project_repository(item: dict[str, Any]) -> dict[str, Any]:
+    projected = _pick(item, REPOSITORY_KEYS)
+    _project_nested(projected, "organization", ORGANIZATION_KEYS)
+    _project_nested(projected, "language", LANGUAGE_KEYS)
+    _project_nested(projected, "counters", COUNTER_KEYS)
+    return projected
+
+
+COLLECTION_PROJECTORS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
+    "issues_open": project_issue,
+    "issues_in_progress": project_issue,
+    "issues_closed": project_issue,
+    "pulls": project_pull,
+    "releases": project_release,
+    "contributors": project_contributor,
+}
+
+
+def project_items(
+    projector: Callable[[dict[str, Any]], dict[str, Any]],
+    items: list[Any],
+) -> list[dict[str, Any]]:
+    projected: list[dict[str, Any]] = []
+    for item in items:
+        if isinstance(item, dict):
+            projected.append(projector(item))
+    return projected
+
+
+def is_private_repository(item: dict[str, Any]) -> bool:
+    visibility = str(item.get("visibility") or "").strip().lower()
+    if visibility:
+        return visibility != "public"
+    return bool(item.get("private"))
+
+
+def ensure_capture_allowed(item: dict[str, Any], *, allow_private: bool) -> None:
+    if not is_private_repository(item):
+        return
+    if allow_private:
+        return
+    raise FixtureError(
+        "Репозиторий не публичный. Повторите команду с --allow-private, "
+        "если сознательно снимаете приватные данные."
+    )
 
 
 def read_token() -> str:
@@ -135,13 +254,34 @@ def fetch_all(
     }
 
 
+def redact_fixture(name: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """Оставляет в конверте только поля, нужные анализаторам."""
+    if name == "repository":
+        item = payload.get("item")
+        if isinstance(item, dict):
+            return {**payload, "item": project_repository(item)}
+        return payload
+
+    projector = COLLECTION_PROJECTORS.get(name)
+    if projector is None:
+        return payload
+    items = payload.get("items") or []
+    projected = project_items(projector, items if isinstance(items, list) else [])
+    redacted = {**payload, "items": projected}
+    meta = redacted.get("_meta")
+    if isinstance(meta, dict):
+        redacted["_meta"] = {**meta, "item_count": len(projected)}
+    return redacted
+
+
 def write_fixture(label: str, name: str, payload: dict[str, Any]) -> Path:
-    """Сохраняет конверт в backend/tests/fixtures/<label>/<name>.json."""
+    """Сохраняет обезличенный конверт в backend/tests/fixtures/<label>/<name>.json."""
     directory = FIXTURES_ROOT / label
     directory.mkdir(parents=True, exist_ok=True)
     target = directory / f"{name}.json"
+    redacted = redact_fixture(name, payload)
     target.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2),
+        json.dumps(redacted, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
     return target
@@ -192,6 +332,12 @@ def cmd_capture(client: SourceCraftClient, args: argparse.Namespace) -> int:
     base = f"/repos/{org}/{slug}"
 
     metadata = get_object(client, base, {})
+    ensure_capture_allowed(metadata, allow_private=args.allow_private)
+    if is_private_repository(metadata):
+        print(
+            "Внимание: репозиторий не публичный. Сохраняются только поля из whitelist.",
+            file=sys.stderr,
+        )
     saved = [
         write_fixture(
             args.label,
@@ -203,10 +349,15 @@ def cmd_capture(client: SourceCraftClient, args: argparse.Namespace) -> int:
         )
     ]
 
-    # Открытые и закрытые задачи запрашиваются отдельно: так видно и объём, и динамику,
-    # а фильтрация по статусу выполняется на стороне API.
+    # open и in_progress — один вход production-анализатора; closed нужен отдельно.
     collections = [
         ("issues_open", f"{base}/issues", "issues", {"filter": "status=open"}),
+        (
+            "issues_in_progress",
+            f"{base}/issues",
+            "issues",
+            {"filter": "status=in_progress"},
+        ),
         ("issues_closed", f"{base}/issues", "issues", {"filter": "status=closed"}),
         ("pulls", f"{base}/pulls", "pull_requests", {}),
         ("releases", f"{base}/releases", "releases", {}),
@@ -258,6 +409,11 @@ def build_parser() -> argparse.ArgumentParser:
     capture.add_argument("repository", help="репозиторий в виде <org>/<repo>")
     capture.add_argument("--label", required=True, help="имя набора фикстур, например active")
     capture.add_argument("--max-pages", type=int, default=DEFAULT_MAX_PAGES)
+    capture.add_argument(
+        "--allow-private",
+        action="store_true",
+        help="явно подтвердить съём непубличного репозитория",
+    )
 
     return parser
 
