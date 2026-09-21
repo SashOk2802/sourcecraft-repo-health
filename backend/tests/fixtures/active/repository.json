@@ -1,0 +1,30 @@
+{
+  "_meta": {
+    "endpoint": "/repos/k-5-45mm/dozzle-plus",
+    "fetched_at": "2026-09-18T16:29:33.445456+00:00"
+  },
+  "item": {
+    "id": "019fdbe8-611e-74ae-9b33-d157bb49533d",
+    "name": "dozzle-plus",
+    "slug": "dozzle-plus",
+    "visibility": "public",
+    "web_url": "https://sourcecraft.dev/k-5-45mm/dozzle-plus",
+    "last_updated": "2026-09-15T04:00:31.852941Z",
+    "default_branch": "main",
+    "is_empty": false,
+    "language": {
+      "name": "Go"
+    },
+    "counters": {
+      "issues": "73",
+      "pull_requests": "79",
+      "forks": "0",
+      "tags": "17",
+      "branches": "1"
+    },
+    "organization": {
+      "id": "019ac2ae-cb42-7174-9e26-e19d2a7771d7",
+      "slug": "k-5-45mm"
+    }
+  }
+}

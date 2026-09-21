@@ -1,0 +1,375 @@
+{
+  "_meta": {
+    "endpoint": "/repos/divkit/divkit/pulls",
+    "params": {
+      "page_size": 100
+    },
+    "items_key": "pull_requests",
+    "fetched_at": "2026-09-18T16:20:36.963829+00:00",
+    "pages_fetched": 1,
+    "truncated": false,
+    "item_count": 45
+  },
+  "items": [
+    {
+      "id": "019a59ab-57e9-71ef-935f-11003697ee0c",
+      "slug": "120",
+      "title": "Add alignment parameter support to TooltipFactory",
+      "status": "open",
+      "created_at": "2025-11-06T14:56:32.745127Z",
+      "updated_at": "2026-09-18T15:31:25.341788Z"
+    },
+    {
+      "id": "019a59ab-58bb-7074-88d0-25aae8b0916b",
+      "slug": "119",
+      "title": "fix(iOS): prevent unnecessary `TabContentsView` reloads affecting `TextInput` focus",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:32.955029Z",
+      "updated_at": "2025-11-06T14:56:33.107576Z"
+    },
+    {
+      "id": "019a59ab-5979-7184-93fd-9dd70b5c39d0",
+      "slug": "118",
+      "title": "fix(iOS): prevent unnecessary TabContentsView reloads affecting text input focus",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:33.145099Z",
+      "updated_at": "2025-11-06T14:56:33.300909Z"
+    },
+    {
+      "id": "019a59ab-5a3d-717a-b3ef-24812f5f49b3",
+      "slug": "116",
+      "title": "Update README.md",
+      "status": "open",
+      "created_at": "2025-11-06T14:56:33.341097Z",
+      "updated_at": "2025-11-06T14:56:33.477338Z"
+    },
+    {
+      "id": "019a59ab-5afa-7d6b-93b6-31e360de0108",
+      "slug": "109",
+      "title": "merge auth to divkit main",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:33.530879Z",
+      "updated_at": "2025-11-06T14:56:33.644618Z"
+    },
+    {
+      "id": "019a59ab-5b7d-7a6b-bcfa-10612145b142",
+      "slug": "106",
+      "title": "Добавление возможности выполнять див экшны в дебаг панели на Android",
+      "status": "open",
+      "created_at": "2025-11-06T14:56:33.661683Z",
+      "updated_at": "2026-09-18T15:31:29.162377Z"
+    },
+    {
+      "id": "019a59ab-5c06-7aee-8f5a-aef7ca3749a1",
+      "slug": "102",
+      "title": "Добавление тригонометрической функции ctan",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:33.798716Z",
+      "updated_at": "2025-11-06T14:56:33.960029Z"
+    },
+    {
+      "id": "019a59ab-5cca-7de1-a03c-3858ac11ddd9",
+      "slug": "98",
+      "title": "Issue #85: [Android] Implement Android extension for DivInput to show date and time picker",
+      "status": "open",
+      "created_at": "2025-11-06T14:56:33.994909Z",
+      "updated_at": "2025-11-06T14:56:34.107445Z"
+    },
+    {
+      "id": "019a59ab-5d50-717a-8af7-078652e3d12a",
+      "slug": "97",
+      "title": "Issue #78: [iOS] Added atan",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:34.128096Z",
+      "updated_at": "2025-11-06T14:56:34.249837Z"
+    },
+    {
+      "id": "019a59ab-5dec-74f7-a461-d3c475ae9e86",
+      "slug": "96",
+      "title": "[Android] add ctan function.",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:34.284325Z",
+      "updated_at": "2025-11-06T14:56:34.401305Z"
+    },
+    {
+      "id": "019a59ab-5e73-758f-a393-f003d66ebbf2",
+      "slug": "95",
+      "title": "[Android] Add asin() trigonometric function",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:34.419364Z",
+      "updated_at": "2025-11-06T14:56:34.542861Z"
+    },
+    {
+      "id": "019a59ab-5f02-7f19-a00a-aa46360d1ab7",
+      "slug": "94",
+      "title": "[iOS] Тригонометрическая функция ctan",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:34.562989Z",
+      "updated_at": "2025-11-06T14:56:34.724394Z"
+    },
+    {
+      "id": "019a59ab-5fba-7221-896d-61021799a178",
+      "slug": "93",
+      "title": "[iOS] Added min method to array",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:34.746139Z",
+      "updated_at": "2025-11-06T14:56:34.890863Z"
+    },
+    {
+      "id": "019a59ab-6063-752d-9c66-161253134866",
+      "slug": "92",
+      "title": "[iOS] Added avg method for array",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:34.915339Z",
+      "updated_at": "2025-11-06T14:56:35.064248Z"
+    },
+    {
+      "id": "019a59ab-6115-7c99-94a9-6a057d31afc7",
+      "slug": "91",
+      "title": "Issue #63: [iOS] Added array.max",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:35.093825Z",
+      "updated_at": "2025-11-06T14:56:35.233306Z"
+    },
+    {
+      "id": "019a59ab-61b9-7bd6-91ef-d10b229b2ca4",
+      "slug": "90",
+      "title": "Issue #66: [Android] add array min function",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:35.257776Z",
+      "updated_at": "2025-11-06T14:56:35.362844Z"
+    },
+    {
+      "id": "019a59ab-6235-7a61-b1e7-7fbf75fea561",
+      "slug": "89",
+      "title": "Issue #68: [Android] array avg method",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:35.381680Z",
+      "updated_at": "2025-11-06T14:56:35.519071Z"
+    },
+    {
+      "id": "019a59ab-62d3-7b7c-a9a3-f1350afdb97a",
+      "slug": "88",
+      "title": "[Android] added tan",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:35.539752Z",
+      "updated_at": "2025-11-06T14:56:35.661003Z"
+    },
+    {
+      "id": "019a59ab-6367-7b81-b877-9d2fa881add3",
+      "slug": "87",
+      "title": "issue #74: [Android] cos function implementation",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:35.687754Z",
+      "updated_at": "2025-11-06T14:56:35.804322Z"
+    },
+    {
+      "id": "019a59ab-63f6-7d8c-b87f-2b5683678357",
+      "slug": "86",
+      "title": "Issue #71: [iOS] Added cos",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:35.830887Z",
+      "updated_at": "2025-11-06T14:56:36.008117Z"
+    },
+    {
+      "id": "019a59ab-64c0-7dff-bac9-f29529f2c506",
+      "slug": "54",
+      "title": "feat(flutter): add scenario list to testing page",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:36.032917Z",
+      "updated_at": "2025-11-06T14:56:36.166756Z"
+    },
+    {
+      "id": "019a59ab-655a-7531-8fd5-8ad5c0fd14e9",
+      "slug": "53",
+      "title": "feat(flutter): add text div features support",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:36.186340Z",
+      "updated_at": "2025-11-06T14:56:36.306314Z"
+    },
+    {
+      "id": "019a59ab-65f0-773f-ae8d-2673bc93515f",
+      "slug": "52",
+      "title": "fix(flutter): fix gradients in templates breaks rendering",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:36.336475Z",
+      "updated_at": "2025-11-06T14:56:36.457625Z"
+    },
+    {
+      "id": "019a59ab-667a-78dc-8db3-bd89a5ed2458",
+      "slug": "50",
+      "title": "Fix Keyboard Type Handling by Adding Input Formatter for Number Input in Flutter DivKit",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:36.474580Z",
+      "updated_at": "2025-11-06T14:56:36.609672Z"
+    },
+    {
+      "id": "019a59ab-672c-7a7e-b143-a0ab5e63913b",
+      "slug": "46",
+      "title": "Changing some regress tests to interactive analogues",
+      "status": "open",
+      "created_at": "2025-11-06T14:56:36.652687Z",
+      "updated_at": "2026-09-18T15:31:29.165671Z"
+    },
+    {
+      "id": "019a59ab-67b6-718b-acd6-153a89121d45",
+      "slug": "45",
+      "title": "Added nested ternary operator test case",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:36.790101Z",
+      "updated_at": "2025-11-06T14:56:36.913239Z"
+    },
+    {
+      "id": "019a59ab-6850-7244-91cd-a4516a28d38f",
+      "slug": "43",
+      "title": "Request to make build Android client on Windows possible",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:36.944148Z",
+      "updated_at": "2025-11-06T14:56:37.179187Z"
+    },
+    {
+      "id": "019a59ab-6957-7482-928d-4b828c80975b",
+      "slug": "42",
+      "title": "Timestamp Function",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:37.207295Z",
+      "updated_at": "2025-11-06T14:56:37.330421Z"
+    },
+    {
+      "id": "019a59ab-69e7-79fb-9e97-5dcb631de2fd",
+      "slug": "41",
+      "title": "Added support for SVG images.",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:37.351654Z",
+      "updated_at": "2025-11-06T14:56:37.494029Z"
+    },
+    {
+      "id": "019a59ab-6aa8-7eae-b8d5-40c7e4ca8363",
+      "slug": "39",
+      "title": "Support payload for URL actions",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:37.544962Z",
+      "updated_at": "2025-11-06T14:56:37.664107Z"
+    },
+    {
+      "id": "019a59ab-6b37-742b-b0cb-c4dc2fb53410",
+      "slug": "37",
+      "title": "Supported Coil as another image loader in addition to Glide and Picasso.",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:37.687273Z",
+      "updated_at": "2025-11-06T14:56:37.812064Z"
+    },
+    {
+      "id": "019a59ab-6c1a-7839-ab41-126c936f21f6",
+      "slug": "36",
+      "title": "Supported Coil as another image loader in addition to Glide and Picasso.",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:37.914539Z",
+      "updated_at": "2025-11-06T14:56:38.047529Z"
+    },
+    {
+      "id": "019a59ab-6cb5-75a3-9353-cb5ac827a350",
+      "slug": "35",
+      "title": "ApiGenerator / Divan / header comments fix",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:38.069369Z",
+      "updated_at": "2025-11-06T14:56:38.190595Z"
+    },
+    {
+      "id": "019a59ab-6d3f-7435-998c-7757e9fb6877",
+      "slug": "33",
+      "title": "Optimize time complexity",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:38.207276Z",
+      "updated_at": "2025-11-06T14:56:38.335836Z"
+    },
+    {
+      "id": "019a59ab-6dd6-72f3-b29c-f1118c86461d",
+      "slug": "32",
+      "title": "Optimize time complexity",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:38.358193Z",
+      "updated_at": "2025-11-06T14:56:38.480047Z"
+    },
+    {
+      "id": "019a59ab-6e67-73b5-b6c8-e945f058ae7e",
+      "slug": "31",
+      "title": "Optimize time complexity",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:38.503243Z",
+      "updated_at": "2025-11-06T14:56:38.658295Z"
+    },
+    {
+      "id": "019a59ab-6f16-7608-b5ed-c93bba3f7a81",
+      "slug": "25",
+      "title": "Refactor generator.py",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:38.678395Z",
+      "updated_at": "2025-11-06T14:56:38.805259Z"
+    },
+    {
+      "id": "019a59ab-6fa9-71d9-a910-e6a096309528",
+      "slug": "23",
+      "title": "resolve building error",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:38.825121Z",
+      "updated_at": "2025-11-06T14:56:38.939852Z"
+    },
+    {
+      "id": "019a59ab-702f-7b85-8c00-8905a804d650",
+      "slug": "22",
+      "title": "Use cache for rewriteTemplateVersions",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:38.959755Z",
+      "updated_at": "2025-11-06T14:56:39.114793Z"
+    },
+    {
+      "id": "019a59ab-70e5-7bfc-a082-721a37723435",
+      "slug": "14",
+      "title": "Added custom checker for last symbol",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:39.141785Z",
+      "updated_at": "2025-11-06T14:56:39.297414Z"
+    },
+    {
+      "id": "019a59ab-7197-7dcb-aec5-7603c905d4bc",
+      "slug": "13",
+      "title": "Marketplace",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:39.319904Z",
+      "updated_at": "2025-11-06T14:56:39.461311Z"
+    },
+    {
+      "id": "019a59ab-723e-7252-9ca4-710d9a96bcba",
+      "slug": "10",
+      "title": "Block+Layout issue",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:39.486152Z",
+      "updated_at": "2025-11-06T14:56:39.629014Z"
+    },
+    {
+      "id": "019a59ab-72e3-79b8-9393-2b199ef031b3",
+      "slug": "4",
+      "title": "Updated README.md structure",
+      "status": "discarded",
+      "created_at": "2025-11-06T14:56:39.651637Z",
+      "updated_at": "2025-11-06T14:56:39.829762Z"
+    },
+    {
+      "id": "019abce6-e730-71b9-8183-b5ceafa59721",
+      "slug": "122",
+      "title": "R-32.25",
+      "status": "open",
+      "created_at": "2025-11-25T21:24:00.432113Z",
+      "updated_at": "2025-11-25T21:24:01.153306Z"
+    },
+    {
+      "id": "019ccd1f-a7f1-709f-b5bc-8066af37d43a",
+      "slug": "123",
+      "title": "Security Test",
+      "status": "discarded",
+      "created_at": "2026-03-08T11:05:29.841041Z",
+      "updated_at": "2026-03-08T11:06:05.173467Z"
+    }
+  ]
+}

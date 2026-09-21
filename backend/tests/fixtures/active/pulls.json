@@ -1,0 +1,647 @@
+{
+  "_meta": {
+    "endpoint": "/repos/k-5-45mm/dozzle-plus/pulls",
+    "params": {
+      "page_size": 100
+    },
+    "items_key": "pull_requests",
+    "fetched_at": "2026-09-18T16:29:34.042657+00:00",
+    "pages_fetched": 1,
+    "truncated": false,
+    "item_count": 79
+  },
+  "items": [
+    {
+      "id": "019fe2ad-6a69-77b7-8db5-ffb766211f10",
+      "slug": "1",
+      "title": "ci: require code review for pull requests",
+      "status": "merged",
+      "created_at": "2026-08-08T18:40:43.625506Z",
+      "updated_at": "2026-08-08T18:41:42.158674Z"
+    },
+    {
+      "id": "019fe2be-de75-79f2-a853-91057552257f",
+      "slug": "2",
+      "title": "ci: release trivy image independently",
+      "status": "merged",
+      "created_at": "2026-08-08T18:59:47.445652Z",
+      "updated_at": "2026-08-08T19:00:31.397385Z"
+    },
+    {
+      "id": "019fe2d2-6605-70cd-ae94-3528a96c9351",
+      "slug": "3",
+      "title": "feat: add Dozzle Plus project site",
+      "status": "merged",
+      "created_at": "2026-08-08T19:21:07.333052Z",
+      "updated_at": "2026-08-08T19:23:13.221181Z"
+    },
+    {
+      "id": "019fe2d7-09b9-7642-822e-3b69b32710d6",
+      "slug": "4",
+      "title": "ci: configure SourceCraft site publishing",
+      "status": "merged",
+      "created_at": "2026-08-08T19:26:11.385410Z",
+      "updated_at": "2026-08-08T19:26:21.255474Z"
+    },
+    {
+      "id": "019fe2e4-9591-74f3-86ee-2c5509fb6956",
+      "slug": "5",
+      "title": "docs: document Dozzle Plus features",
+      "status": "merged",
+      "created_at": "2026-08-08T19:40:59.153324Z",
+      "updated_at": "2026-08-08T19:41:23.654378Z"
+    },
+    {
+      "id": "019fe300-0195-72cf-87d1-32c8f48f50ad",
+      "slug": "6",
+      "title": "Update site image",
+      "status": "merged",
+      "created_at": "2026-08-08T20:10:56.277184Z",
+      "updated_at": "2026-08-08T20:11:15.514772Z"
+    },
+    {
+      "id": "019fe310-348f-7b8d-a278-2c77e7b3f05a",
+      "slug": "7",
+      "title": "feat: align landing structure with Dozzle",
+      "status": "merged",
+      "created_at": "2026-08-08T20:28:37.903757Z",
+      "updated_at": "2026-08-08T20:28:58.554304Z"
+    },
+    {
+      "id": "019fe348-692c-7cf2-8425-208aa6f5cece",
+      "slug": "8",
+      "title": "docs: refine Plus feature catalog",
+      "status": "merged",
+      "created_at": "2026-08-08T21:30:01.388848Z",
+      "updated_at": "2026-08-08T21:30:16.501612Z"
+    },
+    {
+      "id": "019fe6d1-2418-79b5-b3d3-b684621227ee",
+      "slug": "9",
+      "title": "fix: prevent agent host info panic",
+      "status": "merged",
+      "created_at": "2026-08-09T13:58:13.784636Z",
+      "updated_at": "2026-08-09T14:01:40.717260Z"
+    },
+    {
+      "id": "019fea9a-6d5e-7415-8329-35e80d4b77d0",
+      "slug": "10",
+      "title": "fix: keep container page controls visible",
+      "status": "merged",
+      "created_at": "2026-08-10T07:36:56.926267Z",
+      "updated_at": "2026-08-10T07:37:28.910115Z"
+    },
+    {
+      "id": "019fea9b-2b75-71e4-8d82-84e1da3b08b5",
+      "slug": "11",
+      "title": "fix: handle release check failures gracefully",
+      "status": "merged",
+      "created_at": "2026-08-10T07:37:45.589124Z",
+      "updated_at": "2026-08-10T07:40:23.160517Z"
+    },
+    {
+      "id": "019feaa1-9ff4-7a27-8c12-78a1ea1fa587",
+      "slug": "12",
+      "title": "fix: surface release check failures",
+      "status": "merged",
+      "created_at": "2026-08-10T07:44:48.628665Z",
+      "updated_at": "2026-08-10T07:45:43.647770Z"
+    },
+    {
+      "id": "019fec03-f9bf-79ba-b99d-3affb6604fe1",
+      "slug": "13",
+      "title": "feature/project-site",
+      "status": "merged",
+      "created_at": "2026-08-10T14:11:51.359637Z",
+      "updated_at": "2026-08-10T14:12:47.053697Z"
+    },
+    {
+      "id": "019fec1e-9f28-7d02-977e-d570a92947db",
+      "slug": "14",
+      "title": "feature/project-site",
+      "status": "merged",
+      "created_at": "2026-08-10T14:40:57.640852Z",
+      "updated_at": "2026-08-10T14:41:20.721025Z"
+    },
+    {
+      "id": "019fec22-3d81-750c-b36e-b67da66f8151",
+      "slug": "15",
+      "title": "fix: show card report dropdown options",
+      "status": "merged",
+      "created_at": "2026-08-10T14:44:54.785331Z",
+      "updated_at": "2026-08-10T14:46:41.920409Z"
+    },
+    {
+      "id": "019fec24-17b3-7ae6-98d0-665f3ea8d71e",
+      "slug": "16",
+      "title": "fix: compact container section navigation",
+      "status": "merged",
+      "created_at": "2026-08-10T14:46:56.179714Z",
+      "updated_at": "2026-08-10T14:50:59.851501Z"
+    },
+    {
+      "id": "019fec35-f983-7a6a-8961-426ee3ea1fc7",
+      "slug": "17",
+      "title": "fix: add home navigation shortcut",
+      "status": "merged",
+      "created_at": "2026-08-10T15:06:28.099682Z",
+      "updated_at": "2026-08-10T15:09:54.755643Z"
+    },
+    {
+      "id": "019fec4a-a36e-769c-88a9-e8326f1d1761",
+      "slug": "18",
+      "title": "ci: add scheduled vulnerability scan",
+      "status": "merged",
+      "created_at": "2026-08-10T15:29:02.318433Z",
+      "updated_at": "2026-08-10T15:52:07.385500Z"
+    },
+    {
+      "id": "019fee0d-a07b-7451-b106-07a250002dd4",
+      "slug": "19",
+      "title": "main",
+      "status": "merged",
+      "created_at": "2026-08-10T23:41:38.299283Z",
+      "updated_at": "2026-08-10T23:41:50.335087Z"
+    },
+    {
+      "id": "019fee3e-22f1-7a52-a2d7-c27f6d01324d",
+      "slug": "20",
+      "title": "fix/security-scan-dependencies",
+      "status": "merged",
+      "created_at": "2026-08-11T00:34:37.425676Z",
+      "updated_at": "2026-08-11T00:51:26.922663Z"
+    },
+    {
+      "id": "019fee4e-2b2e-7bd4-9688-fae7a8a029d5",
+      "slug": "21",
+      "title": "fix: address static analysis security findings",
+      "status": "merged",
+      "created_at": "2026-08-11T00:52:08.110775Z",
+      "updated_at": "2026-08-11T01:02:40.224770Z"
+    },
+    {
+      "id": "019fee58-4239-7bb5-a149-9a399a71338d",
+      "slug": "22",
+      "title": "chore/core-v10.7.1",
+      "status": "merged",
+      "created_at": "2026-08-11T01:03:09.369767Z",
+      "updated_at": "2026-08-11T01:12:07.696481Z"
+    },
+    {
+      "id": "019fee62-2daf-778e-8ce1-abb30fb36ccd",
+      "slug": "23",
+      "title": "release/v1.1",
+      "status": "merged",
+      "created_at": "2026-08-11T01:13:59.471495Z",
+      "updated_at": "2026-08-11T01:14:30.765902Z"
+    },
+    {
+      "id": "019ff03d-70f7-7a02-be45-316109bbd52e",
+      "slug": "24",
+      "title": "fix: isolate hostspace project settings",
+      "status": "merged",
+      "created_at": "2026-08-11T09:53:06.295656Z",
+      "updated_at": "2026-08-11T09:59:35.133550Z"
+    },
+    {
+      "id": "019ff043-9bd3-7ca7-b3aa-30bb4d90fa75",
+      "slug": "25",
+      "title": "feature/local-container-filter",
+      "status": "merged",
+      "created_at": "2026-08-11T09:59:50.483829Z",
+      "updated_at": "2026-08-11T10:00:54.938680Z"
+    },
+    {
+      "id": "019ff09c-ccf1-758b-acda-b9ee10c22db1",
+      "slug": "26",
+      "title": "fix: isolate deployments and card templates by hostspace",
+      "status": "merged",
+      "created_at": "2026-08-11T11:37:15.761363Z",
+      "updated_at": "2026-08-11T11:46:01.919103Z"
+    },
+    {
+      "id": "019ff0a6-29aa-79e2-a706-24821c7dc725",
+      "slug": "27",
+      "title": "feature: scope notifications by hostspace",
+      "status": "merged",
+      "created_at": "2026-08-11T11:47:29.322647Z",
+      "updated_at": "2026-08-11T12:07:50.316531Z"
+    },
+    {
+      "id": "019ff0e1-c878-7894-a79b-ed86b73aa3d1",
+      "slug": "28",
+      "title": "feature: add architecture notes MVP",
+      "status": "merged",
+      "created_at": "2026-08-11T12:52:36.600562Z",
+      "updated_at": "2026-08-11T13:06:47.050968Z"
+    },
+    {
+      "id": "019ff0ef-126a-733c-893e-3fe5aff31ce8",
+      "slug": "29",
+      "title": "ci: add manual preview image build",
+      "status": "merged",
+      "created_at": "2026-08-11T13:07:07.498212Z",
+      "updated_at": "2026-08-11T13:07:27.967128Z"
+    },
+    {
+      "id": "019ff106-5833-79b4-a34d-ad62389c5036",
+      "slug": "30",
+      "title": "fix: normalize architecture note collections",
+      "status": "merged",
+      "created_at": "2026-08-11T13:32:32.691636Z",
+      "updated_at": "2026-08-11T13:32:39.170660Z"
+    },
+    {
+      "id": "019ff106-b7e7-7390-b15c-09e16ba4a3c7",
+      "slug": "31",
+      "title": "fix: normalize architecture note collections",
+      "status": "discarded",
+      "created_at": "2026-08-11T13:32:57.191233Z",
+      "updated_at": "2026-08-11T13:39:27.758102Z"
+    },
+    {
+      "id": "019ff12b-6844-7dd8-89e2-74e3928d452a",
+      "slug": "32",
+      "title": "feature/architecture-visual-editor",
+      "status": "merged",
+      "created_at": "2026-08-11T14:13:01.636907Z",
+      "updated_at": "2026-08-11T14:13:12.101748Z"
+    },
+    {
+      "id": "019ff12f-9cf3-7398-81c8-b66063a7a911",
+      "slug": "33",
+      "title": "Revert \"feature/architecture-visual-editor (!32)\"",
+      "status": "merged",
+      "created_at": "2026-08-11T14:17:37.267235Z",
+      "updated_at": "2026-08-11T14:17:47.061114Z"
+    },
+    {
+      "id": "019ff130-2122-7ab5-b320-529c137df41a",
+      "slug": "34",
+      "title": "feature: add visual architecture editor",
+      "status": "merged",
+      "created_at": "2026-08-11T14:18:11.106701Z",
+      "updated_at": "2026-08-11T14:20:29.951527Z"
+    },
+    {
+      "id": "019ff15d-dae3-78aa-a6f2-374577fea6e2",
+      "slug": "35",
+      "title": "feature: refine architecture editor workspace",
+      "status": "merged",
+      "created_at": "2026-08-11T15:08:07.779567Z",
+      "updated_at": "2026-08-11T15:08:15.568785Z"
+    },
+    {
+      "id": "019ff1ae-6a0b-7d12-b849-1477c4e21e0a",
+      "slug": "36",
+      "title": "feature: integrate architecture notes into card settings",
+      "status": "merged",
+      "created_at": "2026-08-11T16:36:07.307856Z",
+      "updated_at": "2026-08-11T16:36:16.869746Z"
+    },
+    {
+      "id": "019ff21e-2f07-74e7-8fa9-4b6bb1d5b30f",
+      "slug": "37",
+      "title": "feature/architecture-visual-editor",
+      "status": "merged",
+      "created_at": "2026-08-11T18:38:12.231321Z",
+      "updated_at": "2026-08-11T18:38:19.213566Z"
+    },
+    {
+      "id": "019ff23c-9998-71af-9106-59ac66c5549a",
+      "slug": "38",
+      "title": "fix: support routed architecture connections",
+      "status": "merged",
+      "created_at": "2026-08-11T19:11:25.592110Z",
+      "updated_at": "2026-08-11T19:11:35.866590Z"
+    },
+    {
+      "id": "019ff264-445b-7129-8869-ca8e8fd722df",
+      "slug": "39",
+      "title": "UI",
+      "status": "merged",
+      "created_at": "2026-08-11T19:54:45.211076Z",
+      "updated_at": "2026-08-11T19:55:11.179711Z"
+    },
+    {
+      "id": "019ff2a3-648b-74f1-ad81-5d0684b7e14b",
+      "slug": "40",
+      "title": "feature/architecture-visual-editor",
+      "status": "merged",
+      "created_at": "2026-08-11T21:03:42.219324Z",
+      "updated_at": "2026-08-11T21:03:58.207382Z"
+    },
+    {
+      "id": "019ff2c4-e9ef-7781-959f-9c9576bbcf9d",
+      "slug": "41",
+      "title": "feature/architecture-visual-editor",
+      "status": "merged",
+      "created_at": "2026-08-11T21:40:19.055492Z",
+      "updated_at": "2026-08-11T21:40:32.228077Z"
+    },
+    {
+      "id": "019ff320-ffca-7430-ae81-55477fc4a0d1",
+      "slug": "42",
+      "title": "feature/architecture-visual-editor",
+      "status": "merged",
+      "created_at": "2026-08-11T23:20:53.962274Z",
+      "updated_at": "2026-08-11T23:21:06.551437Z"
+    },
+    {
+      "id": "019ff561-1046-7617-97a9-99814aed5d86",
+      "slug": "43",
+      "title": "style: align architecture note cards with templates",
+      "status": "merged",
+      "created_at": "2026-08-12T09:50:06.918399Z",
+      "updated_at": "2026-08-12T09:50:31.819097Z"
+    },
+    {
+      "id": "019ff585-0773-7d3c-8691-722e7b032309",
+      "slug": "44",
+      "title": "release/v1.2",
+      "status": "merged",
+      "created_at": "2026-08-12T10:29:23.955867Z",
+      "updated_at": "2026-08-12T17:10:49.969745Z"
+    },
+    {
+      "id": "019ff6ed-f0ae-7c63-bd38-09ba68cb0ae3",
+      "slug": "45",
+      "title": "feature/architecture-visual-editor",
+      "status": "merged",
+      "created_at": "2026-08-12T17:03:36.622812Z",
+      "updated_at": "2026-08-12T17:03:44.892097Z"
+    },
+    {
+      "id": "019ffb5c-782f-7b27-a930-3acd4f988f09",
+      "slug": "46",
+      "title": "feat: add architecture notes permissions and transfer",
+      "status": "merged",
+      "created_at": "2026-08-13T13:42:49.135731Z",
+      "updated_at": "2026-08-13T14:56:33.759882Z"
+    },
+    {
+      "id": "01a0199f-68ad-7a89-9383-7210e7b022b2",
+      "slug": "47",
+      "title": "ci: split topology image workflow",
+      "status": "merged",
+      "created_at": "2026-08-19T10:44:32.557690Z",
+      "updated_at": "2026-08-19T10:44:44.456821Z"
+    },
+    {
+      "id": "01a019bf-0f0b-7e53-9284-965c545c5524",
+      "slug": "48",
+      "title": "CI",
+      "status": "merged",
+      "created_at": "2026-08-19T11:19:06.763939Z",
+      "updated_at": "2026-08-19T11:19:13.664547Z"
+    },
+    {
+      "id": "01a019c6-f439-75cb-a1f1-55107ea3f766",
+      "slug": "49",
+      "title": "ci/topology-workflow-v1.3",
+      "status": "merged",
+      "created_at": "2026-08-19T11:27:44.185380Z",
+      "updated_at": "2026-08-19T11:27:52.474104Z"
+    },
+    {
+      "id": "01a019d3-7fec-7f2b-98cb-03128bf10549",
+      "slug": "50",
+      "title": "fix: accept plain topology versions",
+      "status": "merged",
+      "created_at": "2026-08-19T11:41:26.380994Z",
+      "updated_at": "2026-08-19T11:41:32.882707Z"
+    },
+    {
+      "id": "01a01a02-2c28-7739-b76c-184941ad6cf9",
+      "slug": "51",
+      "title": "feature/topology-v1.3-interactive",
+      "status": "merged",
+      "created_at": "2026-08-19T12:32:25.128473Z",
+      "updated_at": "2026-08-19T12:32:33.264267Z"
+    },
+    {
+      "id": "01a01a28-0223-7c3d-a056-e107ac7781da",
+      "slug": "52",
+      "title": "feat: render topology with graphify-style network",
+      "status": "merged",
+      "created_at": "2026-08-19T13:13:44.739802Z",
+      "updated_at": "2026-08-19T13:14:05.851012Z"
+    },
+    {
+      "id": "01a01a3f-89de-794c-8b8a-02c355a1c48c",
+      "slug": "53",
+      "title": "feat: add detailed container topology page",
+      "status": "merged",
+      "created_at": "2026-08-19T13:39:26.814609Z",
+      "updated_at": "2026-08-19T13:39:51.072413Z"
+    },
+    {
+      "id": "01a01a66-200b-72f0-a850-05865efac97c",
+      "slug": "54",
+      "title": "feat: add detailed container topology page",
+      "status": "merged",
+      "created_at": "2026-08-19T14:21:35.627192Z",
+      "updated_at": "2026-08-19T14:21:43.830456Z"
+    },
+    {
+      "id": "01a01a7a-30e1-7c83-bed1-51a1413b0f62",
+      "slug": "55",
+      "title": "fix: use explicit tag for manual trivy builds",
+      "status": "merged",
+      "created_at": "2026-08-19T14:43:30.657820Z",
+      "updated_at": "2026-08-19T14:43:36.878630Z"
+    },
+    {
+      "id": "01a01aca-6ebe-7ddd-b87c-7d1ee90c66b1",
+      "slug": "56",
+      "title": "feature/topology-v1.3-interactive",
+      "status": "merged",
+      "created_at": "2026-08-19T16:11:09.374908Z",
+      "updated_at": "2026-08-19T16:11:17.527896Z"
+    },
+    {
+      "id": "01a01ae1-4c32-71c0-922c-9209b491b6cb",
+      "slug": "57",
+      "title": "fix: tolerate primitive sbom stream events",
+      "status": "merged",
+      "created_at": "2026-08-19T16:36:07.858115Z",
+      "updated_at": "2026-08-19T16:36:21.579487Z"
+    },
+    {
+      "id": "01a01af1-f583-7955-a8c3-bfe896c9d81a",
+      "slug": "58",
+      "title": "fix: decode mixed text in sbom stream",
+      "status": "merged",
+      "created_at": "2026-08-19T16:54:19.779612Z",
+      "updated_at": "2026-08-19T16:54:29.933793Z"
+    },
+    {
+      "id": "01a01b07-a2fc-796e-883a-498df4bf5c0b",
+      "slug": "59",
+      "title": "feat: visualize image package dependencies",
+      "status": "merged",
+      "created_at": "2026-08-19T17:18:00.444618Z",
+      "updated_at": "2026-08-19T17:18:09.133213Z"
+    },
+    {
+      "id": "01a01b2f-8663-73b5-a5d9-69ed70dd67e8",
+      "slug": "60",
+      "title": "fix: decode mixed text in sbom stream",
+      "status": "merged",
+      "created_at": "2026-08-19T18:01:34.563243Z",
+      "updated_at": "2026-08-19T18:01:51.541628Z"
+    },
+    {
+      "id": "01a01b44-4966-75e4-ae83-3ca86f9c4b0e",
+      "slug": "61",
+      "title": "feat: animate focused dependency edges",
+      "status": "merged",
+      "created_at": "2026-08-19T18:24:15.206386Z",
+      "updated_at": "2026-08-19T18:24:24.568679Z"
+    },
+    {
+      "id": "01a01b61-7c14-7574-a3b7-fc39caf113bc",
+      "slug": "62",
+      "title": "feat: highlight vulnerable graph dependencies",
+      "status": "merged",
+      "created_at": "2026-08-19T18:56:08.724357Z",
+      "updated_at": "2026-08-19T18:57:21.730035Z"
+    },
+    {
+      "id": "01a01ba0-ccb4-7276-844e-1a8f18b6f1ea",
+      "slug": "63",
+      "title": "feature/topology-v1.3-interactive",
+      "status": "merged",
+      "created_at": "2026-08-19T20:05:18.132161Z",
+      "updated_at": "2026-08-19T20:05:48.596975Z"
+    },
+    {
+      "id": "01a01ba1-6f4d-7640-b20e-33c01a82fe3e",
+      "slug": "64",
+      "title": "release/v1.3",
+      "status": "merged",
+      "created_at": "2026-08-19T20:05:59.757410Z",
+      "updated_at": "2026-08-19T20:27:14.849336Z"
+    },
+    {
+      "id": "01a01bb4-0708-7420-8970-b417f3302edc",
+      "slug": "65",
+      "title": "Исправить подтверждённые замечания MR 64",
+      "status": "merged",
+      "created_at": "2026-08-19T20:26:18.248270Z",
+      "updated_at": "2026-08-19T20:27:49.268121Z"
+    },
+    {
+      "id": "01a01bb6-4a1a-77d6-85dd-b26b30f5aca8",
+      "slug": "66",
+      "title": "release/v1.3",
+      "status": "merged",
+      "created_at": "2026-08-19T20:28:46.490513Z",
+      "updated_at": "2026-08-19T20:29:29.669212Z"
+    },
+    {
+      "id": "01a01bd5-bedb-7c54-89e9-bf377d238577",
+      "slug": "67",
+      "title": "Добавить архитектурные заметки и карту зависимостей в документацию",
+      "status": "merged",
+      "created_at": "2026-08-19T21:03:07.995808Z",
+      "updated_at": "2026-08-19T21:04:18.060833Z"
+    },
+    {
+      "id": "01a01bdd-1593-7239-9f55-fd8f599569ed",
+      "slug": "68",
+      "title": "Добавить архитектурные заметки и карту зависимостей на site",
+      "status": "merged",
+      "created_at": "2026-08-19T21:11:08.947146Z",
+      "updated_at": "2026-08-19T21:12:50.890634Z"
+    },
+    {
+      "id": "01a01be9-0cc4-719a-a6c2-d0e3e92b859f",
+      "slug": "69",
+      "title": "Убрать дублирующую кнопку карты зависимостей",
+      "status": "merged",
+      "created_at": "2026-08-19T21:24:13.124105Z",
+      "updated_at": "2026-08-19T21:45:53.721764Z"
+    },
+    {
+      "id": "01a01bf0-e88b-78c6-bf05-e2bf905a9502",
+      "slug": "70",
+      "title": "Улучшить выделение связей и CVE на карте зависимостей",
+      "status": "merged",
+      "created_at": "2026-08-19T21:32:48.139575Z",
+      "updated_at": "2026-08-19T21:33:18.825149Z"
+    },
+    {
+      "id": "01a01c2f-1dbf-780c-b737-822a68f4c74e",
+      "slug": "71",
+      "title": "Вернуть ссылку на проект Dozzle Plus",
+      "status": "merged",
+      "created_at": "2026-08-19T22:40:44.991527Z",
+      "updated_at": "2026-08-19T22:42:20.809958Z"
+    },
+    {
+      "id": "01a01c3b-a25a-70b9-92d3-0c2a98a1c25d",
+      "slug": "72",
+      "title": "site: remove redundant documentation hero",
+      "status": "merged",
+      "created_at": "2026-08-19T22:54:25.370047Z",
+      "updated_at": "2026-08-19T22:54:33.134983Z"
+    },
+    {
+      "id": "01a01ee8-c974-7097-86b8-25eeeb4f0a94",
+      "slug": "73",
+      "title": "feat: share and monitor container log streams",
+      "status": "merged",
+      "created_at": "2026-08-20T11:22:47.540038Z",
+      "updated_at": "2026-08-20T12:14:36.023171Z"
+    },
+    {
+      "id": "01a01f58-22b2-70eb-8bca-d06e02036019",
+      "slug": "74",
+      "title": "fix: order grouped logs chronologically",
+      "status": "merged",
+      "created_at": "2026-08-20T13:24:24.882060Z",
+      "updated_at": "2026-08-20T13:24:45.201827Z"
+    },
+    {
+      "id": "01a02019-8b33-7789-8acc-b5f08e17236e",
+      "slug": "75",
+      "title": "feature/log-history-prefetch",
+      "status": "merged",
+      "created_at": "2026-08-20T16:55:40.083494Z",
+      "updated_at": "2026-08-20T16:57:40.058955Z"
+    },
+    {
+      "id": "01a02041-2c2a-71b4-8795-549ea5e953cd",
+      "slug": "76",
+      "title": "fix/upstream-v10.7.3-log-disconnect",
+      "status": "merged",
+      "created_at": "2026-08-20T17:38:57.194112Z",
+      "updated_at": "2026-08-20T17:39:47.426424Z"
+    },
+    {
+      "id": "01a05cd1-b72e-7a31-8d87-6b04432c896b",
+      "slug": "77",
+      "title": "feat: adopt useful Dozzle v10.8.0 improvements",
+      "status": "merged",
+      "created_at": "2026-09-01T11:54:02.926668Z",
+      "updated_at": "2026-09-01T11:55:34.360516Z"
+    },
+    {
+      "id": "01a05cf7-963c-795c-bfca-335030611dbd",
+      "slug": "78",
+      "title": "fix: remediate August 2026 container CVEs",
+      "status": "merged",
+      "created_at": "2026-09-01T12:35:24.860613Z",
+      "updated_at": "2026-09-01T12:36:35.789407Z"
+    },
+    {
+      "id": "01a062b4-7eeb-7a87-a0da-d892ea4cfce7",
+      "slug": "79",
+      "title": "fix: report Dozzle core v10.8.0",
+      "status": "merged",
+      "created_at": "2026-09-02T15:19:51.275690Z",
+      "updated_at": "2026-09-02T15:20:03.367897Z"
+    }
+  ]
+}

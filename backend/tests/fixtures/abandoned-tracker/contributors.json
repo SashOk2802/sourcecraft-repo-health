@@ -1,0 +1,19 @@
+{
+  "_meta": {
+    "endpoint": "/repos/divkit/divkit/contributors",
+    "params": {
+      "page_size": 100
+    },
+    "items_key": "contributors",
+    "fetched_at": "2026-09-18T16:20:37.050598+00:00",
+    "pages_fetched": 1,
+    "truncated": false,
+    "item_count": 1
+  },
+  "items": [
+    {
+      "id": "01971bf5-675b-7239-945d-f87aad7a6db1",
+      "username": "sadsorceror"
+    }
+  ]
+}

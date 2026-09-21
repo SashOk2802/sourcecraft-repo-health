@@ -1,0 +1,31 @@
+{
+  "_meta": {
+    "endpoint": "/repos/brothersandksu/casesc/contributors",
+    "params": {
+      "page_size": 100
+    },
+    "items_key": "contributors",
+    "fetched_at": "2026-09-18T16:30:35.154447+00:00",
+    "pages_fetched": 1,
+    "truncated": false,
+    "item_count": 4
+  },
+  "items": [
+    {
+      "id": "019a1682-10b2-739c-bf7d-439f336a9c34",
+      "username": "artembely04"
+    },
+    {
+      "id": "019a1682-7c05-7cca-8617-e875413df8b5",
+      "username": "rachiktavaratsyan"
+    },
+    {
+      "id": "019a1683-0047-762b-bd51-ef884728c4a0",
+      "username": "dordjinimgirov19"
+    },
+    {
+      "id": "019a16c4-15c9-720c-bc8c-028eaebceca3",
+      "username": "vory-kamur1209-mail-ru"
+    }
+  ]
+}

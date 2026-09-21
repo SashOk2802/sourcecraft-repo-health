@@ -1,0 +1,87 @@
+{
+  "_meta": {
+    "endpoint": "/repos/brothersandksu/casesc/pulls",
+    "params": {
+      "page_size": 100
+    },
+    "items_key": "pull_requests",
+    "fetched_at": "2026-09-18T16:30:34.948563+00:00",
+    "pages_fetched": 1,
+    "truncated": false,
+    "item_count": 9
+  },
+  "items": [
+    {
+      "id": "019a1ddb-7490-7184-8a17-a0b3bb6e42b1",
+      "slug": "1",
+      "title": "Test Pull Request",
+      "status": "discarded",
+      "created_at": "2025-10-26T00:11:52.848099Z",
+      "updated_at": "2025-10-26T07:29:08.430369Z"
+    },
+    {
+      "id": "019a1de8-1324-7133-b6e2-5ac2731758e1",
+      "slug": "2",
+      "title": "test",
+      "status": "open",
+      "created_at": "2025-10-26T00:25:39.876078Z",
+      "updated_at": "2025-10-26T11:10:00.530290Z"
+    },
+    {
+      "id": "019a1deb-6c2c-7e7e-a5d4-2933f9171510",
+      "slug": "3",
+      "title": "New Feature",
+      "status": "discarded",
+      "created_at": "2025-10-26T00:29:19.276950Z",
+      "updated_at": "2025-10-26T01:08:40.758538Z"
+    },
+    {
+      "id": "019a1def-e44e-770a-929e-4ddc5693da72",
+      "slug": "4",
+      "title": "test1",
+      "status": "discarded",
+      "created_at": "2025-10-26T00:34:12.174461Z",
+      "updated_at": "2025-10-26T00:37:15.490297Z"
+    },
+    {
+      "id": "019a1df3-e9d9-7515-82c9-cff6d3773235",
+      "slug": "5",
+      "title": "test1",
+      "status": "discarded",
+      "created_at": "2025-10-26T00:38:35.737333Z",
+      "updated_at": "2025-10-26T01:07:51.868652Z"
+    },
+    {
+      "id": "019a1e01-2778-74f8-9dc8-0b2575cf22b2",
+      "slug": "6",
+      "title": "Test PR",
+      "status": "discarded",
+      "created_at": "2025-10-26T00:53:03.480325Z",
+      "updated_at": "2025-10-26T01:04:07.853833Z"
+    },
+    {
+      "id": "019a1e0d-a547-7819-86a7-9f4e59b0a7d0",
+      "slug": "7",
+      "title": "Test Feature PR",
+      "status": "discarded",
+      "created_at": "2025-10-26T01:06:42.119530Z",
+      "updated_at": "2025-10-26T09:33:34.046735Z"
+    },
+    {
+      "id": "019a1e13-fd70-7ad8-ab00-352d7080bbfe",
+      "slug": "8",
+      "title": "Test PR1",
+      "status": "open",
+      "created_at": "2025-10-26T01:13:37.904710Z",
+      "updated_at": "2025-10-26T11:10:00.621601Z"
+    },
+    {
+      "id": "019a1f69-4711-7410-a6b4-2b4d2c7a0e27",
+      "slug": "9",
+      "title": "new-feature1",
+      "status": "discarded",
+      "created_at": "2025-10-26T07:26:24.529266Z",
+      "updated_at": "2025-10-26T09:33:26.939830Z"
+    }
+  ]
+}

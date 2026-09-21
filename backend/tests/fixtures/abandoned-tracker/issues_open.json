@@ -1,0 +1,224 @@
+{
+  "_meta": {
+    "endpoint": "/repos/divkit/divkit/issues",
+    "params": {
+      "page_size": 100,
+      "filter": "status=open"
+    },
+    "items_key": "issues",
+    "fetched_at": "2026-09-18T16:20:36.842271+00:00",
+    "pages_fetched": 1,
+    "truncated": false,
+    "item_count": 16
+  },
+  "items": [
+    {
+      "id": "019a59ab-4316-73b3-bcbf-6926b4e48885",
+      "slug": "125",
+      "title": "Images and Lottie files coded with Base64 no works in Android",
+      "status": {
+        "id": "1",
+        "slug": "open",
+        "name": "Open",
+        "status_type": "initial"
+      },
+      "created_at": "2025-10-30T22:54:46Z",
+      "updated_at": "2025-10-30T22:54:46Z"
+    },
+    {
+      "id": "019a59ab-4316-73c0-a8eb-7a4583aaf270",
+      "slug": "124",
+      "title": "DivKit Breaks on Android when svg links are invalid or fails when fetched.",
+      "status": {
+        "id": "1",
+        "slug": "open",
+        "name": "Open",
+        "status_type": "initial"
+      },
+      "created_at": "2025-10-21T18:47:20Z",
+      "updated_at": "2025-10-21T18:56:41Z"
+    },
+    {
+      "id": "019a59ab-4316-73c6-982c-44ca538474a0",
+      "slug": "123",
+      "title": "Некорректная работа нескольких анимаций transition_in/transition_out",
+      "status": {
+        "id": "1",
+        "slug": "open",
+        "name": "Open",
+        "status_type": "initial"
+      },
+      "created_at": "2025-10-16T10:21:41Z",
+      "updated_at": "2025-10-16T10:24:50Z"
+    },
+    {
+      "id": "019a59ab-4316-73d0-adb8-932fdede9a2e",
+      "slug": "122",
+      "title": "DivKit dependency on Datastore cause binary compatibility issues with firebase",
+      "status": {
+        "id": "1",
+        "slug": "open",
+        "name": "Open",
+        "status_type": "initial"
+      },
+      "created_at": "2025-10-09T14:08:52Z",
+      "updated_at": "2025-10-09T14:08:52Z"
+    },
+    {
+      "id": "019a59ab-4316-73d9-bebd-812ddf5f595c",
+      "slug": "121",
+      "title": "tvOS Platform Support for DivKit",
+      "status": {
+        "id": "1",
+        "slug": "open",
+        "name": "Open",
+        "status_type": "initial"
+      },
+      "created_at": "2025-09-27T06:13:00Z",
+      "updated_at": "2025-09-27T06:13:00Z"
+    },
+    {
+      "id": "019a59ab-4316-73f3-86b9-eb1cd7158b15",
+      "slug": "114",
+      "title": "pydivkit: data field in DivCollectionItemBuilder doesn't support Expr",
+      "status": {
+        "id": "1",
+        "slug": "open",
+        "name": "Open",
+        "status_type": "initial"
+      },
+      "created_at": "2025-07-03T08:27:57Z",
+      "updated_at": "2025-07-03T08:31:58Z"
+    },
+    {
+      "id": "019a59ab-4316-7464-bf91-51bb4bdb9319",
+      "slug": "85",
+      "title": "Расширение для выбора даты или времени",
+      "status": {
+        "id": "1",
+        "slug": "open",
+        "name": "Open",
+        "status_type": "initial"
+      },
+      "created_at": "2024-12-13T15:33:49Z",
+      "updated_at": "2024-12-14T16:22:35Z"
+    },
+    {
+      "id": "019a59ab-4316-7489-a620-6e32a61dd2c7",
+      "slug": "79",
+      "title": "Тригонометрическая функция asin",
+      "status": {
+        "id": "1",
+        "slug": "open",
+        "name": "Open",
+        "status_type": "initial"
+      },
+      "created_at": "2024-12-13T15:01:03Z",
+      "updated_at": "2024-12-15T08:08:18Z"
+    },
+    {
+      "id": "019a59ab-4316-74a8-b6f6-b49651da9f25",
+      "slug": "75",
+      "title": "Тригонометрическая функция tan",
+      "status": {
+        "id": "1",
+        "slug": "open",
+        "name": "Open",
+        "status_type": "initial"
+      },
+      "created_at": "2024-12-13T14:56:43Z",
+      "updated_at": "2024-12-14T16:23:05Z"
+    },
+    {
+      "id": "019a59ab-4316-74b6-b5b4-b25d0f8005e7",
+      "slug": "73",
+      "title": "Тригонометрическая функция ctan",
+      "status": {
+        "id": "1",
+        "slug": "open",
+        "name": "Open",
+        "status_type": "initial"
+      },
+      "created_at": "2024-12-13T14:55:29Z",
+      "updated_at": "2024-12-14T16:36:09Z"
+    },
+    {
+      "id": "019a59ab-4316-74cb-a20e-6c13e8f8c573",
+      "slug": "70",
+      "title": "Тригонометрическая функция ctan",
+      "status": {
+        "id": "1",
+        "slug": "open",
+        "name": "Open",
+        "status_type": "initial"
+      },
+      "created_at": "2024-12-13T14:53:41Z",
+      "updated_at": "2024-12-14T16:53:13Z"
+    },
+    {
+      "id": "019a59ab-4316-750b-894d-470a28f88971",
+      "slug": "57",
+      "title": "Does divkit support align to the bottom of the parent?",
+      "status": {
+        "id": "1",
+        "slug": "open",
+        "name": "Open",
+        "status_type": "initial"
+      },
+      "created_at": "2024-12-05T15:40:40Z",
+      "updated_at": "2025-04-09T14:50:02Z"
+    },
+    {
+      "id": "019a59ab-4316-7513-88e9-4ac1ef00de56",
+      "slug": "56",
+      "title": "KEYCODE_DPAD_CENTER action not working in Android TV",
+      "status": {
+        "id": "1",
+        "slug": "open",
+        "name": "Open",
+        "status_type": "initial"
+      },
+      "created_at": "2024-11-07T06:34:19Z",
+      "updated_at": "2024-11-07T06:35:42Z"
+    },
+    {
+      "id": "019a59ab-4316-751b-bbeb-085809498be1",
+      "slug": "55",
+      "title": "Flutter (IOS) error: Break on 'ImpellerValidationBreak' to inspect point of failure",
+      "status": {
+        "id": "1",
+        "slug": "open",
+        "name": "Open",
+        "status_type": "initial"
+      },
+      "created_at": "2024-09-25T06:53:01Z",
+      "updated_at": "2024-09-30T10:49:12Z"
+    },
+    {
+      "id": "019a59ab-4316-75fd-811a-ccbdf3994732",
+      "slug": "5",
+      "title": "Make some suggestions",
+      "status": {
+        "id": "1",
+        "slug": "open",
+        "name": "Open",
+        "status_type": "initial"
+      },
+      "created_at": "2022-08-29T05:38:59Z",
+      "updated_at": "2022-08-29T08:18:19Z"
+    },
+    {
+      "id": "019a59ab-4316-7605-911d-772202588b8b",
+      "slug": "3",
+      "title": "Use Flatbuffers as Transfer Protocol in Production",
+      "status": {
+        "id": "1",
+        "slug": "open",
+        "name": "Open",
+        "status_type": "initial"
+      },
+      "created_at": "2022-08-26T09:03:50Z",
+      "updated_at": "2022-08-26T09:17:09Z"
+    }
+  ]
+}

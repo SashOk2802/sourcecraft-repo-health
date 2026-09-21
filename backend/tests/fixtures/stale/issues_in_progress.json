@@ -1,0 +1,15 @@
+{
+  "_meta": {
+    "endpoint": "/repos/brothersandksu/casesc/issues",
+    "params": {
+      "page_size": 100,
+      "filter": "status=in_progress"
+    },
+    "items_key": "issues",
+    "fetched_at": "2026-09-18T16:30:34.730188+00:00",
+    "pages_fetched": 1,
+    "truncated": false,
+    "item_count": 0
+  },
+  "items": []
+}

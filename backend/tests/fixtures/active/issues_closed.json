@@ -1,0 +1,506 @@
+{
+  "_meta": {
+    "endpoint": "/repos/k-5-45mm/dozzle-plus/issues",
+    "params": {
+      "page_size": 100,
+      "filter": "status=closed"
+    },
+    "items_key": "issues",
+    "fetched_at": "2026-09-18T16:29:33.815320+00:00",
+    "pages_fetched": 1,
+    "truncated": false,
+    "item_count": 35
+  },
+  "items": [
+    {
+      "id": "019fec65-1342-72b0-8102-2e8c9047464e",
+      "slug": "1",
+      "title": "[upstream][dozzle] Update core to v10.7.1",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "created_at": "2026-08-10T15:57:54.882209Z",
+      "updated_at": "2026-08-11T01:18:22.173945Z",
+      "completed_at": "2026-08-11T01:18:22.173943Z"
+    },
+    {
+      "id": "019feec4-2730-7ed6-aae0-55849a609a57",
+      "slug": "2",
+      "title": "[trivy][dozzle-plus] CVE-2026-24740 in github.com/amir20/dozzle (9524ece37a9a)",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "created_at": "2026-08-11T03:01:00.336999Z",
+      "updated_at": "2026-08-12T17:10:27.560606Z",
+      "completed_at": "2026-08-12T17:10:27.560604Z"
+    },
+    {
+      "id": "019ff911-36af-7594-9761-74d925b4205c",
+      "slug": "3",
+      "title": "[trivy][dozzle-plus] CVE-2026-24740 in github.com/amir20/dozzle (9524ece37a9a)",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "created_at": "2026-08-13T03:01:22.735424Z",
+      "updated_at": "2026-08-19T20:50:24.732148Z",
+      "completed_at": "2026-08-19T20:50:24.732147Z"
+    },
+    {
+      "id": "019ffe37-52ac-7079-b0f2-53e6fd3abb34",
+      "slug": "4",
+      "title": "[trivy][dozzle-plus] CVE-2026-39821 in stdlib (10da76575658)",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "created_at": "2026-08-14T03:01:06.348063Z",
+      "updated_at": "2026-08-19T20:50:17.190836Z",
+      "completed_at": "2026-08-19T20:50:17.190835Z"
+    },
+    {
+      "id": "019ffe37-65df-721f-bc0f-050f97cc138f",
+      "slug": "5",
+      "title": "[trivy][dozzle-plus] CVE-2026-46600 in stdlib (636a6fee6df7)",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "created_at": "2026-08-14T03:01:11.263170Z",
+      "updated_at": "2026-08-19T20:50:10.011927Z",
+      "completed_at": "2026-08-19T20:50:10.011925Z"
+    },
+    {
+      "id": "019ffe37-7827-7bb0-9c0e-9ed30e0357c6",
+      "slug": "6",
+      "title": "[trivy][dozzle-plus] CVE-2026-39821 in stdlib (be3e1f764a52)",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "created_at": "2026-08-14T03:01:15.943796Z",
+      "updated_at": "2026-08-19T20:50:01.891138Z",
+      "completed_at": "2026-08-19T20:50:01.891136Z"
+    },
+    {
+      "id": "019ffe37-b1c3-7b72-ba6c-4711ca4b907d",
+      "slug": "7",
+      "title": "[trivy][dozzle-plus] CVE-2026-46600 in stdlib (e11fb8682a78)",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "created_at": "2026-08-14T03:01:30.691785Z",
+      "updated_at": "2026-08-19T20:49:52.566116Z",
+      "completed_at": "2026-08-19T20:49:52.566114Z"
+    },
+    {
+      "id": "019ffe37-b20b-7e96-9195-7fa44c13c581",
+      "slug": "8",
+      "title": "[trivy][dozzle-plus] CVE-2026-46600 in stdlib (e11fb8682a78)",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "created_at": "2026-08-14T03:01:30.764Z",
+      "updated_at": "2026-08-19T20:49:44.165571Z",
+      "completed_at": "2026-08-19T20:49:44.165569Z"
+    },
+    {
+      "id": "019ffe37-b4a9-7358-9c23-615b0dbae4a6",
+      "slug": "9",
+      "title": "[trivy][dozzle-plus] CVE-2026-39821 in stdlib (31c8a39cb350)",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "created_at": "2026-08-14T03:01:31.433251Z",
+      "updated_at": "2026-08-19T20:49:34.724774Z",
+      "completed_at": "2026-08-19T20:49:34.724772Z"
+    },
+    {
+      "id": "019ffe37-b564-7460-8abd-7923c90fc7e5",
+      "slug": "10",
+      "title": "[trivy][dozzle-plus] CVE-2026-39821 in stdlib (31c8a39cb350)",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "created_at": "2026-08-14T03:01:31.620311Z",
+      "updated_at": "2026-08-19T20:49:24.056938Z",
+      "completed_at": "2026-08-19T20:49:24.056936Z"
+    },
+    {
+      "id": "019ffe37-b78f-729d-aec9-df1610e7e06b",
+      "slug": "11",
+      "title": "[trivy][dozzle-plus] CVE-2026-46600 in stdlib (76fe473bf8c8)",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "created_at": "2026-08-14T03:01:32.175204Z",
+      "updated_at": "2026-08-19T20:49:16.252752Z",
+      "completed_at": "2026-08-19T20:49:16.252751Z"
+    },
+    {
+      "id": "019ffe37-b898-7361-bed9-318a58fcebfd",
+      "slug": "12",
+      "title": "[trivy][dozzle-plus] CVE-2026-46600 in stdlib (76fe473bf8c8)",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "created_at": "2026-08-14T03:01:32.440256Z",
+      "updated_at": "2026-08-19T20:49:03.969601Z",
+      "completed_at": "2026-08-19T20:49:03.969599Z"
+    },
+    {
+      "id": "01a00884-552b-7779-91c2-58a5a2267610",
+      "slug": "13",
+      "title": "[trivy][dozzle-plus] CVE-2026-33818 in stdlib (7aa777e4494c)",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "created_at": "2026-08-16T03:01:25.419514Z",
+      "updated_at": "2026-08-19T20:48:31.506220Z",
+      "completed_at": "2026-08-19T20:48:31.506219Z"
+    },
+    {
+      "id": "01a00884-583c-77bf-ae28-2bf2e2b7f99c",
+      "slug": "14",
+      "title": "[trivy][dozzle-plus] CVE-2026-56853 in stdlib (115830029218)",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "created_at": "2026-08-16T03:01:26.204532Z",
+      "updated_at": "2026-08-19T20:48:18.645442Z",
+      "completed_at": "2026-08-19T20:48:18.645440Z"
+    },
+    {
+      "id": "01a00884-5a46-7a7f-9391-bf966dd8f6a7",
+      "slug": "15",
+      "title": "[trivy][dozzle-plus] CVE-2026-56858 in stdlib (1cef1d4b0a79)",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "created_at": "2026-08-16T03:01:26.726711Z",
+      "updated_at": "2026-08-19T20:48:02.326574Z",
+      "completed_at": "2026-08-19T20:48:02.326573Z"
+    },
+    {
+      "id": "01a00884-5cf9-7cb5-a399-2357a546b55e",
+      "slug": "16",
+      "title": "[trivy][dozzle-plus] CVE-2026-56859 in stdlib (682b87908b6d)",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "created_at": "2026-08-16T03:01:27.417857Z",
+      "updated_at": "2026-08-19T20:47:47.655902Z",
+      "completed_at": "2026-08-19T20:47:47.655900Z"
+    },
+    {
+      "id": "01a00884-5fb3-7386-8c02-095c51c2c49d",
+      "slug": "17",
+      "title": "[trivy][dozzle-plus] CVE-2026-56860 in stdlib (493d4e74baa1)",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "created_at": "2026-08-16T03:01:28.115248Z",
+      "updated_at": "2026-08-19T20:47:26.142742Z",
+      "completed_at": "2026-08-19T20:47:26.142739Z"
+    },
+    {
+      "id": "01a00884-61a7-7530-8edf-449fb2ce1bf8",
+      "slug": "18",
+      "title": "[trivy][dozzle-plus] CVE-2026-56862 in stdlib (e9bc765ba2e2)",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "created_at": "2026-08-16T03:01:28.615366Z",
+      "updated_at": "2026-08-19T20:47:10.226472Z",
+      "completed_at": "2026-08-19T20:47:10.226470Z"
+    },
+    {
+      "id": "01a00884-6466-74cc-8388-3522d722be12",
+      "slug": "19",
+      "title": "[trivy][dozzle-plus] CVE-2026-33818 in stdlib (2e29e1f603a7)",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "created_at": "2026-08-16T03:01:29.318336Z",
+      "updated_at": "2026-08-19T20:46:33.746986Z",
+      "completed_at": "2026-08-19T20:46:33.746984Z"
+    },
+    {
+      "id": "01a00884-6758-72e3-bd18-99cc4eea7f01",
+      "slug": "20",
+      "title": "[trivy][dozzle-plus] CVE-2026-56853 in stdlib (3a6069af33d1)",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "created_at": "2026-08-16T03:01:30.072221Z",
+      "updated_at": "2026-08-19T20:46:08.856543Z",
+      "completed_at": "2026-08-19T20:46:08.856541Z"
+    },
+    {
+      "id": "01a00884-6a45-7215-9cec-e3af750b04cd",
+      "slug": "21",
+      "title": "[trivy][dozzle-plus] CVE-2026-56858 in stdlib (9b7b6bd2fa75)",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "created_at": "2026-08-16T03:01:30.821165Z",
+      "updated_at": "2026-08-19T20:45:58.224005Z",
+      "completed_at": "2026-08-19T20:45:58.224003Z"
+    },
+    {
+      "id": "01a00884-6d41-794e-aca4-107073ef1456",
+      "slug": "22",
+      "title": "[trivy][dozzle-plus] CVE-2026-56859 in stdlib (7e65937dc49b)",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "created_at": "2026-08-16T03:01:31.585636Z",
+      "updated_at": "2026-08-19T20:45:46.157154Z",
+      "completed_at": "2026-08-19T20:45:46.157152Z"
+    },
+    {
+      "id": "01a00884-6f49-773d-935a-89c6ae04df48",
+      "slug": "23",
+      "title": "[trivy][dozzle-plus] CVE-2026-56860 in stdlib (01492cbe10ab)",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "created_at": "2026-08-16T03:01:32.105508Z",
+      "updated_at": "2026-08-19T20:45:33.643424Z",
+      "completed_at": "2026-08-19T20:45:33.643423Z"
+    },
+    {
+      "id": "01a00884-715b-7d05-9090-0426a5d0c2a7",
+      "slug": "24",
+      "title": "[trivy][dozzle-plus] CVE-2026-56862 in stdlib (ae0750550f6d)",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "created_at": "2026-08-16T03:01:32.635877Z",
+      "updated_at": "2026-08-19T20:45:16.275793Z",
+      "completed_at": "2026-08-19T20:45:16.275791Z"
+    },
+    {
+      "id": "01a00884-7357-7171-908f-8776e9c2f296",
+      "slug": "25",
+      "title": "[trivy][dozzle-plus] CVE-2026-33818 in stdlib (3b6384a3fa0c)",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "created_at": "2026-08-16T03:01:33.143123Z",
+      "updated_at": "2026-08-19T20:45:08.849502Z",
+      "completed_at": "2026-08-19T20:45:08.849500Z"
+    },
+    {
+      "id": "01a00884-7615-7eb8-b50f-e8b5cb275758",
+      "slug": "26",
+      "title": "[trivy][dozzle-plus] CVE-2026-56853 in stdlib (f13b4230b93f)",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "created_at": "2026-08-16T03:01:33.845989Z",
+      "updated_at": "2026-08-19T20:45:01.806769Z",
+      "completed_at": "2026-08-19T20:45:01.806766Z"
+    },
+    {
+      "id": "01a00884-78d6-7732-b917-1d9b7ecde6dc",
+      "slug": "27",
+      "title": "[trivy][dozzle-plus] CVE-2026-56858 in stdlib (54c6c2bbcfe1)",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "created_at": "2026-08-16T03:01:34.550503Z",
+      "updated_at": "2026-08-19T20:44:50.612248Z",
+      "completed_at": "2026-08-19T20:44:50.612247Z"
+    },
+    {
+      "id": "01a00884-7acc-7370-802c-059863810685",
+      "slug": "28",
+      "title": "[trivy][dozzle-plus] CVE-2026-56859 in stdlib (86beffa016b9)",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "created_at": "2026-08-16T03:01:35.052264Z",
+      "updated_at": "2026-08-19T20:44:37.464083Z",
+      "completed_at": "2026-08-19T20:44:37.464082Z"
+    },
+    {
+      "id": "01a00884-7d7b-7dc8-872a-d627534d42b6",
+      "slug": "29",
+      "title": "[trivy][dozzle-plus] CVE-2026-56860 in stdlib (ec518c004c88)",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "created_at": "2026-08-16T03:01:35.739927Z",
+      "updated_at": "2026-08-19T20:44:23.681768Z",
+      "completed_at": "2026-08-19T20:44:23.681767Z"
+    },
+    {
+      "id": "01a00884-8031-7218-8ca4-6316fb8913f5",
+      "slug": "30",
+      "title": "[trivy][dozzle-plus] CVE-2026-56862 in stdlib (0934558a47da)",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "created_at": "2026-08-16T03:01:36.433159Z",
+      "updated_at": "2026-08-19T20:44:09.104318Z",
+      "completed_at": "2026-08-19T20:44:09.104316Z"
+    },
+    {
+      "id": "01a008ba-4b36-70b5-972e-fcae4f67693b",
+      "slug": "31",
+      "title": "[upstream][dozzle] Update core to v10.7.2",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "created_at": "2026-08-16T04:00:21.814079Z",
+      "updated_at": "2026-08-19T20:43:53.420550Z",
+      "completed_at": "2026-08-19T20:43:50.859860Z"
+    },
+    {
+      "id": "01a01d53-bae7-7d5f-839d-22b75929c041",
+      "slug": "35",
+      "title": "[upstream][dozzle] Update core to v10.7.3",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "created_at": "2026-08-20T04:00:21.735901Z",
+      "updated_at": "2026-09-01T11:59:15.271975Z",
+      "completed_at": "2026-09-01T11:59:15.271973Z"
+    },
+    {
+      "id": "01a031ed-3776-75f3-8b9d-0b35bb8e32ec",
+      "slug": "36",
+      "title": "[upstream][dozzle] Update core to v10.7.4",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "created_at": "2026-08-24T04:00:24.950429Z",
+      "updated_at": "2026-09-01T11:59:00.118069Z",
+      "completed_at": "2026-09-01T11:59:00.118068Z"
+    },
+    {
+      "id": "01a04bad-0623-77f7-a487-73f28eddab3b",
+      "slug": "39",
+      "title": "[upstream][dozzle] Update core to v10.7.5",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "created_at": "2026-08-29T04:00:25.635546Z",
+      "updated_at": "2026-09-01T11:58:46.899496Z",
+      "completed_at": "2026-09-01T11:58:46.899494Z"
+    },
+    {
+      "id": "01a055f9-bfc5-7ad3-92e0-a0f73c794d01",
+      "slug": "40",
+      "title": "[upstream][dozzle] Update core to v10.8.0",
+      "status": {
+        "id": "4",
+        "slug": "closed",
+        "name": "Closed",
+        "status_type": "completed"
+      },
+      "created_at": "2026-08-31T04:00:26.053729Z",
+      "updated_at": "2026-09-01T11:58:32.721379Z",
+      "completed_at": "2026-09-01T11:58:32.721377Z"
+    }
+  ]
+}

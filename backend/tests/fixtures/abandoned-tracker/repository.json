@@ -1,0 +1,30 @@
+{
+  "_meta": {
+    "endpoint": "/repos/divkit/divkit",
+    "fetched_at": "2026-09-18T16:20:36.764899+00:00"
+  },
+  "item": {
+    "id": "019a59a8-da5d-7195-87dc-b66087876e5c",
+    "name": "divkit",
+    "slug": "divkit",
+    "visibility": "public",
+    "web_url": "https://sourcecraft.dev/divkit/divkit",
+    "last_updated": "2026-09-18T15:31:14.201508Z",
+    "default_branch": "main",
+    "is_empty": false,
+    "language": {
+      "name": "Kotlin"
+    },
+    "counters": {
+      "issues": "0",
+      "pull_requests": "45",
+      "forks": "6",
+      "tags": "160",
+      "branches": "138"
+    },
+    "organization": {
+      "id": "01989b9d-b52e-77b9-b54f-a665c42c48f2",
+      "slug": "divkit"
+    }
+  }
+}

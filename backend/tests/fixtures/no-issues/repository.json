@@ -1,0 +1,30 @@
+{
+  "_meta": {
+    "endpoint": "/repos/userver/userver",
+    "fetched_at": "2026-09-18T16:32:01.106735+00:00"
+  },
+  "item": {
+    "id": "0198c7be-d6b9-7a10-ada3-2781be8eaefa",
+    "name": "userver",
+    "slug": "userver",
+    "visibility": "public",
+    "web_url": "https://sourcecraft.dev/userver/userver",
+    "last_updated": "2026-09-18T13:52:16.652533Z",
+    "default_branch": "develop",
+    "is_empty": false,
+    "language": {
+      "name": "C++"
+    },
+    "counters": {
+      "issues": "0",
+      "pull_requests": "0",
+      "forks": "1",
+      "tags": "13",
+      "branches": "11"
+    },
+    "organization": {
+      "id": "01989b92-2dc6-7a00-90b0-a3f7a6f6dd14",
+      "slug": "userver"
+    }
+  }
+}

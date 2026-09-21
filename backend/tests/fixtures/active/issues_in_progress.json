@@ -1,0 +1,15 @@
+{
+  "_meta": {
+    "endpoint": "/repos/k-5-45mm/dozzle-plus/issues",
+    "params": {
+      "page_size": 100,
+      "filter": "status=in_progress"
+    },
+    "items_key": "issues",
+    "fetched_at": "2026-09-18T16:29:33.677925+00:00",
+    "pages_fetched": 1,
+    "truncated": false,
+    "item_count": 0
+  },
+  "items": []
+}
