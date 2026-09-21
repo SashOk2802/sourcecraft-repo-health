@@ -14,7 +14,6 @@ from backend.app.analysis import (
     AnalysisDispatcher,
     AnalysisJob,
     AnalysisJobStore,
-    AnalysisPrincipal,
     AnalysisSnapshot,
     AnalysisStore,
     InMemoryAnalysisJobStore,
@@ -23,6 +22,7 @@ from backend.app.analysis import (
     PostgresAnalysisStore,
     normalize_analysis_id,
 )
+from backend.app.analysis.dispatch import AnalysisPrincipal
 
 
 PrincipalProvider = Callable[[Request], Awaitable[AnalysisPrincipal]]
