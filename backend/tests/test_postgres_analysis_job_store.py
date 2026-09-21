@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from backend.app.analysis import (
+    AnalysisExecutionService,
     AnalysisJob,
     AnalysisJobStatus,
     AnalyzerRegistration,
@@ -149,14 +150,12 @@ class PostgresAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
         second_store = PostgresAnalysisJobStore(os.environ["DATABASE_URL"])
         await second_store.start()
         try:
-            await second_store.heartbeat_worker(
-                second_worker,
-                self.created_at + timedelta(seconds=2),
+            second_worker_service = AnalysisExecutionService(
+                job_store=second_store,
+                snapshot_store=self.snapshot_store,
+                clock=lambda: self.created_at + timedelta(seconds=2),
             )
-            recovered = await second_store.recover_abandoned(
-                finished_at=self.created_at + timedelta(seconds=2),
-                stale_before=self.created_at,
-            )
+            recovered = await second_worker_service.start_worker(second_worker)
             restored = await second_store.get(self.analysis_id)
         finally:
             await second_store.close()
