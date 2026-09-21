@@ -24,7 +24,6 @@ from backend.app.analysis import (
 )
 from backend.app.analysis.dispatch import AnalysisPrincipal
 
-
 PrincipalProvider = Callable[[Request], Awaitable[AnalysisPrincipal]]
 
 
