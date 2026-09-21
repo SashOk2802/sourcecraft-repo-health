@@ -27,6 +27,15 @@ def load_envelope(label: str, name: str) -> dict[str, Any]:
     return json.loads((FIXTURES / label / f"{name}.json").read_text(encoding="utf-8"))
 
 
+def issue_fixture_dirs() -> list[Path]:
+    """Наборы scripts/fetch_fixtures.py. Другие JSON в fixtures/ сюда не входят."""
+    return sorted(
+        path
+        for path in FIXTURES.iterdir()
+        if path.is_dir() and (path / "issues_open.json").is_file()
+    )
+
+
 def _collect_forbidden_keys(
     payload: Any,
     forbidden: set[str],
@@ -190,26 +199,47 @@ class IssuesOnRealRepositoriesTest(unittest.TestCase):
             "updated_by",
         }
         offenders: list[str] = []
-        for path in FIXTURES.rglob("*.json"):
-            payload = json.loads(path.read_text(encoding="utf-8"))
-            _collect_forbidden_keys(
-                payload,
-                forbidden,
-                str(path.relative_to(FIXTURES)),
-                offenders,
-            )
+        directories = issue_fixture_dirs()
+        self.assertTrue(directories)
+        for directory in directories:
+            for path in directory.glob("*.json"):
+                payload = json.loads(path.read_text(encoding="utf-8"))
+                _collect_forbidden_keys(
+                    payload,
+                    forbidden,
+                    str(path.relative_to(FIXTURES)),
+                    offenders,
+                )
         self.assertEqual(offenders, [])
+
+    def test_pii_scan_ignores_unrelated_fixture_trees(self) -> None:
+        """Чужие JSON в fixtures/ (на CI это sourcecraft/) не должны валить проверку PII."""
+        alien_dir = FIXTURES / "_unrelated-pii-scan"
+        alien_dir.mkdir(exist_ok=True)
+        alien = alien_dir / "repositories_page.json"
+        alien.write_text(
+            '{"repositories": [{"description": "x", "clone_url": {}, "links": []}]}',
+            encoding="utf-8",
+        )
+        try:
+            self.assertNotIn(alien_dir, issue_fixture_dirs())
+            self.test_fixture_payloads_omit_personal_and_sensitive_fields()
+        finally:
+            alien.unlink(missing_ok=True)
+            if alien_dir.is_dir() and not any(alien_dir.iterdir()):
+                alien_dir.rmdir()
 
     def test_contributors_keep_only_identity_fields(self) -> None:
         allowed = {"id", "username"}
-        for path in FIXTURES.glob("*/contributors.json"):
+        for directory in issue_fixture_dirs():
+            path = directory / "contributors.json"
             payload = json.loads(path.read_text(encoding="utf-8"))
             for index, item in enumerate(payload["items"]):
                 extra = set(item) - allowed
                 self.assertEqual(
                     extra,
                     set(),
-                    msg=f"{path.parent.name} contributors[{index}]: {sorted(extra)}",
+                    msg=f"{directory.name} contributors[{index}]: {sorted(extra)}",
                 )
 
 
