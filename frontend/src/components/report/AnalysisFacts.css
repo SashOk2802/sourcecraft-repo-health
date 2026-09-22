@@ -19,3 +19,47 @@
 .analysis-facts__row dd {
   overflow-wrap: anywhere;
 }
+
+/* Полнота — полоса: сколько веса методики удалось измерить. */
+.analysis-facts__coverage {
+  display: grid;
+  gap: 7px;
+}
+
+.analysis-facts__coverage-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.analysis-facts__coverage-value {
+  font-weight: 600;
+}
+
+.analysis-facts__coverage-track {
+  height: 8px;
+  border-radius: var(--rh-radius-chip);
+  background: var(--rh-track);
+  overflow: hidden;
+}
+
+.analysis-facts__coverage-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--rh-radius-chip);
+  background: linear-gradient(90deg, var(--rh-accent), #7aa0ff);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .analysis-facts__coverage-fill {
+    animation: rh-coverage-grow 720ms cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
+    animation-delay: 220ms;
+  }
+}
+
+@keyframes rh-coverage-grow {
+  from {
+    width: 0 !important;
+  }
+}

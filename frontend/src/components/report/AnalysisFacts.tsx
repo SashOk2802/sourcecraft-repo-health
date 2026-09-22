@@ -22,9 +22,6 @@ export function AnalysisFacts({ analysis, scoreDetails }: AnalysisFactsProps) {
     },
   ];
 
-  if (analysis.coverage !== null) {
-    facts.push({ term: "Полнота", value: formatShare(analysis.coverage) });
-  }
   if (analysis.commitSha) {
     facts.push({ term: "Коммит", value: analysis.commitSha.slice(0, 7) });
   }
@@ -35,6 +32,25 @@ export function AnalysisFacts({ analysis, scoreDetails }: AnalysisFactsProps) {
       <Text variant="subheader-2" as="h2">
         Об анализе
       </Text>
+      {analysis.coverage !== null && (
+        <div className="analysis-facts__coverage">
+          <div className="analysis-facts__coverage-head">
+            <Text variant="body-1" color="secondary">
+              Полнота данных
+            </Text>
+            <Text variant="body-2" className="num analysis-facts__coverage-value">
+              {formatShare(analysis.coverage)}
+            </Text>
+          </div>
+          <div className="analysis-facts__coverage-track">
+            <span
+              className="analysis-facts__coverage-fill"
+              style={{ width: `${Math.round(analysis.coverage * 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       <dl className="analysis-facts__list">
         {facts.map((fact) => (
           <div className="analysis-facts__row" key={fact.term}>
