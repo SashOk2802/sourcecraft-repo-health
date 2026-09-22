@@ -39,8 +39,10 @@
 
 /* Сам луч: его длина и есть вес категории. */
 .category-radar__arm {
-  stroke: var(--g-color-line-generic-accent);
+  stroke: var(--rh-accent);
+  stroke-opacity: 0.35;
   stroke-width: 1.5;
+  stroke-linecap: round;
 }
 
 .category-radar__arm_empty {
@@ -49,14 +51,14 @@
 }
 
 .category-radar__shape {
-  fill: var(--g-color-text-primary);
-  fill-opacity: 0.09;
+  fill: url(#rh-radar-fill);
 }
 
 .category-radar__edge {
-  stroke: var(--g-color-text-primary);
+  stroke: var(--rh-accent);
   stroke-width: 2.6;
   stroke-linejoin: round;
+  stroke-linecap: round;
 }
 
 /* Разрыв контура там, где категорию не измеряли. */
@@ -66,9 +68,23 @@
   stroke-dasharray: 6 5;
 }
 
+/* Вершина — цвета своей полосы оценки, с белой обводкой, чтобы читалась на заливке. */
 .category-radar__dot {
-  fill: var(--g-color-text-primary);
+  stroke: var(--rh-surface);
+  stroke-width: 2.5;
   transition: r 160ms ease-out;
+}
+
+.category-radar__dot_band_high {
+  fill: var(--rh-band-high);
+}
+
+.category-radar__dot_band_mid {
+  fill: var(--rh-band-mid);
+}
+
+.category-radar__dot_band_low {
+  fill: var(--rh-band-low);
 }
 
 .category-radar__stage:hover .category-radar__dot {
@@ -122,7 +138,7 @@
 }
 
 .category-radar__key_shape {
-  background: var(--g-color-text-primary);
+  background: var(--rh-accent);
 }
 
 .category-radar__key_ring {

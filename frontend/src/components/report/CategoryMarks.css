@@ -4,28 +4,29 @@
   gap: 16px;
 }
 
+/* Карточка приподнята над страницей, как в сервисах Яндекса: тень вместо обводки. */
 .category-card {
-  border: 1px solid var(--g-color-line-generic);
-  border-radius: var(--g-border-radius-xl);
+  border-radius: var(--rh-radius-card);
+  background: var(--rh-surface);
+  box-shadow: var(--rh-shadow-1);
   padding: 18px 20px 16px;
 }
 
 .category-card__head {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  align-items: center;
+  gap: 11px;
 }
 
-.category-card__title {
-  display: grid;
-  gap: 2px;
+.category-card__name {
   min-width: 0;
   flex: 1 1 auto;
 }
 
-/* Объяснение обычными словами: что это за часть проекта. */
+/* Объяснение обычными словами занимает всю ширину карточки, а не остаток строки. */
 .category-card__meaning {
   display: block;
+  padding-top: 8px;
 }
 
 .category-card__status {
@@ -41,6 +42,7 @@
 .category-card__score {
   margin-left: auto;
   flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
   font-size: var(--g-text-header-1-font-size);
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -168,8 +170,7 @@
 
 .category-card:hover {
   transform: translateY(-3px);
-  border-color: var(--g-color-line-generic-active);
-  box-shadow: 0 10px 24px -14px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--rh-shadow-2);
 }
 
 @media (prefers-reduced-motion: no-preference) {

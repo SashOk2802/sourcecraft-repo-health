@@ -1,6 +1,9 @@
+/* Шапка отчёта — не белый прямоугольник, а мягкий разворот, как разделы Yandex Cloud. */
 .score-card {
   display: grid;
   gap: 14px;
+  background: var(--rh-hero);
+  overflow: hidden;
 }
 
 /* Радар слева, Score и пояснение справа. */
@@ -44,10 +47,22 @@
 }
 
 .score-card__value {
-  font-size: 72px;
-  line-height: 72px;
+  font-size: 84px;
+  line-height: 84px;
   font-weight: 600;
-  letter-spacing: -0.045em;
+  letter-spacing: -0.05em;
+}
+
+.score-card__value_band_high {
+  color: var(--rh-band-high);
+}
+
+.score-card__value_band_mid {
+  color: var(--rh-band-mid);
+}
+
+.score-card__value_band_low {
+  color: var(--rh-band-low);
 }
 
 .score-card__value_empty {

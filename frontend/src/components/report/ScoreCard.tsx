@@ -4,6 +4,7 @@ import type { RepositoryReport } from "../../api/report";
 import { useCountUp } from "../../hooks/useCountUp";
 import { cn } from "../../lib/classNames";
 import { formatPoints, formatScore, formatShare, plural } from "../../lib/format";
+import { getScoreBand } from "../../lib/scoreBands";
 import { scoreVerdict } from "../../lib/verdict";
 import { PreliminaryLabel, ScoreLimitLabel } from "../StatusLabels";
 import { CategoryRadar } from "./CategoryRadar";
@@ -39,7 +40,13 @@ export function ScoreCard({ report }: { report: RepositoryReport }) {
           </Text>
 
           <div className="score-card__value-row">
-            <span className={cn("score-card__value", "num", score === null && "score-card__value_empty")}>
+            <span
+              className={cn(
+                "score-card__value",
+                "num",
+                score === null ? "score-card__value_empty" : `score-card__value_band_${getScoreBand(score)}`,
+              )}
+            >
               {score === null ? "нет оценки" : formatScore(shownScore ?? score)}
             </span>
             {score !== null && (

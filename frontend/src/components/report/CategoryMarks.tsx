@@ -8,6 +8,7 @@ import { cn } from "../../lib/classNames";
 import { formatPoints, formatScore } from "../../lib/format";
 import { describeReason } from "../../lib/reasonCodes";
 import { getScoreBand, SCORE_BAND_LIMITS } from "../../lib/scoreBands";
+import { CategoryIcon } from "../CategoryIcon";
 import { CategoryStatusLabel } from "../StatusLabels";
 import { EvidenceLinks } from "./EvidenceLinks";
 import { hasMetrics, metricTone } from "./reportHelpers";
@@ -50,22 +51,22 @@ function CategoryCard({ category, order }: { category: ReportCategory; order: nu
   return (
     <article className="category-card" style={{ "--rh-step": order } as CSSProperties}>
       <header className="category-card__head">
-        <div className="category-card__title">
-          <Text variant="subheader-1" as="h3">
-            {category.label}
-          </Text>
-          {meaning && (
-            <Text variant="body-1" color="hint" className="category-card__meaning">
-              {meaning}
-            </Text>
-          )}
-        </div>
+        <CategoryIcon code={category.code} band={band} />
+        <Text variant="subheader-1" as="h3" className="category-card__name">
+          {category.label}
+        </Text>
         {score !== null && (
           <span className={cn("category-card__score", band && `category-card__score_band_${band}`)}>
             <span className="num">{formatScore(score)}</span>
           </span>
         )}
       </header>
+
+      {meaning && (
+        <Text variant="body-1" color="hint" className="category-card__meaning">
+          {meaning}
+        </Text>
+      )}
 
       <div className="category-card__status">
         {score === null && <CategoryStatusLabel status={category.status as Exclude<CategoryStatus, "measured">} />}

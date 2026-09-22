@@ -4,8 +4,10 @@ import type { CSSProperties } from "react";
 import type { ReportCategory } from "../../api/report";
 import { usePointerTilt } from "../../hooks/usePointerTilt";
 import { describeCategory } from "../../lib/categoryMeaning";
+import { cn } from "../../lib/classNames";
 import { formatPoints, formatScore } from "../../lib/format";
 import { buildRadar, toPoints } from "../../lib/radar";
+import { getScoreBand } from "../../lib/scoreBands";
 import "./CategoryRadar.css";
 
 /*
@@ -38,6 +40,13 @@ export function CategoryRadar({ categories }: { categories: ReportCategory[] }) 
           role="img"
           aria-label="Оценки категорий: длина луча — вес категории, точка на луче — оценка"
         >
+          <defs>
+            <linearGradient id="rh-radar-fill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--rh-accent)" stopOpacity="0.26" />
+              <stop offset="100%" stopColor="var(--rh-accent)" stopOpacity="0.06" />
+            </linearGradient>
+          </defs>
+
           {radar.rings.map((ring, index) => (
             <polygon key={index} className="category-radar__ring" points={toPoints(ring)} style={order(index)} />
           ))}
@@ -86,7 +95,7 @@ export function CategoryRadar({ categories }: { categories: ReportCategory[] }) 
             axis.vertex ? (
               <circle
                 key={`dot-${axis.code}`}
-                className="category-radar__dot"
+                className={cn("category-radar__dot", `category-radar__dot_band_${getScoreBand(axis.score as number)}`)}
                 cx={axis.vertex.x}
                 cy={axis.vertex.y}
                 r={5.5}

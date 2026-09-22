@@ -1,13 +1,28 @@
+/* Список тоже карточка: на тонированной странице голые строки выглядят незакончеными. */
 .recommendations {
-  border-top: 1px solid var(--g-color-line-generic);
+  border-radius: var(--rh-radius-card);
+  background: var(--rh-surface);
+  box-shadow: var(--rh-shadow-1);
+  padding: 4px 24px;
 }
 
 .recommendation {
   display: grid;
   grid-template-columns: 28px 132px minmax(0, 1fr) 96px;
   gap: 0 12px;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--g-color-line-generic);
+  padding: 18px 0;
+  border-bottom: 1px solid var(--rh-hairline);
+  transition: background 160ms ease-out;
+}
+
+.recommendation:last-child {
+  border-bottom: 0;
+}
+
+.recommendation:hover {
+  background: var(--rh-surface-muted);
+  box-shadow: 0 0 0 12px var(--rh-surface-muted);
+  border-radius: 2px;
 }
 
 .recommendation__index {
