@@ -58,6 +58,10 @@ export function LeaderboardPage() {
           <Text variant="header-2" as="h1" className="page__title">
             Рейтинг здоровья
           </Text>
+          <Text variant="body-2" color="secondary" className="leaderboard__about">
+            Оценка от 0 до 100 показывает, насколько репозиторием удобно и безопасно пользоваться: собирается ли
+            он сам, отвечают ли авторам задач, есть ли понятное описание.
+          </Text>
           {data && (
             <Text variant="body-2" color="secondary">
               {describeCoverage(data)}
@@ -191,8 +195,8 @@ function LeaderboardTable({ items, loading, showPlaces, emptyText, onReset }: Le
             </th>
           )}
           <th scope="col">Репозиторий</th>
-          <th scope="col" className="board__cells">
-            Категории
+          <th scope="col" className="board__cells" title="Слева направо: безопасность, CI/CD, документация, активность, работа с задачами, состояние кода">
+            Из чего оценка
           </th>
           <th scope="col" className="board__score">
             Score
@@ -278,7 +282,7 @@ function Legend() {
   return (
     <div className="leaderboard__legend">
       <Text variant="body-1" color="secondary">
-        Клетки по порядку: безопасность, CI/CD, документация, активность, issues, состояние кода
+        Клетка — часть проекта, слева направо: безопасность, сборка, описание, активность, работа с задачами, состояние кода
       </Text>
       <span className="leaderboard__legend-item">
         <i className="leaderboard__swatch leaderboard__swatch_band_high" /> 80 и выше

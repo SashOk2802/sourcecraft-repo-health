@@ -216,3 +216,10 @@
     display: none;
   }
 }
+
+/* Одна строка о том, что вообще значит оценка: рейтинг открывают и не разработчики. */
+.leaderboard__about {
+  display: block;
+  max-width: 680px;
+  padding-top: 6px;
+}
