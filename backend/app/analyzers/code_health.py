@@ -2,7 +2,7 @@
 import os
 import re
 
-from app.contracts import (
+from backend.app.contracts import (
     AnalysisContext,
     CategoryResult,
     DataStatus,
@@ -11,17 +11,17 @@ from app.contracts import (
     Recommendation,
     RecommendationPriority,
 )
-from app.integrations.git_repository import LocalGitRepository
+from backend.app.integrations.git_repository import LocalGitRepository
 
-# Расширения файлов для анализа
 SUPPORTED_EXTENSIONS = {".py", ".js", ".ts", ".go", ".java", ".cpp", ".cs"}
 
 
 def collect(context: AnalysisContext) -> dict:
     """Сканирует исходный код во временном репозитории на наличие TODO и FIXME."""
-    # Обратите внимание: в контексте теперь объект repository, берем web_url или slug
+    # Получаем URL и ревизию строго из стабильного контракта context.repository
     repo_url = context.repository.web_url or f"https://sourcecraft.internal{context.repository.repository_slug}"
-    repo = LocalGitRepository(repo_url=repo_url, branch="main")
+    # Используем зафиксированный в контексте коммит SHA для точности анализа ревизии
+    repo = LocalGitRepository(repo_url=repo_url, branch=context.commit_sha)
     facts = {"total_files": 0, "todo_count": 0, "fixme_count": 0, "files_with_debt": 0}
     
     try:
@@ -62,28 +62,27 @@ def evaluate(context: AnalysisContext, raw_data: dict) -> CategoryResult:
             category="code_health", 
             status=DataStatus.ERROR, 
             score=None,
-            summary="Не удалось выполнить анализ состояния кода из-за ошибки.",
+            summary="Не удалось выполнить анализ состояния кода из-за ошибки работы с репозиторием.",
             reason=raw_data["error"]
         )
         
     total_files = raw_data.get("total_files", 0)
     if total_files == 0:
+        # По контракту StrEnum: если MEASURED невозможен, используем UNAVAILABLE (DataStatus.NO_DATA в контракте нет)
         return CategoryResult(
             category="code_health", 
-            status=DataStatus.NO_DATA if hasattr(DataStatus, "NO_DATA") else DataStatus.UNAVAILABLE, 
+            status=DataStatus.UNAVAILABLE, 
             score=None,
-            summary="В репозитории нет поддерживаемых файлов кода для анализа здоровья кода.",
-            reason="Отсутствуют поддерживаемые файлы исходного кода."
+            summary="Анализ здоровья кода не применим: в репозитории нет поддерживаемых файлов кода.",
+            reason="Отсутствуют файлы исходного кода поддерживаемых языков."
         )
 
     todos = raw_data.get("todo_count", 0)
     fixmes = raw_data.get("fixme_count", 0)
     
-    # Расчет штрафов и нормализация оценки (0 - 100)
     penalty = (fixmes * 5) + (todos * 1)
     score = float(max(0, 100 - penalty))
     
-    # Формируем подтверждения (Evidence)
     evidence = (
         Evidence(
             source="git_repository",
@@ -103,9 +102,9 @@ def evaluate(context: AnalysisContext, raw_data: dict) -> CategoryResult:
         recommendations.append(Recommendation(
             code="code_health_resolve_fixme",
             priority=RecommendationPriority.P1,
-            problem=f"В коде присутствуют неразрешенные критические маркеры FIXME ({fixmes} шт.).",
-            action="Устраните или закройте критические метки FIXME, превратив их в задачи в трекере.",
-            rationale="Маркеры FIXME указывают на заведомо сломанный или опасный код, требующий немедленного исправления.",
+            problem=f"В коде присутствуют неразрешенные маркеры FIXME ({fixmes} шт.).",
+            action="Устраните или закройте критические метки FIXME, перенеся их в таск-трекер.",
+            rationale="Маркеры FIXME указывают на заведомо неработающий или опасный код.",
             expected_score_delta=float(min(100, fixmes * 5)),
             evidence=evidence
         ))
@@ -113,9 +112,9 @@ def evaluate(context: AnalysisContext, raw_data: dict) -> CategoryResult:
         recommendations.append(Recommendation(
             code="code_health_clear_todos",
             priority=RecommendationPriority.P3,
-            problem=f"В репозитории скопилось слишком много меток TODO ({todos} шт.).",
-            action="Проведите ревизию кода и очистите его от старых временных меток.",
-            rationale="Большое количество TODO превращается в 'белый шум', из-за чего команда перестает замечать важный технический долг.",
+            problem=f"В репозитории скопилось избыточное количество меток TODO ({todos} шт.).",
+            action="Проведите ревизию кода и очистите его от неактуальных временных меток.",
+            rationale="Слишком большое количество TODO замыливает глаз разработчикам.",
             expected_score_delta=5.0,
             evidence=evidence
         ))
