@@ -1,10 +1,12 @@
+/* Оглавление — своя карточка, как фильтры в рейтинге. */
 .methodology__toc {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 20px;
-  padding: 12px 0;
-  border-top: 1px solid var(--g-color-line-generic);
-  border-bottom: 1px solid var(--g-color-line-generic);
+  gap: 8px 22px;
+  padding: 14px 20px;
+  border-radius: var(--rh-radius-card);
+  background: var(--rh-surface);
+  box-shadow: var(--rh-shadow-1);
   font-size: var(--g-text-body-2-font-size);
 }
 
@@ -17,13 +19,17 @@
   color: var(--g-color-text-primary);
 }
 
-/* Разделы пронумерованы на полях, как в документе. */
+/* Разделы пронумерованы на полях, как в документе, и каждый — карточка. */
 .methodology__section {
   display: grid;
   grid-template-columns: 56px minmax(0, 1fr);
   gap: 0 8px;
-  padding-top: 28px;
-  scroll-margin-top: 16px;
+  margin-top: 16px;
+  padding: 22px 26px 26px;
+  border-radius: var(--rh-radius-card);
+  background: var(--rh-surface);
+  box-shadow: var(--rh-shadow-1);
+  scroll-margin-top: 76px;
 }
 
 .methodology__number {
@@ -106,9 +112,10 @@
 }
 
 .methodology__formula {
-  padding: 10px 14px;
-  border-radius: var(--g-border-radius-m);
-  background: var(--g-color-base-generic);
+  padding: 12px 16px;
+  border-radius: var(--rh-radius-inner);
+  background: var(--rh-accent-soft);
+  color: var(--g-color-text-primary);
   font-size: var(--g-text-body-2-font-size);
   overflow-wrap: anywhere;
 }
