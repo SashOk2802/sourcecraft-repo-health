@@ -1,14 +1,18 @@
-#!/usr/bin/env python
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 from backend.app.analyzers.code_health import (
     collect as ch_collect,
+)
+from backend.app.analyzers.code_health import (
     evaluate as ch_evaluate,
 )
 from backend.app.analyzers.documentation import (
     collect as doc_collect,
+)
+from backend.app.analyzers.documentation import (
     evaluate as doc_evaluate,
 )
 from backend.app.contracts import (
@@ -28,12 +32,13 @@ def mock_context():
         repository_slug="test_repo",
         web_url="https://github.com",
     )
+    now = datetime.now(timezone.utc)
     return AnalysisContext(
         repository=repo_ref,
         commit_sha="abcdef1234567890",
-        analyzed_at=datetime.utcnow(),
-        period_start=datetime.utcnow(),
-        period_end=datetime.utcnow(),
+        analyzed_at=now,
+        period_start=now,
+        period_end=now,
     )
 
 
@@ -44,11 +49,9 @@ def test_code_health_collect_success(mock_repo_cls, mock_context):
     mock_repo.clone.return_value = "/tmp/fake_repo"
     mock_repo_cls.return_value = mock_repo
 
-    # Симулируем обход дерева файлов
-    with patch("os.walk") as mock_walk, patch("builtins.open", patch("builtins.open", create=True)) as mock_open:
+    with patch("os.walk") as mock_walk, patch("builtins.open", create=True) as mock_open:
         mock_walk.return_value = [("/tmp/fake_repo", [], ["main.py", "script.js", "styles.css"])]
         
-        # Симулируем содержимое файлов (один с TODO и FIXME, один чистый)
         mock_file_ctx = MagicMock()
         mock_file_ctx.__enter__.return_value.read.side_effect = [
             "def test():\n    # TODO: fix this\n    # FIXME: critical defect",
@@ -58,7 +61,7 @@ def test_code_health_collect_success(mock_repo_cls, mock_context):
 
         facts = ch_collect(mock_context)
 
-    assert facts["total_files"] == 2  # Стили .css должны проигнорироваться
+    assert facts["total_files"] == 2
     assert facts["todo_count"] == 1
     assert facts["fixme_count"] == 1
     assert facts["files_with_debt"] == 1
@@ -73,7 +76,7 @@ def test_code_health_evaluate_measured(mock_context):
     assert isinstance(result, CategoryResult)
     assert result.category == "code_health"
     assert result.status == DataStatus.MEASURED
-    assert result.score == 90.0  # 100 - (1 * 5 + 5 * 1)
+    assert result.score == 90.0
     assert len(result.metrics) == 3
     assert len(result.recommendations) == 1
     assert result.recommendations[0].code == "code_health_resolve_fixme"
@@ -106,7 +109,6 @@ def test_documentation_collect(mock_repo_cls, mock_context):
 
 def test_documentation_evaluate_deductions(mock_context):
     """Проверяет штрафы за отсутствие обязательных регламентов."""
-    # Есть только README и инструкции, остальное отсутствует
     raw_data = {
         "has_readme": True,
         "has_shortcuts": True,
@@ -119,6 +121,5 @@ def test_documentation_evaluate_deductions(mock_context):
     
     assert result.category == "documentation"
     assert result.status == DataStatus.MEASURED
-    # 100 - 20(contributing) - 15(license) - 15(codeowners) = 50
     assert result.score == 50.0
-    assert len(result.recommendations) == 3  # Три рекомендации на отсутствующие файлы
+    assert len(result.recommendations) == 3
