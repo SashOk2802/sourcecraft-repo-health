@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 import os
 import re
 
@@ -18,9 +17,7 @@ SUPPORTED_EXTENSIONS = {".py", ".js", ".ts", ".go", ".java", ".cpp", ".cs"}
 
 def collect(context: AnalysisContext) -> dict:
     """Сканирует исходный код во временном репозитории на наличие TODO и FIXME."""
-    # Получаем URL и ревизию строго из стабильного контракта context.repository
     repo_url = context.repository.web_url or f"https://sourcecraft.internal{context.repository.repository_slug}"
-    # Используем зафиксированный в контексте коммит SHA для точности анализа ревизии
     repo = LocalGitRepository(repo_url=repo_url, branch=context.commit_sha)
     facts = {"total_files": 0, "todo_count": 0, "fixme_count": 0, "files_with_debt": 0}
     
@@ -47,7 +44,7 @@ def collect(context: AnalysisContext) -> dict:
                         facts["files_with_debt"] += 1
                 except OSError:
                     continue
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         return {"error": str(e)}
     finally:
         repo.cleanup()
@@ -68,7 +65,6 @@ def evaluate(context: AnalysisContext, raw_data: dict) -> CategoryResult:
         
     total_files = raw_data.get("total_files", 0)
     if total_files == 0:
-        # По контракту StrEnum: если MEASURED невозможен, используем UNAVAILABLE (DataStatus.NO_DATA в контракте нет)
         return CategoryResult(
             category="code_health", 
             status=DataStatus.UNAVAILABLE, 
