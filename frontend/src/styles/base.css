@@ -119,3 +119,32 @@ ol {
     border-radius: var(--rh-radius-inner);
   }
 }
+
+/*
+ * Печать. Браузеры по умолчанию не печатают фоны и тени, поэтому
+ * приподнятые карточки на бумаге превратились бы в текст без границ:
+ * на печати глубину заменяет тонкая рамка.
+ */
+@media print {
+  body {
+    background: #fff;
+  }
+
+  .page {
+    padding: 0;
+  }
+
+  .card {
+    border: 1px solid #d9dae0;
+    border-radius: var(--rh-radius-inner);
+    box-shadow: none;
+    background: #fff;
+    break-inside: avoid;
+  }
+
+  .site-header {
+    position: static;
+    backdrop-filter: none;
+    background: #fff;
+  }
+}
