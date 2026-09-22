@@ -148,3 +148,14 @@ ol {
     background: #fff;
   }
 }
+
+/* Фокус с клавиатуры виден всегда и в том же акценте, что и действия. */
+:focus-visible {
+  outline: 2px solid var(--rh-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+::selection {
+  background: var(--rh-accent-soft);
+}
