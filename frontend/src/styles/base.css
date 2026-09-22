@@ -6,6 +6,7 @@
 
 body {
   margin: 0;
+  background: var(--rh-page-bg);
 }
 
 h1,
@@ -62,11 +63,12 @@ ol {
   color: var(--g-color-text-secondary);
 }
 
+/* Карточка не обведена рамкой, а приподнята над тонированной страницей. */
 .card {
-  padding: 20px 24px;
-  border: 1px solid var(--g-color-line-generic);
-  border-radius: var(--g-border-radius-l);
-  background: var(--g-color-base-float);
+  padding: 22px 26px;
+  border-radius: var(--rh-radius-card);
+  background: var(--rh-surface);
+  box-shadow: var(--rh-shadow-1);
 }
 
 .section {
@@ -113,6 +115,7 @@ ol {
   }
 
   .card {
-    padding: 16px;
+    padding: 16px 18px;
+    border-radius: var(--rh-radius-inner);
   }
 }

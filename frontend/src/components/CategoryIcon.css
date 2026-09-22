@@ -1,0 +1,29 @@
+.category-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--rh-radius-inner);
+}
+
+.category-icon_band_high {
+  background: var(--rh-band-high-soft);
+  color: var(--rh-band-high);
+}
+
+.category-icon_band_mid {
+  background: var(--rh-band-mid-soft);
+  color: var(--rh-band-mid);
+}
+
+.category-icon_band_low {
+  background: var(--rh-band-low-soft);
+  color: var(--rh-band-low);
+}
+
+/* Данных нет: подложка нейтральная, значок приглушён. */
+.category-icon_band_none {
+  background: var(--rh-surface-muted);
+  color: var(--g-color-text-hint);
+}

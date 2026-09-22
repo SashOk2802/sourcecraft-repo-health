@@ -1,23 +1,57 @@
 /*
  * Интерфейс построен на Gravity UI — дизайн-системе Яндекса, на которой сделан SourceCraft.
- * Здесь только то, чего в ней нет, и несколько токенов, выровненных под SourceCraft:
- * чёрный акцент вместо жёлтого и синие ссылки.
+ * Здесь то, чего в ней нет, и токены, выровненные по тому, как выглядят сервисы Яндекса.
+ *
+ * Замеры с живых сайтов (сентябрь 2026): фон страницы у всех тонированный, а не белый —
+ * Маркет #f5f3f1, Практикум #f0f0f0, Yandex Cloud #e7ebf4; карточки белые поверх него;
+ * радиусы 12–24; основной текст не чистый чёрный (#191817, #1e1e1e). Отсюда и наши значения.
  */
 .g-root {
   --g-font-family-sans: "Onest", "Helvetica Neue", Arial, sans-serif;
 
-  --g-color-base-brand: var(--g-color-private-black-900-solid);
-  --g-color-base-brand-hover: var(--g-color-private-black-1000-solid);
-  --g-color-text-brand-contrast: var(--g-color-text-light-primary);
-  --g-color-line-brand: var(--g-color-private-black-900-solid);
-  --g-color-text-link: #4e79eb;
-  --g-color-text-link-hover: #2f5ad0;
+  /* Слои: тонированная страница, белые карточки поверх неё. */
+  --rh-page-bg: #f2f3f5;
+  --rh-surface: #ffffff;
+  --rh-surface-muted: #f7f8fa;
+  --g-color-base-background: var(--rh-page-bg);
+  --g-color-base-float: var(--rh-surface);
 
-  /* Полосы оценки: цвета берём из палитры Gravity, чтобы не изобретать свои. */
-  --rh-band-high: var(--g-color-base-positive-heavy);
-  --rh-band-mid: var(--g-color-base-warning-heavy);
-  --rh-band-low: var(--g-color-base-danger-heavy);
-  --rh-track: var(--g-color-base-generic);
+  /* Глубина вместо рамок: тень мягкая и почти бесцветная. */
+  --rh-shadow-1: 0 1px 2px rgba(16, 20, 38, 0.04), 0 4px 16px -8px rgba(16, 20, 38, 0.12);
+  --rh-shadow-2: 0 2px 6px rgba(16, 20, 38, 0.06), 0 16px 32px -18px rgba(16, 20, 38, 0.24);
+  --rh-hairline: rgba(16, 20, 38, 0.07);
+
+  --rh-radius-card: 18px;
+  --rh-radius-inner: 12px;
+  --rh-radius-chip: 999px;
+
+  /* Действие — синий: он не спорит с зелёно-жёлто-красной шкалой оценок. */
+  --rh-accent: #4e79eb;
+  --rh-accent-hover: #3a5fd0;
+  --rh-accent-soft: #eaefff;
+  --g-color-base-brand: var(--rh-accent);
+  --g-color-base-brand-hover: var(--rh-accent-hover);
+  --g-color-text-brand: var(--rh-accent);
+  --g-color-text-brand-contrast: #ffffff;
+  --g-color-line-brand: var(--rh-accent);
+  --g-color-text-link: var(--rh-accent);
+  --g-color-text-link-hover: var(--rh-accent-hover);
+
+  /* Марка SourceCraft: красный только на знаке, не на действиях и не на данных. */
+  --rh-mark: #ff4343;
+
+  /* Полосы оценки: заливка насыщенная, подложка — та же краска, разбавленная. */
+  --rh-band-high: #2b9e5f;
+  --rh-band-mid: #dd9613;
+  --rh-band-low: #e5442f;
+  --rh-band-high-soft: #e6f5ec;
+  --rh-band-mid-soft: #fdf1dc;
+  --rh-band-low-soft: #fdeae7;
+  --rh-track: #e9eaee;
+
+  /* Атмосфера шапки отчёта: спокойный переход, как в разделах Yandex Cloud. */
+  --rh-hero: radial-gradient(120% 140% at 12% 0%, #eef2ff 0%, rgba(238, 242, 255, 0) 58%),
+    radial-gradient(90% 120% at 100% 8%, #fdeef4 0%, rgba(253, 238, 244, 0) 60%), #ffffff;
 
   /* «Нет данных» — штриховка: её невозможно спутать с низкой оценкой. */
   --rh-hatch: repeating-linear-gradient(
