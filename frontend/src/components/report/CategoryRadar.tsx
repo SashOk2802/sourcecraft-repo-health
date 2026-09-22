@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 
 import type { ReportCategory } from "../../api/report";
 import { usePointerTilt } from "../../hooks/usePointerTilt";
+import { describeCategory } from "../../lib/categoryMeaning";
 import { formatPoints, formatScore } from "../../lib/format";
 import { buildRadar, toPoints } from "../../lib/radar";
 import "./CategoryRadar.css";
@@ -105,6 +106,8 @@ export function CategoryRadar({ categories }: { categories: ReportCategory[] }) 
 
           {radar.axes.map((axis, index) => (
             <g key={`label-${axis.code}`} className="category-radar__caption" style={order(index)}>
+              {/* Подсказка при наведении: что это за часть проекта, обычными словами. */}
+              {describeCategory(axis.code) && <title>{`${axis.label} — ${describeCategory(axis.code)}`}</title>}
               <text
                 className={axis.vertex ? "category-radar__label" : "category-radar__label category-radar__label_empty"}
                 x={axis.labelSpot.at.x}
@@ -130,24 +133,19 @@ export function CategoryRadar({ categories }: { categories: ReportCategory[] }) 
         <li>
           <span className="category-radar__key category-radar__key_shape" />
           <Text variant="body-1" color="secondary">
-            оценка категории
+            точка — оценка части проекта
           </Text>
         </li>
         <li>
           <span className="category-radar__key category-radar__key_ring" />
           <Text variant="body-1" color="secondary">
-            кольца — половина и весь вес
+            чем длиннее луч, тем сильнее часть влияет на оценку
           </Text>
         </li>
         <li>
           <span className="category-radar__key category-radar__key_empty" />
           <Text variant="body-1" color="secondary">
-            луч без вершины — нет данных
-          </Text>
-        </li>
-        <li>
-          <Text variant="body-1" color="secondary">
-            длина луча — вес категории
+            пунктир — данных по этой части нет
           </Text>
         </li>
       </ul>

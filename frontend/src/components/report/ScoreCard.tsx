@@ -4,6 +4,7 @@ import type { RepositoryReport } from "../../api/report";
 import { useCountUp } from "../../hooks/useCountUp";
 import { cn } from "../../lib/classNames";
 import { formatPoints, formatScore, formatShare, plural } from "../../lib/format";
+import { scoreVerdict } from "../../lib/verdict";
 import { PreliminaryLabel, ScoreLimitLabel } from "../StatusLabels";
 import { CategoryRadar } from "./CategoryRadar";
 import { biggestLosses, buildFormula, isMeasured } from "./reportHelpers";
@@ -18,6 +19,7 @@ export function ScoreCard({ report }: { report: RepositoryReport }) {
   const { score, analysis, categories, scoreDetails } = report;
   // Число набегает от нуля, пока собирается радар.
   const shownScore = useCountUp(score);
+  const verdict = scoreVerdict(score, analysis.isPreliminary);
   const measuredCount = categories.filter(isMeasured).length;
   const applicableCount = categories.filter((category) => category.status !== "not_applicable").length;
 
@@ -29,22 +31,27 @@ export function ScoreCard({ report }: { report: RepositoryReport }) {
         </div>
 
         <div className="score-card__side">
-          <Text variant="body-1" color="secondary">
-            Repo Health Score
+          <Text variant="header-2" as="h2" className="score-card__verdict">
+            {verdict.title}
           </Text>
+          <Text variant="body-2" color="secondary" className="score-card__verdict-note">
+            {verdict.note}
+          </Text>
+
           <div className="score-card__value-row">
             <span className={cn("score-card__value", "num", score === null && "score-card__value_empty")}>
               {score === null ? "нет оценки" : formatScore(shownScore ?? score)}
             </span>
             {score !== null && (
-              <Text variant="body-2" color="secondary" className="num">
-                / 100
+              <Text variant="body-2" color="secondary" className="score-card__of">
+                из 100 — это Repo Health Score
               </Text>
             )}
           </div>
 
           <div className="score-card__labels">
-            {analysis.isPreliminary && (
+            {/* Пока оценки нет, метка «предварительная» только путает: предварять нечего. */}
+            {analysis.isPreliminary && score !== null && (
               <PreliminaryLabel
                 hint={`Есть данные по ${scoreDetails.measuredWeight}% из ${scoreDetails.applicableWeight}% веса методики`}
               />
@@ -52,17 +59,18 @@ export function ScoreCard({ report }: { report: RepositoryReport }) {
             {analysis.scoreLimit && <ScoreLimitLabel value={analysis.scoreLimit.value} />}
           </div>
 
+          {/* Когда оценки нет, вердикт уже всё сказал — второй раз не повторяем. */}
+          {score !== null && (
           <Text variant="body-2" color="secondary" className="score-card__note">
-            {score === null
-              ? "Ни по одной категории не удалось получить данные. Это не значит, что проект плохой: оценка появится, когда данные станут доступны."
-              : analysis.isPreliminary
-                ? `Есть данные по ${measuredCount} из ${applicableCount} ${plural(applicableCount, "категории", "категорий", "категорий")}${
-                    analysis.coverage === null ? "" : ` — это ${formatShare(analysis.coverage)} их веса`
+            {analysis.isPreliminary
+                ? `Есть данные по ${measuredCount} из ${applicableCount} ${plural(applicableCount, "части", "частей", "частей")} проекта${
+                    analysis.coverage === null ? "" : ` — это ${formatShare(analysis.coverage)} от того, что влияет на оценку`
                   }. Когда появятся остальные, оценка может измениться в любую сторону.`
                 : applicableCount === categories.length
-                  ? "Есть данные по всем категориям."
-                  : "Есть данные по всем категориям, которые относятся к этому репозиторию."}
+                  ? "Есть данные по всем частям проекта."
+                  : "Есть данные по всем частям, которые относятся к этому репозиторию."}
           </Text>
+          )}
 
           {analysis.scoreLimit && (
             <Alert
@@ -95,7 +103,7 @@ function ScoreExplain({ report }: { report: RepositoryReport }) {
     <div className="score-card__explain">
       {formula && (
         <Text variant="body-1" color="hint" className="num">
-          {formula}
+          Как посчитали: {formula}
         </Text>
       )}
       {losses.length > 0 && (

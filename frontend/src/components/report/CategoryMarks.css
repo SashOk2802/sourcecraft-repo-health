@@ -12,18 +12,35 @@
 
 .category-card__head {
   display: flex;
-  align-items: baseline;
-  gap: 9px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--g-color-line-generic);
+  align-items: flex-start;
+  gap: 12px;
 }
 
-.category-card__weight {
-  white-space: nowrap;
+.category-card__title {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+/* Объяснение обычными словами: что это за часть проекта. */
+.category-card__meaning {
+  display: block;
+}
+
+.category-card__status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 0 8px;
+  border-bottom: 1px solid var(--g-color-line-generic);
+  margin-bottom: 2px;
 }
 
 .category-card__score {
   margin-left: auto;
+  flex: 0 0 auto;
   font-size: var(--g-text-header-1-font-size);
   font-weight: 600;
   letter-spacing: -0.02em;

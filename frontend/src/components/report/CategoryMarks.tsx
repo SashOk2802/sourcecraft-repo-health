@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 
 import type { CategoryStatus } from "../../api/common";
 import type { CategoryMetric, ReportCategory } from "../../api/report";
+import { describeCategory } from "../../lib/categoryMeaning";
 import { cn } from "../../lib/classNames";
 import { formatPoints, formatScore } from "../../lib/format";
 import { describeReason } from "../../lib/reasonCodes";
@@ -26,9 +27,9 @@ export function CategoryMarks({ categories }: { categories: ReportCategory[] }) 
           Из чего складывается
         </Text>
         <Text variant="body-1" color="secondary">
-          внутри категории — её метрики: {SCORE_BAND_LIMITS.high} и выше хорошо, {SCORE_BAND_LIMITS.low}–
-          {SCORE_BAND_LIMITS.high - 1} предупреждение, ниже {SCORE_BAND_LIMITS.low} проблема; серая точка —
-          справочная метрика, её не оценивают
+          каждая часть проверяется по нескольким признакам: {SCORE_BAND_LIMITS.high} и выше — хорошо,
+          {SCORE_BAND_LIMITS.low}–{SCORE_BAND_LIMITS.high - 1} — стоит посмотреть, ниже {SCORE_BAND_LIMITS.low} —
+          проблема; серая точка — признак для справки, его не оценивают
         </Text>
       </div>
 
@@ -44,27 +45,36 @@ export function CategoryMarks({ categories }: { categories: ReportCategory[] }) 
 function CategoryCard({ category, order }: { category: ReportCategory; order: number }) {
   const score = category.status === "measured" ? category.score : null;
   const band = score !== null ? getScoreBand(score) : null;
+  const meaning = describeCategory(category.code);
 
   return (
     <article className="category-card" style={{ "--rh-step": order } as CSSProperties}>
       <header className="category-card__head">
-        <Text variant="subheader-1" as="h3">
-          {category.label}
-        </Text>
-        <Text variant="body-1" color="hint" className="category-card__weight">
-          вес {formatPoints(category.weight)}%
-          {category.effectiveWeight !== null && category.effectiveWeight !== category.weight
-            ? ` → ${formatPoints(category.effectiveWeight)}%`
-            : ""}
-        </Text>
-        <span className={cn("category-card__score", band && `category-card__score_band_${band}`)}>
-          {score !== null ? (
-            <span className="num">{formatScore(score)}</span>
-          ) : (
-            <CategoryStatusLabel status={category.status as Exclude<CategoryStatus, "measured">} />
+        <div className="category-card__title">
+          <Text variant="subheader-1" as="h3">
+            {category.label}
+          </Text>
+          {meaning && (
+            <Text variant="body-1" color="hint" className="category-card__meaning">
+              {meaning}
+            </Text>
           )}
-        </span>
+        </div>
+        {score !== null && (
+          <span className={cn("category-card__score", band && `category-card__score_band_${band}`)}>
+            <span className="num">{formatScore(score)}</span>
+          </span>
+        )}
       </header>
+
+      <div className="category-card__status">
+        {score === null && <CategoryStatusLabel status={category.status as Exclude<CategoryStatus, "measured">} />}
+        <Text variant="body-1" color="hint">
+          {category.effectiveWeight === null
+            ? "в оценку не вошло — её доля перешла к остальным частям"
+            : `влияет на оценку на ${formatPoints(category.effectiveWeight)}%`}
+        </Text>
+      </div>
 
       {hasMetrics(category) ? (
         <ul className="category-card__metrics">
@@ -83,11 +93,6 @@ function CategoryCard({ category, order }: { category: ReportCategory; order: nu
         </p>
       )}
 
-      {category.effectiveWeight === null && (
-        <Text variant="body-1" color="hint" className="category-card__excluded">
-          В расчёт не входит: вес распределился на остальные категории.
-        </Text>
-      )}
     </article>
   );
 }
