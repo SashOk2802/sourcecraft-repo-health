@@ -1,4 +1,5 @@
 import { Text } from "@gravity-ui/uikit";
+import type { CSSProperties } from "react";
 
 import type { CategoryStatus } from "../../api/common";
 import type { CategoryMetric, ReportCategory } from "../../api/report";
@@ -32,20 +33,20 @@ export function CategoryMarks({ categories }: { categories: ReportCategory[] }) 
       </div>
 
       <div className="category-marks">
-        {categories.map((category) => (
-          <CategoryCard key={category.code} category={category} />
+        {categories.map((category, index) => (
+          <CategoryCard key={category.code} category={category} order={index} />
         ))}
       </div>
     </section>
   );
 }
 
-function CategoryCard({ category }: { category: ReportCategory }) {
+function CategoryCard({ category, order }: { category: ReportCategory; order: number }) {
   const score = category.status === "measured" ? category.score : null;
   const band = score !== null ? getScoreBand(score) : null;
 
   return (
-    <article className="category-card">
+    <article className="category-card" style={{ "--rh-step": order } as CSSProperties}>
       <header className="category-card__head">
         <Text variant="subheader-1" as="h3">
           {category.label}

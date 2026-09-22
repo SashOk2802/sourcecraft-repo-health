@@ -1,6 +1,7 @@
 import { Alert, Text } from "@gravity-ui/uikit";
 
 import type { RepositoryReport } from "../../api/report";
+import { useCountUp } from "../../hooks/useCountUp";
 import { cn } from "../../lib/classNames";
 import { formatPoints, formatScore, formatShare, plural } from "../../lib/format";
 import { PreliminaryLabel, ScoreLimitLabel } from "../StatusLabels";
@@ -15,6 +16,8 @@ import "./ScoreCard.css";
  */
 export function ScoreCard({ report }: { report: RepositoryReport }) {
   const { score, analysis, categories, scoreDetails } = report;
+  // Число набегает от нуля, пока собирается радар.
+  const shownScore = useCountUp(score);
   const measuredCount = categories.filter(isMeasured).length;
   const applicableCount = categories.filter((category) => category.status !== "not_applicable").length;
 
@@ -31,7 +34,7 @@ export function ScoreCard({ report }: { report: RepositoryReport }) {
           </Text>
           <div className="score-card__value-row">
             <span className={cn("score-card__value", "num", score === null && "score-card__value_empty")}>
-              {score === null ? "нет оценки" : formatScore(score)}
+              {score === null ? "нет оценки" : formatScore(shownScore ?? score)}
             </span>
             {score !== null && (
               <Text variant="body-2" color="secondary" className="num">

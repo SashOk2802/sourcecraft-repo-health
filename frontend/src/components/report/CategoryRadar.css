@@ -4,11 +4,24 @@
   justify-items: center;
 }
 
+/*
+ * Небольшой объём: сцена с перспективой, фигура поворачивается за курсором.
+ * Углы приходят из usePointerTilt, по умолчанию нулевые.
+ */
+.category-radar__stage {
+  width: 100%;
+  perspective: 900px;
+}
+
 .category-radar__chart {
   width: 100%;
   max-width: 560px;
   height: auto;
   display: block;
+  margin: 0 auto;
+  transform: rotateX(var(--rh-tilt-x, 0deg)) rotateY(var(--rh-tilt-y, 0deg));
+  transform-style: preserve-3d;
+  transition: transform 240ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 .category-radar__ring {
@@ -55,6 +68,11 @@
 
 .category-radar__dot {
   fill: var(--g-color-text-primary);
+  transition: r 160ms ease-out;
+}
+
+.category-radar__stage:hover .category-radar__dot {
+  r: 6.5;
 }
 
 .category-radar__dot_empty {
@@ -62,6 +80,10 @@
   stroke: var(--g-color-text-hint);
   stroke-width: 2;
   stroke-dasharray: 4 3;
+}
+
+.category-radar__stage:hover .category-radar__dot_empty {
+  r: 6;
 }
 
 .category-radar__label {
@@ -111,6 +133,100 @@
   border: 2px dashed var(--g-color-text-hint);
 }
 
+/* Сборка фигуры: кольца, потом лучи, потом контур, вершины и подписи. */
+@media (prefers-reduced-motion: no-preference) {
+  .category-radar__ring,
+  .category-radar__track {
+    animation: rh-fade-in 420ms ease-out backwards;
+    animation-delay: calc(var(--rh-step, 0) * 40ms);
+  }
+
+  .category-radar__arm {
+    stroke-dasharray: 200;
+    animation: rh-draw 520ms ease-out backwards;
+    animation-delay: calc(140ms + var(--rh-step, 0) * 55ms);
+  }
+
+  .category-radar__arm_empty {
+    stroke-dasharray: 7 6;
+    animation-name: rh-fade-in;
+  }
+
+  .category-radar__shape {
+    transform-origin: center;
+    animation: rh-grow 620ms cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
+    animation-delay: 420ms;
+  }
+
+  .category-radar__edge {
+    stroke-dasharray: 600;
+    animation: rh-draw-long 700ms ease-out backwards;
+    animation-delay: calc(460ms + var(--rh-step, 0) * 70ms);
+  }
+
+  .category-radar__edge_gap {
+    stroke-dasharray: 6 5;
+    animation-name: rh-fade-in;
+  }
+
+  .category-radar__dot {
+    transform-origin: center;
+    transform-box: fill-box;
+    animation: rh-pop 380ms cubic-bezier(0.34, 1.4, 0.64, 1) backwards;
+    animation-delay: calc(640ms + var(--rh-step, 0) * 60ms);
+  }
+
+  .category-radar__caption {
+    animation: rh-rise 460ms ease-out backwards;
+    animation-delay: calc(260ms + var(--rh-step, 0) * 55ms);
+  }
+}
+
+@keyframes rh-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes rh-draw {
+  from {
+    stroke-dashoffset: 200;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes rh-draw-long {
+  from {
+    stroke-dashoffset: 600;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes rh-grow {
+  from {
+    opacity: 0;
+    transform: scale(0.82);
+  }
+}
+
+@keyframes rh-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.1);
+  }
+}
+
+@keyframes rh-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
 @media (max-width: 900px) {
   .category-radar__label {
     font-size: 13px;
@@ -118,5 +234,12 @@
 
   .category-radar__sub {
     font-size: 11px;
+  }
+}
+
+/* На печати всё уже на месте: никакого движения и наклона. */
+@media print {
+  .category-radar__chart {
+    transform: none;
   }
 }
