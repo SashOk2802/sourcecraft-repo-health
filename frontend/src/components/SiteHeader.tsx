@@ -2,6 +2,7 @@ import { Pulse } from "@gravity-ui/icons";
 import { Button, Icon, Text } from "@gravity-ui/uikit";
 
 import { cn } from "../lib/classNames";
+import { yandexAuthPendingHint, yandexAuthReady } from "../lib/featureFlags";
 import { Link } from "../router";
 import { paths, type PageName, type Route } from "../routes";
 import "./SiteHeader.css";
@@ -50,11 +51,34 @@ export function SiteHeader({ route }: { route: Route }) {
         </nav>
 
         <div className="site-header__user">
-          <Button view="outlined" size="m" href="/api/v1/auth/yandex/start">
-            Войти через Яндекс ID
-          </Button>
+          <SignInButton />
         </div>
       </div>
     </header>
+  );
+}
+
+/*
+ * Пока backend не поднял /api/v1/auth/yandex, кнопка показывается выключенной:
+ * переход на несуществующий endpoint отдавал 404.
+ */
+function SignInButton() {
+  if (!yandexAuthReady) {
+    return (
+      <span className="site-header__signin" title={yandexAuthPendingHint}>
+        <Button view="outlined" size="m" disabled>
+          Войти через Яндекс ID
+        </Button>
+        <Text variant="caption-2" color="secondary" className="site-header__signin-note">
+          скоро
+        </Text>
+      </span>
+    );
+  }
+
+  return (
+    <Button view="outlined" size="m" href="/api/v1/auth/yandex/start">
+      Войти через Яндекс ID
+    </Button>
   );
 }

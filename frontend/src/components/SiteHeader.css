@@ -77,3 +77,20 @@
     gap: 14px;
   }
 }
+
+/* Вход ещё не подключён: кнопка выключена, рядом короткая пометка. */
+.site-header__signin {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.site-header__signin-note {
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .site-header__signin-note {
+    display: none;
+  }
+}
