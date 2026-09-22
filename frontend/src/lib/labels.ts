@@ -19,6 +19,7 @@ export const priorityLabels: Record<RecommendationPriority, string> = {
 
 export const analysisStatusLabels: Record<AnalysisStatus, string> = {
   queued: "в очереди",
+  running: "идёт анализ",
   collecting: "собираем данные",
   calculating: "считаем оценку",
   completed: "завершён",

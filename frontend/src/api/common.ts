@@ -9,9 +9,14 @@ export type CategoryStatus = "measured" | "unavailable" | "not_applicable" | "in
 /** Приоритет рекомендации: p0 — самый срочный. */
 export type RecommendationPriority = "p0" | "p1" | "p2" | "p3";
 
-/** Статус запуска анализа (docs/architecture-proposal.md, раздел 5). */
+/**
+ * Статус запуска анализа — docs/api-contract.md, GET /api/v1/analyses/{id}.
+ * Backend присылает queued, running, completed, partial или failed;
+ * collecting и calculating — предложенные этапы сбора, cancelled — отмена.
+ */
 export type AnalysisStatus =
   | "queued"
+  | "running"
   | "collecting"
   | "calculating"
   | "completed"
