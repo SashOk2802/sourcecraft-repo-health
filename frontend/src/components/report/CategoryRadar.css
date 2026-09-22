@@ -1,0 +1,122 @@
+.category-radar {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+}
+
+.category-radar__chart {
+  width: 100%;
+  max-width: 560px;
+  height: auto;
+  display: block;
+}
+
+.category-radar__ring {
+  fill: none;
+  stroke: var(--g-color-line-generic);
+  stroke-width: 1;
+}
+
+/* Дорожка до подписи: одинаковая у всех лучей, поэтому подписи стоят по кругу. */
+.category-radar__track {
+  stroke: var(--g-color-line-generic-solid);
+  stroke-width: 1;
+  opacity: 0.45;
+}
+
+/* Сам луч: его длина и есть вес категории. */
+.category-radar__arm {
+  stroke: var(--g-color-line-generic-accent);
+  stroke-width: 1.5;
+}
+
+.category-radar__arm_empty {
+  stroke: var(--g-color-text-hint);
+  stroke-dasharray: 7 6;
+}
+
+.category-radar__shape {
+  fill: var(--g-color-text-primary);
+  fill-opacity: 0.09;
+}
+
+.category-radar__edge {
+  stroke: var(--g-color-text-primary);
+  stroke-width: 2.6;
+  stroke-linejoin: round;
+}
+
+/* Разрыв контура там, где категорию не измеряли. */
+.category-radar__edge_gap {
+  stroke: var(--g-color-text-hint);
+  stroke-width: 2;
+  stroke-dasharray: 6 5;
+}
+
+.category-radar__dot {
+  fill: var(--g-color-text-primary);
+}
+
+.category-radar__dot_empty {
+  fill: var(--g-color-base-background);
+  stroke: var(--g-color-text-hint);
+  stroke-width: 2;
+  stroke-dasharray: 4 3;
+}
+
+.category-radar__label {
+  fill: var(--g-color-text-primary);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.category-radar__label_empty {
+  fill: var(--g-color-text-secondary);
+}
+
+.category-radar__sub {
+  fill: var(--g-color-text-hint);
+  font-size: 12.5px;
+}
+
+.category-radar__legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 20px;
+  list-style: none;
+}
+
+.category-radar__legend li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.category-radar__key {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.category-radar__key_shape {
+  background: var(--g-color-text-primary);
+}
+
+.category-radar__key_ring {
+  background: var(--g-color-line-generic-solid);
+}
+
+.category-radar__key_empty {
+  border: 2px dashed var(--g-color-text-hint);
+}
+
+@media (max-width: 900px) {
+  .category-radar__label {
+    font-size: 13px;
+  }
+
+  .category-radar__sub {
+    font-size: 11px;
+  }
+}

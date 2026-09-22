@@ -6,8 +6,7 @@ import { mocksEnabled } from "../api/mockMode";
 import { fetchReport, markdownReportUrl, type RepositoryReport } from "../api/report";
 import { ErrorNote, LoadingNote } from "../components/PageNotes";
 import { AnalysisFacts } from "../components/report/AnalysisFacts";
-import { CategoryTable } from "../components/report/CategoryTable";
-import { Highlights } from "../components/report/Highlights";
+import { CategoryMarks } from "../components/report/CategoryMarks";
 import { RecommendationList } from "../components/report/RecommendationList";
 import { ScoreCard } from "../components/report/ScoreCard";
 import { dataOf, useAsync } from "../hooks/useAsync";
@@ -99,8 +98,7 @@ function ReportView({ report }: { report: RepositoryReport }) {
       <div className="report__grid">
         <div className="report__main">
           <ScoreCard report={report} />
-          <CategoryTable categories={report.categories} />
-          <Highlights categories={report.categories} />
+          <CategoryMarks categories={report.categories} />
           <RecommendationList recommendations={report.recommendations} hasScore={report.score !== null} />
         </div>
         <aside className="report__aside">

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { ReportCategory } from "../../api/report";
-import { biggestLosses, buildFormula, isMeasured, pickHighlights } from "./reportHelpers";
+import type { CategoryMetric, ReportCategory } from "../../api/report";
+import { biggestLosses, buildFormula, hasMetrics, isMeasured, metricTone } from "./reportHelpers";
 
 function measured(code: string, score: number, weight: number, measuredWeight: number): ReportCategory {
   const effectiveWeight = (weight / measuredWeight) * 100;
@@ -49,19 +49,6 @@ describe("isMeasured", () => {
   });
 });
 
-describe("pickHighlights", () => {
-  it("делит оценённые категории на сильные и слабые, пропуская категории без данных", () => {
-    const { strengths, weaknesses } = pickHighlights(categories);
-    expect(strengths.map((category) => category.code)).toEqual(["activity", "documentation"]);
-    expect(weaknesses.map((category) => category.code)).toEqual(["cicd", "issues"]);
-  });
-
-  it("берёт среднюю полосу, если низких оценок нет", () => {
-    const { weaknesses } = pickHighlights([measured("a", 90, 50, 100), measured("b", 70, 50, 100)]);
-    expect(weaknesses.map((category) => category.code)).toEqual(["b"]);
-  });
-});
-
 describe("buildFormula", () => {
   it("собирает расчёт только из оценённых категорий", () => {
     expect(buildFormula(categories, 75, 73.4)).toBe("(58×20 + 88×20 + 91×15 + 58×15 + 70×5) ÷ 75 = 73,4");
@@ -78,5 +65,42 @@ describe("biggestLosses", () => {
     expect(losses.map((loss) => loss.category.code)).toEqual(["cicd", "issues"]);
     expect(losses[0].lost).toBeCloseTo(11.2, 1);
     expect(losses[1].lost).toBeCloseTo(8.4, 1);
+  });
+});
+
+describe("metricTone", () => {
+  const metric = (normalizedScore: number | null): CategoryMetric => ({
+    code: "m",
+    value: null,
+    normalizedScore,
+    summary: "",
+    evidence: [],
+  });
+
+  it("берёт цвет из балла самой метрики", () => {
+    expect(metricTone(metric(100))).toBe("high");
+    expect(metricTone(metric(80))).toBe("high");
+    expect(metricTone(metric(79))).toBe("mid");
+    expect(metricTone(metric(60))).toBe("mid");
+    expect(metricTone(metric(59))).toBe("low");
+    expect(metricTone(metric(0))).toBe("low");
+  });
+
+  it("метрику без балла не красит: она справочная", () => {
+    expect(metricTone(metric(null))).toBe("info");
+  });
+});
+
+describe("hasMetrics", () => {
+  it("пустой evidence прячет список", () => {
+    expect(hasMetrics(unavailable)).toBe(false);
+  });
+
+  it("присланные метрики показываем", () => {
+    const withMetric: ReportCategory = {
+      ...unavailable,
+      evidence: [{ code: "m", value: null, normalizedScore: 50, summary: "", evidence: [] }],
+    };
+    expect(hasMetrics(withMetric)).toBe(true);
   });
 });

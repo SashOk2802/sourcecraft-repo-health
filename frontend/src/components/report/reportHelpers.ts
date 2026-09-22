@@ -1,4 +1,4 @@
-import type { ReportCategory } from "../../api/report";
+import type { CategoryMetric, ReportCategory } from "../../api/report";
 import { formatPoints } from "../../lib/format";
 import { getScoreBand } from "../../lib/scoreBands";
 
@@ -21,27 +21,6 @@ export function isMeasured(category: ReportCategory): category is MeasuredCatego
     category.effectiveWeight !== null &&
     category.points !== null
   );
-}
-
-export interface Highlights {
-  strengths: MeasuredCategory[];
-  weaknesses: MeasuredCategory[];
-}
-
-/**
- * Сильные стороны — категории в верхней полосе оценки.
- * Слабые — в нижней, а если таких нет, то в средней. Категории без данных сюда не попадают.
- */
-export function pickHighlights(categories: ReportCategory[]): Highlights {
-  const measured = categories.filter(isMeasured);
-  const inBand = (band: ReturnType<typeof getScoreBand>): MeasuredCategory[] =>
-    measured.filter((category) => getScoreBand(category.score) === band);
-
-  const low = inBand("low");
-  return {
-    strengths: inBand("high").sort((a, b) => b.score - a.score),
-    weaknesses: (low.length > 0 ? low : inBand("mid")).sort((a, b) => a.score - b.score),
-  };
 }
 
 export interface Loss {
@@ -71,4 +50,22 @@ export function buildFormula(categories: ReportCategory[], measuredWeight: numbe
   }
   const terms = measured.map((category) => `${formatPoints(category.score)}×${formatPoints(category.weight)}`);
   return `(${terms.join(" + ")}) ÷ ${formatPoints(measuredWeight)} = ${formatPoints(result)}`;
+}
+
+export type MetricTone = "high" | "mid" | "low" | "info";
+
+/**
+ * Цвет метрики берётся из её собственного normalizedScore по тем же полосам,
+ * что и оценки категорий. null — справочная метрика, её не оценивают.
+ */
+export function metricTone(metric: CategoryMetric): MetricTone {
+  return metric.normalizedScore === null ? "info" : getScoreBand(metric.normalizedScore);
+}
+
+/**
+ * Список метрик показываем, только если backend их прислал: при unavailable,
+ * insufficient_sample и пока анализатор не отдал детализацию evidence пустой.
+ */
+export function hasMetrics(category: ReportCategory): boolean {
+  return category.evidence.length > 0;
 }
