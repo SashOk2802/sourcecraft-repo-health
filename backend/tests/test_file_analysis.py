@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -32,7 +32,8 @@ def mock_context():
         repository_slug="test_repo",
         web_url="https://github.com",
     )
-    now = datetime.now(timezone.utc)
+    # Используем современный алиас UTC по требованию правила UP017
+    now = datetime.now(UTC)
     return AnalysisContext(
         repository=repo_ref,
         commit_sha="abcdef1234567890",
