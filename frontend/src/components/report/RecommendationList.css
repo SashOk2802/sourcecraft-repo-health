@@ -112,3 +112,20 @@
 .recommendation__delta {
   font-variant-numeric: tabular-nums;
 }
+
+@media print {
+  .recommendations {
+    border: 1px solid #d9dae0;
+    box-shadow: none;
+    padding: 4px 16px;
+  }
+
+  .recommendation {
+    break-inside: avoid;
+  }
+
+  .recommendation:hover {
+    background: none;
+    box-shadow: none;
+  }
+}

@@ -151,6 +151,11 @@
 }
 
 @media print {
+  .category-card {
+    border: 1px solid #d9dae0;
+    box-shadow: none;
+  }
+
   .category-marks {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

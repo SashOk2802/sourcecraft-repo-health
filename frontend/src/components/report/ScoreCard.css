@@ -111,6 +111,10 @@
 }
 
 @media print {
+  .score-card {
+    background: #fff;
+  }
+
   .score-card__layout {
     grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
     gap: 20px;
