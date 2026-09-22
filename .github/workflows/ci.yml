@@ -38,7 +38,7 @@ jobs:
       - name: Apply database migrations
         run: alembic upgrade head
       - name: Run tests
-        run: python -m unittest discover -s backend/tests -v
+        run: python -m pytest
       - name: Check Python code
         run: ruff check backend --ignore EXE002
 

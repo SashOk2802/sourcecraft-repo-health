@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+// Методика v1: шесть фиксированных категорий (см. docs/frontend-review-response.md).
 type Category = {
   code: string;
   label: string;
@@ -8,10 +9,12 @@ type Category = {
 };
 
 const categories: Category[] = [
-  { code: "security", label: "Безопасность", score: 61, summary: "Нужны обновления зависимостей." },
-  { code: "cicd", label: "CI/CD", score: 84, summary: "Пайплайн выполняется стабильно." },
-  { code: "quality", label: "Качество кода", score: 79, summary: "Линтер и тесты настроены." },
-  { code: "dependencies", label: "Зависимости", score: null, summary: "Данные временно недоступны." },
+  { code: "security", label: "Безопасность", score: 60, summary: "AppSec-проверка пройдена, критических уязвимостей нет." },
+  { code: "cicd", label: "CI/CD", score: 85, summary: "Пайплайн выполняется стабильно." },
+  { code: "documentation", label: "Документация", score: 90, summary: "README, лицензия и регламенты на месте." },
+  { code: "activity", label: "Активность", score: 70, summary: "Проект регулярно обновляется." },
+  { code: "issues", label: "Работа с issues", score: 75, summary: "Большинство задач закрывается без просрочек." },
+  { code: "code_health", label: "Состояние кода", score: 88, summary: "TODO и FIXME в пределах нормы." },
 ];
 
 export function App() {

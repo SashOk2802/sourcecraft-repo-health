@@ -18,14 +18,14 @@ SUPPORTED_EXTENSIONS = {".py", ".js", ".ts", ".go", ".java", ".cpp", ".cs"}
 def collect(context: AnalysisContext) -> dict:
     """Сканирует исходный код во временном репозитории на наличие TODO и FIXME."""
     repo_url = context.repository.web_url or f"https://sourcecraft.internal{context.repository.repository_slug}"
-    repo = LocalGitRepository(repo_url=repo_url, branch=context.commit_sha)
+    repo = LocalGitRepository(repo_url=repo_url, ref=context.commit_sha)
     facts = {"total_files": 0, "todo_count": 0, "fixme_count": 0, "files_with_debt": 0}
     
     try:
         temp_dir = repo.clone()
         for root, _, files in os.walk(temp_dir):
             for file in files:
-                if os.path.splitext(file).lower() not in SUPPORTED_EXTENSIONS:
+                if os.path.splitext(file)[1].lower() not in SUPPORTED_EXTENSIONS:
                     continue
                     
                 facts["total_files"] += 1

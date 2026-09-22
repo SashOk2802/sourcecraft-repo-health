@@ -28,7 +28,7 @@ python -m pip install -e ".[dev]"
 
 ~~~powershell
 alembic upgrade head
-python -m unittest discover -s backend/tests -v
+python -m pytest
 ruff check backend --ignore EXE002
 ~~~
 
@@ -36,7 +36,7 @@ ruff check backend --ignore EXE002
 
 ~~~powershell
 docker compose run --rm --no-deps backend alembic upgrade head
-docker compose run --rm --no-deps backend python -m unittest discover -s backend/tests -v
+docker compose run --rm --no-deps backend python -m pytest
 docker compose run --rm --no-deps backend ruff check backend --ignore EXE002
 ~~~
 
@@ -93,9 +93,9 @@ from backend.app.contracts import DataStatus
 
 class ActivityTest(unittest.TestCase):
     def test_empty_history_is_not_measured(self) -> None:
-        status = DataStatus.NOT_ENOUGH_DATA
+        status = DataStatus.INSUFFICIENT_SAMPLE
 
-        self.assertEqual(status, DataStatus.NOT_ENOUGH_DATA)
+        self.assertEqual(status, DataStatus.INSUFFICIENT_SAMPLE)
 ~~~
 
 Не копируйте этот пример буквально: тест должен вызывать вашу функцию или анализатор и проверять его результат.

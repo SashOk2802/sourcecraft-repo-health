@@ -13,7 +13,7 @@ from backend.app.integrations.git_repository import LocalGitRepository
 def collect(context: AnalysisContext) -> dict:
     """Собирает факты о наличии регламентирующих файлов документации."""
     repo_url = context.repository.web_url or f"https://sourcecraft.internal{context.repository.repository_slug}"
-    repo = LocalGitRepository(repo_url=repo_url, branch=context.commit_sha)
+    repo = LocalGitRepository(repo_url=repo_url, ref=context.commit_sha)
     facts = {}
     try:
         repo.clone()
