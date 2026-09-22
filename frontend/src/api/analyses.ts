@@ -19,12 +19,15 @@ export interface AnalysisStatusResponse {
     repositorySlug?: string;
   };
   score: number | null;
-  isPreliminary: boolean;
-  reportUrl: string;
-  markdownReportUrl: string;
+  /** null, пока анализ не закончился. */
+  isPreliminary: boolean | null;
+  /** null, пока отчёт не сохранён (docs/api-contract.md). */
+  reportUrl: string | null;
+  markdownReportUrl: string | null;
   /** Предложение: этапы сбора, пока анализ идёт. */
   stages?: AnalysisStage[];
   createdAt?: string | null;
+  startedAt?: string | null;
   finishedAt?: string | null;
   error?: string | null;
 }

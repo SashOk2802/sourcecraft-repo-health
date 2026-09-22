@@ -37,7 +37,7 @@ export function mockMyRepositories(now = Date.now()): MyRepository[] | null {
         status: state.status,
         analyzedAt: finishedAt(finished),
         score: state.score,
-        isPreliminary: state.isPreliminary,
+        isPreliminary: state.isPreliminary ?? false,
       };
     } else if (repository.lastAnalysisFailed) {
       lastAnalysis = {
