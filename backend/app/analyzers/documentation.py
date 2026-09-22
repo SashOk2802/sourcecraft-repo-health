@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 from backend.app.contracts import (
     AnalysisContext,
     CategoryResult,
@@ -27,7 +26,7 @@ def collect(context: AnalysisContext) -> dict:
         
         readme_content = repo.read_file("README.md") or ""
         facts["has_shortcuts"] = any(x in readme_content.lower() for x in ["docker", "run", "pytest", "test", "python"])
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         facts["error"] = str(e)
     finally:
         repo.cleanup()
