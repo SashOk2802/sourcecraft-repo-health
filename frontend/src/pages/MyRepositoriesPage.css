@@ -26,23 +26,33 @@
   max-width: 420px;
 }
 
+/* Подключение — своя карточка, как фильтры в рейтинге. */
 .my-repos__connection {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 12px;
-  padding: 10px 0 14px;
-  border-bottom: 1px solid var(--g-color-line-generic);
+  padding: 13px 18px;
+  margin-bottom: 14px;
+  border-radius: var(--rh-radius-card);
+  background: var(--rh-surface);
+  box-shadow: var(--rh-shadow-1);
 }
 
 .my-repos__table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--rh-surface);
+  border-radius: var(--rh-radius-card);
+  box-shadow: var(--rh-shadow-1);
+  overflow: hidden;
 }
 
 .my-repos__table th {
-  padding: 12px 12px 10px 0;
-  border-bottom: 1px solid var(--g-color-line-generic);
+  padding: 14px 12px 12px 0;
+  background: var(--rh-surface-muted);
+  border-bottom: 1px solid var(--rh-hairline);
   color: var(--g-color-text-secondary);
   font-size: var(--g-text-body-1-font-size);
   font-weight: 400;
@@ -50,9 +60,31 @@
 }
 
 .my-repos__table td {
-  padding: 12px 12px 12px 0;
-  border-bottom: 1px solid var(--g-color-line-generic);
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--rh-hairline);
   vertical-align: middle;
+}
+
+.my-repos__table th:first-child,
+.my-repos__table td:first-child {
+  padding-left: 22px;
+}
+
+.my-repos__table th:last-child,
+.my-repos__table td:last-child {
+  padding-right: 22px;
+}
+
+.my-repos__table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.my-repos__table tbody tr {
+  transition: background 140ms ease-out;
+}
+
+.my-repos__table tbody tr:hover td {
+  background: var(--rh-accent-soft);
 }
 
 .my-repos__title {
