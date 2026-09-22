@@ -233,7 +233,17 @@ function LeaderboardRow({ item, showPlace }: { item: LeaderboardItem; showPlace:
 
   return (
     <tr className="board__row" onClick={openReport}>
-      {showPlace && <td className="board__place num">{item.place ?? "—"}</td>}
+      {showPlace && (
+        <td className="board__place num">
+          {item.place === null ? (
+            "—"
+          ) : item.place <= 3 ? (
+            <span className={cn("board__medal", item.place > 1 && `board__medal_place_${item.place}`)}>{item.place}</span>
+          ) : (
+            item.place
+          )}
+        </td>
+      )}
       <td className="board__name">
         <Link className="board__link" to={reportPath}>
           <span className="board__org">{repository.organizationSlug} /</span> {repository.repositorySlug}
@@ -254,7 +264,7 @@ function LeaderboardRow({ item, showPlace }: { item: LeaderboardItem; showPlace:
           </Text>
         ) : (
           <>
-            <span className="num">{formatScore(item.score)}</span>
+            <span className="board__score-value">{formatScore(item.score)}</span>
             {item.scoreLimited && (
               <span className="board__mark" title="Score ограничен из-за критической проблемы">
                 !

@@ -3,14 +3,17 @@
   text-align: right;
 }
 
+/* Фильтры — своя карточка над таблицей, а не полоса между линейками. */
 .leaderboard__controls {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 12px 16px;
-  padding: 14px 0;
-  border-top: 1px solid var(--g-color-line-generic);
-  border-bottom: 1px solid var(--g-color-line-generic);
+  padding: 14px 18px;
+  margin-bottom: 14px;
+  border-radius: var(--rh-radius-card);
+  background: var(--rh-surface);
+  box-shadow: var(--rh-shadow-1);
 }
 
 .leaderboard__search {
@@ -35,9 +38,15 @@
 
 /* Таблица рейтинга */
 
+/* Таблица — карточка поверх тонированной страницы. */
 .board {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--rh-surface);
+  border-radius: var(--rh-radius-card);
+  box-shadow: var(--rh-shadow-1);
+  overflow: hidden;
   transition: opacity 0.15s;
 }
 
@@ -46,8 +55,9 @@
 }
 
 .board th {
-  padding: 12px 12px 10px 0;
-  border-bottom: 1px solid var(--g-color-line-generic);
+  padding: 14px 12px 12px 0;
+  background: var(--rh-surface-muted);
+  border-bottom: 1px solid var(--rh-hairline);
   color: var(--g-color-text-secondary);
   font-size: var(--g-text-body-1-font-size);
   font-weight: 400;
@@ -56,22 +66,63 @@
 }
 
 .board td {
-  padding: 12px 12px 12px 0;
-  border-bottom: 1px solid var(--g-color-line-generic);
+  padding: 13px 12px 13px 0;
+  border-bottom: 1px solid var(--rh-hairline);
   vertical-align: middle;
+}
+
+.board th:first-child,
+.board td:first-child {
+  padding-left: 22px;
+}
+
+.board th:last-child,
+.board td:last-child {
+  padding-right: 22px;
+}
+
+.board tbody tr:last-child td {
+  border-bottom: 0;
 }
 
 .board__row {
   cursor: pointer;
 }
 
+.board__row {
+  transition: background 140ms ease-out;
+}
+
 .board__row:hover td {
-  background: var(--g-color-base-simple-hover);
+  background: var(--rh-accent-soft);
 }
 
 .board__place {
-  width: 64px;
+  width: 72px;
   color: var(--g-color-text-secondary);
+}
+
+/* Первая тройка отмечена кружком — её видно, не вчитываясь в номера. */
+.board__medal {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #6b4b00;
+  background: linear-gradient(180deg, #ffe08a, #ffc94d);
+}
+
+.board__medal_place_2 {
+  color: #4a4f57;
+  background: linear-gradient(180deg, #eef1f5, #d6dbe2);
+}
+
+.board__medal_place_3 {
+  color: #6d4326;
+  background: linear-gradient(180deg, #f4d3b4, #e0b189);
 }
 
 .board__link {
@@ -102,18 +153,31 @@
 }
 
 .board__score {
-  width: 92px;
-  font-size: 17px;
-  font-weight: 600;
+  width: 104px;
   white-space: nowrap;
 }
 
-.board__score_band_mid {
-  color: var(--g-color-text-warning-heavy);
+.board__score-value {
+  display: inline-block;
+  min-width: 44px;
+  padding: 3px 10px;
+  border-radius: var(--rh-radius-chip);
+  font-size: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  background: var(--rh-band-high-soft);
+  color: var(--rh-band-high);
 }
 
-.board__score_band_low {
-  color: var(--g-color-text-danger);
+.board__score_band_mid .board__score-value {
+  background: var(--rh-band-mid-soft);
+  color: var(--rh-band-mid);
+}
+
+.board__score_band_low .board__score-value {
+  background: var(--rh-band-low-soft);
+  color: var(--rh-band-low);
 }
 
 .board__mark {
