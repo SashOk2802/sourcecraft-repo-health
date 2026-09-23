@@ -52,10 +52,10 @@ ol {
 .page__header {
   position: relative;
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 12px 32px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 10px;
   min-height: 210px;
   margin: 18px 0 20px;
   padding: 38px 40px 34px;
@@ -109,15 +109,20 @@ ol {
   transform: perspective(900px) rotateY(-18deg) rotateX(8deg) rotateZ(4deg);
 }
 
-.page__title {
+/* Размер задаём с уточнённым селектором: вариант текста Gravity иначе перебивает его. */
+.page__header .page__title {
   display: block;
   max-width: 720px;
-  margin-bottom: 8px;
+  margin-bottom: 2px;
   font-size: 46px;
   line-height: 1.04;
   font-weight: 700;
   letter-spacing: -0.035em;
   color: var(--rh-hero-ink);
+}
+
+.page__header > * {
+  max-width: 660px;
 }
 
 .page__lead {
@@ -139,7 +144,7 @@ ol {
     border-radius: 22px;
   }
 
-  .page__title {
+  .page__header .page__title {
     font-size: 32px;
   }
 }
