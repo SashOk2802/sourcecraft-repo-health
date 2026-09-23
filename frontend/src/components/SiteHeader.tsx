@@ -5,6 +5,7 @@ import { cn } from "../lib/classNames";
 import { yandexAuthPendingHint, yandexAuthReady } from "../lib/featureFlags";
 import { Link } from "../router";
 import { paths, type PageName, type Route } from "../routes";
+import { ThemeSwitch } from "./ThemeSwitch";
 import "./SiteHeader.css";
 
 interface NavItem {
@@ -51,6 +52,7 @@ export function SiteHeader({ route }: { route: Route }) {
         </nav>
 
         <div className="site-header__user">
+          <ThemeSwitch />
           <SignInButton />
         </div>
       </div>

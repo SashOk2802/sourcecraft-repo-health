@@ -1,4 +1,3 @@
-import { ThemeProvider } from "@gravity-ui/uikit";
 import type { ReactElement } from "react";
 
 import { SiteFooter } from "./components/SiteFooter";
@@ -10,17 +9,18 @@ import { MyRepositoriesPage } from "./pages/MyRepositoriesPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { ReportPage } from "./pages/ReportPage";
 import { useRoute } from "./router";
+import { ThemeChoiceProvider } from "./theme/ThemeChoice";
 import type { Route } from "./routes";
 
 export function App() {
   const route = useRoute();
 
   return (
-    <ThemeProvider theme="light">
+    <ThemeChoiceProvider>
       <SiteHeader route={route} />
       <main className="page">{renderPage(route)}</main>
       <SiteFooter />
-    </ThemeProvider>
+    </ThemeChoiceProvider>
   );
 }
 
