@@ -39,7 +39,9 @@ export function AnalysisPage({ analysisId }: { analysisId: string }) {
   );
   const report = dataOf(reportState) ?? null;
 
-  useDocumentTitle(analysis ? analysis.repository.name : `Анализ ${analysisId}`);
+  // Пока анализ в очереди, backend знает только id репозитория, без имени.
+  const title = analysis?.repository.name ?? report?.repository.name ?? "Анализ репозитория";
+  useDocumentTitle(title);
 
   return (
     <div className="page__inner">
@@ -51,7 +53,7 @@ export function AnalysisPage({ analysisId }: { analysisId: string }) {
           <span className="breadcrumb__separator" aria-hidden="true">
             /
           </span>
-          {analysis ? analysis.repository.name : analysisId}
+          {title}
         </Text>
       </nav>
 

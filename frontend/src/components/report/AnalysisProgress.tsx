@@ -81,11 +81,10 @@ export function AnalysisFailed({ analysis, restarting, onRestart }: AnalysisFail
       <Text variant="subheader-2" as="h2">
         {analysis.status === "failed" ? "Анализ не удался" : "Анализ отменён"}
       </Text>
-      {analysis.error && (
-        <Text variant="body-2" color="secondary">
-          {analysis.error}
-        </Text>
-      )}
+      <Text variant="body-2" color="secondary">
+        {analysis.error?.summary ?? "Проверка не дошла до конца."} Прошлый отчёт, если он был, не пропал — обычно
+        помогает запустить анализ ещё раз.
+      </Text>
       <div>
         <Button view="action" size="l" loading={restarting} onClick={onRestart}>
           Запустить снова

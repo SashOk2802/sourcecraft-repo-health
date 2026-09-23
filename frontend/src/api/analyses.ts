@@ -14,7 +14,8 @@ export interface AnalysisStatusResponse {
   status: AnalysisStatus;
   repository: {
     id: string;
-    name: string;
+    /** Пока анализ в очереди или идёт, backend присылает только id репозитория. */
+    name?: string;
     organizationSlug?: string;
     repositorySlug?: string;
   };
@@ -29,7 +30,15 @@ export interface AnalysisStatusResponse {
   createdAt?: string | null;
   startedAt?: string | null;
   finishedAt?: string | null;
-  error?: string | null;
+  /** Только у failed: безопасный код и текст без токенов. */
+  error?: AnalysisError | null;
+}
+
+export interface AnalysisError {
+  /** Машинный код, например worker_interrupted. */
+  code: string;
+  /** Текст для человека: backend пишет его по-русски. */
+  summary: string;
 }
 
 export interface AnalysisStage {
