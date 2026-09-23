@@ -1,0 +1,13 @@
+.page-crash {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.page-crash__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}

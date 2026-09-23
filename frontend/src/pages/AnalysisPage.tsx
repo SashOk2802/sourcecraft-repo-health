@@ -77,6 +77,9 @@ export function AnalysisPage({ analysisId }: { analysisId: string }) {
         </section>
       )}
 
+      {/* Пока отчёта нет, заголовок страницы нужен хотя бы скринридеру. */}
+      {analysis && !report && <h1 className="visually-hidden">{title}</h1>}
+
       {analysis && !finished && usesDemo(analysisId) && (
         <DemoNote>Демо-анализ вымышленного репозитория: этапы и результат показаны на примере.</DemoNote>
       )}
