@@ -11,7 +11,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(230px, 1fr);
   gap: 28px;
-  align-items: center;
+  align-items: start;
 }
 
 .score-card__chart {

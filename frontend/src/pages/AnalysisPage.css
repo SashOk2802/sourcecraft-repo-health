@@ -12,18 +12,33 @@
   color: var(--g-color-text-hint);
 }
 
+/* Шапка отчёта — тот же разворот, что у остальных страниц: крупное имя на цветной подложке. */
 .report__head {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 12px 24px;
-  margin-bottom: 20px;
+  gap: 16px 24px;
+  margin: 10px 0 20px;
+  padding: 30px 34px 28px;
+  overflow: hidden;
+  border-radius: 28px;
+  background: var(--rh-hero-strong);
+  color: var(--rh-hero-ink);
+}
+
+.report__head .report__title > h1 {
+  font-size: 40px;
+  line-height: 1.06;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--rh-hero-ink);
 }
 
 .report__org {
-  color: var(--g-color-text-secondary);
-  font-weight: 400;
+  color: color-mix(in srgb, var(--rh-hero-ink) 50%, transparent);
+  font-weight: 500;
 }
 
 .report__meta {
@@ -100,5 +115,24 @@
   .report * {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+}
+
+@media (max-width: 700px) {
+  .report__head {
+    padding: 22px 20px;
+    border-radius: 22px;
+  }
+
+  .report__head .report__title > h1 {
+    font-size: 28px;
+  }
+}
+
+@media print {
+  .report__head {
+    padding: 0 0 12px;
+    border-radius: 0;
+    background: none;
   }
 }

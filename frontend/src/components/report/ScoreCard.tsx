@@ -3,13 +3,13 @@ import { Alert, Text } from "@gravity-ui/uikit";
 import type { RepositoryReport } from "../../api/report";
 import { useCountUp } from "../../hooks/useCountUp";
 import { cn } from "../../lib/classNames";
-import { formatPoints, formatScore, formatShare, plural } from "../../lib/format";
+import { formatPoints, formatScore } from "../../lib/format";
 import { getScoreBand } from "../../lib/scoreBands";
 import { scoreVerdict } from "../../lib/verdict";
 import { PreliminaryLabel, ScoreLimitLabel } from "../StatusLabels";
 import { BandSummary } from "./BandSummary";
 import { CategoryRadar } from "./CategoryRadar";
-import { biggestLosses, buildFormula, isMeasured } from "./reportHelpers";
+import { biggestLosses, buildFormula } from "./reportHelpers";
 import "./ScoreCard.css";
 
 /*
@@ -22,8 +22,6 @@ export function ScoreCard({ report }: { report: RepositoryReport }) {
   // Число набегает от нуля, пока собирается радар.
   const shownScore = useCountUp(score);
   const verdict = scoreVerdict(score, analysis.isPreliminary);
-  const measuredCount = categories.filter(isMeasured).length;
-  const applicableCount = categories.filter((category) => category.status !== "not_applicable").length;
 
   return (
     <section className="card score-card">
@@ -69,18 +67,6 @@ export function ScoreCard({ report }: { report: RepositoryReport }) {
             {analysis.scoreLimit && <ScoreLimitLabel value={analysis.scoreLimit.value} />}
           </div>
 
-          {/* Когда оценки нет, вердикт уже всё сказал — второй раз не повторяем. */}
-          {score !== null && (
-          <Text variant="body-2" color="secondary" className="score-card__note">
-            {analysis.isPreliminary
-                ? `Есть данные по ${measuredCount} из ${applicableCount} ${plural(applicableCount, "части", "частей", "частей")} проекта${
-                    analysis.coverage === null ? "" : ` — это ${formatShare(analysis.coverage)} от того, что влияет на оценку`
-                  }. Когда появятся остальные, оценка может измениться в любую сторону.`
-                : applicableCount === categories.length
-                  ? "Есть данные по всем частям проекта."
-                  : "Есть данные по всем частям, которые относятся к этому репозиторию."}
-          </Text>
-          )}
 
           {analysis.scoreLimit && (
             <Alert
