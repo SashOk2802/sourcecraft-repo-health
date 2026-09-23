@@ -124,46 +124,54 @@ function detailsFor(repository: MockRepository): ReportDetails {
           cicd: {
             summary: "9 из 40 последних прогонов завершились неуспешно.",
             metrics: [
-              metric("failed-runs", 9, 58, "6 падений из 9 — на одном job e2e-tests.", [
+              metric("automated_ci_success_rate", 0.78, 58, "6 падений из 9 — на одном job e2e-tests.", [
                 ciRun(base, 4812, "таймаут ожидания браузера"),
                 ciRun(base, 4807, "таймаут ожидания браузера"),
                 ciRun(base, 4799, "не найден элемент списка остановок"),
               ]),
-              metric("pipeline-configured", "да", 100, "CI настроен и запускается на каждый merge request.", []),
+              metric("pipeline_configured", "да", 100, "CI настроен и запускается на каждый merge request.", []),
             ],
           },
           documentation: {
             summary: "README с запуском и тестами, CONTRIBUTING и лицензия MIT. Нет CODEOWNERS.",
             metrics: [
-              metric("readme-sections", "запуск, тесты", 100, "README объясняет, как запустить и проверить проект.", [
+              metric("readme_sections", "запуск, тесты", 100, "README объясняет, как запустить и проверить проект.", [
                 file(base, "README.md", "разделы «Запуск» и «Тесты»"),
               ]),
               metric("codeowners", "нет", 0, "Файла CODEOWNERS нет: непонятно, кого звать на ревью.", []),
             ],
           },
+          // Метрики и веса — как в docs/scoring-methodology.md, §3: 0,4×94 + 0,25×100 + 0,2×67 + 0,15×100 ≈ 91.
           activity: {
-            summary: "Коммиты в 11 из 12 последних недель, 14 участников.",
+            summary: "Последние изменения 24 дня назад, за полгода смержено 38 merge requests и вышло 2 релиза.",
             metrics: [
-              metric("active-weeks", "11 из 12", 92, "Разработка идёт почти каждую неделю.", []),
-              metric("last-release", "v2.14.0", 88, "Последний релиз вышел на прошлой неделе.", [
+              metric("last_activity_days", 24, 94, "Последняя активность в репозитории — 24 дня назад.", []),
+              metric("merged_mr_in_period", 38, 100, "За полгода смержено 38 merge requests; в оценку идут не больше трёх.", [
+                pull(base, 412, "«Кэш расписаний на границе суток» — смержен"),
+              ]),
+              metric("releases_in_period", 2, 67, "За полгода вышло 2 релиза, последний — v2.14.0.", [
                 { source: "sourcecraft-releases", reference: "v2.14.0", summary: "последний релиз", url: `${base}/releases/v2.14.0` },
               ]),
+              metric("contributor_count", 14, 100, "В списке участников 14 человек.", []),
             ],
           },
+          // §2: 0,45×44 + 0,3×50 + 0,25×92 ≈ 58.
           issues: {
-            summary: "7 открытых задач не обновлялись больше 30 дней.",
+            summary: "7 из 23 открытых задач не двигались дольше 90 дней, а новые приходят быстрее, чем их решают.",
             metrics: [
-              metric("stale-issues", 7, 58, "Самая старая задача ждёт ответа 142 дня.", [
-                issue(base, 311, "142 дня без ответа"),
-                issue(base, 298, "96 дней без ответа"),
-                issue(base, 276, "71 день без ответа"),
+              metric("stale_open_ratio", 0.3, 44, "7 из 23 открытых задач без движения дольше 90 дней.", [
+                issue(base, 311, "142 дня без движения"),
+                issue(base, 298, "131 день без движения"),
+                issue(base, 276, "118 дней без движения"),
               ]),
+              metric("backlog_trend", 0.63, 50, "За полгода решили 25 задач из 40 новых.", []),
+              metric("median_days_to_close", 21, 92, "Обычно задачу решают за 21 день — это медиана по задачам, решённым за полгода.", []),
             ],
           },
           code_health: {
             summary: "47 TODO и FIXME в 31 файле, 12 из них старше полугода.",
             metrics: [
-              metric("todo-fixme", 47, 70, "Больше всего пометок в модуле синхронизации.", [
+              metric("todo_fixme_count", 47, 70, "Больше всего пометок в модуле синхронизации.", [
                 file(base, "src/sync/importer.ts", "FIXME: дубли остановок при импорте"),
                 file(base, "src/routes/stops.ts", "TODO: кэшировать ответ"),
               ]),
@@ -186,19 +194,19 @@ function detailsFor(repository: MockRepository): ReportDetails {
             ],
           },
           {
-            code: "issues-stale",
+            code: "issues-triage-stale",
             priority: "p1",
-            problem: "7 открытых issues не обновлялись больше 30 дней.",
-            action: "Ответить в зависших issues или закрыть неактуальные",
-            rationale: "Авторы задач месяц не получают ответа. Если задача больше не нужна, её лучше закрыть с комментарием.",
+            problem: "7 из 23 открытых задач не двигались дольше 90 дней.",
+            action: "Разобрать зависшие задачи: неактуальные закрыть, остальным назначить ответственного и срок",
+            rationale: "Задачи без движения показывают, что обращения пользователей остаются без ответа, и снижают доверие к проекту.",
             expectedEffect: "Работа с issues поднимется примерно с 58 до 75.",
             expectedScoreDelta: 3.4,
             evidence: [
               issue(base, 311, "«Нет расписания для маршрута 47» — 142 дня"),
-              issue(base, 298, "«Неверное время прибытия по выходным» — 96 дней"),
-              issue(base, 276, "«Выгрузка в GTFS» — 71 день"),
-              issue(base, 305, "«Падает импорт с пустой строкой» — 64 дня"),
-              issue(base, 289, "«Документация по /v2/stops» — 52 дня"),
+              issue(base, 298, "«Неверное время прибытия по выходным» — 131 день"),
+              issue(base, 276, "«Выгрузка в GTFS» — 118 дней"),
+              issue(base, 305, "«Падает импорт с пустой строкой» — 104 дня"),
+              issue(base, 289, "«Документация по /v2/stops» — 96 дней"),
             ],
           },
           {
@@ -232,7 +240,7 @@ function detailsFor(repository: MockRepository): ReportDetails {
           security: {
             summary: "AppSec нашёл 2 критические уязвимости в зависимостях.",
             metrics: [
-              metric("critical-findings", 2, 22, "jackson-databind 2.9.10 и commons-text 1.9.", [
+              metric("critical_findings", 2, 22, "jackson-databind 2.9.10 и commons-text 1.9.", [
                 finding(base, "SCA-1182", "jackson-databind 2.9.10: десериализация недоверенных данных"),
                 finding(base, "SCA-1187", "commons-text 1.9: выполнение кода через интерполяцию строк"),
               ]),
@@ -243,7 +251,7 @@ function detailsFor(repository: MockRepository): ReportDetails {
             summary: "README с примерами подключения SDK, лицензия Apache 2.0 и CONTRIBUTING. Не описано, как запускать тесты.",
           },
           activity: { summary: "Релизы выходят раз в две-три недели, последний — 4.8.1." },
-          issues: { summary: "Первый ответ на issue в среднем через 2 дня, 3 задачи ждут дольше месяца." },
+          issues: { summary: "Обычно задачу решают за 9 дней, 3 из 41 открытой не двигались дольше 90 дней." },
           code_health: { summary: "22 TODO и FIXME, 4 из них старше года." },
         },
         recommendations: [
@@ -316,7 +324,7 @@ function detailsFor(repository: MockRepository): ReportDetails {
           security: { summary: "Результаты AppSec не получены.", reason: "appsec_not_available" },
           cicd: { summary: "Данные CI не получены.", reason: "analyzer_execution_failed" },
           documentation: { summary: "Дерево файлов недоступно: ветка по умолчанию пустая.", reason: "analyzer_execution_failed" },
-          activity: { summary: "В репозитории два коммита — этого мало для выводов." },
+          activity: { summary: "Репозиторий создан пять дней назад: merge requests и релизов ещё не было." },
           issues: { summary: "Нет доступа к issues репозитория.", reason: "analyzer_not_configured" },
           code_health: { summary: "Дерево файлов недоступно: ветка по умолчанию пустая.", reason: "analyzer_execution_failed" },
         },
@@ -347,14 +355,14 @@ const bandSummaries: Record<MockCategoryCode, Record<ScoreBand, string>> = {
     low: "Нет README с инструкциями или не указана лицензия.",
   },
   activity: {
-    high: "Коммиты идут почти каждую неделю, выходят релизы.",
+    high: "Проект меняют постоянно: merge requests принимают, релизы выходят.",
     mid: "Изменения выходят, но с перерывами в несколько недель.",
-    low: "Больше двух месяцев без заметных изменений.",
+    low: "Больше трёх месяцев без изменений.",
   },
   issues: {
-    high: "На новые issues отвечают быстро, зависших задач почти нет.",
-    mid: "Несколько задач ждут ответа дольше месяца.",
-    low: "Много открытых задач без ответа, самые старые висят больше полугода.",
+    high: "Задачи разбирают быстро, зависших почти нет.",
+    mid: "Несколько задач не двигаются дольше 90 дней.",
+    low: "Много открытых задач без движения, самые старые висят больше полугода.",
   },
   code_health: {
     high: "TODO и FIXME почти нет.",
@@ -409,9 +417,9 @@ const lowScoreTemplates: Record<MockCategoryCode, RecommendationTemplate> = {
   },
   issues: {
     priority: "p1",
-    action: "Разобрать зависшие issues",
-    problem: "Много задач ждут ответа дольше месяца.",
-    rationale: "Пользователи и контрибьюторы уходят, если их вопросы остаются без ответа.",
+    action: "Разобрать зависшие задачи",
+    problem: "Много задач не двигаются дольше 90 дней.",
+    rationale: "Пользователи и контрибьюторы уходят, если их обращения остаются без ответа.",
   },
   documentation: {
     priority: "p2",
@@ -419,11 +427,12 @@ const lowScoreTemplates: Record<MockCategoryCode, RecommendationTemplate> = {
     problem: "В документации не хватает базовых разделов.",
     rationale: "Без инструкции новому человеку трудно запустить проект и внести изменения.",
   },
+  // docs/scoring-methodology.md, §3.3: activity-stale-repository — P1.
   activity: {
-    priority: "p3",
-    action: "Написать в README, развивается ли проект",
-    problem: "Заметных изменений давно не было.",
-    rationale: "Если проект стабилен и дорабатывать его не планируют, лучше сказать об этом прямо.",
+    priority: "p1",
+    action: "Вернуть регулярные изменения: даже небольшой релиз или merge показывает, что проект жив",
+    problem: "Больше трёх месяцев в репозитории ничего не менялось.",
+    rationale: "Долгое отсутствие обновлений говорит, что проектом перестали пользоваться как рабочей кодовой базой.",
   },
   code_health: {
     priority: "p3",
@@ -492,6 +501,10 @@ function ciRun(base: string, id: number, summary: string): Evidence {
 
 function issue(base: string, id: number, summary: string): Evidence {
   return { source: "sourcecraft-issues", reference: `#${id}`, summary, url: `${base}/issues/${id}` };
+}
+
+function pull(base: string, id: number, summary: string): Evidence {
+  return { source: "sourcecraft-pulls", reference: `MR !${id}`, summary, url: `${base}/pr/${id}` };
 }
 
 function file(base: string, path: string, summary: string): Evidence {
