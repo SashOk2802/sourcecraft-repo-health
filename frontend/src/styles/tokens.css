@@ -115,4 +115,9 @@
   --g-color-line-brand: var(--rh-accent);
   --g-color-text-link: var(--rh-accent);
   --g-color-text-link-hover: var(--rh-accent-hover);
+
+  /* Выбранный сегмент и пункт списка — акцентным синим, а не жёлтым по умолчанию Gravity. */
+  --g-color-base-selection: var(--rh-accent-soft);
+  --g-color-base-selection-hover: color-mix(in srgb, var(--rh-accent) 24%, transparent);
+  --g-color-text-brand-heavy: var(--rh-accent);
 }
