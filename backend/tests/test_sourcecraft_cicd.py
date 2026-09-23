@@ -74,6 +74,18 @@ class SourceCraftCicdClientTest(unittest.TestCase):
         with self.assertRaisesRegex(SourceCraftResponseError, "unknown CI run status"):
             client.list_runs(_repository())
 
+    def test_list_runs_rejects_empty_run_id(self) -> None:
+        payload = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+        payload["runs"][0]["id"] = ""
+        http_client = httpx.Client(
+            base_url="https://api.sourcecraft.tech",
+            transport=httpx.MockTransport(lambda request: httpx.Response(200, json=payload)),
+        )
+        client = SourceCraftCicdClient(SourceCraftClient("test-token", http_client=http_client))
+
+        with self.assertRaisesRegex(SourceCraftResponseError, "string id"):
+            client.list_runs(_repository())
+
     def test_list_runs_combines_pages_and_normalizes_timezones(self) -> None:
         first_page = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
         first_page["next_page_token"] = "next-page"
