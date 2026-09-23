@@ -1,0 +1,46 @@
+.demo-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  margin: 0;
+  padding: 5px 14px 5px 5px;
+  border-radius: var(--rh-radius-chip);
+  /* Полупрозрачная подложка: на цветной шапке читается как стекло, на странице — как плашка. */
+  background: color-mix(in srgb, var(--rh-surface) 72%, transparent);
+  box-shadow: inset 0 0 0 1px var(--rh-hairline);
+  color: var(--g-color-text-secondary);
+  font-size: var(--g-text-body-1-font-size);
+  line-height: var(--g-text-body-1-line-height);
+}
+
+.demo-note__badge {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px 3px 8px;
+  border-radius: var(--rh-radius-chip);
+  background: var(--rh-accent-soft);
+  color: var(--g-color-text-brand-heavy);
+  font-weight: 600;
+}
+
+.demo-note__text {
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  .demo-note {
+    align-items: flex-start;
+    border-radius: var(--rh-radius-inner);
+  }
+}
+
+@media print {
+  .demo-note {
+    border: 1px solid #d9dae0;
+    background: #fff;
+    box-shadow: none;
+  }
+}

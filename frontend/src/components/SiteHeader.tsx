@@ -1,10 +1,8 @@
 import { Pulse } from "@gravity-ui/icons";
 import { Button, Icon, Text } from "@gravity-ui/uikit";
-import { useState } from "react";
 
-import { useAuth } from "../auth/AuthContext";
+import { signInUnavailableHint, useAuth } from "../auth/AuthContext";
 import { cn } from "../lib/classNames";
-import { yandexAuthPendingHint } from "../lib/featureFlags";
 import { Link } from "../router";
 import { paths, type PageName, type Route } from "../routes";
 import { ThemeSwitch } from "./ThemeSwitch";
@@ -64,17 +62,6 @@ export function SiteHeader({ route }: { route: Route }) {
 
 function UserArea() {
   const auth = useAuth();
-  const [signOutFailed, setSignOutFailed] = useState(false);
-
-  async function handleSignOut(): Promise<void> {
-    setSignOutFailed(false);
-    try {
-      await auth.signOut();
-    } catch {
-      // Сессию в интерфейсе не меняем: пользователь может повторить выход.
-      setSignOutFailed(true);
-    }
-  }
 
   if (auth.status === "unknown") {
     return null;
@@ -86,35 +73,48 @@ function UserArea() {
         <Text variant="body-2" color="secondary" className="site-header__user-name">
           {auth.user.displayName}
         </Text>
-        <Button view="flat" size="m" onClick={() => void handleSignOut()}>
+        {auth.mode === "demo" && <DemoMark />}
+        <Button view="flat" size="m" onClick={() => void auth.signOut()}>
           Выйти
         </Button>
-        {signOutFailed && (
-          <Text variant="caption-2" color="danger" role="status">
-            Не удалось выйти. Попробуйте ещё раз.
-          </Text>
-        )}
       </>
     );
   }
 
-  // Без настроенного OAuth backend ответит на вход 503 — вместо перехода кнопка выключена.
-  if (!auth.canSignIn) {
+  // Режим api, а у backend входа нет: кнопка выключена, чтобы не вести на 404.
+  if (auth.mode === "offline") {
     return (
-      <span className="site-header__signin" title={yandexAuthPendingHint}>
+      <span className="site-header__signin" title={signInUnavailableHint}>
         <Button view="outlined" size="m" disabled>
           Войти<span className="site-header__signin-long"> через Яндекс ID</span>
         </Button>
         <Text variant="caption-2" color="secondary" className="site-header__signin-note">
-          не настроен
+          скоро
         </Text>
       </span>
     );
   }
 
   return (
-    <Button view="outlined" size="m" onClick={auth.signIn}>
-      Войти<span className="site-header__signin-long"> через Яндекс ID</span>
-    </Button>
+    <span className="site-header__signin">
+      <Button view="outlined" size="m" onClick={() => auth.signIn(paths.myRepositories())}>
+        Войти<span className="site-header__signin-long"> через Яндекс ID</span>
+      </Button>
+      {auth.mode === "demo" && <DemoMark />}
+    </span>
+  );
+}
+
+/** Вход в демо-кабинет: настоящего Яндекс ID за ним пока нет, и это видно. */
+function DemoMark() {
+  return (
+    <Text
+      variant="caption-2"
+      color="secondary"
+      className="site-header__signin-note"
+      title="Демо-кабинет: вход и репозитории показаны на примере. Настоящий вход через Яндекс ID включится вместе с ним на backend."
+    >
+      демо
+    </Text>
   );
 }

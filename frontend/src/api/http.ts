@@ -1,13 +1,19 @@
-/** Запросы к backend. Пути только относительные: Vite проксирует /api в контейнер backend. */
+/** Запросы к backend. Пути только относительные: /api проксирует Vite в разработке и nginx на стенде. */
 
 export class ApiError extends Error {
   /** HTTP-статус ответа; 0 — сервер не ответил. */
   readonly status: number;
+  /**
+   * У backend нет такого маршрута: FastAPI ответил 404 «Not Found» без своего текста,
+   * или вместо API ответила статика. Это «раздел ещё не сделан», а не «ресурс не найден».
+   */
+  readonly routeMissing: boolean;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, { routeMissing = false }: { routeMissing?: boolean } = {}) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.routeMissing = routeMissing;
   }
 }
 
@@ -24,8 +30,29 @@ export async function postJson<T>(path: string, body?: unknown): Promise<T> {
 }
 
 export async function request<T>(path: string, init: RequestInit): Promise<T> {
+  const response = await send(path, init, "application/json");
+  if (response.status === 204) {
+    return undefined as T;
+  }
+  if (!isJson(response)) {
+    // Например, index.html от статического хостинга: API за этим адресом нет.
+    throw new ApiError(response.status, "Сервер ответил не данными API", { routeMissing: true });
+  }
+  return (await response.json()) as T;
+}
+
+/** Текстовый ответ — Markdown-отчёт. */
+export async function getText(path: string): Promise<string> {
+  const response = await send(path, { method: "GET" }, "text/markdown, text/plain");
+  if (response.headers.get("Content-Type")?.includes("text/html")) {
+    throw new ApiError(response.status, "Сервер ответил не данными API", { routeMissing: true });
+  }
+  return response.text();
+}
+
+async function send(path: string, init: RequestInit, accept: string): Promise<Response> {
   const headers = new Headers(init.headers);
-  headers.set("Accept", "application/json");
+  headers.set("Accept", accept);
 
   let response: Response;
   try {
@@ -35,38 +62,47 @@ export async function request<T>(path: string, init: RequestInit): Promise<T> {
   }
 
   if (!response.ok) {
-    throw new ApiError(response.status, await readErrorMessage(response));
+    const failure = await readFailure(response);
+    throw new ApiError(response.status, failure.message, {
+      routeMissing: isRouteMissing(response.status, failure),
+    });
   }
-  if (response.status === 204) {
-    return undefined as T;
-  }
-  return (await response.json()) as T;
+  return response;
 }
 
-/** Текстовый ответ — Markdown-отчёт. */
-export async function getText(path: string): Promise<string> {
-  let response: Response;
-  try {
-    response = await fetch(path, { headers: { Accept: "text/markdown, text/plain" }, credentials: "same-origin" });
-  } catch {
-    throw new ApiError(0, "Сервер не отвечает");
-  }
-
-  if (!response.ok) {
-    throw new ApiError(response.status, await readErrorMessage(response));
-  }
-  return response.text();
+interface Failure {
+  message: string;
+  /** Поле detail из ответа FastAPI; null — тела нет или это не JSON. */
+  detail: string | null;
+  json: boolean;
 }
 
-async function readErrorMessage(response: Response): Promise<string> {
+async function readFailure(response: Response): Promise<Failure> {
+  const fallback = response.statusText || `HTTP ${response.status}`;
+  if (!isJson(response)) {
+    return { message: fallback, detail: null, json: false };
+  }
   try {
     // FastAPI кладёт текст ошибки в поле detail.
     const body = (await response.json()) as { detail?: unknown };
-    if (typeof body.detail === "string") return body.detail;
+    const detail = typeof body.detail === "string" ? body.detail : null;
+    return { message: detail ?? fallback, detail, json: true };
   } catch {
-    // Тело не JSON — используем статус.
+    return { message: fallback, detail: null, json: false };
   }
-  return response.statusText || `HTTP ${response.status}`;
+}
+
+/**
+ * Неизвестный маршрут FastAPI отвечает ровно `{"detail": "Not Found"}`, а свои 404
+ * backend пишет иначе («Analysis not found.»). 405 и 501 — метод для адреса не сделан.
+ */
+export function isRouteMissing(status: number, failure: Pick<Failure, "detail" | "json">): boolean {
+  if (status === 404) return !failure.json || failure.detail === "Not Found";
+  return status === 405 || status === 501;
+}
+
+function isJson(response: Response): boolean {
+  return response.headers.get("Content-Type")?.includes("json") ?? false;
 }
 
 /*
@@ -118,10 +154,12 @@ export function describeError(error: Error): string {
   const service = error instanceof ApiError ? serviceDetails.find(([pattern]) => pattern.test(error.message)) : undefined;
   if (service) return service[1];
   if (error instanceof ApiError) {
-    if (error.status === 0) return "Сервер не отвечает. Проверьте, что backend запущен, и попробуйте ещё раз.";
+    if (error.status === 0) return "Сервер не отвечает. Проверьте подключение и попробуйте ещё раз.";
     if (error.status === 401) return "Нужно войти через Яндекс ID.";
     if (error.status === 403) return "У вашей учётной записи нет доступа к этим данным.";
     if (error.status === 404) return "Ничего не нашлось: возможно, ссылка устарела или анализ ещё не проводился.";
+    if (error.status === 422) return "Сервер не принял запрос. Обновите страницу и попробуйте ещё раз.";
+    if (error.status === 503) return "Сервис временно недоступен. Попробуйте ещё раз через пару минут.";
     if (error.status >= 500) return "На сервере что-то сломалось. Попробуйте ещё раз через минуту.";
   }
   return error.message || "Неизвестная ошибка.";

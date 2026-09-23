@@ -170,3 +170,14 @@ a.my-repos__link:hover {
     width: auto;
   }
 }
+
+.my-repos__demo {
+  margin-top: 12px;
+}
+
+.my-repos__invite-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}

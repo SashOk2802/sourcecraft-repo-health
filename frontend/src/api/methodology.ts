@@ -1,5 +1,5 @@
+import { sourceRouter } from "./dataSource";
 import { getJson } from "./http";
-import { mocksEnabled, withMockDelay } from "./mockMode";
 import { mockMethodologyPayload } from "./mocks/methodology";
 import { categoryExplanations, schedulePolicy } from "../lib/methodologyTexts";
 
@@ -7,6 +7,8 @@ import { categoryExplanations, schedulePolicy } from "../lib/methodologyTexts";
  * GET /api/v1/methodology — docs/api-contract.md, «Методика Score». Веса, названия
  * категорий и ограничения приходят с backend, чтобы страница «Как считаем» не расходилась
  * с расчётом. Объяснения простыми словами и политика пересчёта — на стороне интерфейса.
+ * Если backend раздел не отдаёт, страница показывает методику v1 из docs/scoring-methodology.md:
+ * это не вымышленные данные, поэтому пометки «демо» у неё нет.
  */
 
 /** Ответ backend. Страница использует версию, категории и ограничения; остальное — справочно. */
@@ -107,8 +109,9 @@ function securityExplanation(security: MethodologyPayload["security"]): { measur
 }
 
 export async function fetchMethodology(): Promise<Methodology> {
-  if (mocksEnabled) {
-    return withMockDelay(toMethodology(mockMethodologyPayload), 150);
-  }
-  return toMethodology(await getJson<MethodologyPayload>("/api/v1/methodology"));
+  return sourceRouter.liveOrDemo(
+    "methodology",
+    async () => toMethodology(await getJson<MethodologyPayload>("/api/v1/methodology")),
+    () => toMethodology(mockMethodologyPayload),
+  );
 }

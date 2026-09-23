@@ -68,6 +68,24 @@ export function Link({ to, onClick, target, ...rest }: LinkProps) {
 }
 
 /**
+ * Для кнопок-ссылок Gravity UI: обычный href (новая вкладка, копирование адреса)
+ * и переход без перезагрузки по простому клику — как у Link.
+ */
+export function spaLinkProps(to: string): { href: string; onClick: (event: MouseEvent<HTMLElement>) => void } {
+  return {
+    href: to,
+    onClick: (event) => {
+      const opensElsewhere = event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
+      if (event.defaultPrevented || opensElsewhere) {
+        return;
+      }
+      event.preventDefault();
+      navigate(to);
+    },
+  };
+}
+
+/**
  * Адрес прямо сейчас. Обработчик, созданный на прошлом рендере (например, отложенный поиск),
  * берёт текущие фильтры отсюда, а не из своего замыкания.
  */

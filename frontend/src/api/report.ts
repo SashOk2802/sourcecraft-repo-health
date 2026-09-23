@@ -1,6 +1,6 @@
 import type { AnalysisStatus, CategoryStatus, Evidence, RecommendationPriority } from "./common";
+import { usesDemo, withDemoDelay } from "./dataSource";
 import { ApiError, getJson, getText } from "./http";
-import { mocksEnabled, withMockDelay } from "./mockMode";
 import { findMockReport } from "./mocks/reports";
 import { renderReportMarkdown } from "../lib/reportMarkdown";
 
@@ -100,12 +100,12 @@ export interface Recommendation {
 }
 
 export async function fetchReport(analysisId: string): Promise<RepositoryReport> {
-  if (mocksEnabled) {
+  if (usesDemo(analysisId)) {
     const report = findMockReport(analysisId);
     if (!report) {
       throw new ApiError(404, "Отчёт не найден");
     }
-    return withMockDelay(report);
+    return withDemoDelay(report);
   }
   return getJson<RepositoryReport>(`/api/v1/analyses/${encodeURIComponent(analysisId)}/report`);
 }
@@ -116,11 +116,11 @@ export function markdownReportUrl(analysisId: string): string {
 }
 
 /**
- * Текст Markdown-отчёта. Настоящий отдаёт backend; в mock-режиме отчёт собирается здесь же
+ * Текст Markdown-отчёта. Настоящий отдаёт backend; демо-отчёт собирается здесь же
  * в том же формате, что и backend/app/reporting/builder.py.
  */
 export async function fetchReportMarkdown(report: RepositoryReport): Promise<string> {
-  if (mocksEnabled) {
+  if (usesDemo(report.analysis.id)) {
     return renderReportMarkdown(report, { demo: true });
   }
   return getText(markdownReportUrl(report.analysis.id));

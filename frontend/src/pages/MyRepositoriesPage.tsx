@@ -1,32 +1,33 @@
 import { Alert, Button, Label, Link as GravityLink, Text, TextInput } from "@gravity-ui/uikit";
 import { useState } from "react";
 
-import { describeStartError } from "../api/analyses";
 import {
+  connectDemoSourceCraft,
   connectSourceCraft,
   disconnectSourceCraft,
   fetchSourceCraftConnection,
   type SourceCraftConnection,
 } from "../api/connections";
-import { describeError, isCatalogNotConfigured } from "../api/http";
-import { fetchMyRepositories, repositoryVisibilityLabel, type MyRepository } from "../api/me";
-import { useAuth } from "../auth/AuthContext";
+import { describeError } from "../api/http";
+import { fetchMyRepositories, type MyRepository } from "../api/me";
+import { signInUnavailableHint, useAuth } from "../auth/AuthContext";
+import { DemoNote } from "../components/DemoNote";
 import { ErrorNote, LoadingNote } from "../components/PageNotes";
 import { dataOf, useAsync } from "../hooks/useAsync";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { useRecentAnalyses } from "../hooks/useRecentAnalyses";
 import { useStartAnalysis } from "../hooks/useStartAnalysis";
 import { cn } from "../lib/classNames";
-import { yandexAuthPendingHint } from "../lib/featureFlags";
 import { formatDateTimeCompact, formatScore } from "../lib/format";
 import { getScoreBand } from "../lib/scoreBands";
-import { Link } from "../router";
+import { Link, spaLinkProps } from "../router";
 import { paths } from "../routes";
 import "./MyRepositoriesPage.css";
 
 export function MyRepositoriesPage() {
   useDocumentTitle("Мои репозитории");
   const auth = useAuth();
+  const demo = auth.mode === "demo";
 
   return (
     <div className="page__inner">
@@ -36,16 +37,21 @@ export function MyRepositoriesPage() {
             Мои репозитории
           </Text>
           <Text variant="body-2" color="secondary" className="page__lead">
-            Репозитории SourceCraft, которые можно проверить: выберите нужный и запустите анализ.
+            Репозитории SourceCraft, к которым у вас есть доступ. Отчёты по закрытым видите только вы.
           </Text>
+          {demo && (
+            <DemoNote className="my-repos__demo">
+              Демо-кабинет: вход и репозитории показаны на примере, настоящий токен SourceCraft не нужен.
+            </DemoNote>
+          )}
         </div>
       </div>
 
       {auth.status === "unknown" && <LoadingNote>Проверяем вход</LoadingNote>}
       {auth.status === "guest" && (
-        <SignInInvite unavailable={!auth.canSignIn} onSignIn={auth.signIn} />
+        <SignInInvite unavailable={auth.mode === "offline"} onSignIn={() => auth.signIn(paths.myRepositories())} />
       )}
-      {auth.status === "signedIn" && <ConnectedArea />}
+      {auth.status === "signedIn" && <ConnectedArea demo={demo} />}
     </div>
   );
 }
@@ -57,12 +63,13 @@ function SignInInvite({ unavailable, onSignIn }: { unavailable: boolean; onSignI
         Войдите через Яндекс ID
       </Text>
       <Text variant="body-2" color="secondary">
-        Яндекс ID подтверждает, кто вы. После входа появится список репозиториев SourceCraft, которые можно
-        проверить.
+        Яндекс ID подтверждает, кто вы. Чтобы мы увидели ваши репозитории, после входа нужно будет подключить
+        SourceCraft личным токеном.
       </Text>
       <ol className="my-repos__steps">
         <li>Войдите через Яндекс ID.</li>
-        <li>Выберите репозиторий из списка и запустите проверку.</li>
+        <li>Подключите SourceCraft: токен уйдёт на сервер один раз и в браузер не вернётся.</li>
+        <li>Выберите репозиторий — открытый или закрытый — и запустите проверку.</li>
         <li>Через пару минут получите оценку, объяснение и список действий.</li>
       </ol>
       <div className="my-repos__invite-actions">
@@ -71,7 +78,7 @@ function SignInInvite({ unavailable, onSignIn }: { unavailable: boolean; onSignI
         </Button>
         {unavailable && (
           <Text variant="body-1" color="secondary">
-            {yandexAuthPendingHint}.
+            {signInUnavailableHint}.
           </Text>
         )}
       </div>
@@ -79,30 +86,31 @@ function SignInInvite({ unavailable, onSignIn }: { unavailable: boolean; onSignI
   );
 }
 
-/*
- * Без подключения в списке публичные репозитории из каталога сервиса — для них подключать ничего
- * не нужно. С подключением SourceCraft по токену backend отдаёт личный каталог: всё, что видит
- * токен, включая закрытые и внутренние (PR #102). Форму предлагаем, только если на сервере
- * настроено хранилище токенов, и список ею не загораживаем; после подключения список
- * перезагружается.
- */
-function ConnectedArea() {
+function ConnectedArea({ demo }: { demo: boolean }) {
   const [state, reload] = useAsync(fetchSourceCraftConnection, []);
-  const connection = dataOf(state) ?? null;
+  const connection = dataOf(state);
+
+  if (!connection) {
+    return state.status === "error" ? (
+      <ErrorNote title="Не удалось проверить подключение к SourceCraft" error={state.error} onRetry={reload} />
+    ) : (
+      <LoadingNote>Проверяем подключение к SourceCraft</LoadingNote>
+    );
+  }
+
+  if (!connection.connected) {
+    return <ConnectForm demo={demo} onConnected={reload} />;
+  }
 
   return (
     <>
-      {connection?.connected && <ConnectionBar connection={connection} onDisconnected={reload} />}
-      {connection && !connection.connected && <ConnectForm onConnected={reload} />}
-      <RepositoryList
-        key={connection?.connected ? "with-connection" : "catalog"}
-        canConnect={connection !== null && !connection.connected}
-      />
+      <ConnectionBar connection={connection} onDisconnected={reload} />
+      <RepositoryList />
     </>
   );
 }
 
-function ConnectForm({ onConnected }: { onConnected: () => void }) {
+function ConnectForm({ demo, onConnected }: { demo: boolean; onConnected: () => void }) {
   const [token, setToken] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -111,7 +119,8 @@ function ConnectForm({ onConnected }: { onConnected: () => void }) {
     setBusy(true);
     setError(null);
     try {
-      await connectSourceCraft(token);
+      // В демо токен не спрашиваем: на стенде никто не должен вводить настоящий.
+      await (demo ? connectDemoSourceCraft() : connectSourceCraft(token));
       setToken("");
       onConnected();
     } catch (reason) {
@@ -124,12 +133,12 @@ function ConnectForm({ onConnected }: { onConnected: () => void }) {
   return (
     <section className="card my-repos__connect">
       <Text variant="subheader-2" as="h2">
-        Закрытые и внутренние репозитории — через подключение SourceCraft
+        Подключите SourceCraft
       </Text>
       <Text variant="body-2" color="secondary">
-        Открытые репозитории ниже проверяются и так. Чтобы проверить закрытые и внутренние, нужен личный токен
-        SourceCraft: вход через Яндекс ID доступа к ним не даёт. Создайте токен в настройках профиля SourceCraft и вставьте сюда — он
-        уходит на наш сервер один раз, хранится зашифрованно и обратно в браузер не возвращается.
+        Вход через Яндекс ID не даёт нам доступ к вашим репозиториям. Нужен личный токен SourceCraft: создайте его в
+        настройках профиля SourceCraft и вставьте сюда. Токен уходит на наш сервер один раз, хранится зашифрованно
+        и обратно в браузер не возвращается.
       </Text>
 
       <form
@@ -143,14 +152,20 @@ function ConnectForm({ onConnected }: { onConnected: () => void }) {
           type="password"
           value={token}
           onUpdate={setToken}
-          placeholder="Токен SourceCraft"
+          placeholder={demo ? "В демо токен не нужен" : "Токен SourceCraft"}
           size="l"
           autoComplete="off"
           className="my-repos__token-input"
-          disabled={busy}
+          disabled={busy || demo}
         />
-        <Button view="action" size="l" type="submit" disabled={token.trim().length === 0} loading={busy}>
-          Подключить
+        <Button
+          view="action"
+          size="l"
+          type="submit"
+          disabled={!demo && token.trim().length === 0}
+          loading={busy}
+        >
+          {demo ? "Подключить демо" : "Подключить"}
         </Button>
       </form>
 
@@ -179,7 +194,6 @@ function ConnectionBar({
   onDisconnected: () => void;
 }) {
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
 
   return (
     <div className="my-repos__connection">
@@ -196,43 +210,24 @@ function ConnectionBar({
         loading={busy}
         onClick={() => {
           setBusy(true);
-          setError(null);
           void disconnectSourceCraft()
             .then(onDisconnected)
-            .catch((reason: unknown) => setError(reason instanceof Error ? reason : new Error(String(reason))))
             .finally(() => setBusy(false));
         }}
       >
         Отключить
       </Button>
-      {error && (
-        <Text variant="body-1" color="danger">
-          Не удалось отключить: {describeError(error)}
-        </Text>
-      )}
     </div>
   );
 }
 
-/**
- * canConnect — над списком есть форма подключения SourceCraft. Тогда сервер без каталога
- * открытых репозиториев — не ошибка: список появится после подключения.
- */
-function RepositoryList({ canConnect }: { canConnect: boolean }) {
+function RepositoryList() {
   const [state, reload] = useAsync(fetchMyRepositories, []);
   const data = dataOf(state);
   const analysis = useStartAnalysis();
   const items = useRecentAnalyses(data?.items);
 
   if (!data) {
-    if (state.status === "error" && canConnect && isCatalogNotConfigured(state.error)) {
-      return (
-        <Text variant="body-2" color="secondary">
-          Открытые репозитории на этом сервере не подключены. Подключите SourceCraft по токену выше — в списке
-          появятся ваши репозитории, включая закрытые и внутренние.
-        </Text>
-      );
-    }
     return state.status === "error" ? (
       <ErrorNote title="Не удалось получить список репозиториев" error={state.error} onRetry={reload} />
     ) : (
@@ -243,8 +238,7 @@ function RepositoryList({ canConnect }: { canConnect: boolean }) {
   if (data.items.length === 0) {
     return (
       <Text variant="body-2" color="secondary">
-        Пока нет репозиториев, которые можно проверить. Когда появятся, они будут здесь, а готовые отчёты по
-        открытым проектам уже есть в <Link to={paths.leaderboard()}>рейтинге</Link>.
+        В SourceCraft пока нет репозиториев, к которым у вас есть доступ. Когда появятся, они будут здесь.
       </Text>
     );
   }
@@ -281,7 +275,7 @@ function RepositoryList({ canConnect }: { canConnect: boolean }) {
           theme="danger"
           view="outlined"
           title="Не удалось запустить анализ"
-          message={describeStartError(analysis.error)}
+          message={describeError(analysis.error)}
         />
       )}
     </>
@@ -297,7 +291,6 @@ interface RepositoryRowProps {
 function RepositoryRow({ item, starting, onStart }: RepositoryRowProps) {
   const { repository, lastAnalysis, activeAnalysisId } = item;
   const hasReport = lastAnalysis !== null && (lastAnalysis.status === "completed" || lastAnalysis.status === "partial");
-  const visibilityLabel = repositoryVisibilityLabel(repository.visibility);
 
   return (
     <tr>
@@ -312,9 +305,9 @@ function RepositoryRow({ item, starting, onStart }: RepositoryRowProps) {
               <span className="my-repos__org">{repository.organizationSlug} /</span> {repository.repositorySlug}
             </span>
           )}
-          {visibilityLabel && (
+          {repository.visibility === "private" && (
             <Label size="xs" theme="unknown">
-              {visibilityLabel}
+              закрытый
             </Label>
           )}
         </span>
@@ -364,13 +357,13 @@ function RepositoryRow({ item, starting, onStart }: RepositoryRowProps) {
       <td className="my-repos__actions">
         <span className="my-repos__actions-row">
           {activeAnalysisId ? (
-            <Button view="outlined" size="m" href={paths.analysis(activeAnalysisId)}>
+            <Button view="outlined" size="m" {...spaLinkProps(paths.analysis(activeAnalysisId))}>
               Смотреть ход
             </Button>
           ) : (
             <>
               {hasReport && (
-                <GravityLink href={paths.analysis(lastAnalysis.id)} className="my-repos__report-link">
+                <GravityLink {...spaLinkProps(paths.analysis(lastAnalysis.id))} className="my-repos__report-link">
                   Отчёт
                 </GravityLink>
               )}

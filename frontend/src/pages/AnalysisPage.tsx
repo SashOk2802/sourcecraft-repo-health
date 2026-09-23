@@ -2,16 +2,12 @@ import { ArrowRotateLeft, ArrowUpRightFromSquare, Printer } from "@gravity-ui/ic
 import { Button, Icon, Link as GravityLink, Text } from "@gravity-ui/uikit";
 import { useEffect, useState } from "react";
 
-import {
-  describeStartError,
-  fetchAnalysisStatus,
-  isAnalysisFinished,
-  type AnalysisStatusResponse,
-} from "../api/analyses";
-import { ApiError } from "../api/http";
-import { mocksEnabled } from "../api/mockMode";
+import { fetchAnalysisStatus, isAnalysisFinished, type AnalysisStatusResponse } from "../api/analyses";
+import { usesDemo } from "../api/dataSource";
+import { ApiError, describeError } from "../api/http";
 import { fetchReport, type RepositoryReport } from "../api/report";
-import { useAuth } from "../auth/AuthContext";
+import { signInUnavailableHint, useAuth } from "../auth/AuthContext";
+import { DemoNote } from "../components/DemoNote";
 import { ErrorNote, LoadingNote } from "../components/PageNotes";
 import { AnalysisFacts } from "../components/report/AnalysisFacts";
 import { AnalysisFailed, AnalysisProgress } from "../components/report/AnalysisProgress";
@@ -24,14 +20,15 @@ import { ScoreCard } from "../components/report/ScoreCard";
 import { dataOf, useAsync } from "../hooks/useAsync";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { useStartAnalysis } from "../hooks/useStartAnalysis";
-import { yandexAuthPendingHint } from "../lib/featureFlags";
 import { formatDateTime } from "../lib/format";
 import { Link, navigate } from "../router";
 import { paths } from "../routes";
 import "./AnalysisPage.css";
 
-// Архитектура предлагает опрос раз в несколько секунд; mock-анализ короткий, поэтому чаще.
-const POLL_INTERVAL_MS = mocksEnabled ? 1_000 : 3_000;
+// Архитектура предлагает опрос раз в несколько секунд; демо-анализ короткий, поэтому чаще.
+function pollInterval(analysisId: string): number {
+  return usesDemo(analysisId) ? 1_000 : 3_000;
+}
 
 export function AnalysisPage({ analysisId }: { analysisId: string }) {
   const { analysis, error: statusError, retry } = useAnalysisStatus(analysisId);
@@ -39,6 +36,7 @@ export function AnalysisPage({ analysisId }: { analysisId: string }) {
   const failed = analysis !== null && (analysis.status === "failed" || analysis.status === "cancelled");
   const now = useNow(analysis !== null && !finished);
   const restart = useStartAnalysis();
+  const auth = useAuth();
 
   const [reportState, reloadReport] = useAsync(
     () => (finished && !failed ? fetchReport(analysisId) : Promise.resolve(null)),
@@ -67,11 +65,15 @@ export function AnalysisPage({ analysisId }: { analysisId: string }) {
       {!analysis && (
         <section className="card">
           {statusError === null && <LoadingNote>Загружаем анализ</LoadingNote>}
-          {statusError !== null && isAccessProblem(statusError) && <NoReportNote signInRequired={isSignInRequired(statusError)} />}
-          {statusError !== null && !isAccessProblem(statusError) && (
+          {statusError !== null && isNotFound(statusError) && <NoReportNote />}
+          {statusError !== null && !isNotFound(statusError) && (
             <ErrorNote title="Не удалось получить статус анализа" error={statusError} onRetry={retry} />
           )}
         </section>
+      )}
+
+      {analysis && !finished && usesDemo(analysisId) && (
+        <DemoNote>Демо-анализ вымышленного репозитория: этапы и результат показаны на примере.</DemoNote>
       )}
 
       {analysis && !finished && (
@@ -84,16 +86,16 @@ export function AnalysisPage({ analysisId }: { analysisId: string }) {
       {analysis && failed && (
         <AnalysisFailed
           analysis={analysis}
+          canRestart={auth.status === "signedIn"}
           restarting={restart.startingId !== null}
+          restartError={restart.error}
           onRestart={() => void restart.start(analysis.repository.id)}
         />
       )}
 
       {analysis && finished && !failed && !report && (
         <section className="card">
-          {reportState.status === "error" && isAccessProblem(reportState.error) ? (
-            <NoReportNote signInRequired={isSignInRequired(reportState.error)} />
-          ) : reportState.status === "error" ? (
+          {reportState.status === "error" ? (
             <ErrorNote title="Не удалось загрузить отчёт" error={reportState.error} onRetry={reloadReport} />
           ) : (
             <LoadingNote>Загружаем отчёт</LoadingNote>
@@ -134,6 +136,11 @@ function ReportView({ report }: { report: RepositoryReport }) {
               </Text>
             )}
           </div>
+          {usesDemo(analysis.id) && (
+            <DemoNote className="report__demo">
+              Отчёт по вымышленному репозиторию — так выглядит результат анализа.
+            </DemoNote>
+          )}
         </div>
 
         <div className="report__actions">
@@ -158,7 +165,7 @@ function ReportView({ report }: { report: RepositoryReport }) {
 
       {rerun.error && (
         <Text variant="body-2" color="danger" className="report__rerun-error">
-          Не удалось запустить анализ. {describeStartError(rerun.error)}
+          Не удалось запустить анализ. {describeError(rerun.error)}
         </Text>
       )}
 
@@ -177,33 +184,30 @@ function ReportView({ report }: { report: RepositoryReport }) {
   );
 }
 
-/*
- * 401 и 404 — не сбой. Статус и отчёт backend отдаёт только тому, кто запускал анализ
- * (docs/api-contract.md): без входа — 401, чужой или несуществующий анализ — одинаковый 404.
- */
-function NoReportNote({ signInRequired }: { signInRequired: boolean }) {
+/** 404 — не сбой: такого снимка анализа нет. */
+function NoReportNote() {
   const auth = useAuth();
-  const offerSignIn = signInRequired || auth.status === "guest";
+  // Закрытый отчёт откроет только настоящий вход: демо-кабинет чужих репозиториев не видит.
+  const suggestSignIn = auth.status === "guest" && auth.mode !== "demo";
 
   return (
     <div className="no-report">
       <Text variant="header-2" as="h1">
-        {signInRequired ? "Отчёт виден после входа" : "Отчёта нет"}
+        Отчёта нет
       </Text>
       <Text variant="body-2" color="secondary">
-        {signInRequired
-          ? "Ход и результат анализа видит тот, кто его запускал. Войдите через Яндекс ID — если анализ ваш, отчёт откроется."
-          : "Такого анализа нет, ссылка устарела или анализ запускал другой пользователь — его отчёт видит только он."}{" "}
-        Открытые проекты других команд — в рейтинге.
+        Такого анализа не существует или ссылка устарела. Откройте репозиторий из рейтинга — там всегда ссылка на
+        последний отчёт.
+        {suggestSignIn && " Если это ваш закрытый репозиторий, войдите через Яндекс ID."}
       </Text>
       <div className="no-report__actions">
-        {offerSignIn && (
+        {suggestSignIn && (
           <Button
             view="action"
             size="l"
-            disabled={!auth.canSignIn}
-            title={auth.canSignIn ? undefined : yandexAuthPendingHint}
-            onClick={auth.signIn}
+            disabled={auth.mode === "offline"}
+            title={auth.mode === "offline" ? signInUnavailableHint : undefined}
+            onClick={() => auth.signIn(window.location.pathname)}
           >
             Войти через Яндекс ID
           </Button>
@@ -233,7 +237,7 @@ function useAnalysisStatus(analysisId: string) {
           setAnalysis(next);
           setError(null);
           if (!isAnalysisFinished(next.status)) {
-            timer = window.setTimeout(poll, POLL_INTERVAL_MS);
+            timer = window.setTimeout(poll, pollInterval(analysisId));
           }
         },
         (reason: unknown) => {
@@ -242,7 +246,7 @@ function useAnalysisStatus(analysisId: string) {
           setError(failure);
           const permanent = failure instanceof ApiError && [401, 403, 404].includes(failure.status);
           if (!permanent) {
-            timer = window.setTimeout(poll, POLL_INTERVAL_MS * 2);
+            timer = window.setTimeout(poll, pollInterval(analysisId) * 2);
           }
         },
       );
@@ -271,10 +275,6 @@ function useNow(active: boolean): number {
   return now;
 }
 
-function isSignInRequired(error: Error): boolean {
-  return error instanceof ApiError && error.status === 401;
-}
-
-function isAccessProblem(error: Error): boolean {
-  return error instanceof ApiError && (error.status === 401 || error.status === 404);
+function isNotFound(error: Error): boolean {
+  return error instanceof ApiError && error.status === 404;
 }

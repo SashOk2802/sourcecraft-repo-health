@@ -14,9 +14,11 @@ import {
   type LeaderboardSort,
 } from "../api/leaderboard";
 import { CategoryCells } from "../components/CategoryCells";
+import { DemoNote } from "../components/DemoNote";
 import { ErrorNote, LoadingNote } from "../components/PageNotes";
 import { dataOf, useAsync } from "../hooks/useAsync";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
+import { useSectionSource } from "../hooks/useSectionSource";
 import { cn } from "../lib/classNames";
 import {
   formatDate,
@@ -46,6 +48,8 @@ export function LeaderboardPage() {
   const query = parseLeaderboardQuery(search);
   const [state, reload] = useAsync(() => fetchLeaderboard(query), [search]);
   const data = dataOf(state);
+  const source = useSectionSource("leaderboard");
+  const filtered = query.search !== "" || query.language !== null;
 
   function update(patch: Partial<LeaderboardQuery>): void {
     // Фильтры — из адреса на момент вызова: обработчик мог быть создан на прошлом рендере.
@@ -77,6 +81,12 @@ export function LeaderboardPage() {
             <Text variant="body-2" color="secondary">
               {describeCoverage(data)}
             </Text>
+          )}
+          {source === "demo" && (
+            <DemoNote className="leaderboard__demo">
+              Пример на вымышленных репозиториях — так рейтинг выглядит, когда сервис проверит открытые проекты
+              SourceCraft.
+            </DemoNote>
           )}
         </div>
         <Text variant="body-1" color="secondary" className="leaderboard__principle">
@@ -127,8 +137,12 @@ export function LeaderboardPage() {
             items={data.items}
             loading={state.status === "loading"}
             showPlaces
-            emptyText="Под эти фильтры ничего не подошло."
-            onReset={() => update(defaultLeaderboardQuery)}
+            emptyText={
+              filtered
+                ? "Под эти фильтры ничего не подошло."
+                : "Рейтинг пока пуст: ни один открытый репозиторий ещё не проанализирован полностью."
+            }
+            onReset={filtered ? () => update(defaultLeaderboardQuery) : undefined}
           />
 
           {data.total > data.pageSize && (

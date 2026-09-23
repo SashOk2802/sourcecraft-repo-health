@@ -42,7 +42,7 @@ export interface MockRepository {
 
 export const mockRepositories: MockRepository[] = [
   {
-    id: "repo-1001",
+    id: "demo-repo-1001",
     organizationSlug: "kvant-lab",
     repositorySlug: "scheduler",
     description: "Планировщик задач с распределёнными блокировками поверх PostgreSQL",
@@ -53,7 +53,7 @@ export const mockRepositories: MockRepository[] = [
     categories: { security: 95, cicd: 93, documentation: 90, activity: 94, issues: 88, code_health: 84 },
   },
   {
-    id: "repo-1002",
+    id: "demo-repo-1002",
     organizationSlug: "severny",
     repositorySlug: "geo-tiles",
     description: "Сервер векторных тайлов для веб-карт",
@@ -64,7 +64,7 @@ export const mockRepositories: MockRepository[] = [
     categories: { security: 90, cicd: 96, documentation: 86, activity: 88, issues: 91, code_health: 79 },
   },
   {
-    id: "repo-1003",
+    id: "demo-repo-1003",
     organizationSlug: "tundra-ui",
     repositorySlug: "kit",
     description: "React-компоненты и дизайн-токены для внутренних сервисов",
@@ -75,7 +75,7 @@ export const mockRepositories: MockRepository[] = [
     categories: { security: 88, cicd: 90, documentation: 95, activity: 97, issues: 72, code_health: 70 },
   },
   {
-    id: "repo-1004",
+    id: "demo-repo-1004",
     organizationSlug: "pixelfarm",
     repositorySlug: "imgproxy-lite",
     description: "Лёгкий прокси для ресайза и кэширования изображений",
@@ -86,7 +86,7 @@ export const mockRepositories: MockRepository[] = [
     categories: { security: 74, cicd: 95, documentation: 83, activity: 77, issues: 90, code_health: 86 },
   },
   {
-    id: "repo-1005",
+    id: "demo-repo-1005",
     organizationSlug: "klyuch",
     repositorySlug: "secrets-operator",
     description: "Kubernetes-оператор для ротации секретов",
@@ -97,7 +97,7 @@ export const mockRepositories: MockRepository[] = [
     categories: { security: 97, cicd: 85, documentation: 74, activity: 80, issues: 83, code_health: 90 },
   },
   {
-    id: "repo-1006",
+    id: "demo-repo-1006",
     organizationSlug: "edu-kit",
     repositorySlug: "olympiad-judge",
     description: "Проверяющая система для школьных олимпиад по информатике",
@@ -115,7 +115,7 @@ export const mockRepositories: MockRepository[] = [
     },
   },
   {
-    id: "repo-1007",
+    id: "demo-repo-1007",
     organizationSlug: "vectorhub",
     repositorySlug: "embed-search",
     description: "Семантический поиск по эмбеддингам поверх PostgreSQL",
@@ -126,7 +126,7 @@ export const mockRepositories: MockRepository[] = [
     categories: { security: 70, cicd: 82, documentation: 81, activity: 95, issues: 64, code_health: 58 },
   },
   {
-    id: "repo-1008",
+    id: "demo-repo-1008",
     organizationSlug: "gorod-dev",
     repositorySlug: "transit-api",
     description: "API расписаний городского транспорта",
@@ -137,7 +137,7 @@ export const mockRepositories: MockRepository[] = [
     categories: { security: "unavailable", cicd: 58, documentation: 85, activity: 91, issues: 58, code_health: 70 },
   },
   {
-    id: "repo-1009",
+    id: "demo-repo-1009",
     organizationSlug: "polar-io",
     repositorySlug: "logship",
     description: "Агент доставки логов с буфером на диске",
@@ -148,7 +148,7 @@ export const mockRepositories: MockRepository[] = [
     categories: { security: 85, cicd: 77, documentation: 69, activity: 71, issues: 80, code_health: 88 },
   },
   {
-    id: "repo-1010",
+    id: "demo-repo-1010",
     organizationSlug: "cyrillic",
     repositorySlug: "hyphenator",
     description: "Переносы и неразрывные пробелы для русского текста",
@@ -159,7 +159,7 @@ export const mockRepositories: MockRepository[] = [
     categories: { security: 92, cicd: 88, documentation: 90, activity: 38, issues: 76, code_health: 94 },
   },
   {
-    id: "repo-1011",
+    id: "demo-repo-1011",
     organizationSlug: "swiftly",
     repositorySlug: "maps-kit",
     description: "Компоненты карт для iOS-приложений",
@@ -170,7 +170,7 @@ export const mockRepositories: MockRepository[] = [
     categories: { security: 80, cicd: 71, documentation: 77, activity: 62, issues: 68, code_health: 73 },
   },
   {
-    id: "repo-1012",
+    id: "demo-repo-1012",
     organizationSlug: "lastochka",
     repositorySlug: "android-sdk",
     description: "SDK мобильных платежей для Android",
@@ -182,7 +182,7 @@ export const mockRepositories: MockRepository[] = [
     scoreLimit: 60,
   },
   {
-    id: "repo-1013",
+    id: "demo-repo-1013",
     organizationSlug: "obmen",
     repositorySlug: "http-services",
     description: "HTTP-сервисы обмена данными для 1С:Предприятия",
@@ -193,7 +193,7 @@ export const mockRepositories: MockRepository[] = [
     categories: { security: "unavailable", cicd: 15, documentation: 72, activity: 83, issues: 69, code_health: 74 },
   },
   {
-    id: "repo-1014",
+    id: "demo-repo-1014",
     organizationSlug: "astra-data",
     repositorySlug: "etl-kit",
     description: "Набор ETL-пайплайнов на Airflow",
@@ -204,7 +204,7 @@ export const mockRepositories: MockRepository[] = [
     categories: { security: 76, cicd: 64, documentation: 58, activity: 67, issues: 70, code_health: 61 },
   },
   {
-    id: "repo-1015",
+    id: "demo-repo-1015",
     organizationSlug: "haskell-ru",
     repositorySlug: "parsers-course",
     description: "Курс по парсер-комбинаторам с задачами и автопроверкой",
@@ -215,7 +215,7 @@ export const mockRepositories: MockRepository[] = [
     categories: { security: "unavailable", cicd: 66, documentation: 92, activity: 20, issues: 55, code_health: 85 },
   },
   {
-    id: "repo-1016",
+    id: "demo-repo-1016",
     organizationSlug: "landing-kit",
     repositorySlug: "static-site",
     description: "Шаблон статического сайта с деплоем в Object Storage",
@@ -233,7 +233,7 @@ export const mockRepositories: MockRepository[] = [
     },
   },
   {
-    id: "repo-1017",
+    id: "demo-repo-1017",
     organizationSlug: "meteo-lab",
     repositorySlug: "nowcast",
     description: "Краткосрочный прогноз осадков по радарным снимкам",
@@ -251,7 +251,7 @@ export const mockRepositories: MockRepository[] = [
     },
   },
   {
-    id: "repo-1018",
+    id: "demo-repo-1018",
     organizationSlug: "infra-snippets",
     repositorySlug: "ansible-roles",
     description: "Роли Ansible для типовых серверов",
@@ -262,7 +262,7 @@ export const mockRepositories: MockRepository[] = [
     categories: { security: 58, cicd: 44, documentation: 66, activity: 51, issues: 47, code_health: 70 },
   },
   {
-    id: "repo-1019",
+    id: "demo-repo-1019",
     organizationSlug: "teplo",
     repositorySlug: "thermostat-firmware",
     description: "Прошивка умного термостата на ESP32",
@@ -273,7 +273,7 @@ export const mockRepositories: MockRepository[] = [
     categories: { security: 61, cicd: 48, documentation: 55, activity: 42, issues: 50, code_health: 63 },
   },
   {
-    id: "repo-1020",
+    id: "demo-repo-1020",
     organizationSlug: "shkola-21",
     repositorySlug: "diary",
     description: "Электронный дневник для небольшой школы",
@@ -284,7 +284,7 @@ export const mockRepositories: MockRepository[] = [
     categories: { security: 45, cicd: 30, documentation: 41, activity: 25, issues: 35, code_health: 52 },
   },
   {
-    id: "repo-1021",
+    id: "demo-repo-1021",
     organizationSlug: "empty-org",
     repositorySlug: "new-service",
     description: "Заготовка нового сервиса",
@@ -302,7 +302,7 @@ export const mockRepositories: MockRepository[] = [
     },
   },
   {
-    id: "repo-1022",
+    id: "demo-repo-1022",
     organizationSlug: "nalog-bot",
     repositorySlug: "receipts",
     description: "Telegram-бот для учёта чеков",
@@ -315,7 +315,7 @@ export const mockRepositories: MockRepository[] = [
 
   // Организация из каталога демо-кабинета (src/api/mocks/me.ts): её репозитории можно проверить после входа.
   {
-    id: "repo-2001",
+    id: "demo-repo-2001",
     organizationSlug: "shkola-it",
     repositorySlug: "homework-checker",
     description: "Автопроверка домашних заданий по информатике",
@@ -326,7 +326,7 @@ export const mockRepositories: MockRepository[] = [
     categories: { security: 81, cicd: 64, documentation: 52, activity: 88, issues: "not_applicable", code_health: 60 },
   },
   {
-    id: "repo-2002",
+    id: "demo-repo-2002",
     organizationSlug: "shkola-it",
     repositorySlug: "lesson-bot",
     description: "Бот, который присылает ученикам материалы урока",
@@ -338,7 +338,7 @@ export const mockRepositories: MockRepository[] = [
     awaitingFirstAnalysis: true,
   },
   {
-    id: "repo-2003",
+    id: "demo-repo-2003",
     organizationSlug: "shkola-it",
     repositorySlug: "olympiad-site",
     description: "Сайт школьной олимпиады",
@@ -360,7 +360,7 @@ export const mockRepositories: MockRepository[] = [
 
 /** Идентификатор снимка анализа в mock-данных: по нему открывается отчёт. */
 export function mockAnalysisId(repository: MockRepository): string {
-  return `an-${repository.id.replace("repo-", "")}`;
+  return `demo-${repository.id.replace("demo-repo-", "")}`;
 }
 
 export function findMockRepository(organizationSlug: string, repositorySlug: string): MockRepository | undefined {

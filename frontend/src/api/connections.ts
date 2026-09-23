@@ -1,5 +1,11 @@
-import { ApiError, getJson, postJson, request } from "./http";
-import { mocksEnabled } from "./mockMode";
+import { isDemoSession, withDemoDelay } from "./dataSource";
+import { getJson, postJson, request } from "./http";
+import {
+  connectMockSourceCraft,
+  connectMockSourceCraftWithoutToken,
+  disconnectMockSourceCraft,
+  mockConnection,
+} from "./mocks/connections";
 
 /*
  * Подключение SourceCraft по личному токену (docs/frontend-review-response.md, раздел 4):
@@ -9,10 +15,7 @@ import { mocksEnabled } from "./mockMode";
  *
  * Яндекс ID подтверждает личность, но доступа к репозиториям SourceCraft не даёт.
  * Токен уходит на backend один раз, хранится зашифрованно и в браузер не возвращается.
- *
- * На первом этапе кабинет показывает публичные репозитории из каталога сервиса и без
- * подключения (GET /api/v1/me/repositories). Этот API добавляет защищённое подключение;
- * личный список private/internal репозиториев появится следующим отдельным этапом.
+ * В демо-кабинете токен не нужен и никуда не отправляется.
  */
 
 export interface SourceCraftConnection {
@@ -22,23 +25,29 @@ export interface SourceCraftConnection {
   connectedAt: string | null;
 }
 
-/** null — server-side vault подключения ещё не настроен в этом окружении. */
-export async function fetchSourceCraftConnection(): Promise<SourceCraftConnection | null> {
-  if (mocksEnabled) {
-    return null;
+export async function fetchSourceCraftConnection(): Promise<SourceCraftConnection> {
+  if (isDemoSession()) {
+    return withDemoDelay(mockConnection(), 120);
   }
-  try {
-    return await getJson<SourceCraftConnection>("/api/v1/connections/sourcecraft");
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 404) return null;
-    throw error;
-  }
+  return getJson<SourceCraftConnection>("/api/v1/connections/sourcecraft");
 }
 
 export async function connectSourceCraft(token: string): Promise<SourceCraftConnection> {
+  if (isDemoSession()) {
+    return withDemoDelay(connectMockSourceCraft(token), 400);
+  }
   return postJson<SourceCraftConnection>("/api/v1/connections/sourcecraft", { token });
 }
 
+/** Демо-кабинет: подключить пример без токена, чтобы на стенде никто не вводил настоящий. */
+export async function connectDemoSourceCraft(): Promise<SourceCraftConnection> {
+  return withDemoDelay(connectMockSourceCraftWithoutToken(), 400);
+}
+
 export async function disconnectSourceCraft(): Promise<void> {
+  if (isDemoSession()) {
+    disconnectMockSourceCraft();
+    return withDemoDelay(undefined, 200);
+  }
   await request<void>("/api/v1/connections/sourcecraft", { method: "DELETE" });
 }

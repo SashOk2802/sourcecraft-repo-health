@@ -2,9 +2,12 @@ import { Circle, CircleCheckFill, CircleMinus, CircleXmarkFill } from "@gravity-
 import { Button, Icon, Spin, Text } from "@gravity-ui/uikit";
 
 import type { AnalysisStage, AnalysisStatusResponse } from "../../api/analyses";
+import { describeError } from "../../api/http";
 import { cn } from "../../lib/classNames";
 import { formatDuration } from "../../lib/format";
 import { analysisStatusLabels } from "../../lib/labels";
+import { Link } from "../../router";
+import { paths } from "../../routes";
 import "./AnalysisProgress.css";
 
 const stageStatusLabels: Record<AnalysisStage["status"], string> = {
@@ -72,11 +75,14 @@ function StageIcon({ status }: { status: AnalysisStage["status"] }) {
 
 interface AnalysisFailedProps {
   analysis: AnalysisStatusResponse;
+  /** Запускать анализ может только вошедший пользователь: backend проверяет доступ к репозиторию. */
+  canRestart: boolean;
   restarting: boolean;
+  restartError: Error | null;
   onRestart: () => void;
 }
 
-export function AnalysisFailed({ analysis, restarting, onRestart }: AnalysisFailedProps) {
+export function AnalysisFailed({ analysis, canRestart, restarting, restartError, onRestart }: AnalysisFailedProps) {
   return (
     <section className="card analysis-progress">
       <Text variant="subheader-2" as="h2">
@@ -86,11 +92,22 @@ export function AnalysisFailed({ analysis, restarting, onRestart }: AnalysisFail
         {analysis.error?.summary ?? "Проверка не дошла до конца."} Прошлый отчёт, если он был, не пропал — обычно
         помогает запустить анализ ещё раз.
       </Text>
-      <div>
-        <Button view="action" size="l" loading={restarting} onClick={onRestart}>
-          Запустить снова
-        </Button>
-      </div>
+      {canRestart ? (
+        <div>
+          <Button view="action" size="l" loading={restarting} onClick={onRestart}>
+            Запустить снова
+          </Button>
+        </div>
+      ) : (
+        <Text variant="body-2">
+          Запустить проверку заново можно в разделе <Link to={paths.myRepositories()}>«Мои репозитории»</Link>.
+        </Text>
+      )}
+      {restartError && (
+        <Text variant="body-2" color="danger">
+          Не удалось запустить анализ. {describeError(restartError)}
+        </Text>
+      )}
     </section>
   );
 }
