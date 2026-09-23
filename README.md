@@ -45,6 +45,7 @@ compose.yaml         единый локальный запуск
 
 - [Архитектура](docs/architecture-proposal.md)
 - [Методика Score v1](docs/scoring-methodology.md)
+- [Согласование порогов Code health](docs/methodology-owner-approval.md)
 - [Распределение ролей backend-команды](docs/backend-team-roles.md)
 - [Docker: запуск и правила](docs/docker-development.md)
 - [Frontend: граница ответственности](docs/frontend-workspace.md)

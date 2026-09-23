@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, Self
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
 import httpx
 
@@ -49,6 +49,9 @@ class SourceCraftClient:
 
     Токен передаётся только в HTTP-заголовке, только на официальный HTTPS-host
     SourceCraft и не включается в тексты исключений. Redirect не допускаются.
+    Тот же токен используется для аутентификации git-операций с каталогом
+    SourceCraft (см. ``resolve_git_clone_url``): credential path один и тот же,
+    новый механизм секретов не вводится.
     """
 
     def __init__(
@@ -89,6 +92,26 @@ class SourceCraftClient:
         traceback: TracebackType | None,
     ) -> None:
         self.close()
+
+    @staticmethod
+    def resolve_git_clone_url(
+        organization_slug: str,
+        repository_slug: str,
+        web_url: str | None,
+    ) -> str:
+        """Возвращает URL git-remota для клонирования репозитория.
+
+        Git-хост выводится из каталога SourceCraft (host страницы репозитория),
+        а не придумывается заново; аутентификация — тот же Bearer-PAT клиента,
+        который git получает через ``http.extraheader`` (см. LocalGitRepository).
+        Если каталог не отдал страницу, используется официальный API-host.
+        Метод чистый и не требует экземпляра клиента: сам URL секретов не несёт.
+        """
+        parsed = urlsplit(web_url or "")
+        host = parsed.hostname if parsed.scheme == "https" and parsed.hostname else _SOURCECRAFT_API_HOST
+        org = quote(organization_slug, safe="")
+        slug = quote(repository_slug, safe="")
+        return f"https://{host}/{org}/{slug}.git"
 
     def get_json(
         self,

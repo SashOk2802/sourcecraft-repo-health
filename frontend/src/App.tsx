@@ -9,7 +9,9 @@ type Category = {
 };
 
 const categories: Category[] = [
-  { code: "security", label: "Безопасность", score: 60, summary: "AppSec-проверка пройдена, критических уязвимостей нет." },
+  // Методика v1: 60 — потолок Score при подтверждённой открытой критической
+  // уязвимости; «критических нет» и потолок 60 одновременно не показываются.
+  { code: "security", label: "Безопасность", score: 60, summary: "Подтверждена открытая критическая уязвимость в зависимостях." },
   { code: "cicd", label: "CI/CD", score: 85, summary: "Пайплайн выполняется стабильно." },
   { code: "documentation", label: "Документация", score: 90, summary: "README, лицензия и регламенты на месте." },
   { code: "activity", label: "Активность", score: 70, summary: "Проект регулярно обновляется." },
