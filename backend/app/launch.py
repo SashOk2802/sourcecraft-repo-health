@@ -1,0 +1,265 @@
+"""Сборка запуска: кто спрашивает, какой репозиторий и каким токеном.
+
+AnalysisPrincipal и AnalysisContext секретов не хранят. Токен SourceCraft живёт
+только в contextvar задачи запроса. Диспетчер копирует контекст в фоновую
+задачу, а asyncio.to_thread копирует его в поток collect.
+
+Токен — это Bearer, который прислал сам вызывающий. Переменная окружения
+процесса здесь не читается: иначе приватный репозиторий открылся бы сервисным
+токеном от имени любого клиента. Это не сессия Yandex ID. Когда она появится,
+principal provider нужно заменить, не подставляя сервисный токен.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import hashlib
+from collections.abc import Callable
+from contextvars import ContextVar
+from datetime import UTC, datetime, timedelta
+from urllib.parse import quote
+
+import httpx
+from fastapi import Request
+
+from backend.app.analysis.dispatch import AnalysisPrincipal
+from backend.app.contracts import AnalysisContext, RepositoryRef
+from backend.app.integrations.sourcecraft import (
+    SourceCraftAuthenticationError,
+    SourceCraftClient,
+    SourceCraftResponseError,
+)
+
+# Контрольный период методик Activity и Issues: 180 дней до момента анализа.
+ANALYSIS_WINDOW = timedelta(days=180)
+_BRANCH_PAGE_SIZE = 100
+_MAX_BRANCH_PAGES = 5
+
+_request_token: ContextVar[str | None] = ContextVar("sourcecraft_request_token", default=None)
+
+
+class RepositorySnapshotError(RuntimeError):
+    """Ответ SourceCraft нельзя превратить в контекст. Текст без секретов и PII."""
+
+
+def current_request_token() -> str:
+    """Возвращает токен текущего запроса. В principal и в контекст анализа он не входит."""
+
+    token = _request_token.get()
+    if not token:
+        raise PermissionError("SourceCraft token is not bound to this request")
+    return token
+
+
+def clear_request_token() -> None:
+    """Снимает токен с задачи запроса после того, как фоновая задача уже скопировала контекст."""
+
+    _request_token.set(None)
+
+
+def build_request_opener(
+    http_client_factory: Callable[[], httpx.Client] | None = None,
+) -> Callable[[], SourceCraftClient]:
+    """Клиент на каждый вызов. Токен читается в момент вызова, не при сборке."""
+
+    def open_bound() -> SourceCraftClient:
+        token = current_request_token()
+        if http_client_factory is None:
+            return SourceCraftClient(token)
+        return _AttachedClient(token, http_client_factory())
+
+    return open_bound
+
+
+open_request_sourcecraft_client = build_request_opener()
+
+
+async def principal_from_authorization(request: Request) -> AnalysisPrincipal:
+    """Принимает Bearer вызывающего и оставляет в principal только отпечаток токена."""
+
+    token = _bearer_token(request)
+    _request_token.set(token)
+    return AnalysisPrincipal(_token_subject(token))
+
+
+class SourceCraftRepositoryContextResolver:
+    """Проверяет доступ токеном вызывающего и собирает AnalysisContext.
+
+    Доступ — это ответ SourceCraft на чтение репозитория этим токеном.
+    Успешное чтение приватного репозитория означает, что токен туда допущен.
+    Отказ 401/403 не создаёт задание.
+    """
+
+    def __init__(
+        self,
+        open_client: Callable[[], SourceCraftClient],
+        *,
+        clock: Callable[[], datetime] | None = None,
+    ) -> None:
+        self._open_client = open_client
+        self._clock = clock or _utc_now
+
+    async def resolve(
+        self,
+        repository_id: str,
+        principal: AnalysisPrincipal,
+    ) -> AnalysisContext:
+        del principal  # Доступ уже привязан к токену этого запроса, не к строке subject.
+        return await asyncio.to_thread(self._resolve_sync, repository_id)
+
+    def _resolve_sync(self, repository_id: str) -> AnalysisContext:
+        client = self._open_client()
+        try:
+            return self._load(client, repository_id)
+        finally:
+            client.close()
+
+    def _load(self, client: SourceCraftClient, repository_id: str) -> AnalysisContext:
+        repository_path = _repository_by_id_path(repository_id)
+        payload = _read_object(client, repository_path)
+        repository, default_branch, is_empty = _repository_ref(repository_id, payload)
+        analyzed_at = self._analyzed_at()
+        return AnalysisContext(
+            repository=repository,
+            commit_sha=_commit_sha(client, repository_path, default_branch, is_empty),
+            analyzed_at=analyzed_at,
+            period_start=analyzed_at - ANALYSIS_WINDOW,
+            period_end=analyzed_at,
+        )
+
+    def _analyzed_at(self) -> datetime:
+        moment = self._clock()
+        if moment.tzinfo is None:
+            raise RepositorySnapshotError("analysis clock must be timezone-aware")
+        return moment
+
+
+class _AttachedClient(SourceCraftClient):
+    """Закрывает пул, который передали снаружи: базовый close() его не трогает."""
+
+    def __init__(self, token: str, http_client: httpx.Client) -> None:
+        super().__init__(token, http_client=http_client)
+        self._attached_http_client = http_client
+
+    def close(self) -> None:
+        super().close()
+        self._attached_http_client.close()
+
+
+def _bearer_token(request: Request) -> str:
+    header = request.headers.get("authorization")
+    if header is None:
+        raise PermissionError("authentication required")
+    scheme, separator, credential = header.partition(" ")
+    if separator != " " or scheme.lower() != "bearer":
+        raise PermissionError("authentication required")
+    token = credential.strip()
+    if not token or token != credential or any(character.isspace() for character in token):
+        raise PermissionError("authentication required")
+    return token
+
+
+def _token_subject(token: str) -> str:
+    digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    return f"token:{digest}"
+
+
+def _repository_by_id_path(repository_id: str) -> str:
+    if not repository_id.strip():
+        raise LookupError("repository id must not be empty")
+    return f"/repos/id:{quote(repository_id, safe='')}"
+
+
+def _repository_ref(
+    repository_id: str,
+    payload: dict[object, object],
+) -> tuple[RepositoryRef, str, bool]:
+    if payload.get("id") != repository_id:
+        raise LookupError("repository id does not match the SourceCraft response")
+    organization = payload.get("organization")
+    org_slug = organization.get("slug") if isinstance(organization, dict) else None
+    repo_slug = payload.get("slug")
+    if (
+        not isinstance(org_slug, str)
+        or not org_slug.strip()
+        or not isinstance(repo_slug, str)
+        or not repo_slug.strip()
+    ):
+        raise RepositorySnapshotError("SourceCraft repository identity is incomplete")
+    web_url = payload.get("web_url")
+    default_branch = payload.get("default_branch")
+    return (
+        RepositoryRef(
+            id=repository_id,
+            organization_slug=org_slug,
+            repository_slug=repo_slug,
+            web_url=web_url if isinstance(web_url, str) and web_url.strip() else None,
+        ),
+        default_branch if isinstance(default_branch, str) else "",
+        bool(payload.get("is_empty")),
+    )
+
+
+def _commit_sha(
+    client: SourceCraftClient,
+    repository_path: str,
+    default_branch: str,
+    is_empty: bool,
+) -> str:
+    if is_empty:
+        return ""
+    if not default_branch.strip():
+        raise RepositorySnapshotError("SourceCraft repository has no default branch")
+
+    params: dict[str, str | int] = {"page_size": _BRANCH_PAGE_SIZE}
+    for _page in range(_MAX_BRANCH_PAGES):
+        payload = _read_object(client, f"{repository_path}/branches", params=params)
+        branches = payload.get("branches")
+        if not isinstance(branches, list):
+            raise RepositorySnapshotError("SourceCraft branches response must be a list")
+        for branch in branches:
+            digest = _branch_commit_hash(branch, default_branch)
+            if digest is not None:
+                return digest
+        next_token = payload.get("next_page_token") or ""
+        if not isinstance(next_token, str) or not next_token:
+            break
+        params["page_token"] = next_token
+    raise RepositorySnapshotError("default branch commit is unavailable")
+
+
+def _read_object(
+    client: SourceCraftClient,
+    path: str,
+    *,
+    params: dict[str, str | int] | None = None,
+) -> dict[object, object]:
+    try:
+        payload = client.get_json(path, params=params)
+    except SourceCraftAuthenticationError as error:
+        raise PermissionError("repository access denied") from error
+    except SourceCraftResponseError as error:
+        if "unexpected HTTP 404" in str(error):
+            raise LookupError("repository not found") from error
+        raise
+    if not isinstance(payload, dict):
+        raise RepositorySnapshotError("SourceCraft response must be an object")
+    return payload
+
+
+def _branch_commit_hash(branch: object, default_branch: str) -> str | None:
+    """Берёт только hash. Имя, почту и сообщение коммита в контекст не копирует."""
+
+    if not isinstance(branch, dict) or branch.get("name") != default_branch:
+        return None
+    commit = branch.get("commit")
+    if not isinstance(commit, dict):
+        return None
+    digest = commit.get("hash")
+    if not isinstance(digest, str) or not digest.strip():
+        return None
+    return digest.strip()
+
+
+def _utc_now() -> datetime:
+    return datetime.now(UTC)

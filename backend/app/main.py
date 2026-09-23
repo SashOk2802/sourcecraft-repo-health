@@ -7,22 +7,34 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import datetime
 
+import httpx
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import PlainTextResponse
 
 from backend.app.analysis import (
     AnalysisDispatcher,
+    AnalysisExecutionService,
     AnalysisJob,
     AnalysisJobStore,
     AnalysisSnapshot,
     AnalysisStore,
     InMemoryAnalysisJobStore,
     InMemoryAnalysisStore,
+    InProcessAnalysisDispatcher,
     PostgresAnalysisJobStore,
     PostgresAnalysisStore,
     normalize_analysis_id,
 )
 from backend.app.analysis.dispatch import AnalysisPrincipal
+from backend.app.analyzers.registration import project_life_analyzer_provider
+from backend.app.contracts import AnalysisContext
+from backend.app.integrations.sourcecraft import SourceCraftClient
+from backend.app.launch import (
+    SourceCraftRepositoryContextResolver,
+    build_request_opener,
+    clear_request_token,
+    principal_from_authorization,
+)
 
 PrincipalProvider = Callable[[Request], Awaitable[AnalysisPrincipal]]
 
@@ -113,15 +125,18 @@ def create_app(
             ) from error
 
         try:
-            job = await analysis_dispatcher.submit(repository_id, principal)
-        except LookupError as error:
-            raise HTTPException(status_code=404, detail="Repository not found.") from error
-        except PermissionError as error:
-            raise HTTPException(status_code=403, detail="Repository access denied.") from error
-        except ValueError as error:
-            raise HTTPException(status_code=422, detail="Invalid analysis request.") from error
-
-        return _analysis_job_status_payload(job, snapshot=None)
+            try:
+                job = await analysis_dispatcher.submit(repository_id, principal)
+            except LookupError as error:
+                raise HTTPException(status_code=404, detail="Repository not found.") from error
+            except PermissionError as error:
+                raise HTTPException(status_code=403, detail="Repository access denied.") from error
+            except ValueError as error:
+                raise HTTPException(status_code=422, detail="Invalid analysis request.") from error
+            return _analysis_job_status_payload(job, snapshot=None)
+        finally:
+            # Копия токена уже в фоновой задаче. На задаче запроса он больше не нужен.
+            clear_request_token()
 
     @app.get("/api/v1/analyses/{analysis_id}", tags=["analyses"])
     async def get_analysis_status(analysis_id: str) -> dict[str, object]:
@@ -156,6 +171,49 @@ def create_app(
         return PlainTextResponse(snapshot.markdown, media_type="text/markdown")
 
     return app
+
+
+def create_sourcecraft_app(
+    *,
+    analysis_store: AnalysisStore | None = None,
+    job_store: AnalysisJobStore | None = None,
+    http_client_factory: Callable[[], httpx.Client] | None = None,
+    clock: Callable[[], datetime] | None = None,
+    analysis_id_factory: Callable[[], str] | None = None,
+) -> FastAPI:
+    """Собирает рабочее приложение: диспетчер, resolver и principal из Bearer.
+
+    `create_app()` без этих аргументов по-прежнему отвечает 503. Токен в сборку
+    не передаётся: его приносит заголовок Authorization конкретного запроса.
+    """
+
+    store = analysis_store or _default_analysis_store()
+    jobs = job_store or (
+        InMemoryAnalysisJobStore()
+        if analysis_store is not None
+        else _default_analysis_job_store()
+    )
+    open_bound_client = build_request_opener(http_client_factory)
+
+    def open_client(context: AnalysisContext) -> SourceCraftClient:
+        # Контекст запуска токена не содержит. Клиент открывается в потоке collect.
+        del context
+        return open_bound_client()
+
+    execution_service = AnalysisExecutionService(job_store=jobs, snapshot_store=store)
+    context_resolver = SourceCraftRepositoryContextResolver(open_bound_client, clock=clock)
+    dispatcher = InProcessAnalysisDispatcher(
+        execution_service=execution_service,
+        context_resolver=context_resolver,
+        analyzer_provider=project_life_analyzer_provider(open_client),
+        analysis_id_factory=analysis_id_factory,
+    )
+    return create_app(
+        analysis_store=store,
+        job_store=jobs,
+        analysis_dispatcher=dispatcher,
+        principal_provider=principal_from_authorization,
+    )
 
 
 def _default_analysis_store() -> AnalysisStore:
@@ -244,4 +302,4 @@ def _format_timestamp(value: datetime | None) -> str | None:
     return value.isoformat().replace("+00:00", "Z")
 
 
-app = create_app()
+app = create_sourcecraft_app()
