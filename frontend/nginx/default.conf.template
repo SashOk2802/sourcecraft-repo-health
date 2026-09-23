@@ -1,0 +1,63 @@
+# Repo Health: статика frontend и proxy /api → backend.
+# Шаблон: при старте контейнера nginx подставляет ${API_PROXY_TARGET} и ${NGINX_RESOLVER}
+# из окружения (Dockerfile.prod задаёт значения по умолчанию). Переменные самого nginx
+# записаны без фигурных скобок, их подстановка не трогает.
+
+server {
+    listen 80;
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+    server_tokens off;
+
+    # Имя backend резолвится на каждый запрос: контейнер мог перезапуститься с новым адресом.
+    resolver ${NGINX_RESOLVER} valid=10s ipv6=off;
+    set $api_upstream ${API_PROXY_TARGET};
+
+    gzip on;
+    gzip_vary on;
+    gzip_comp_level 6;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css text/markdown application/json application/javascript image/svg+xml;
+
+    # Заголовки заданы на уровне server, поэтому в location ниже нет add_header:
+    # иначе nginx перестал бы их наследовать.
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    location /api/ {
+        proxy_pass $api_upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 120s;
+    }
+
+    # Имена файлов сборки содержат хэш: такой файл не меняется, его можно кэшировать надолго.
+    location /assets/ {
+        expires 1y;
+        try_files $uri =404;
+    }
+
+    # index.html и адреса страниц всегда перепроверяются, чтобы после выкладки не остаться на старой версии.
+    location = /index.html {
+        expires -1;
+    }
+
+    # /analyses/…, /me/repositories и остальные адреса разбирает приложение в браузере.
+    location / {
+        expires -1;
+        try_files $uri $uri/ /index.html;
+    }
+}

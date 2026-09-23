@@ -14,7 +14,7 @@ import { signInUnavailableHint, useAuth } from "../auth/AuthContext";
 import { DemoNote } from "../components/DemoNote";
 import { ErrorNote, LoadingNote } from "../components/PageNotes";
 import { dataOf, useAsync } from "../hooks/useAsync";
-import { useDocumentTitle } from "../hooks/useDocumentTitle";
+import { usePageMeta } from "../hooks/usePageMeta";
 import { useRecentAnalyses } from "../hooks/useRecentAnalyses";
 import { useStartAnalysis } from "../hooks/useStartAnalysis";
 import { cn } from "../lib/classNames";
@@ -25,8 +25,9 @@ import { paths } from "../routes";
 import "./MyRepositoriesPage.css";
 
 export function MyRepositoriesPage() {
-  useDocumentTitle("Мои репозитории");
   const auth = useAuth();
+  // Личный кабинет поисковику не нужен.
+  usePageMeta({ title: "Мои репозитории", noindex: true });
   const demo = auth.mode === "demo";
 
   return (

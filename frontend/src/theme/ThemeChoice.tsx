@@ -15,11 +15,24 @@ interface ThemeChoice {
   setPreference: (next: ThemePreference) => void;
 }
 
+/** --rh-page-bg из tokens.css: здесь он нужен до того, как применятся стили Gravity UI. */
+const PAGE_BACKGROUND = { light: "#f2f3f5", dark: "#121214" } as const;
+
 const ThemeChoiceContext = createContext<ThemeChoice | null>(null);
 
 export function ThemeChoiceProvider({ children }: { children: ReactNode }) {
   const [preference, setPreferenceState] = useState<ThemePreference>(() => readThemePreference(browserStorage()));
   const printing = usePrinting();
+  const systemDark = useSystemDark();
+  const dark = !printing && (preference === "dark" || (preference === "system" && systemDark));
+
+  // Фон под страницей и системные полосы прокрутки — в цвет темы. Первый кадр до React
+  // красит скрипт в index.html, дальше тему ведёт этот эффект.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.background = dark ? PAGE_BACKGROUND.dark : PAGE_BACKGROUND.light;
+    root.style.colorScheme = dark ? "dark" : "light";
+  }, [dark]);
 
   const setPreference = useCallback((next: ThemePreference) => {
     setPreferenceState(next);
@@ -41,6 +54,21 @@ export function useThemeChoice(): ThemeChoice {
     throw new Error("useThemeChoice можно вызывать только внутри ThemeChoiceProvider");
   }
   return value;
+}
+
+/** Тёмная ли тема в системе — чтобы «как в системе» знало, каким делать фон под страницей. */
+function useSystemDark(): boolean {
+  const [dark, setDark] = useState(() => window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false);
+
+  useEffect(() => {
+    const query = window.matchMedia?.("(prefers-color-scheme: dark)");
+    if (!query) return;
+    const update = (): void => setDark(query.matches);
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+
+  return dark;
 }
 
 /**

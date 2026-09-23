@@ -6,7 +6,7 @@ import { fetchMethodology, type Methodology, type MethodologyCategory } from "..
 import { ErrorNote, LoadingNote } from "../components/PageNotes";
 import { ScoreBar } from "../components/ScoreBar";
 import { dataOf, useAsync } from "../hooks/useAsync";
-import { useDocumentTitle } from "../hooks/useDocumentTitle";
+import { usePageMeta } from "../hooks/usePageMeta";
 import { formatPoints, formatScore, plural } from "../lib/format";
 import { categoryStatusLabels, priorityLabels } from "../lib/labels";
 import { Link } from "../router";
@@ -34,7 +34,11 @@ const sections = [
 ] as const;
 
 export function MethodologyPage() {
-  useDocumentTitle("Как считаем");
+  usePageMeta({
+    title: "Как считаем",
+    description:
+      "Как считается Repo Health Score: шесть категорий и их веса, что происходит без данных и почему критическая уязвимость ограничивает оценку.",
+  });
   const [state, reload] = useAsync(fetchMethodology, []);
   const methodology = dataOf(state);
 

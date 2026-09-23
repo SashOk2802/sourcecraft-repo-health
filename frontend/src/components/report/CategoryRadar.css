@@ -272,3 +272,12 @@
     transform: none;
   }
 }
+
+/* Компактный холст на телефоне: размеры в единицах SVG, на экране выходит около 12 и 10 px. */
+.category-radar__chart_compact .category-radar__label {
+  font-size: 14px;
+}
+
+.category-radar__chart_compact .category-radar__sub {
+  font-size: 11.5px;
+}

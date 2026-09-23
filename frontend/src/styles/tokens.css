@@ -19,6 +19,9 @@
   --rh-radius-inner: 12px;
   --rh-radius-chip: 999px;
 
+  /* Отступ при переходе по якорю: липкая шапка не закрывает начало раздела. */
+  --rh-anchor-offset: 84px;
+
   /* Марка SourceCraft: красный только на знаке, не на действиях и не на данных. */
   --rh-mark: #ff4343;
 
@@ -120,4 +123,11 @@
   --g-color-base-selection: var(--rh-accent-soft);
   --g-color-base-selection-hover: color-mix(in srgb, var(--rh-accent) 24%, transparent);
   --g-color-text-brand-heavy: var(--rh-accent);
+}
+
+/* На телефоне шапка в две строки — якорю нужен отступ побольше. */
+@media (max-width: 720px) {
+  .g-root {
+    --rh-anchor-offset: 116px;
+  }
 }

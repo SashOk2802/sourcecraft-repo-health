@@ -1,0 +1,33 @@
+# Сборка frontend для стенда: статика в nginx, /api проксируется в backend.
+# Для разработки остаётся Dockerfile с Vite — его запускает compose.yaml.
+#
+#   docker build -f frontend/Dockerfile.prod -t repo-health-frontend frontend
+#   docker run -p 8080:80 -e API_PROXY_TARGET=http://backend:8000 repo-health-frontend
+
+FROM node:22-alpine AS build
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY . .
+# auto — настоящий API, а для разделов, которых у backend ещё нет, демо с пометкой.
+# api — только настоящий API; demo — только демо, backend не нужен.
+ARG VITE_DATA_SOURCE=auto
+ENV VITE_DATA_SOURCE=${VITE_DATA_SOURCE}
+RUN npm run build
+
+FROM nginx:1.27-alpine
+
+# Куда проксировать /api и чем резолвить его имя. 127.0.0.11 — встроенный DNS Docker:
+# имя backend резолвится на каждый запрос, поэтому перезапуск backend не ломает proxy.
+ENV API_PROXY_TARGET=http://backend:8000 \
+    NGINX_RESOLVER=127.0.0.11
+
+# Образ nginx при старте подставляет переменные окружения в шаблоны из /etc/nginx/templates.
+COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
+COPY --from=build /app/dist /usr/share/nginx/html
+
+EXPOSE 80
+HEALTHCHECK --interval=15s --timeout=3s --start-period=5s --retries=3 \
+  CMD wget -q --spider http://127.0.0.1/healthz || exit 1

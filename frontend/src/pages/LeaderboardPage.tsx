@@ -17,7 +17,7 @@ import { CategoryCells } from "../components/CategoryCells";
 import { DemoNote } from "../components/DemoNote";
 import { ErrorNote, LoadingNote } from "../components/PageNotes";
 import { dataOf, useAsync } from "../hooks/useAsync";
-import { useDocumentTitle } from "../hooks/useDocumentTitle";
+import { usePageMeta } from "../hooks/usePageMeta";
 import { useSectionSource } from "../hooks/useSectionSource";
 import { cn } from "../lib/classNames";
 import {
@@ -43,13 +43,19 @@ const sortOptions: Array<{ value: LeaderboardSort; content: string }> = [
 ];
 
 export function LeaderboardPage() {
-  useDocumentTitle("Рейтинг здоровья");
   const { search } = useLocation();
   const query = parseLeaderboardQuery(search);
   const [state, reload] = useAsync(() => fetchLeaderboard(query), [search]);
   const data = dataOf(state);
   const source = useSectionSource("leaderboard");
   const filtered = query.search !== "" || query.language !== null;
+  usePageMeta({
+    title: "Рейтинг здоровья",
+    description:
+      "Рейтинг открытых репозиториев SourceCraft по Repo Health Score: место определяет здоровье проекта, а не число лайков.",
+    // Вымышленные репозитории демо не индексируем.
+    noindex: source === "demo",
+  });
 
   function update(patch: Partial<LeaderboardQuery>): void {
     // Фильтры — из адреса на момент вызова: обработчик мог быть создан на прошлом рендере.
@@ -215,7 +221,7 @@ function LeaderboardTable({ items, loading, showPlaces, emptyText, onReset }: Le
   }
 
   return (
-    <table className={cn("board", loading && "board_loading")} aria-busy={loading}>
+    <table className={cn("board", showPlaces && "board_places", loading && "board_loading")} aria-busy={loading}>
       <thead>
         <tr>
           {showPlaces && (

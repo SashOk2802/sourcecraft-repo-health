@@ -137,12 +137,17 @@ a.my-repos__link:hover {
   font-weight: 600;
 }
 
+/* Те же полосы, что в рейтинге и отчёте. */
+.my-repos__score_band_high {
+  color: var(--rh-band-high);
+}
+
 .my-repos__score_band_mid {
-  color: var(--g-color-text-warning-heavy);
+  color: var(--rh-band-mid);
 }
 
 .my-repos__score_band_low {
-  color: var(--g-color-text-danger);
+  color: var(--rh-band-low);
 }
 
 .my-repos__actions {
@@ -163,11 +168,94 @@ a.my-repos__link:hover {
 
 @media (max-width: 900px) {
   .my-repos__last {
-    display: none;
+    width: 150px;
   }
 
   .my-repos__actions {
     width: auto;
+  }
+}
+
+/*
+ * Телефон: строка — карточка. Время последнего анализа остаётся на виду:
+ * по ТЗ после повторного запуска должно быть видно новый статус, время и результат.
+ */
+@media (max-width: 720px) {
+  .my-repos__table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .my-repos__table,
+  .my-repos__table tbody {
+    display: block;
+  }
+
+  .my-repos__table tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "name    score"
+      "last    last"
+      "actions actions";
+    gap: 8px 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--rh-hairline);
+  }
+
+  .my-repos__table tbody tr:last-child {
+    border-bottom: 0;
+  }
+
+  .my-repos__table td,
+  .my-repos__table td:first-child,
+  .my-repos__table td:last-child {
+    display: block;
+    width: auto;
+    padding: 0;
+    border-bottom: 0;
+  }
+
+  .my-repos__table tbody tr:hover td {
+    background: none;
+  }
+
+  .my-repos__name {
+    grid-area: name;
+    min-width: 0;
+  }
+
+  .my-repos__title {
+    flex-wrap: wrap;
+  }
+
+  .my-repos__score {
+    grid-area: score;
+    text-align: right;
+  }
+
+  .my-repos__last {
+    grid-area: last;
+  }
+
+  .my-repos__actions {
+    grid-area: actions;
+    text-align: left;
+    white-space: normal;
+  }
+
+  .my-repos__actions-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+  }
+
+  .my-repos__token-form .g-button {
+    flex: 1 1 auto;
   }
 }
 

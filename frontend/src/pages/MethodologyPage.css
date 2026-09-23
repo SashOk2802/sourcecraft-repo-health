@@ -29,7 +29,7 @@
   border-radius: var(--rh-radius-card);
   background: var(--rh-surface);
   box-shadow: var(--rh-shadow-1);
-  scroll-margin-top: 76px;
+  scroll-margin-top: var(--rh-anchor-offset);
 }
 
 .methodology__number {
@@ -38,8 +38,6 @@
 
 .methodology__body {
   display: grid;
-  /* minmax(0, …): таблица не раздвигает колонку шире карточки. */
-  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   justify-items: start;
   max-width: 900px;
@@ -147,9 +145,8 @@
 }
 
 @media (max-width: 900px) {
-  /* minmax(0, …): широкое содержимое не растягивает колонку шире карточки. */
   .methodology__section {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: 1fr;
   }
 
   .methodology__statuses li {
@@ -227,63 +224,14 @@
     gap: 6px;
   }
 
-  /*
-   * Пример расчёта: четыре колонки чисел на узком экране не помещаются, а переносить числа нельзя.
-   * Строка становится карточкой: категория, под ней «80 × 25% = 20»; итог — «Итого 75,5 → 76».
-   */
-  .methodology__example thead {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    white-space: nowrap;
-  }
-
-  .methodology__example,
-  .methodology__example caption,
-  .methodology__example tbody,
-  .methodology__example tfoot {
-    display: block;
-  }
-
-  .methodology__example tr {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 2px 6px;
-    padding: 8px 0;
-    border-bottom: 1px solid var(--g-color-line-generic);
-  }
-
+  /* Числа в примере расчёта не переносим: «× 25%» и «75,5 → 76» читаются целиком. */
   .methodology__example th,
   .methodology__example td {
-    display: block;
-    padding: 0;
-    border: 0;
+    padding-right: 8px;
+  }
+
+  .methodology__example td {
     white-space: nowrap;
-  }
-
-  .methodology__example tbody th {
-    flex-basis: 100%;
-    white-space: normal;
-  }
-
-  .methodology__example tbody td:last-child::before {
-    content: "= ";
-  }
-
-  .methodology__example td:empty {
-    display: none;
-  }
-
-  .methodology__example tfoot tr {
-    border-bottom: 0;
-  }
-
-  .methodology__example tfoot th,
-  .methodology__example tfoot td {
-    border-top: 0;
   }
 
   .methodology__statuses li > :last-child {

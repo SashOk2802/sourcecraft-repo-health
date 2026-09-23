@@ -18,9 +18,9 @@ import { ProjectHighlights } from "../components/report/ProjectHighlights";
 import { RecommendationList } from "../components/report/RecommendationList";
 import { ScoreCard } from "../components/report/ScoreCard";
 import { dataOf, useAsync } from "../hooks/useAsync";
-import { useDocumentTitle } from "../hooks/useDocumentTitle";
+import { usePageMeta } from "../hooks/usePageMeta";
 import { useStartAnalysis } from "../hooks/useStartAnalysis";
-import { formatDateTime } from "../lib/format";
+import { formatDateTime, formatScore } from "../lib/format";
 import { Link, navigate } from "../router";
 import { paths } from "../routes";
 import "./AnalysisPage.css";
@@ -46,7 +46,12 @@ export function AnalysisPage({ analysisId }: { analysisId: string }) {
 
   // Пока анализ в очереди, backend знает только id репозитория, без имени.
   const title = analysis?.repository.name ?? report?.repository.name ?? "Анализ репозитория";
-  useDocumentTitle(title);
+  usePageMeta({
+    title,
+    description: report ? describeReport(report) : undefined,
+    // В поиск — только готовые отчёты по настоящим репозиториям.
+    noindex: !report || usesDemo(analysisId),
+  });
 
   return (
     <div className="page__inner">
@@ -273,6 +278,13 @@ function useNow(active: boolean): number {
   }, [active]);
 
   return now;
+}
+
+/** Описание для поиска и превью ссылки на отчёт. */
+function describeReport(report: RepositoryReport): string {
+  const score =
+    report.score === null ? "Оценку пока не из чего посчитать" : `Repo Health Score ${formatScore(report.score)} из 100`;
+  return `${score} для ${report.repository.name}: оценка по шести частям проекта, сильные и слабые стороны, рекомендации.`;
 }
 
 function isNotFound(error: Error): boolean {
