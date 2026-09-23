@@ -28,7 +28,7 @@ export function CategoryMarks({ categories }: { categories: ReportCategory[] }) 
           Из чего складывается
         </Text>
         <Text variant="body-1" color="secondary">
-          каждая часть проверяется по нескольким признакам: {SCORE_BAND_LIMITS.high} и выше — хорошо,
+          каждая часть проверяется по нескольким признакам: {SCORE_BAND_LIMITS.high} и выше — хорошо,{" "}
           {SCORE_BAND_LIMITS.low}–{SCORE_BAND_LIMITS.high - 1} — стоит посмотреть, ниже {SCORE_BAND_LIMITS.low} —
           проблема; серая точка — признак для справки, его не оценивают
         </Text>
@@ -49,7 +49,7 @@ function CategoryCard({ category, order }: { category: ReportCategory; order: nu
   const meaning = describeCategory(category.code);
 
   return (
-    <article className="category-card" style={{ "--rh-step": order } as CSSProperties}>
+    <article id={`category-${category.code}`} className="category-card" style={{ "--rh-step": order } as CSSProperties}>
       <header className="category-card__head">
         <CategoryIcon code={category.code} band={band} />
         <Text variant="subheader-1" as="h3" className="category-card__name">

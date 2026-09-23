@@ -7,6 +7,7 @@ import { fetchReport, markdownReportUrl, type RepositoryReport } from "../api/re
 import { ErrorNote, LoadingNote } from "../components/PageNotes";
 import { AnalysisFacts } from "../components/report/AnalysisFacts";
 import { CategoryMarks } from "../components/report/CategoryMarks";
+import { ProjectHighlights } from "../components/report/ProjectHighlights";
 import { RecommendationList } from "../components/report/RecommendationList";
 import { ScoreCard } from "../components/report/ScoreCard";
 import { dataOf, useAsync } from "../hooks/useAsync";
@@ -98,6 +99,7 @@ function ReportView({ report }: { report: RepositoryReport }) {
       <div className="report__grid">
         <div className="report__main">
           <ScoreCard report={report} />
+          <ProjectHighlights categories={report.categories} />
           <CategoryMarks categories={report.categories} />
           <RecommendationList recommendations={report.recommendations} hasScore={report.score !== null} />
         </div>

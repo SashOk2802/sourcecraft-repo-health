@@ -98,3 +98,25 @@ export function summarizeBands(categories: ReportCategory[]): BandSummary {
   }
   return summary;
 }
+
+export interface Highlights {
+  /** 80 и выше — от лучшей к худшей. */
+  strengths: MeasuredCategory[];
+  /** Ниже 80 — сначала самые слабые. */
+  weaknesses: MeasuredCategory[];
+  /** Проверить не удалось. «Не применимо» сюда не входит: к репозиторию оно не относится. */
+  unchecked: ReportCategory[];
+}
+
+/**
+ * Сильные и слабые стороны (ТЗ, п. 3.4): каждая измеренная категория попадает
+ * ровно в одну колонку, граница — та же полоса 80, что и в остальном отчёте.
+ */
+export function splitHighlights(categories: ReportCategory[]): Highlights {
+  const measured = categories.filter(isMeasured);
+  return {
+    strengths: measured.filter((category) => getScoreBand(category.score) === "high").sort((a, b) => b.score - a.score),
+    weaknesses: measured.filter((category) => getScoreBand(category.score) !== "high").sort((a, b) => a.score - b.score),
+    unchecked: categories.filter((category) => category.status !== "not_applicable" && !isMeasured(category)),
+  };
+}

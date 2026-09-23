@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import type { CategoryMetric, ReportCategory } from "../../api/report";
-import { biggestLosses, buildFormula, hasMetrics, isMeasured, metricTone, summarizeBands } from "./reportHelpers";
+import {
+  biggestLosses,
+  buildFormula,
+  hasMetrics,
+  isMeasured,
+  metricTone,
+  splitHighlights,
+  summarizeBands,
+} from "./reportHelpers";
 
 function measured(code: string, score: number, weight: number, measuredWeight: number): ReportCategory {
   const effectiveWeight = (weight / measuredWeight) * 100;
@@ -114,5 +122,20 @@ describe("summarizeBands", () => {
   it("неприменимую категорию не считает ни в одной полосе", () => {
     const notApplicable: ReportCategory = { ...unavailable, status: "not_applicable", reason: null };
     expect(summarizeBands([notApplicable])).toEqual({ low: 0, mid: 0, high: 0, missing: 0 });
+  });
+});
+
+describe("splitHighlights", () => {
+  it("кладёт каждую измеренную часть ровно в одну колонку", () => {
+    const { strengths, weaknesses, unchecked } = splitHighlights(categories);
+    expect(strengths.map((category) => category.code)).toEqual(["activity", "documentation"]);
+    // Сначала самые слабые; 70 — «стоит посмотреть», но сильной стороной не считается.
+    expect(weaknesses.map((category) => category.code)).toEqual(["cicd", "issues", "code_health"]);
+    expect(unchecked.map((category) => category.code)).toEqual(["security"]);
+  });
+
+  it("неприменимую категорию не выдаёт за непроверенную", () => {
+    const notApplicable: ReportCategory = { ...unavailable, status: "not_applicable", reason: null };
+    expect(splitHighlights([notApplicable])).toEqual({ strengths: [], weaknesses: [], unchecked: [] });
   });
 });

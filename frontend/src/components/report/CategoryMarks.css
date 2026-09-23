@@ -10,6 +10,15 @@
   background: var(--rh-surface);
   box-shadow: var(--rh-shadow-1);
   padding: 18px 20px 16px;
+  /* Переход из «Сильных и слабых сторон»: карточка не прячется под липкой шапкой. */
+  scroll-margin-top: 88px;
+}
+
+/* Карточка, к которой перешли по ссылке, обведена акцентом. */
+.category-card:target {
+  box-shadow:
+    0 0 0 2px var(--rh-accent),
+    var(--rh-shadow-2);
 }
 
 .category-card__head {
