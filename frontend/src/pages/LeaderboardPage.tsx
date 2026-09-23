@@ -1,4 +1,4 @@
-import { Magnifier } from "@gravity-ui/icons";
+import { ArrowUpRightFromSquare, Magnifier } from "@gravity-ui/icons";
 import { Button, Checkbox, Icon, SegmentedRadioGroup, Select, Text, TextInput } from "@gravity-ui/uikit";
 import { useEffect, useState, type MouseEvent } from "react";
 
@@ -245,9 +245,24 @@ function LeaderboardRow({ item, showPlace }: { item: LeaderboardItem; showPlace:
         </td>
       )}
       <td className="board__name">
-        <Link className="board__link" to={reportPath}>
-          <span className="board__org">{repository.organizationSlug} /</span> {repository.repositorySlug}
-        </Link>
+        <span className="board__title">
+          <Link className="board__link" to={reportPath}>
+            <span className="board__org">{repository.organizationSlug} /</span> {repository.repositorySlug}
+          </Link>
+          {/* ТЗ, п. 4: в рейтинге нужна ссылка на сам репозиторий, а не только на отчёт. */}
+          {repository.url && (
+            <a
+              className="board__external"
+              href={repository.url}
+              target="_blank"
+              rel="noreferrer"
+              title="Открыть репозиторий в SourceCraft"
+              aria-label={`Открыть ${repository.name} в SourceCraft`}
+            >
+              <Icon data={ArrowUpRightFromSquare} size={13} />
+            </a>
+          )}
+        </span>
         {repository.description && (
           <Text variant="body-1" color="secondary" className="board__about">
             {repository.description}
