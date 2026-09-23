@@ -8,7 +8,7 @@
 
 .recommendation {
   display: grid;
-  grid-template-columns: 28px 132px minmax(0, 1fr) 96px;
+  grid-template-columns: 52px 132px minmax(0, 1fr) 96px;
   gap: 0 12px;
   padding: 18px 0;
   border-bottom: 1px solid var(--rh-hairline);
@@ -25,9 +25,13 @@
   border-radius: 2px;
 }
 
+/* Крупный номер, как пункты «#1 #2» у Вебмастера: порядок виден без чтения. */
 .recommendation__index {
-  color: var(--g-color-text-secondary);
-  line-height: 22px;
+  color: var(--g-color-text-hint);
+  font-size: 30px;
+  font-weight: 300;
+  line-height: 1;
+  letter-spacing: -0.03em;
 }
 
 .recommendation__priority {
@@ -70,7 +74,11 @@
 
 @media (max-width: 900px) {
   .recommendation {
-    grid-template-columns: 24px minmax(0, 1fr);
+    grid-template-columns: 40px minmax(0, 1fr);
+  }
+
+  .recommendation__index {
+    font-size: 22px;
   }
 
   .recommendation__priority,

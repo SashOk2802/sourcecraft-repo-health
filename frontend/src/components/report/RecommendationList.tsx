@@ -45,7 +45,7 @@ export function RecommendationList({ recommendations, hasScore }: Recommendation
           <ol className="recommendations">
             {recommendations.map((recommendation, index) => (
               <li className="recommendation" key={recommendation.code}>
-                <span className="recommendation__index num">{index + 1}</span>
+                <span className="recommendation__index num">#{index + 1}</span>
                 <span className="recommendation__priority">
                   <Label theme={priorityThemes[recommendation.priority]} size="s">
                     {priorityLabels[recommendation.priority]}

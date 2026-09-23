@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { CategoryMetric, ReportCategory } from "../../api/report";
-import { biggestLosses, buildFormula, hasMetrics, isMeasured, metricTone } from "./reportHelpers";
+import { biggestLosses, buildFormula, hasMetrics, isMeasured, metricTone, summarizeBands } from "./reportHelpers";
 
 function measured(code: string, score: number, weight: number, measuredWeight: number): ReportCategory {
   const effectiveWeight = (weight / measuredWeight) * 100;
@@ -102,5 +102,17 @@ describe("hasMetrics", () => {
       evidence: [{ code: "m", value: null, normalizedScore: 50, summary: "", evidence: [] }],
     };
     expect(hasMetrics(withMetric)).toBe(true);
+  });
+});
+
+describe("summarizeBands", () => {
+  it("раскладывает части проекта по полосам", () => {
+    // Отчёт gorod-dev/transit-api: 58, 88, 91, 58, 70 и безопасность без данных.
+    expect(summarizeBands(categories)).toEqual({ low: 2, mid: 1, high: 2, missing: 1 });
+  });
+
+  it("неприменимую категорию не считает ни в одной полосе", () => {
+    const notApplicable: ReportCategory = { ...unavailable, status: "not_applicable", reason: null };
+    expect(summarizeBands([notApplicable])).toEqual({ low: 0, mid: 0, high: 0, missing: 0 });
   });
 });

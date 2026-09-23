@@ -7,6 +7,7 @@ import { formatPoints, formatScore, formatShare, plural } from "../../lib/format
 import { getScoreBand } from "../../lib/scoreBands";
 import { scoreVerdict } from "../../lib/verdict";
 import { PreliminaryLabel, ScoreLimitLabel } from "../StatusLabels";
+import { BandSummary } from "./BandSummary";
 import { CategoryRadar } from "./CategoryRadar";
 import { biggestLosses, buildFormula, isMeasured } from "./reportHelpers";
 import "./ScoreCard.css";
@@ -55,6 +56,8 @@ export function ScoreCard({ report }: { report: RepositoryReport }) {
               </Text>
             )}
           </div>
+
+          {score !== null && <BandSummary categories={categories} />}
 
           <div className="score-card__labels">
             {/* Пока оценки нет, метка «предварительная» только путает: предварять нечего. */}

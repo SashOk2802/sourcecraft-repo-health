@@ -69,3 +69,32 @@ export function metricTone(metric: CategoryMetric): MetricTone {
 export function hasMetrics(category: ReportCategory): boolean {
   return category.evidence.length > 0;
 }
+
+export interface BandSummary {
+  /** Оценка ниже 60. */
+  low: number;
+  /** 60–79. */
+  mid: number;
+  /** 80 и выше. */
+  high: number;
+  /** Нет данных, мало данных или не удалось получить. «Не применимо» сюда не входит. */
+  missing: number;
+}
+
+/**
+ * Сколько частей проекта в каждой полосе — для сводки над радаром:
+ * «2 проблемы · 1 стоит посмотреть · 2 хорошо». Неприменимые категории
+ * не считаются нигде: к этому репозиторию они просто не относятся.
+ */
+export function summarizeBands(categories: ReportCategory[]): BandSummary {
+  const summary: BandSummary = { low: 0, mid: 0, high: 0, missing: 0 };
+  for (const category of categories) {
+    if (category.status === "not_applicable") continue;
+    if (isMeasured(category)) {
+      summary[getScoreBand(category.score)] += 1;
+    } else {
+      summary.missing += 1;
+    }
+  }
+  return summary;
+}
