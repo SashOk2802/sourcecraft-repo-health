@@ -212,8 +212,10 @@ ol {
  * на печати глубину заменяет тонкая рамка.
  */
 @media print {
+  /* Фон под страницей задаёт тема через style на html — на бумаге он не нужен. */
+  html,
   body {
-    background: #fff;
+    background: #fff !important;
   }
 
   .page {
