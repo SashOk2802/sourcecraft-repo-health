@@ -8,6 +8,7 @@ on:
 # Сканеру достаточно читать код. Права на PR-комментарии и запись отсутствуют.
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   secret-scan:
