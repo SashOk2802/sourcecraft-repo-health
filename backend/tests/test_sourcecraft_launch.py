@@ -13,13 +13,17 @@ from urllib.parse import unquote
 import httpx
 from fastapi import Request
 
+from backend.app.analysis import InMemoryAnalysisJobStore, InMemoryAnalysisStore
 from backend.app.analysis.dispatch import AnalysisPrincipal
 from backend.app.integrations.sourcecraft import (
     SourceCraftAuthenticationError,
+    SourceCraftRateLimitError,
     SourceCraftResponseError,
+    SourceCraftTimeoutError,
 )
 from backend.app.launch import (
     ANALYSIS_WINDOW,
+    AnalysisLaunchError,
     SourceCraftRepositoryContextResolver,
     _request_token,
     current_request_token,
@@ -39,6 +43,23 @@ REPOSITORY_ID = "repo-42"
 REPOSITORY_BY_ID = f"/repos/id:{REPOSITORY_ID}"
 BRANCHES_BY_ID = f"{REPOSITORY_BY_ID}/branches"
 ANALYZER_BASE = "/repos/team/platform"
+UNREACHABLE_DATABASE = "postgresql+asyncpg://127.0.0.1:1/unused"
+
+
+def bound_principal(token: str = USER_TOKEN) -> AnalysisPrincipal:
+    _request_token.set(token)
+    digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    return AnalysisPrincipal(f"token:{digest}")
+
+
+def isolated_sourcecraft_app(**kwargs: object):
+    """Хранилища в памяти: CI задаёт DATABASE_URL, и тест не должен открывать PostgreSQL."""
+
+    return create_sourcecraft_app(
+        analysis_store=InMemoryAnalysisStore(),
+        job_store=InMemoryAnalysisJobStore(),
+        **kwargs,
+    )
 
 
 def moment(days_before_analysis: int) -> str:
@@ -127,7 +148,7 @@ class SourceCraftResolverTest(unittest.IsolatedAsyncioTestCase):
             clock=lambda: ANALYZED_AT,
         )
 
-        context = await resolver.resolve(REPOSITORY_ID, AnalysisPrincipal("token:ignored"))
+        context = await resolver.resolve(REPOSITORY_ID, bound_principal())
 
         self.assertTrue(client.closed)
         self.assertEqual(
@@ -146,30 +167,37 @@ class SourceCraftResolverTest(unittest.IsolatedAsyncioTestCase):
         client = ScriptedClient([repository_payload(is_empty=True)])
         resolver = SourceCraftRepositoryContextResolver(lambda: client, clock=lambda: ANALYZED_AT)
 
-        context = await resolver.resolve(REPOSITORY_ID, AnalysisPrincipal("token:ignored"))
+        context = await resolver.resolve(REPOSITORY_ID, bound_principal())
 
         self.assertEqual(context.commit_sha, "")
         self.assertEqual(client.calls, [REPOSITORY_BY_ID])
         self.assertTrue(client.closed)
 
     async def test_denied_repository_closes_client_and_does_not_continue(self) -> None:
-        client = ScriptedClient([SourceCraftAuthenticationError("denied")])
+        client = ScriptedClient(
+            [SourceCraftAuthenticationError("denied", status_code=403)]
+        )
         resolver = SourceCraftRepositoryContextResolver(lambda: client, clock=lambda: ANALYZED_AT)
 
         with self.assertRaises(PermissionError):
-            await resolver.resolve(REPOSITORY_ID, AnalysisPrincipal("token:ignored"))
+            await resolver.resolve(REPOSITORY_ID, bound_principal())
 
         self.assertEqual(client.calls, [REPOSITORY_BY_ID])
         self.assertTrue(client.closed)
 
     async def test_unknown_repository_is_lookup_error(self) -> None:
         client = ScriptedClient(
-            [SourceCraftResponseError("SourceCraft returned unexpected HTTP 404")]
+            [
+                SourceCraftResponseError(
+                    "SourceCraft returned unexpected HTTP 404",
+                    status_code=404,
+                )
+            ]
         )
         resolver = SourceCraftRepositoryContextResolver(lambda: client, clock=lambda: ANALYZED_AT)
 
         with self.assertRaises(LookupError):
-            await resolver.resolve(REPOSITORY_ID, AnalysisPrincipal("token:ignored"))
+            await resolver.resolve(REPOSITORY_ID, bound_principal())
 
         self.assertTrue(client.closed)
 
@@ -178,9 +206,87 @@ class SourceCraftResolverTest(unittest.IsolatedAsyncioTestCase):
         resolver = SourceCraftRepositoryContextResolver(lambda: client, clock=lambda: ANALYZED_AT)
 
         with self.assertRaises(LookupError):
-            await resolver.resolve(REPOSITORY_ID, AnalysisPrincipal("token:ignored"))
+            await resolver.resolve(REPOSITORY_ID, bound_principal())
 
         self.assertTrue(client.closed)
+
+    async def test_rejected_token_is_unauthorized_and_closes_client(self) -> None:
+        client = ScriptedClient(
+            [SourceCraftAuthenticationError("rejected", status_code=401)]
+        )
+        resolver = SourceCraftRepositoryContextResolver(lambda: client, clock=lambda: ANALYZED_AT)
+
+        with self.assertRaises(AnalysisLaunchError) as raised:
+            await resolver.resolve(REPOSITORY_ID, bound_principal())
+
+        self.assertEqual(raised.exception.status_code, 401)
+        self.assertEqual(raised.exception.detail, "Authentication required.")
+        self.assertTrue(client.closed)
+        self.assertEqual(client.calls, [REPOSITORY_BY_ID])
+
+    async def test_rate_limit_does_not_create_context(self) -> None:
+        client = ScriptedClient([SourceCraftRateLimitError(12)])
+        resolver = SourceCraftRepositoryContextResolver(lambda: client, clock=lambda: ANALYZED_AT)
+
+        with self.assertRaises(AnalysisLaunchError) as raised:
+            await resolver.resolve(REPOSITORY_ID, bound_principal())
+
+        self.assertEqual(raised.exception.status_code, 429)
+        self.assertEqual(raised.exception.retry_after_seconds, 12)
+        self.assertTrue(client.closed)
+
+    async def test_timeout_is_unavailable(self) -> None:
+        client = ScriptedClient([SourceCraftTimeoutError("SourceCraft request timed out")])
+        resolver = SourceCraftRepositoryContextResolver(lambda: client, clock=lambda: ANALYZED_AT)
+
+        with self.assertRaises(AnalysisLaunchError) as raised:
+            await resolver.resolve(REPOSITORY_ID, bound_principal())
+
+        self.assertEqual(raised.exception.status_code, 503)
+        self.assertEqual(raised.exception.detail, "SourceCraft is unavailable.")
+        self.assertTrue(client.closed)
+
+    async def test_http_404_without_status_code_is_not_a_missing_repository(self) -> None:
+        client = ScriptedClient(
+            [SourceCraftResponseError("SourceCraft returned unexpected HTTP 404")]
+        )
+        resolver = SourceCraftRepositoryContextResolver(lambda: client, clock=lambda: ANALYZED_AT)
+
+        with self.assertRaises(AnalysisLaunchError) as raised:
+            await resolver.resolve(REPOSITORY_ID, bound_principal())
+
+        self.assertEqual(raised.exception.status_code, 502)
+        self.assertTrue(client.closed)
+
+    async def test_missing_default_branch_is_unusable_snapshot(self) -> None:
+        client = ScriptedClient(
+            [
+                repository_payload(),
+                SourceCraftResponseError(
+                    "SourceCraft returned unexpected HTTP 404",
+                    status_code=404,
+                ),
+            ]
+        )
+        resolver = SourceCraftRepositoryContextResolver(lambda: client, clock=lambda: ANALYZED_AT)
+
+        with self.assertRaises(AnalysisLaunchError) as raised:
+            await resolver.resolve(REPOSITORY_ID, bound_principal())
+
+        self.assertEqual(raised.exception.status_code, 502)
+        self.assertEqual(client.calls, [REPOSITORY_BY_ID, BRANCHES_BY_ID])
+        self.assertTrue(client.closed)
+
+    async def test_mismatched_principal_does_not_call_sourcecraft(self) -> None:
+        client = ScriptedClient([repository_payload()])
+        _request_token.set(USER_TOKEN)
+        resolver = SourceCraftRepositoryContextResolver(lambda: client, clock=lambda: ANALYZED_AT)
+
+        with self.assertRaises(PermissionError):
+            await resolver.resolve(REPOSITORY_ID, AnalysisPrincipal("token:someone-else"))
+
+        self.assertEqual(client.calls, [])
+        self.assertFalse(client.closed)
 
     async def test_opener_without_bound_token_does_not_call_sourcecraft(self) -> None:
         resolver = SourceCraftRepositoryContextResolver(
@@ -243,8 +349,11 @@ class ProjectLifeHttpLaunchTest(unittest.IsolatedAsyncioTestCase):
             pools.append(pool)
             return pool
 
-        with patch.dict(os.environ, {"SOURCECRAFT_TOKEN": SERVICE_TOKEN}):
-            application = create_sourcecraft_app(
+        with patch.dict(
+            os.environ,
+            {"SOURCECRAFT_TOKEN": SERVICE_TOKEN, "DATABASE_URL": UNREACHABLE_DATABASE},
+        ):
+            application = isolated_sourcecraft_app(
                 http_client_factory=http_client_factory,
                 clock=lambda: ANALYZED_AT,
                 analysis_id_factory=lambda: next(ids),
@@ -315,7 +424,7 @@ class ProjectLifeHttpLaunchTest(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn(f"Bearer {SERVICE_TOKEN}", authorizations)
 
     async def test_missing_bearer_is_unauthorized_on_runtime_app(self) -> None:
-        application = create_sourcecraft_app()
+        application = isolated_sourcecraft_app()
 
         async with api_client(application) as client:
             response = await client.post(f"/api/v1/repositories/{REPOSITORY_ID}/analyses")
@@ -342,7 +451,7 @@ class ProjectLifeHttpLaunchTest(unittest.IsolatedAsyncioTestCase):
             paths.append(unquote(request.url.path))
             return httpx.Response(403)
 
-        application = create_sourcecraft_app(
+        application = isolated_sourcecraft_app(
             http_client_factory=lambda: httpx.Client(
                 base_url="https://api.sourcecraft.tech",
                 transport=httpx.MockTransport(handler),
@@ -363,8 +472,27 @@ class ProjectLifeHttpLaunchTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(paths, [REPOSITORY_BY_ID])
         self.assertEqual(authorizations, [f"Bearer {USER_TOKEN}"])
 
+    async def test_rejected_sourcecraft_token_is_unauthorized(self) -> None:
+        response = await _post_with_status(401)
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json(), {"detail": "Authentication required."})
+
+    async def test_rate_limit_is_too_many_requests(self) -> None:
+        response = await _post_with_status(429, headers={"Retry-After": "9"})
+        self.assertEqual(response.status_code, 429)
+        self.assertEqual(response.json(), {"detail": "SourceCraft rate limit exceeded."})
+        self.assertEqual(response.headers["retry-after"], "9")
+
+    async def test_upstream_failure_is_bad_gateway(self) -> None:
+        response = await _post_with_status(500)
+        self.assertEqual(response.status_code, 502)
+        self.assertEqual(response.json(), {"detail": "SourceCraft returned an unusable response."})
+
     async def test_create_app_without_dispatcher_stays_unavailable(self) -> None:
-        application = create_app()
+        application = create_app(
+            analysis_store=InMemoryAnalysisStore(),
+            job_store=InMemoryAnalysisJobStore(),
+        )
 
         async with api_client(application) as client:
             response = await client.post(f"/api/v1/repositories/{REPOSITORY_ID}/analyses")
@@ -440,6 +568,34 @@ def sourcecraft_response(request: httpx.Request) -> httpx.Response:
     if path == ANALYZER_BASE:
         return httpx.Response(200, json={"last_updated": moment(2), "is_empty": False})
     raise AssertionError(path)
+
+
+async def _post_with_status(
+    status_code: int,
+    *,
+    headers: dict[str, str] | None = None,
+) -> httpx.Response:
+    created_ids: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        del request
+        return httpx.Response(status_code, headers=headers)
+
+    application = isolated_sourcecraft_app(
+        http_client_factory=lambda: httpx.Client(
+            base_url="https://api.sourcecraft.tech",
+            transport=httpx.MockTransport(handler),
+        ),
+        clock=lambda: ANALYZED_AT,
+        analysis_id_factory=lambda: created_ids.append("analysis-error") or "analysis-error",
+    )
+    async with api_client(application) as client:
+        response = await client.post(
+            f"/api/v1/repositories/{REPOSITORY_ID}/analyses",
+            headers={"Authorization": f"Bearer {USER_TOKEN}"},
+        )
+    assert created_ids == []
+    return response
 
 
 def api_client(application: httpx.ASGITransport | object) -> httpx.AsyncClient:

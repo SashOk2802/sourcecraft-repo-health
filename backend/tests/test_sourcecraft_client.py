@@ -60,6 +60,7 @@ class SourceCraftClientTest(unittest.TestCase):
         with self.assertRaises(SourceCraftAuthenticationError) as raised:
             client.get_json("/user")
 
+        self.assertEqual(raised.exception.status_code, 401)
         self.assertNotIn(secret_token, str(raised.exception))
 
     def test_forbidden_error_is_an_authentication_error(self) -> None:
@@ -69,8 +70,10 @@ class SourceCraftClientTest(unittest.TestCase):
         )
         client = SourceCraftClient("test-token", http_client=http_client)
 
-        with self.assertRaises(SourceCraftAuthenticationError):
+        with self.assertRaises(SourceCraftAuthenticationError) as raised:
             client.get_json("/user")
+
+        self.assertEqual(raised.exception.status_code, 403)
 
     def test_rate_limit_exposes_retry_after_without_retrying(self) -> None:
         http_client = httpx.Client(
@@ -221,8 +224,10 @@ class SourceCraftClientTest(unittest.TestCase):
         )
         client = SourceCraftClient("test-token", http_client=http_client)
 
-        with self.assertRaises(SourceCraftResponseError):
+        with self.assertRaises(SourceCraftResponseError) as raised:
             client.get_json("/user")
+
+        self.assertEqual(raised.exception.status_code, 500)
 
     def test_empty_token_is_rejected(self) -> None:
         with self.assertRaisesRegex(ValueError, "must not be empty"):

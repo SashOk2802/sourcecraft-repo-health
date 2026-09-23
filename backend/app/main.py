@@ -30,6 +30,7 @@ from backend.app.analyzers.registration import project_life_analyzer_provider
 from backend.app.contracts import AnalysisContext
 from backend.app.integrations.sourcecraft import SourceCraftClient
 from backend.app.launch import (
+    AnalysisLaunchError,
     SourceCraftRepositoryContextResolver,
     build_request_opener,
     clear_request_token,
@@ -129,6 +130,12 @@ def create_app(
                 job = await analysis_dispatcher.submit(repository_id, principal)
             except LookupError as error:
                 raise HTTPException(status_code=404, detail="Repository not found.") from error
+            except AnalysisLaunchError as error:
+                raise HTTPException(
+                    status_code=error.status_code,
+                    detail=error.detail,
+                    headers=_launch_error_headers(error),
+                ) from error
             except PermissionError as error:
                 raise HTTPException(status_code=403, detail="Repository access denied.") from error
             except ValueError as error:
@@ -294,6 +301,12 @@ def _analysis_job_status_payload(
     payload["finishedAt"] = _format_timestamp(job.finished_at)
     payload["error"] = error
     return payload
+
+
+def _launch_error_headers(error: AnalysisLaunchError) -> dict[str, str] | None:
+    if error.retry_after_seconds is None:
+        return None
+    return {"Retry-After": str(error.retry_after_seconds)}
 
 
 def _format_timestamp(value: datetime | None) -> str | None:

@@ -2,7 +2,8 @@
 
 AnalysisPrincipal и AnalysisContext секретов не хранят. Токен SourceCraft живёт
 только в contextvar задачи запроса. Диспетчер копирует контекст в фоновую
-задачу, а asyncio.to_thread копирует его в поток collect.
+задачу, а asyncio.to_thread копирует его в поток collect. Resolver пускает
+запрос дальше только если отпечаток этого токена совпадает с principal.
 
 Токен — это Bearer, который прислал сам вызывающий. Переменная окружения
 процесса здесь не читается: иначе приватный репозиторий открылся бы сервисным
@@ -14,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import hmac
 from collections.abc import Callable
 from contextvars import ContextVar
 from datetime import UTC, datetime, timedelta
@@ -27,7 +29,11 @@ from backend.app.contracts import AnalysisContext, RepositoryRef
 from backend.app.integrations.sourcecraft import (
     SourceCraftAuthenticationError,
     SourceCraftClient,
+    SourceCraftClientError,
+    SourceCraftNetworkError,
+    SourceCraftRateLimitError,
     SourceCraftResponseError,
+    SourceCraftTimeoutError,
 )
 
 # Контрольный период методик Activity и Issues: 180 дней до момента анализа.
@@ -40,6 +46,22 @@ _request_token: ContextVar[str | None] = ContextVar("sourcecraft_request_token",
 
 class RepositorySnapshotError(RuntimeError):
     """Ответ SourceCraft нельзя превратить в контекст. Текст без секретов и PII."""
+
+
+class AnalysisLaunchError(Exception):
+    """Ошибка запуска с фиксированным HTTP-текстом, без тела ответа SourceCraft."""
+
+    def __init__(
+        self,
+        status_code: int,
+        detail: str,
+        *,
+        retry_after_seconds: int | None = None,
+    ) -> None:
+        super().__init__(detail)
+        self.status_code = status_code
+        self.detail = detail
+        self.retry_after_seconds = retry_after_seconds
 
 
 def current_request_token() -> str:
@@ -85,9 +107,10 @@ async def principal_from_authorization(request: Request) -> AnalysisPrincipal:
 class SourceCraftRepositoryContextResolver:
     """Проверяет доступ токеном вызывающего и собирает AnalysisContext.
 
-    Доступ — это ответ SourceCraft на чтение репозитория этим токеном.
-    Успешное чтение приватного репозитория означает, что токен туда допущен.
-    Отказ 401/403 не создаёт задание.
+    Сначала отпечаток токена сверяется с principal. Доступ — это ответ
+    SourceCraft на чтение репозитория этим токеном. Успешное чтение
+    приватного репозитория означает, что токен туда допущен. Отказ 401
+    или 403 не создаёт задание.
     """
 
     def __init__(
@@ -104,19 +127,25 @@ class SourceCraftRepositoryContextResolver:
         repository_id: str,
         principal: AnalysisPrincipal,
     ) -> AnalysisContext:
-        del principal  # Доступ уже привязан к токену этого запроса, не к строке subject.
+        _require_bound_principal(principal)
         return await asyncio.to_thread(self._resolve_sync, repository_id)
 
     def _resolve_sync(self, repository_id: str) -> AnalysisContext:
         client = self._open_client()
         try:
-            return self._load(client, repository_id)
+            try:
+                return self._load(client, repository_id)
+            except RepositorySnapshotError as error:
+                raise AnalysisLaunchError(
+                    502,
+                    "SourceCraft returned an unusable response.",
+                ) from error
         finally:
             client.close()
 
     def _load(self, client: SourceCraftClient, repository_id: str) -> AnalysisContext:
         repository_path = _repository_by_id_path(repository_id)
-        payload = _read_object(client, repository_path)
+        payload = _read_object(client, repository_path, missing_repository=True)
         repository, default_branch, is_empty = _repository_ref(repository_id, payload)
         analyzed_at = self._analyzed_at()
         return AnalysisContext(
@@ -228,20 +257,47 @@ def _commit_sha(
     raise RepositorySnapshotError("default branch commit is unavailable")
 
 
+def _require_bound_principal(principal: AnalysisPrincipal) -> None:
+    """Сверяет отпечаток токена запроса с principal до любого вызова SourceCraft."""
+
+    token = current_request_token()
+    if not hmac.compare_digest(_token_subject(token), principal.subject):
+        raise PermissionError("request token does not match principal")
+
+
 def _read_object(
     client: SourceCraftClient,
     path: str,
     *,
     params: dict[str, str | int] | None = None,
+    missing_repository: bool = False,
 ) -> dict[object, object]:
     try:
         payload = client.get_json(path, params=params)
     except SourceCraftAuthenticationError as error:
+        if error.status_code == 401:
+            raise AnalysisLaunchError(401, "Authentication required.") from error
         raise PermissionError("repository access denied") from error
+    except SourceCraftRateLimitError as error:
+        raise AnalysisLaunchError(
+            429,
+            "SourceCraft rate limit exceeded.",
+            retry_after_seconds=error.retry_after_seconds,
+        ) from error
+    except (SourceCraftTimeoutError, SourceCraftNetworkError) as error:
+        raise AnalysisLaunchError(503, "SourceCraft is unavailable.") from error
     except SourceCraftResponseError as error:
-        if "unexpected HTTP 404" in str(error):
+        if missing_repository and error.status_code == 404:
             raise LookupError("repository not found") from error
-        raise
+        raise AnalysisLaunchError(
+            502,
+            "SourceCraft returned an unusable response.",
+        ) from error
+    except SourceCraftClientError as error:
+        raise AnalysisLaunchError(
+            502,
+            "SourceCraft returned an unusable response.",
+        ) from error
     if not isinstance(payload, dict):
         raise RepositorySnapshotError("SourceCraft response must be an object")
     return payload
