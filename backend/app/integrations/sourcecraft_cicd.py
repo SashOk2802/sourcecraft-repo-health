@@ -29,7 +29,9 @@ _RUN_STATUSES = frozenset(
         "rejected",
     }
 )
-_EVENT_TYPES = frozenset({"push", "pr_update", "manual", "restart", "schedule"})
+# Категории запуска из https://sourcecraft.dev/portal/docs/en/api-ref/CICD/ListRuns.
+# repository_event — категория, а не конкретное имя события EventBus.
+_EVENT_TYPES = frozenset({"push", "pr_update", "manual", "restart", "schedule", "repository_event"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,5 +140,7 @@ def _parse_timestamp(
         ) from error
 
     if timestamp.tzinfo is None:
-        raise SourceCraftResponseError(f"SourceCraft CI run timestamp {field} must include a timezone")
+        raise SourceCraftResponseError(
+            f"SourceCraft CI run timestamp {field} must include a timezone"
+        )
     return timestamp.astimezone(UTC)

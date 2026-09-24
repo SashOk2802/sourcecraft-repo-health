@@ -46,6 +46,54 @@ class SourceCraftCicdClientTest(unittest.TestCase):
         self.assertEqual(requests[0].url.path, "/repos/example-org/example-repo/cicd/runs")
         self.assertEqual(requests[0].url.params["page_size"], "100")
 
+    def test_list_runs_accepts_all_documented_event_types(self) -> None:
+        # Перечень взят из API-контракта, а не из константы самого клиента.
+        for event_type in (
+            "push",
+            "pr_update",
+            "manual",
+            "restart",
+            "schedule",
+            "repository_event",
+        ):
+            with self.subTest(event_type=event_type):
+                payload = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+                payload["runs"][0]["event_type"] = event_type
+                with httpx.Client(
+                    base_url="https://api.sourcecraft.tech",
+                    transport=httpx.MockTransport(
+                        lambda request, payload=payload: httpx.Response(200, json=payload)
+                    ),
+                ) as http_client:
+                    client = SourceCraftCicdClient(
+                        SourceCraftClient("test-token", http_client=http_client)
+                    )
+
+                    runs = client.list_runs(_repository())
+
+                self.assertEqual(len(runs), 1)
+                self.assertEqual(runs[0].event_type, event_type)
+                self.assertEqual(runs[0].slug, "17")
+                self.assertEqual(runs[0].status, "success")
+
+    def test_list_runs_rejects_invalid_event_type_values(self) -> None:
+        for event_type in (None, "", 123, True, [], {}, "unknown-event", "issue_comment.create"):
+            with self.subTest(event_type=event_type):
+                payload = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+                payload["runs"][0]["event_type"] = event_type
+                with httpx.Client(
+                    base_url="https://api.sourcecraft.tech",
+                    transport=httpx.MockTransport(
+                        lambda request, payload=payload: httpx.Response(200, json=payload)
+                    ),
+                ) as http_client:
+                    client = SourceCraftCicdClient(
+                        SourceCraftClient("test-token", http_client=http_client)
+                    )
+
+                    with self.assertRaises(SourceCraftResponseError):
+                        client.list_runs(_repository())
+
     def test_list_runs_rejects_unsafe_repository_slug_before_request(self) -> None:
         requests: list[httpx.Request] = []
         http_client = httpx.Client(
@@ -90,13 +138,17 @@ class SourceCraftCicdClientTest(unittest.TestCase):
         first_page = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
         first_page["next_page_token"] = "next-page"
         second_page = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+        second_page["runs"][0]["id"] = "second-run-id-redacted"
         second_page["runs"][0]["slug"] = "18"
+        second_page["runs"][0]["event_type"] = "repository_event"
         second_page["runs"][0]["dates"]["created_at"] = "2026-01-01T03:00:00+03:00"
         requests: list[httpx.Request] = []
 
         def handler(request: httpx.Request) -> httpx.Response:
             requests.append(request)
-            payload = second_page if request.url.params.get("page_token") == "next-page" else first_page
+            payload = (
+                second_page if request.url.params.get("page_token") == "next-page" else first_page
+            )
             return httpx.Response(200, json=payload)
 
         http_client = httpx.Client(
@@ -108,6 +160,7 @@ class SourceCraftCicdClientTest(unittest.TestCase):
         runs = client.list_runs(_repository(), page_size=1)
 
         self.assertEqual(tuple(run.slug for run in runs), ("17", "18"))
+        self.assertEqual(tuple(run.event_type for run in runs), ("manual", "repository_event"))
         self.assertEqual(runs[1].created_at.isoformat(), "2026-01-01T00:00:00+00:00")
         self.assertEqual(len(requests), 2)
         self.assertEqual(requests[0].url.params["page_size"], "1")
