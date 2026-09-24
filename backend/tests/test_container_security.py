@@ -27,9 +27,11 @@ class ContainerSecurityTest(unittest.TestCase):
 
     def test_frontend_vite_cache_is_outside_the_node_modules_volume(self) -> None:
         dockerfile = _read("frontend/Dockerfile")
+        package_json = _read("frontend/package.json")
         vite_config = _read("frontend/vite.config.ts")
 
         self.assertIn("ENV VITE_CACHE_DIR=/tmp/vite-cache", dockerfile)
+        self.assertIn('"dev": "vite --configLoader runner"', package_json)
         self.assertIn('cacheDir: process.env.VITE_CACHE_DIR ?? "node_modules/.vite"', vite_config)
 
 

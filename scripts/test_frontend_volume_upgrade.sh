@@ -32,7 +32,9 @@ docker compose -f "$compose_file" -p "$project_name" run --rm --no-deps frontend
 vite_exit_code=$?
 set -e
 
-if [[ $vite_exit_code -ne 124 ]]; then
+# Depending on the Docker platform, timeout's expected SIGTERM can be surfaced
+# as 124 (BusyBox), 143 (Docker Compose), or 0 after Compose cleans up.
+if [[ $vite_exit_code -ne 0 && $vite_exit_code -ne 124 && $vite_exit_code -ne 143 ]]; then
   cat "$log_file" >&2
   exit "$vite_exit_code"
 fi
@@ -41,3 +43,5 @@ if grep -q "EACCES" "$log_file" || ! grep -q "Local:" "$log_file"; then
   cat "$log_file" >&2
   exit 1
 fi
+
+printf 'Frontend root-owned volume upgrade test passed.\n'
