@@ -329,8 +329,8 @@ API масштабируется по HTTP-нагрузке, workers — по в
 | GET | `/api/v1/me/repositories` | Доступные пользователю проекты в подтверждённом охвате подключения |
 | POST | `/api/v1/connections/sourcecraft` | Подключение SourceCraft и проверка учётных данных |
 | DELETE | `/api/v1/connections/{id}` | Отзыв подключения и прекращение зависимых работ |
-| GET | `/auth/yandex/start` | Начало входа |
-| GET | `/auth/yandex/callback` | Обработка ответа провайдера |
+| GET | `/api/v1/auth/yandex/start` | Начало входа |
+| GET | `/api/v1/auth/yandex/callback` | Обработка ответа провайдера |
 
 Внутренний API интерфейса нужен в обязательной версии. Отдельно документированный внешний API, гарантии совместимости и README badge относятся к расширению со звёздочкой.
 

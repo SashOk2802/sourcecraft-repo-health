@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, RedirectResponse, Response
 
 from backend.app.analysis import (
     AnalysisDispatcher,
@@ -23,6 +23,12 @@ from backend.app.analysis import (
     normalize_analysis_id,
 )
 from backend.app.analysis.dispatch import AnalysisPrincipal
+from backend.app.identity import (
+    YandexAuthenticationError,
+    YandexAuthService,
+    YandexProviderError,
+    create_yandex_auth_service_from_environment,
+)
 from backend.app.scoring.methodology import build_methodology_payload
 
 PrincipalProvider = Callable[[Request], Awaitable[AnalysisPrincipal]]
@@ -34,6 +40,7 @@ def create_app(
     job_store: AnalysisJobStore | None = None,
     analysis_dispatcher: AnalysisDispatcher | None = None,
     principal_provider: PrincipalProvider | None = None,
+    yandex_auth_service: YandexAuthService | None = None,
 ) -> FastAPI:
     """Создаёт HTTP-приложение с хранилищами и необязательным worker анализа."""
 
@@ -44,19 +51,37 @@ def create_app(
         else _default_analysis_job_store()
     )
 
+    effective_principal_provider = principal_provider or _yandex_principal_provider(
+        yandex_auth_service,
+    )
+
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-        await store.start()
-        await jobs.start()
-        if analysis_dispatcher is not None:
-            await analysis_dispatcher.start()
+        store_started = False
+        jobs_started = False
+        auth_started = False
+        dispatcher_started = False
         try:
+            await store.start()
+            store_started = True
+            await jobs.start()
+            jobs_started = True
+            if yandex_auth_service is not None:
+                await yandex_auth_service.start()
+                auth_started = True
+            if analysis_dispatcher is not None:
+                await analysis_dispatcher.start()
+                dispatcher_started = True
             yield
         finally:
-            if analysis_dispatcher is not None:
+            if dispatcher_started:
                 await analysis_dispatcher.close()
-            await jobs.close()
-            await store.close()
+            if auth_started:
+                await yandex_auth_service.close()
+            if jobs_started:
+                await jobs.close()
+            if store_started:
+                await store.close()
 
     app = FastAPI(
         title="SourceCraft Repo Health",
@@ -67,7 +92,8 @@ def create_app(
     app.state.analysis_store = store
     app.state.analysis_job_store = jobs
     app.state.analysis_dispatcher = analysis_dispatcher
-    app.state.principal_provider = principal_provider
+    app.state.principal_provider = effective_principal_provider
+    app.state.yandex_auth_service = yandex_auth_service
 
     @app.get("/health", tags=["system"])
     async def health() -> dict[str, str]:
@@ -87,6 +113,75 @@ def create_app(
 
         return build_methodology_payload()
 
+    @app.get("/api/v1/auth/yandex/start", tags=["authentication"])
+    async def start_yandex_login() -> RedirectResponse:
+        """Начинает Authorization Code + PKCE поток Яндекс ID."""
+
+        auth = _require_yandex_auth(yandex_auth_service)
+        return RedirectResponse(await auth.begin(), status_code=307)
+
+    @app.get("/api/v1/auth/yandex/callback", tags=["authentication"])
+    async def finish_yandex_login(
+        code: str | None = None,
+        state: str | None = None,
+        error: str | None = None,
+    ) -> Response:
+        """Завершает вход и выдаёт браузеру непрозрачную серверную сессию."""
+
+        auth = _require_yandex_auth(yandex_auth_service)
+        if error is not None or code is None or state is None:
+            await auth.cancel(state)
+            raise HTTPException(status_code=401, detail="Yandex authentication was not completed.")
+
+        try:
+            session_token, _ = await auth.complete(code, state)
+        except YandexAuthenticationError as auth_error:
+            raise HTTPException(
+                status_code=401,
+                detail="Yandex authentication was not completed.",
+            ) from auth_error
+        except YandexProviderError as provider_error:
+            raise HTTPException(
+                status_code=502,
+                detail="Yandex authentication provider is unavailable.",
+            ) from provider_error
+
+        response = RedirectResponse(auth.settings.success_redirect_path, status_code=303)
+        response.set_cookie(
+            key=auth.settings.cookie_name,
+            value=session_token,
+            max_age=int(auth.settings.session_ttl.total_seconds()),
+            httponly=True,
+            secure=auth.settings.cookie_secure,
+            samesite="lax",
+            path="/",
+        )
+        return response
+
+    @app.get("/api/v1/me", tags=["authentication"])
+    async def get_current_user(request: Request) -> dict[str, str]:
+        """Возвращает минимальный профиль текущей серверной сессии."""
+
+        auth = _require_yandex_auth(yandex_auth_service)
+        user = await _require_yandex_user(auth, request)
+        return {"id": user.id, "login": user.login}
+
+    @app.post("/api/v1/auth/logout", tags=["authentication"], status_code=204)
+    async def logout(request: Request) -> Response:
+        """Отзывает сессию на сервере и удаляет cookie у браузера."""
+
+        auth = _require_yandex_auth(yandex_auth_service)
+        await auth.logout(request.cookies.get(auth.settings.cookie_name))
+        response = Response(status_code=204)
+        response.delete_cookie(
+            key=auth.settings.cookie_name,
+            httponly=True,
+            secure=auth.settings.cookie_secure,
+            samesite="lax",
+            path="/",
+        )
+        return response
+
     @app.post(
         "/api/v1/repositories/{repository_id}/analyses",
         tags=["analyses"],
@@ -105,14 +200,14 @@ def create_app(
                 status_code=503,
                 detail="Analysis dispatch is not configured.",
             )
-        if principal_provider is None:
+        if effective_principal_provider is None:
             raise HTTPException(
                 status_code=503,
                 detail="Analysis authentication is not configured.",
             )
 
         try:
-            principal = await principal_provider(request)
+            principal = await effective_principal_provider(request)
         except (PermissionError, ValueError) as error:
             raise HTTPException(
                 status_code=401,
@@ -163,6 +258,35 @@ def create_app(
         return PlainTextResponse(snapshot.markdown, media_type="text/markdown")
 
     return app
+
+
+def _require_yandex_auth(auth: YandexAuthService | None) -> YandexAuthService:
+    if auth is None:
+        raise HTTPException(status_code=503, detail="Yandex authentication is not configured.")
+    return auth
+
+
+async def _require_yandex_user(
+    auth: YandexAuthService,
+    request: Request,
+):
+    try:
+        return await auth.require_user(request.cookies.get(auth.settings.cookie_name))
+    except PermissionError as error:
+        raise HTTPException(status_code=401, detail="Authentication required.") from error
+
+
+def _yandex_principal_provider(
+    auth: YandexAuthService | None,
+) -> PrincipalProvider | None:
+    if auth is None:
+        return None
+
+    async def provide(request: Request) -> AnalysisPrincipal:
+        user = await auth.require_user(request.cookies.get(auth.settings.cookie_name))
+        return AnalysisPrincipal(user.id)
+
+    return provide
 
 
 def _default_analysis_store() -> AnalysisStore:
@@ -251,4 +375,8 @@ def _format_timestamp(value: datetime | None) -> str | None:
     return value.isoformat().replace("+00:00", "Z")
 
 
-app = create_app()
+app = create_app(
+    yandex_auth_service=create_yandex_auth_service_from_environment(
+        os.getenv("DATABASE_URL"),
+    ),
+)
