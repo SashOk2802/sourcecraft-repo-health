@@ -2,6 +2,7 @@ import { Link as GravityLink, Text } from "@gravity-ui/uikit";
 import { useState } from "react";
 
 import type { Evidence } from "../../api/common";
+import { isTechnicalReference } from "./reportHelpers";
 import "./EvidenceLinks.css";
 
 interface EvidenceLinksProps {
@@ -25,19 +26,7 @@ export function EvidenceLinks({ items, limit = 3 }: EvidenceLinksProps) {
     <ul className="evidence">
       {shown.map((item) => (
         <li className="evidence__item" key={`${item.source}:${item.reference}`}>
-          {item.url ? (
-            <GravityLink href={item.url} target="_blank" rel="noreferrer" className="evidence__ref">
-              {item.reference}
-            </GravityLink>
-          ) : (
-            <span className="evidence__ref">{item.reference}</span>
-          )}
-          {item.summary && (
-            <Text variant="body-1" color="secondary">
-              {" "}
-              — {item.summary}
-            </Text>
-          )}
+          <EvidenceItem item={item} />
         </li>
       ))}
       {hiddenCount > 0 && (
@@ -48,5 +37,38 @@ export function EvidenceLinks({ items, limit = 3 }: EvidenceLinksProps) {
         </li>
       )}
     </ul>
+  );
+}
+
+function EvidenceItem({ item }: { item: Evidence }) {
+  // Служебный код вроде ci-runs заменяем описанием: ссылка остаётся, пропадает только код.
+  if (isTechnicalReference(item.reference) && item.summary) {
+    return item.url ? (
+      <GravityLink href={item.url} target="_blank" rel="noreferrer" className="evidence__ref">
+        {item.summary}
+      </GravityLink>
+    ) : (
+      <Text variant="body-1" color="secondary">
+        {item.summary}
+      </Text>
+    );
+  }
+
+  return (
+    <>
+      {item.url ? (
+        <GravityLink href={item.url} target="_blank" rel="noreferrer" className="evidence__ref">
+          {item.reference}
+        </GravityLink>
+      ) : (
+        <span className="evidence__ref">{item.reference}</span>
+      )}
+      {item.summary && (
+        <Text variant="body-1" color="secondary">
+          {" "}
+          — {item.summary}
+        </Text>
+      )}
+    </>
   );
 }

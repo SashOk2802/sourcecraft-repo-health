@@ -6,9 +6,12 @@ import {
   buildFormula,
   hasMetrics,
   isMeasured,
+  isTechnicalReference,
+  metricEvidence,
   metricTone,
   splitHighlights,
   summarizeBands,
+  visibleMetrics,
 } from "./reportHelpers";
 
 function measured(code: string, score: number, weight: number, measuredWeight: number): ReportCategory {
@@ -137,5 +140,80 @@ describe("splitHighlights", () => {
   it("неприменимую категорию не выдаёт за непроверенную", () => {
     const notApplicable: ReportCategory = { ...unavailable, status: "not_applicable", reason: null };
     expect(splitHighlights([notApplicable])).toEqual({ strengths: [], weaknesses: [], unchecked: [] });
+  });
+});
+
+// Так backend/app/analyzers/cicd.py отдаёт категорию без оценки: одна служебная метрика доступности.
+const cicdUnavailable: ReportCategory = {
+  code: "cicd",
+  label: "CI/CD",
+  status: "unavailable",
+  score: null,
+  weight: 20,
+  effectiveWeight: null,
+  points: null,
+  summary: "Не удалось получить историю запусков CI/CD.",
+  reason: "cicd_runs_unavailable",
+  evidence: [
+    {
+      code: "cicd_data_availability",
+      value: "unavailable",
+      normalizedScore: null,
+      summary: "Не удалось получить историю запусков CI/CD.",
+      evidence: [
+        { source: "sourcecraft-cicd", reference: "ci-runs", summary: "Не удалось получить историю запусков CI/CD.", url: null },
+      ],
+    },
+  ],
+};
+
+describe("visibleMetrics", () => {
+  it("у категории без оценки прячет служебную метрику доступности", () => {
+    expect(visibleMetrics(cicdUnavailable)).toEqual([]);
+    expect(hasMetrics(cicdUnavailable)).toBe(false);
+  });
+
+  it("у измеренной категории показывает все метрики", () => {
+    const measuredCicd: ReportCategory = {
+      ...measured("cicd", 58, 20, 75),
+      evidence: [
+        { code: "automated_ci_outcome_runs", value: 40, normalizedScore: null, summary: "С итогом: 40.", evidence: [] },
+        { code: "automated_ci_success_rate", value: 57.5, normalizedScore: 57.5, summary: "Успешно 23 из 40.", evidence: [] },
+      ],
+    };
+    expect(visibleMetrics(measuredCicd).map((metric) => metric.code)).toEqual([
+      "automated_ci_outcome_runs",
+      "automated_ci_success_rate",
+    ]);
+  });
+});
+
+describe("metricEvidence", () => {
+  it("не повторяет текст метрики в её же факте без ссылки", () => {
+    expect(metricEvidence(cicdUnavailable.evidence[0])).toEqual([]);
+  });
+
+  it("факты со ссылкой оставляет", () => {
+    const metric: CategoryMetric = {
+      code: "last_activity_days",
+      value: 3,
+      normalizedScore: 100,
+      summary: "последняя активность 3 дн. назад",
+      evidence: [{ source: "sourcecraft", reference: "last_updated", summary: "последняя активность 3 дн. назад", url: "https://x" }],
+    };
+    expect(metricEvidence(metric)).toHaveLength(1);
+  });
+});
+
+describe("isTechnicalReference", () => {
+  it("узнаёт служебные коды", () => {
+    expect(isTechnicalReference("ci-runs")).toBe(true);
+    expect(isTechnicalReference("last_updated")).toBe(true);
+  });
+
+  it("номера, теги, файлы и слова оставляет", () => {
+    for (const reference of ["#311", "79", "v2.14.0", "README.md", "src/sync/importer.ts", "CODEOWNERS", "AppSec", "readme"]) {
+      expect(isTechnicalReference(reference)).toBe(false);
+    }
   });
 });

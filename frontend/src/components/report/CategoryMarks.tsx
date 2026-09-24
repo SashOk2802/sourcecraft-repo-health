@@ -11,7 +11,7 @@ import { getScoreBand, SCORE_BAND_LIMITS } from "../../lib/scoreBands";
 import { CategoryIcon } from "../CategoryIcon";
 import { CategoryStatusLabel } from "../StatusLabels";
 import { EvidenceLinks } from "./EvidenceLinks";
-import { hasMetrics, metricTone } from "./reportHelpers";
+import { metricEvidence, metricTone, visibleMetrics } from "./reportHelpers";
 import "./CategoryMarks.css";
 
 /*
@@ -47,6 +47,7 @@ function CategoryCard({ category, order }: { category: ReportCategory; order: nu
   const score = category.status === "measured" ? category.score : null;
   const band = score !== null ? getScoreBand(score) : null;
   const meaning = describeCategory(category.code);
+  const metrics = visibleMetrics(category);
 
   return (
     <article id={`category-${category.code}`} className="category-card" style={{ "--rh-step": order } as CSSProperties}>
@@ -77,21 +78,24 @@ function CategoryCard({ category, order }: { category: ReportCategory; order: nu
         </Text>
       </div>
 
-      {hasMetrics(category) ? (
-        <ul className="category-card__metrics">
-          {category.evidence.map((metric) => (
-            <MetricRow key={metric.code} metric={metric} />
-          ))}
-        </ul>
-      ) : (
+      {/* Без оценки главное — почему её нет: summary backend и объяснение причины. */}
+      {(score === null || metrics.length === 0) && (
         <p className="category-card__reason">
           <Text variant="body-2">{category.summary}</Text>{" "}
-          {category.reason !== null && (
+          {score === null && category.reason !== null && (
             <Text variant="body-2" color="secondary">
               {describeReason(category.reason)}
             </Text>
           )}
         </p>
+      )}
+
+      {metrics.length > 0 && (
+        <ul className="category-card__metrics">
+          {metrics.map((metric) => (
+            <MetricRow key={metric.code} metric={metric} />
+          ))}
+        </ul>
       )}
 
     </article>
@@ -100,13 +104,14 @@ function CategoryCard({ category, order }: { category: ReportCategory; order: nu
 
 function MetricRow({ metric }: { metric: CategoryMetric }) {
   const tone = metricTone(metric);
+  const evidence = metricEvidence(metric);
 
   return (
     <li className="category-card__metric">
       <span className={cn("category-card__dot", `category-card__dot_tone_${tone}`)} />
       <span className="category-card__metric-body">
         <span className="category-card__metric-text">{metric.summary}</span>
-        {metric.evidence.length > 0 && <EvidenceLinks items={metric.evidence} limit={2} />}
+        {evidence.length > 0 && <EvidenceLinks items={evidence} limit={2} />}
       </span>
       <span className="category-card__metric-score num">
         {metric.normalizedScore === null ? "—" : formatScore(metric.normalizedScore)}

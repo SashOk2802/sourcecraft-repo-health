@@ -121,15 +121,15 @@ function detailsFor(repository: MockRepository): ReportDetails {
             summary: "Результаты AppSec не получены.",
             reason: "appsec_not_available",
           },
+          // docs/scoring-methodology.md, §4.1: оценка — доля успешных автоматических прогонов, 23 из 40 ≈ 58.
+          // Детали job backend в отчёт не выводит, поэтому и демо ссылается только на историю CI.
           cicd: {
-            summary: "9 из 40 последних прогонов завершились неуспешно.",
+            summary: "Успешно прошли 23 из 40 автоматических прогонов CI за полгода.",
             metrics: [
-              metric("automated_ci_success_rate", 0.78, 58, "6 падений из 9 — на одном job e2e-tests.", [
-                ciRun(base, 4812, "таймаут ожидания браузера"),
-                ciRun(base, 4807, "таймаут ожидания браузера"),
-                ciRun(base, 4799, "не найден элемент списка остановок"),
+              metric("automated_ci_outcome_runs", 40, null, "Автоматических прогонов CI с итогом за полгода: 40.", [
+                ciHistory(base, "push, merge request и расписание; ручные запуски не считаются"),
               ]),
-              metric("pipeline_configured", "да", 100, "CI настроен и запускается на каждый merge request.", []),
+              metric("automated_ci_success_rate", 57.5, 57.5, "Успешно 23 из 40 автоматических прогонов CI.", []),
             ],
           },
           documentation: {
@@ -180,18 +180,14 @@ function detailsFor(repository: MockRepository): ReportDetails {
         },
         recommendations: [
           {
-            code: "cicd-flaky-job",
+            code: "cicd-investigate-failed-runs",
             priority: "p1",
-            problem: "На job e2e-tests приходится 6 из 9 последних падений CI.",
-            action: "Разобраться с падениями job e2e-tests",
-            rationale: "Пока CI краснеет из-за одного нестабильного job, по нему нельзя понять, сломан ли код.",
+            problem: "За полгода упали 17 из 40 автоматических прогонов CI.",
+            action: "Разобрать повторяющиеся падения CI и устранить их причины",
+            rationale: "Нестабильная автоматическая проверка замедляет выпуск изменений и снижает доверие к результатам сборки.",
             expectedEffect: "CI/CD поднимется примерно с 58 до 80.",
             expectedScoreDelta: 5.9,
-            evidence: [
-              ciRun(base, 4812, "таймаут ожидания браузера"),
-              ciRun(base, 4807, "таймаут ожидания браузера"),
-              ciRun(base, 4799, "не найден элемент списка остановок"),
-            ],
+            evidence: [ciHistory(base, "17 неуспешных прогонов за полгода")],
           },
           {
             code: "issues-triage-stale",
@@ -246,7 +242,7 @@ function detailsFor(repository: MockRepository): ReportDetails {
               ]),
             ],
           },
-          cicd: { summary: "38 из 40 последних прогонов прошли, падения не повторяются." },
+          cicd: { summary: "Успешно прошли 38 из 40 автоматических прогонов CI за полгода." },
           documentation: {
             summary: "README с примерами подключения SDK, лицензия Apache 2.0 и CONTRIBUTING. Не описано, как запускать тесты.",
           },
@@ -345,9 +341,9 @@ const bandSummaries: Record<MockCategoryCode, Record<ScoreBand, string>> = {
     low: "Открыты уязвимости высокой критичности, часть из них висит больше месяца.",
   },
   cicd: {
-    high: "Последние прогоны CI проходят стабильно, падения не повторяются.",
-    mid: "Часть прогонов падает, но одни и те же сбои подряд не повторяются.",
-    low: "Прогоны часто падают или CI почти не настроен.",
+    high: "Почти все автоматические прогоны CI проходят успешно.",
+    mid: "Заметная часть автоматических прогонов CI падает.",
+    low: "Автоматические прогоны CI падают почти так же часто, как проходят.",
   },
   documentation: {
     high: "README объясняет запуск и тесты, есть лицензия и CONTRIBUTING.",
@@ -409,10 +405,11 @@ const lowScoreTemplates: Record<MockCategoryCode, RecommendationTemplate> = {
     problem: "AppSec нашёл открытые уязвимости высокой критичности.",
     rationale: "Это самый прямой риск для тех, кто использует проект.",
   },
+  // Как cicd-investigate-failed-runs в backend/app/analyzers/cicd.py: P1 при успешности ниже 80 %.
   cicd: {
     priority: "p1",
-    action: "Починить падающие прогоны CI",
-    problem: "Значительная часть последних прогонов CI завершилась с ошибкой.",
+    action: "Разобрать повторяющиеся падения CI и устранить их причины",
+    problem: "Значительная часть автоматических прогонов CI за полгода завершилась с ошибкой.",
     rationale: "Когда CI всё время красный, настоящие ошибки в коде легко пропустить.",
   },
   issues: {
@@ -495,8 +492,8 @@ export function sourceCraftUrl(repository: MockRepository): string {
   return `https://sourcecraft.dev/${repository.organizationSlug}/${repository.repositorySlug}`;
 }
 
-function ciRun(base: string, id: number, summary: string): Evidence {
-  return { source: "sourcecraft-cicd", reference: `прогон #${id}`, summary, url: `${base}/ci/runs/${id}` };
+function ciHistory(base: string, summary: string): Evidence {
+  return { source: "sourcecraft-cicd", reference: "история CI", summary, url: `${base}/ci` };
 }
 
 function issue(base: string, id: number, summary: string): Evidence {

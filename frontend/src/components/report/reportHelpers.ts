@@ -1,3 +1,4 @@
+import type { Evidence } from "../../api/common";
 import type { CategoryMetric, ReportCategory } from "../../api/report";
 import { formatPoints } from "../../lib/format";
 import { getScoreBand } from "../../lib/scoreBands";
@@ -63,11 +64,42 @@ export function metricTone(metric: CategoryMetric): MetricTone {
 }
 
 /**
+ * Какие метрики показать в карточке категории. У категории без оценки анализаторы
+ * CI/CD и Security кладут служебную метрику доступности (cicd_data_availability,
+ * appsec_data_availability), и её текст повторяет summary. Вместо неё карточка
+ * показывает summary и понятную причину, а остальные метрики — если они что-то добавляют.
+ */
+export function visibleMetrics(category: ReportCategory): CategoryMetric[] {
+  if (isMeasured(category)) {
+    return category.evidence;
+  }
+  const summary = category.summary.trim();
+  return category.evidence.filter(
+    (metric) => !metric.code.endsWith("_data_availability") && metric.summary.trim() !== summary,
+  );
+}
+
+/**
+ * Служебная ссылка факта вида ci-runs или last_updated: человеку она ничего не говорит,
+ * поэтому вместо неё показываем описание. Номера задач, теги релизов и пути к файлам
+ * остаются как есть.
+ */
+export function isTechnicalReference(reference: string): boolean {
+  return /^[a-z][a-z0-9]*(?:[_-][a-z0-9]+)+$/.test(reference);
+}
+
+/** Факты метрики без повтора её же текста: у служебных фактов описание совпадает с метрикой. */
+export function metricEvidence(metric: CategoryMetric): Evidence[] {
+  const summary = metric.summary.trim();
+  return metric.evidence.filter((item) => item.url !== null || item.summary.trim() !== summary);
+}
+
+/**
  * Список метрик показываем, только если backend их прислал: при unavailable,
  * insufficient_sample и пока анализатор не отдал детализацию evidence пустой.
  */
 export function hasMetrics(category: ReportCategory): boolean {
-  return category.evidence.length > 0;
+  return visibleMetrics(category).length > 0;
 }
 
 export interface BandSummary {
