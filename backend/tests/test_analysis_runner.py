@@ -11,7 +11,7 @@ from backend.app.contracts import (
     RecommendationPriority,
     RepositoryRef,
 )
-from backend.app.scoring.engine import METHODOLOGY_VERSION
+from backend.app.scoring.methodology import METHODOLOGY_VERSION
 
 
 class AnalysisRunnerTest(unittest.TestCase):

@@ -8,17 +8,7 @@ from types import MappingProxyType
 from backend.app.analysis.runner import AnalysisExecution
 from backend.app.contracts import CategoryResult, Evidence, MetricResult, Recommendation
 from backend.app.scoring.engine import CategoryContribution, ScoreLimit
-
-CATEGORY_LABELS = MappingProxyType(
-    {
-        "security": "Безопасность",
-        "cicd": "CI/CD",
-        "documentation": "Документация",
-        "activity": "Активность",
-        "issues": "Работа с issues",
-        "code_health": "Состояние кода",
-    }
-)
+from backend.app.scoring.methodology import CATEGORY_LABELS
 
 _STATUS_LABELS = MappingProxyType(
     {
