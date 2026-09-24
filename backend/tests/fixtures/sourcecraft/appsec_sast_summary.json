@@ -1,0 +1,11 @@
+{
+  "engine": "SAST",
+  "availability": "available",
+  "finding_count": 23,
+  "severities": [
+    "HIGH",
+    "LOW",
+    "MEDIUM"
+  ],
+  "reason": null
+}
