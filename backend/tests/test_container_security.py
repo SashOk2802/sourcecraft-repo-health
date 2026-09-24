@@ -25,6 +25,13 @@ class ContainerSecurityTest(unittest.TestCase):
         self.assertIn("chown -R app:app /app", dockerfile)
         self.assertEqual(_last_user(dockerfile), "app")
 
+    def test_frontend_vite_cache_is_outside_the_node_modules_volume(self) -> None:
+        dockerfile = _read("frontend/Dockerfile")
+        vite_config = _read("frontend/vite.config.ts")
+
+        self.assertIn("ENV VITE_CACHE_DIR=/tmp/vite-cache", dockerfile)
+        self.assertIn('cacheDir: process.env.VITE_CACHE_DIR ?? "node_modules/.vite"', vite_config)
+
 
 def _read(relative_path: str) -> str:
     return (PROJECT_ROOT / relative_path).read_text(encoding="utf-8")
