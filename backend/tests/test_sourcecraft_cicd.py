@@ -172,21 +172,28 @@ class SourceCraftCicdClientTest(unittest.TestCase):
             with self.assertRaisesRegex(SourceCraftResponseError, "string id"):
                 client.list_runs(_repository())
 
-    def test_list_runs_combines_pages_and_normalizes_timezones(self) -> None:
+    def test_list_runs_keeps_data_before_terminal_empty_page_and_normalizes_timezones(self) -> None:
         first_page = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
         first_page["next_page_token"] = "next-page"
         second_page = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+        # Наблюдённый endpoint может после последней страницы с данными
+        # вернуть ещё одну пустую страницу с завершающим пустым токеном.
+        second_page["next_page_token"] = "terminal-page"
         second_page["runs"][0]["id"] = "second-run-id-redacted"
         second_page["runs"][0]["slug"] = "18"
         second_page["runs"][0]["event_type"] = "repository_event"
         second_page["runs"][0]["dates"]["created_at"] = "2026-01-01T03:00:00+03:00"
+        terminal_empty_page = {"runs": [], "next_page_token": ""}
         requests: list[httpx.Request] = []
 
         def handler(request: httpx.Request) -> httpx.Response:
             requests.append(request)
-            payload = (
-                second_page if request.url.params.get("page_token") == "next-page" else first_page
-            )
+            page_token = request.url.params.get("page_token")
+            payload = {
+                None: first_page,
+                "next-page": second_page,
+                "terminal-page": terminal_empty_page,
+            }[page_token]
             return httpx.Response(200, json=payload)
 
         http_client = httpx.Client(
@@ -201,9 +208,10 @@ class SourceCraftCicdClientTest(unittest.TestCase):
         self.assertEqual(tuple(run.id for run in runs), ("", "second-run-id-redacted"))
         self.assertEqual(tuple(run.event_type for run in runs), ("manual", "repository_event"))
         self.assertEqual(runs[1].created_at.isoformat(), "2026-01-01T00:00:00+00:00")
-        self.assertEqual(len(requests), 2)
+        self.assertEqual(len(requests), 3)
         self.assertEqual(requests[0].url.params["page_size"], "1")
         self.assertEqual(requests[1].url.params["page_token"], "next-page")
+        self.assertEqual(requests[2].url.params["page_token"], "terminal-page")
 
     def test_list_runs_rejects_unknown_event_type_and_naive_timestamp(self) -> None:
         for field, value, message in (
