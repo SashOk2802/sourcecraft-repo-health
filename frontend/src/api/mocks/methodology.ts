@@ -2,13 +2,16 @@ import type { Methodology } from "../methodology";
 import { mockCategories } from "./catalog";
 
 const texts: Record<(typeof mockCategories)[number]["code"], { measures: string; caveat: string }> = {
+  // docs/scoring-methodology.md, §4.2 и docs/security-analyzer.md.
   security: {
     measures: "Результаты AppSec SourceCraft: SAST, SCA и secret scanning, критичность находок и их исправление.",
-    caveat: "Сами код не сканируем. Если скана не было, это «нет данных», а не «уязвимостей нет».",
+    caveat:
+      "Сами код не сканируем. Пока схема находок AppSec не подтверждена, оценку не ставим — показываем только, есть ли данные. Если скана не было, это «нет данных», а не «уязвимостей нет».",
   },
+  // §4.1: доля успешных автоматических прогонов, минимум пять с итогом.
   cicd: {
-    measures: "Есть ли CI, чем заканчиваются последние прогоны, сколько они длятся и повторяются ли одни и те же сбои.",
-    caveat: "Отменённый или ещё идущий прогон не считаем упавшим.",
+    measures: "Какая доля автоматических прогонов CI за полгода — на push, merge request и по расписанию — прошла успешно.",
+    caveat: "Ручные, отменённые, пропущенные и ещё идущие прогоны не считаем упавшими. Меньше пяти завершённых прогонов — «мало данных».",
   },
   documentation: {
     measures: "README, лицензия, инструкции запуска и тестов, CONTRIBUTING, CODEOWNERS.",
