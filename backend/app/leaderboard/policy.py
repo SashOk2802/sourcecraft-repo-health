@@ -24,6 +24,7 @@ class LeaderboardCandidate:
     repository_id: str
     organization_slug: str
     repository_slug: str
+    methodology_version: str
     score: float
     is_preliminary: bool
     language: str | None
@@ -36,6 +37,9 @@ class LeaderboardCandidate:
             for value in (self.repository_id, self.organization_slug, self.repository_slug)
         ):
             raise ValueError("repository identity fields must not be blank")
+        if not isinstance(self.methodology_version, str) or not self.methodology_version.strip():
+            raise ValueError("methodology_version must be a nonblank string")
+        object.__setattr__(self, "methodology_version", self.methodology_version.strip())
         if not isinstance(self.is_preliminary, bool):
             raise TypeError("is_preliminary must be a bool")
         if isinstance(self.score, bool) or not isinstance(self.score, int | float):
@@ -84,8 +88,9 @@ class LeaderboardRow:
 
 @dataclass(frozen=True, slots=True)
 class LeaderboardResult:
-    """Полные и предварительные результаты одной публичной выборки."""
+    """Полные и предварительные результаты одной версии методики."""
 
+    methodology_version: str
     entries: tuple[LeaderboardRow, ...]
     total: int
     preliminary_entries: tuple[LeaderboardRow, ...]
@@ -95,41 +100,51 @@ class LeaderboardResult:
 def build_leaderboard(
     candidates: Iterable[LeaderboardCandidate],
     *,
+    methodology_version: str,
     filters: LeaderboardFilters | None = None,
     sort: LeaderboardSort = LeaderboardSort.SCORE,
     include_preliminary: bool = False,
 ) -> LeaderboardResult:
-    """Строит рейтинг полной оценки и отдельный список preliminary-результатов.
+    """Строит рейтинг одной версии методики и отдельный список preliminary.
 
-    Место рассчитывается по Score среди всех доступных публичных полных записей
-    до применения фильтров и UI-сортировки. Поэтому сортировка по лайкам или
-    активности переставляет строки, но не меняет места. Равные Score получают
-    общее спортивное место: 1, 2, 2, 4.
+    Переданная версия выбирается до расчёта места: Score разных методик нельзя
+    смешивать в одном сравнении. Место рассчитывается по Score среди всех
+    доступных публичных полных записей этой версии до применения фильтров и
+    UI-сортировки. Поэтому сортировка по лайкам или активности переставляет
+    строки, но не меняет места. Равные Score получают общее спортивное место:
+    1, 2, 2, 4.
     """
 
     if not isinstance(sort, LeaderboardSort):
         raise TypeError("sort must be a LeaderboardSort")
     if not isinstance(include_preliminary, bool):
         raise TypeError("include_preliminary must be a bool")
+    selected_methodology_version = _normalize_methodology_version(methodology_version)
 
     all_candidates = tuple(candidates)
     _validate_candidates(all_candidates)
     if filters is not None and not isinstance(filters, LeaderboardFilters):
         raise TypeError("filters must be a LeaderboardFilters or None")
     effective_filters = filters or LeaderboardFilters()
+    version_candidates = tuple(
+        candidate
+        for candidate in all_candidates
+        if candidate.methodology_version == selected_methodology_version
+    )
 
-    full_rows = _rank_full_candidates(all_candidates)
+    full_rows = _rank_full_candidates(version_candidates)
     visible_full_rows = tuple(row for row in full_rows if _matches(row.candidate, effective_filters))
     ordered_full_rows = _sort_rows(visible_full_rows, sort)
 
     preliminary_rows = tuple(
         LeaderboardRow(candidate=candidate, rank=None)
-        for candidate in all_candidates
+        for candidate in version_candidates
         if candidate.is_preliminary and _matches(candidate, effective_filters)
     )
     ordered_preliminary_rows = _sort_rows(preliminary_rows, sort)
 
     return LeaderboardResult(
+        methodology_version=selected_methodology_version,
         entries=ordered_full_rows,
         total=len(ordered_full_rows),
         preliminary_entries=ordered_preliminary_rows if include_preliminary else (),
@@ -199,10 +214,15 @@ def _matches(candidate: LeaderboardCandidate, filters: LeaderboardFilters) -> bo
 def _validate_candidates(candidates: tuple[LeaderboardCandidate, ...]) -> None:
     if not all(isinstance(candidate, LeaderboardCandidate) for candidate in candidates):
         raise TypeError("candidates must contain LeaderboardCandidate values")
-    identifiers = tuple(candidate.repository_id for candidate in candidates)
+    identifiers = tuple(
+        (candidate.repository_id, candidate.methodology_version) for candidate in candidates
+    )
     duplicates = sorted({value for value in identifiers if identifiers.count(value) > 1})
     if duplicates:
-        raise ValueError(f"duplicate repository ids: {', '.join(duplicates)}")
+        rendered_duplicates = ", ".join(
+            f"{repository_id}@{version}" for repository_id, version in duplicates
+        )
+        raise ValueError(f"duplicate repository/version pairs: {rendered_duplicates}")
 
 
 def _normalize_optional_filter(value: str | None, field_name: str) -> str | None:
@@ -212,3 +232,12 @@ def _normalize_optional_filter(value: str | None, field_name: str) -> str | None
         raise TypeError(f"{field_name} must be a string or None")
     normalized = value.strip()
     return normalized or None
+
+
+def _normalize_methodology_version(value: str) -> str:
+    if not isinstance(value, str):
+        raise TypeError("methodology_version must be a string")
+    normalized = value.strip()
+    if not normalized:
+        raise ValueError("methodology_version must not be blank")
+    return normalized
