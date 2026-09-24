@@ -52,6 +52,7 @@ compose.yaml         единый локальный запуск
 - [CI и тесты](docs/ci-testing-guide.md)
 - [Миграции PostgreSQL](docs/database-migrations.md)
 - [Политика регулярного пересчёта](docs/scheduling-policy.md)
+- [Правила публичного рейтинга](docs/leaderboard-policy.md)
 
 ## Работа в команде
 
