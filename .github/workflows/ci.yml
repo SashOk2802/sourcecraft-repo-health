@@ -77,3 +77,5 @@ jobs:
           persist-credentials: false
       - name: Check Compose configuration
         run: docker compose config --quiet
+      - name: Test frontend upgrade from a root-owned node_modules volume
+        run: bash scripts/test_frontend_volume_upgrade.sh
