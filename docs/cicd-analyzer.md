@@ -31,16 +31,19 @@
 
 ## Подключение SourceCraft
 
-PR №13 добавляет `SourceCraftCicdClient`, который безопасно получает
-пагинированные `SourceCraftCiRun`. После его принятия отдельный адаптер должен
-для каждого `SourceCraftCiRun` создать `CiRunFact(slug, status, event_type,
-created_at)` и передать все факты в `build_facts`. Ошибка клиента должна стать
-`build_facts(None, source_error=...)`, а не нулевой успешностью.
+`SourceCraftCicdClient` безопасно получает пагинированные `SourceCraftCiRun`.
+Адаптер `collect_cicd_facts` из
+`backend/app/integrations/sourcecraft_cicd_facts.py` оставляет только поля,
+нужные для Score: `slug`, статус, тип события и `created_at`, затем создаёт
+`CicdFacts`. Пустой API `id` не передаётся в факты и не мешает сбору истории.
+Ошибка клиента или несовместимый контракт преобразуются в безопасный
+`source_error`, а не в нулевую успешность.
 
-Затем `make_analyzer(provider)` оборачивается в
-`AnalyzerRegistration("cicd", ...)` при сборке общего запуска. До этого этапа
-модуль не зарегистрирован в production dispatcher и не делает вид, что
-анализирует реальный репозиторий самостоятельно.
+`make_cicd_facts_provider(client)` возвращает поставщик, который можно
+передать в `make_analyzer(provider)` и затем обернуть в
+`AnalyzerRegistration("cicd", ...)`. Адаптер ещё не зарегистрирован в
+production dispatcher: для этого ядру нужен безопасный способ связать токен
+SourceCraft с пользователем и проверить доступ к репозиторию.
 
 В наблюдённом ответе SourceCraft API поле `id` запуска может быть пустым, но
 `slug` содержит номер запуска. Поэтому именно `slug` используется для защиты
