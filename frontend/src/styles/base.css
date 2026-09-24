@@ -1,0 +1,254 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--rh-page-bg);
+}
+
+h1,
+h2,
+h3,
+h4,
+p,
+ul,
+ol,
+dl,
+dd,
+figure {
+  margin: 0;
+}
+
+ul,
+ol {
+  padding: 0;
+  list-style: none;
+}
+
+/* Раскладка страницы */
+
+.page {
+  min-height: calc(100vh - 165px);
+  padding: 0 20px 56px;
+}
+
+.page__inner {
+  max-width: var(--rh-page-width);
+  margin: 0 auto;
+}
+
+.page__breadcrumbs {
+  padding: 14px 0 8px;
+}
+
+/*
+ * Шапка страницы — как разворот в Яндекс 360: крупный заголовок на цветной
+ * подложке, а справа объёмная «подставка» с карточкой. Объём нарисован CSS,
+ * без картинок: две плоскости в перспективе и мягкая тень.
+ */
+.page__header {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 10px;
+  min-height: 210px;
+  margin: 18px 0 20px;
+  padding: 38px 40px 34px;
+  overflow: hidden;
+  border-radius: 28px;
+  background: var(--rh-hero-strong);
+  color: var(--rh-hero-ink);
+  isolation: isolate;
+}
+
+.page__header > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Подставка: плоскость, уходящая в глубину. */
+.page__header::before {
+  content: "";
+  position: absolute;
+  right: -40px;
+  bottom: -120px;
+  z-index: 0;
+  width: 420px;
+  height: 260px;
+  border-radius: 36px;
+  background: linear-gradient(160deg, var(--rh-accent) 0%, color-mix(in srgb, var(--rh-accent) 55%, #1b2a6b) 100%);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.25), 0 30px 60px -20px rgba(20, 30, 90, 0.5);
+  transform: perspective(900px) rotateX(58deg) rotateZ(-10deg);
+  opacity: 0.9;
+}
+
+/* Карточка на подставке — намёк на отчёт: строки и точка оценки. */
+.page__header::after {
+  content: "";
+  position: absolute;
+  right: 70px;
+  top: 34px;
+  z-index: 0;
+  width: 190px;
+  height: 128px;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 26px 30px, var(--rh-band-high) 0 9px, transparent 10px),
+    linear-gradient(var(--rh-track), var(--rh-track)) 48px 24px / 110px 8px no-repeat,
+    linear-gradient(var(--rh-track), var(--rh-track)) 48px 40px / 70px 6px no-repeat,
+    linear-gradient(var(--rh-track), var(--rh-track)) 18px 70px / 150px 7px no-repeat,
+    linear-gradient(var(--rh-track), var(--rh-track)) 18px 88px / 120px 7px no-repeat,
+    linear-gradient(var(--rh-track), var(--rh-track)) 18px 106px / 90px 7px no-repeat,
+    var(--rh-surface);
+  box-shadow: 0 24px 40px -18px rgba(20, 30, 90, 0.45), 0 2px 6px rgba(20, 30, 90, 0.12);
+  transform: perspective(900px) rotateY(-18deg) rotateX(8deg) rotateZ(4deg);
+}
+
+/* Размер задаём с уточнённым селектором: вариант текста Gravity иначе перебивает его. */
+.page__header .page__title {
+  display: block;
+  max-width: 720px;
+  margin-bottom: 2px;
+  font-size: 46px;
+  line-height: 1.04;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  color: var(--rh-hero-ink);
+}
+
+.page__header > * {
+  max-width: 660px;
+}
+
+.page__lead {
+  max-width: 640px;
+  color: color-mix(in srgb, var(--rh-hero-ink) 68%, transparent);
+}
+
+@media (max-width: 1100px) {
+  .page__header::before,
+  .page__header::after {
+    display: none;
+  }
+}
+
+@media (max-width: 700px) {
+  .page__header {
+    min-height: 0;
+    padding: 26px 22px 22px;
+    border-radius: 22px;
+  }
+
+  .page__header .page__title {
+    font-size: 32px;
+  }
+}
+
+/* Карточка не обведена рамкой, а приподнята над тонированной страницей. */
+.card {
+  padding: 22px 26px;
+  border-radius: var(--rh-radius-card);
+  background: var(--rh-surface);
+  box-shadow: var(--rh-shadow-1);
+}
+
+.section {
+  margin-top: 24px;
+}
+
+.section__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  margin-bottom: 12px;
+}
+
+/* Мелочи */
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+.text-secondary {
+  color: var(--g-color-text-secondary);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.row-gap-8 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 900px) {
+  .page {
+    padding: 0 12px 40px;
+  }
+
+  .card {
+    padding: 16px 18px;
+    border-radius: var(--rh-radius-inner);
+  }
+}
+
+/*
+ * Печать. Браузеры по умолчанию не печатают фоны и тени, поэтому
+ * приподнятые карточки на бумаге превратились бы в текст без границ:
+ * на печати глубину заменяет тонкая рамка.
+ */
+@media print {
+  body {
+    background: #fff;
+  }
+
+  .page {
+    padding: 0;
+  }
+
+  .card {
+    border: 1px solid #d9dae0;
+    border-radius: var(--rh-radius-inner);
+    box-shadow: none;
+    background: #fff;
+    break-inside: avoid;
+  }
+
+  .site-header {
+    position: static;
+    backdrop-filter: none;
+    background: #fff;
+  }
+}
+
+/* Фокус с клавиатуры виден всегда и в том же акценте, что и действия. */
+:focus-visible {
+  outline: 2px solid var(--rh-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+::selection {
+  background: var(--rh-accent-soft);
+}
+
+/* Сегменты — пилюли, как переключатели периода в виджетах Яндекса. */
+.g-segmented-radio-group {
+  --g-border-radius-m: var(--rh-radius-chip);
+  --g-border-radius-s: var(--rh-radius-chip);
+  --g-border-radius-l: var(--rh-radius-chip);
+}
