@@ -44,7 +44,10 @@ KNOWN_STATUSES = frozenset(
         "rejected",
     }
 )
-KNOWN_EVENT_TYPES = frozenset({"push", "pr_update", "manual", "restart", "schedule"})
+# Допустимый тип запуска не обязательно участвует в Score (AUTOMATED_EVENT_TYPES).
+KNOWN_EVENT_TYPES = frozenset(
+    {"push", "pr_update", "manual", "restart", "schedule", "repository_event"}
+)
 
 logger = logging.getLogger(__name__)
 

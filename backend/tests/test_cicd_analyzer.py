@@ -23,6 +23,78 @@ from backend.app.contracts import AnalysisContext, CategoryResult, DataStatus, R
 
 
 class CicdAnalyzerTest(unittest.TestCase):
+    def test_repository_event_is_valid_but_not_scored_as_automated(self) -> None:
+        run = CiRunFact(
+            slug="repository-event-run",
+            status="success",
+            event_type="repository_event",
+            created_at=_timestamp(),
+        )
+
+        self.assertEqual(run.event_type, "repository_event")
+        self.assertFalse(run.is_automated)
+
+    def test_repository_event_does_not_change_push_sample_or_score(self) -> None:
+        for status in ("success", "failed", "timeout", "processing"):
+            with self.subTest(status=status):
+                facts = build_facts(
+                    (
+                        *(_run(str(index), "success") for index in range(1, 6)),
+                        _run("repository-event-run", status, event_type="repository_event"),
+                    )
+                )
+
+                result = evaluate(facts, _context())
+
+                self.assertEqual(result.status, DataStatus.MEASURED)
+                self.assertEqual(result.score, 100)
+                self.assertEqual(result.metrics[0].value, 5)
+                self.assertEqual(result.metrics[1].value, 100)
+                self.assertEqual(result.recommendations, ())
+
+    def test_repository_events_do_not_fill_minimum_automated_sample(self) -> None:
+        for push_count in (0, 4):
+            with self.subTest(push_count=push_count):
+                facts = build_facts(
+                    (
+                        *(_run(f"push-{index}", "success") for index in range(push_count)),
+                        *(
+                            _run(f"event-{index}", "success", event_type="repository_event")
+                            for index in range(5)
+                        ),
+                    )
+                )
+
+                result = evaluate(facts, _context())
+
+                self.assertEqual(result.status, DataStatus.INSUFFICIENT_SAMPLE)
+                self.assertIsNone(result.score)
+                self.assertEqual(result.recommendations, ())
+
+    def test_provider_can_build_mixed_event_history_without_losing_cicd_category(self) -> None:
+        def provider(_: RepositoryRef) -> CicdFacts:
+            # Создание фактов внутри поставщика повторяет путь будущего адаптера.
+            return build_facts(
+                (
+                    *(_run(str(index), "success") for index in range(1, 6)),
+                    _run("repository-event-run", "failed", event_type="repository_event"),
+                )
+            )
+
+        execution = run_analysis(
+            _context(),
+            (AnalyzerRegistration("cicd", make_analyzer(provider)),),
+        )
+        result = next(
+            category for category in execution.analysis.categories if category.category == "cicd"
+        )
+
+        self.assertEqual(result.status, DataStatus.MEASURED)
+        self.assertEqual(result.score, 100)
+        self.assertEqual(result.metrics[0].value, 5)
+        self.assertEqual(execution.analysis.score, 100)
+        self.assertEqual(execution.score_summary.coverage, 0.2)
+
     def test_measures_success_rate_from_automated_outcome_runs(self) -> None:
         facts = build_facts(
             (
