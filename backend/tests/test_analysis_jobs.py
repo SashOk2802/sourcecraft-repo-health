@@ -19,6 +19,7 @@ class AnalysisJobTest(unittest.TestCase):
         queued = AnalysisJob.queued(
             analysis_id="analysis-42",
             repository_id="repo-42",
+            owner_subject="user-42",
             created_at=self.created_at,
         )
 
@@ -36,6 +37,7 @@ class AnalysisJobTest(unittest.TestCase):
         queued = AnalysisJob.queued(
             analysis_id="analysis-42",
             repository_id="repo-42",
+            owner_subject="user-42",
             created_at=self.created_at,
         )
 
@@ -49,6 +51,7 @@ class AnalysisJobTest(unittest.TestCase):
         running = AnalysisJob.queued(
             analysis_id="analysis-42",
             repository_id="repo-42",
+            owner_subject="user-42",
             created_at=self.created_at,
         ).started(self.created_at + timedelta(seconds=1))
 
@@ -66,6 +69,7 @@ class InMemoryAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
         job = AnalysisJob.queued(
             analysis_id="analysis-42",
             repository_id="repo-42",
+            owner_subject="user-42",
             created_at=created_at,
         )
 
@@ -89,12 +93,14 @@ class InMemoryAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
         active = AnalysisJob.queued(
             analysis_id="analysis-active",
             repository_id="repo-42",
+            owner_subject="user-42",
             created_at=created_at,
             worker_id=active_worker,
         )
         abandoned = AnalysisJob.queued(
             analysis_id="analysis-abandoned",
             repository_id="repo-42",
+            owner_subject="user-42",
             created_at=created_at,
             worker_id=abandoned_worker,
         )

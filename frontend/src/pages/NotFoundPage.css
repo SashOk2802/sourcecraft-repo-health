@@ -1,0 +1,11 @@
+.not-found {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  margin-top: 24px;
+  padding: 40px;
+}
+
+.not-found > div {
+  margin-top: 12px;
+}

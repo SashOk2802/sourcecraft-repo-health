@@ -1,0 +1,26 @@
+.site-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 24px;
+  max-width: var(--rh-page-width);
+  margin: 0 auto;
+  padding: 18px 20px 32px;
+  border-top: 1px solid var(--g-color-line-generic);
+}
+
+.site-footer__text {
+  max-width: 680px;
+}
+
+.site-footer__link {
+  color: var(--g-color-text-link);
+  font-size: var(--g-text-body-1-font-size);
+}
+
+@media print {
+  .site-footer {
+    display: none;
+  }
+}

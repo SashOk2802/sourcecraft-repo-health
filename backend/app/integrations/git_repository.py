@@ -157,17 +157,30 @@ class LocalGitRepository:
         return self._resolve_within_temp(relative_path) is not None
 
     def read_file(self, relative_path: str) -> str | None:
-        """Безопасно читает содержимое файла.
+        """Безопасно читает содержимое файла (делегирует read_file_safe).
 
-        Путь нормализуется и обязан находиться внутри временной директории;
-        ``..``, абсолютные пути и симлинки наружу отклоняются.
+        Обратная совместимость: полный лимит размера применяется внутри
+        :meth:`read_file_safe` со значением по умолчанию (1 MiB).
+        """
+        return self.read_file_safe(relative_path)
+
+    def read_file_safe(
+        self, relative_path: str, max_bytes: int = 1_048_576
+    ) -> str | None:
+        """Безопасно читает содержимое файла с ограничением размера.
+
+        Путь нормализуется через realpath и обязан находиться внутри временной
+        директории; ``..``, абсолютные пути и симлинки наружу отклоняются
+        (см. :meth:`_resolve_within_temp`). Читается не более ``max_bytes`` байт —
+        файл больше лимита обрезается, а не читается целиком. Возвращает ``None``
+        при попытке выхода за пределы temp_dir или ошибке чтения.
         """
         full_path = self._resolve_within_temp(relative_path)
         if full_path is None:
             return None
         try:
             with open(full_path, "r", encoding="utf-8", errors="ignore") as f:
-                return f.read()
+                return f.read(max_bytes)
         except OSError:
             return None
 

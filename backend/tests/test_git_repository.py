@@ -150,6 +150,40 @@ def test_read_file_rejects_symlink_out_of_tree(tmp_path):
     assert repo.file_exists("link.md") is False
 
 
+# --- R.1: безопасное чтение с ограничением размера (read_file_safe) -----------
+
+
+def test_read_file_safe_respects_max_bytes(tmp_path):
+    """Лимит размера применяется: читается не более max_bytes байт (R.1)."""
+    repo = LocalGitRepository(repo_url="https://example/repo.git")
+    repo.temp_dir = str(tmp_path)
+    (tmp_path / "data.txt").write_text("hello world", encoding="utf-8")
+
+    assert repo.read_file_safe("data.txt", max_bytes=5) == "hello"
+    assert repo.read_file_safe("data.txt", max_bytes=0) == ""
+    assert repo.read_file_safe("data.txt") == "hello world"  # лимит по умолчанию
+
+
+def test_read_file_safe_returns_none_for_escape_and_unreadable(tmp_path):
+    """Пути наружу temp_dir и отсутствующие файлы дают None (R.1)."""
+    repo = LocalGitRepository(repo_url="https://example/repo.git")
+    repo.temp_dir = str(tmp_path)
+
+    assert repo.read_file_safe("../outside.txt") is None
+    assert repo.read_file_safe("../../etc/passwd") is None
+    assert repo.read_file_safe("absent.txt") is None
+
+
+def test_read_file_delegates_to_read_file_safe(tmp_path):
+    """read_file сохраняет контракт, делегируя безопасное чтение (R.1)."""
+    repo = LocalGitRepository(repo_url="https://example/repo.git")
+    repo.temp_dir = str(tmp_path)
+    (tmp_path / "README.md").write_text("hello", encoding="utf-8")
+
+    assert repo.read_file("README.md") == "hello"
+    assert repo.read_file("../../etc/passwd") is None
+
+
 # --- I.3: сбой cleanup не пробрасывается наружу ------------------------------
 
 

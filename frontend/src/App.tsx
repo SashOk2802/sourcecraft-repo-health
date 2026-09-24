@@ -1,64 +1,48 @@
-import { useEffect, useState } from "react";
+import type { ReactElement } from "react";
 
-// Методика v1: шесть фиксированных категорий (см. docs/frontend-review-response.md).
-type Category = {
-  code: string;
-  label: string;
-  score: number | null;
-  summary: string;
-};
-
-const categories: Category[] = [
-  // Методика v1: 60 — потолок Score при подтверждённой открытой критической
-  // уязвимости; «критических нет» и потолок 60 одновременно не показываются.
-  { code: "security", label: "Безопасность", score: 60, summary: "Подтверждена открытая критическая уязвимость в зависимостях." },
-  { code: "cicd", label: "CI/CD", score: 85, summary: "Пайплайн выполняется стабильно." },
-  { code: "documentation", label: "Документация", score: 90, summary: "README, лицензия и регламенты на месте." },
-  { code: "activity", label: "Активность", score: 70, summary: "Проект регулярно обновляется." },
-  { code: "issues", label: "Работа с issues", score: 75, summary: "Большинство задач закрывается без просрочек." },
-  { code: "code_health", label: "Состояние кода", score: 88, summary: "TODO и FIXME в пределах нормы." },
-];
+import { SiteFooter } from "./components/SiteFooter";
+import { SiteHeader } from "./components/SiteHeader";
+import { AnalysisPage } from "./pages/AnalysisPage";
+import { LeaderboardPage } from "./pages/LeaderboardPage";
+import { MethodologyPage } from "./pages/MethodologyPage";
+import { MyRepositoriesPage } from "./pages/MyRepositoriesPage";
+import { NotFoundPage } from "./pages/NotFoundPage";
+import { ReportPage } from "./pages/ReportPage";
+import { useRoute } from "./router";
+import { ThemeChoiceProvider } from "./theme/ThemeChoice";
+import type { Route } from "./routes";
 
 export function App() {
-  const [backendStatus, setBackendStatus] = useState("проверяем");
-
-  useEffect(() => {
-    void fetch("/api/v1/health")
-      .then((response) => {
-        if (!response.ok) throw new Error("Backend is unavailable");
-        return response.json() as Promise<{ status: string }>;
-      })
-      .then(() => setBackendStatus("доступен"))
-      .catch(() => setBackendStatus("недоступен"));
-  }, []);
+  const route = useRoute();
 
   return (
-    <main>
-      <header>
-        <p>SourceCraft Repo Health</p>
-        <h1>team/platform-api</h1>
-        <strong>76 <small>/ 100</small></strong>
-        <span>Backend: {backendStatus}</span>
-      </header>
-      <section>
-        <h2>Категории оценки</h2>
-        <div className="grid">
-          {categories.map((category) => (
-            <article key={category.code}>
-              <h3>{category.label}</h3>
-              <b>{category.score ?? "—"}</b>
-              <p>{category.summary}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-      <section>
-        <h2>Рекомендации</h2>
-        <article>
-          <h3>P0 · Обновить уязвимые зависимости</h3>
-          <p>После обновления пакетов повторно запустите анализ.</p>
-        </article>
-      </section>
-    </main>
+    <ThemeChoiceProvider>
+      <SiteHeader route={route} />
+      <main className="page">{renderPage(route)}</main>
+      <SiteFooter />
+    </ThemeChoiceProvider>
   );
+}
+
+function renderPage(route: Route): ReactElement {
+  switch (route.page) {
+    case "leaderboard":
+      return <LeaderboardPage />;
+    case "report":
+      return (
+        <ReportPage
+          key={`${route.organizationSlug}/${route.repositorySlug}`}
+          organizationSlug={route.organizationSlug}
+          repositorySlug={route.repositorySlug}
+        />
+      );
+    case "myRepositories":
+      return <MyRepositoriesPage />;
+    case "analysis":
+      return <AnalysisPage key={route.analysisId} analysisId={route.analysisId} />;
+    case "methodology":
+      return <MethodologyPage />;
+    case "notFound":
+      return <NotFoundPage />;
+  }
 }

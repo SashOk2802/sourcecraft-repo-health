@@ -1,0 +1,123 @@
+/*
+ * Интерфейс построен на Gravity UI — дизайн-системе Яндекса, на которой сделан SourceCraft.
+ * Здесь то, чего в ней нет, и токены, выровненные по тому, как выглядят сервисы Яндекса.
+ *
+ * Замеры с живых сайтов (сентябрь 2026): фон страницы у всех тонированный, а не белый —
+ * Маркет #f5f3f1, Практикум #f0f0f0, Yandex Cloud #e7ebf4; карточки белые поверх него;
+ * радиусы 12–24; кнопки-сегменты — пилюли; основной текст не чистый чёрный.
+ * Тёмная тема — по виджетам Яндекса: почти чёрная страница, графитовые карточки,
+ * те же цвета шкалы, только светлее, чтобы читались на тёмном.
+ */
+.g-root {
+  --g-font-family-sans: "Onest", "Helvetica Neue", Arial, sans-serif;
+
+  /* Кнопки — пилюли, поля ввода — мягкий прямоугольник. */
+  --g-button-border-radius: 999px;
+  --g-text-input-border-radius: 12px;
+
+  --rh-radius-card: 20px;
+  --rh-radius-inner: 12px;
+  --rh-radius-chip: 999px;
+
+  /* Марка SourceCraft: красный только на знаке, не на действиях и не на данных. */
+  --rh-mark: #ff4343;
+
+  /* «Нет данных» — штриховка: её невозможно спутать с низкой оценкой. */
+  --rh-hatch: repeating-linear-gradient(
+    -45deg,
+    var(--g-color-line-generic-accent) 0 1.5px,
+    transparent 1.5px 5px
+  );
+
+  --rh-page-width: 1200px;
+}
+
+/* Светлая тема */
+.g-root_theme_light,
+.g-root_theme_light-hc {
+  /* Слои: тонированная страница, белые карточки поверх неё. */
+  --rh-page-bg: #f2f3f5;
+  --rh-surface: #ffffff;
+  --rh-surface-muted: #f6f7f9;
+  --rh-header-bg: rgba(255, 255, 255, 0.86);
+  --g-color-base-background: var(--rh-page-bg);
+  --g-color-base-float: var(--rh-surface);
+
+  /* Глубина вместо рамок: тень мягкая и почти бесцветная. */
+  --rh-shadow-1: 0 1px 2px rgba(16, 20, 38, 0.04), 0 4px 16px -8px rgba(16, 20, 38, 0.12);
+  --rh-shadow-2: 0 2px 6px rgba(16, 20, 38, 0.06), 0 18px 36px -18px rgba(16, 20, 38, 0.26);
+  --rh-hairline: rgba(16, 20, 38, 0.07);
+
+  /* Действие — синий: он не спорит с зелёно-жёлто-красной шкалой оценок. */
+  --rh-accent: #4e79eb;
+  --rh-accent-hover: #3a5fd0;
+  --rh-accent-soft: #eaefff;
+
+  /* Полосы оценки: заливка насыщенная, подложка — та же краска, разбавленная. */
+  --rh-band-high: #2b9e5f;
+  --rh-band-mid: #dd9613;
+  --rh-band-low: #e5442f;
+  --rh-band-high-soft: #e6f5ec;
+  --rh-band-mid-soft: #fdf1dc;
+  --rh-band-low-soft: #fdeae7;
+  --rh-track: #e9eaee;
+
+  /* Атмосфера шапок: спокойный переход, как в разделах Yandex Cloud и Яндекс 360. */
+  --rh-hero: radial-gradient(120% 140% at 12% 0%, #e8eeff 0%, rgba(232, 238, 255, 0) 58%),
+    radial-gradient(90% 120% at 100% 8%, #fdeef4 0%, rgba(253, 238, 244, 0) 60%), #ffffff;
+  --rh-hero-strong: linear-gradient(135deg, #aebdf7 0%, #c3cdfa 45%, #d9dffc 100%);
+  --rh-hero-ink: #14152b;
+}
+
+/* Тёмная тема */
+.g-root_theme_dark,
+.g-root_theme_dark-hc {
+  --rh-page-bg: #121214;
+  --rh-surface: #1d1d21;
+  --rh-surface-muted: #25252a;
+  --rh-header-bg: rgba(18, 18, 20, 0.82);
+  --g-color-base-background: var(--rh-page-bg);
+  --g-color-base-float: var(--rh-surface);
+
+  /* На тёмном тень почти не видна: глубину дают тонкий блик сверху и плотная тень. */
+  --rh-shadow-1: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 10px 28px -14px rgba(0, 0, 0, 0.7);
+  --rh-shadow-2: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 22px 40px -18px rgba(0, 0, 0, 0.85);
+  --rh-hairline: rgba(255, 255, 255, 0.08);
+
+  --rh-accent: #7194ff;
+  --rh-accent-hover: #93adff;
+  --rh-accent-soft: rgba(113, 148, 255, 0.16);
+
+  --rh-band-high: #3dc47f;
+  --rh-band-mid: #f2ae33;
+  --rh-band-low: #ff634f;
+  --rh-band-high-soft: rgba(61, 196, 127, 0.16);
+  --rh-band-mid-soft: rgba(242, 174, 51, 0.16);
+  --rh-band-low-soft: rgba(255, 99, 79, 0.16);
+  --rh-track: #2d2d33;
+
+  --rh-hero: radial-gradient(120% 140% at 10% 0%, rgba(113, 148, 255, 0.2) 0%, rgba(113, 148, 255, 0) 55%),
+    radial-gradient(90% 120% at 100% 10%, rgba(255, 99, 150, 0.12) 0%, rgba(255, 99, 150, 0) 58%), #1d1d21;
+  --rh-hero-strong: radial-gradient(80% 120% at 85% 20%, rgba(113, 148, 255, 0.32) 0%, rgba(113, 148, 255, 0) 60%),
+    radial-gradient(60% 90% at 10% 100%, rgba(255, 140, 60, 0.14) 0%, rgba(255, 140, 60, 0) 60%), #17171b;
+  --rh-hero-ink: #f4f4f7;
+}
+
+/* Общие для обеих тем связки с Gravity UI */
+.g-root_theme_light,
+.g-root_theme_light-hc,
+.g-root_theme_dark,
+.g-root_theme_dark-hc {
+  --g-color-base-brand: var(--rh-accent);
+  --g-color-base-brand-hover: var(--rh-accent-hover);
+  --g-color-text-brand: var(--rh-accent);
+  --g-color-text-brand-contrast: #ffffff;
+  --g-color-line-brand: var(--rh-accent);
+  --g-color-text-link: var(--rh-accent);
+  --g-color-text-link-hover: var(--rh-accent-hover);
+
+  /* Выбранный сегмент и пункт списка — акцентным синим, а не жёлтым по умолчанию Gravity. */
+  --g-color-base-selection: var(--rh-accent-soft);
+  --g-color-base-selection-hover: color-mix(in srgb, var(--rh-accent) 24%, transparent);
+  --g-color-text-brand-heavy: var(--rh-accent);
+}

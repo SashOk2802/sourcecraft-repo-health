@@ -1,8 +1,12 @@
+import os
 from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+from backend.app.analyzers.code_health import (
+    MAX_FILE_READ_BYTES,
+)
 from backend.app.analyzers.code_health import (
     collect as ch_collect,
 )
@@ -65,17 +69,14 @@ def make_real_repo(tmp_path) -> LocalGitRepository:
 def test_code_health_collect_counts_markers_and_files():
     """Проверяет корректность сбора фактов о TODO/FIXME (4.6, 4.9)."""
     repo = mock_repo()
-    with patch("os.walk") as mock_walk, patch("builtins.open", create=True) as mock_open:
+    repo.read_file_safe.side_effect = [
+        "def test():\n    # todo: fix this\n    # FIXME: critical defect",
+        "console.log('clean code');",
+    ]
+    with patch("os.walk") as mock_walk:
         mock_walk.return_value = [
             ("/fake_repo", [], ["main.py", "script.js", "styles.css"])
         ]
-
-        mock_file_ctx = MagicMock()
-        mock_file_ctx.__enter__.return_value.read.side_effect = [
-            "def test():\n    # todo: fix this\n    # FIXME: critical defect",
-            "console.log('clean code');",
-        ]
-        mock_open.return_value = mock_file_ctx
 
         facts = ch_collect(repo)
 
@@ -86,6 +87,12 @@ def test_code_health_collect_counts_markers_and_files():
     assert len(facts["occurrences"]) == 2  # 4.6: по одному на каждый маркер
     assert facts["occurrences"][0]["path"] == "main.py"
     assert facts["occurrences"][0]["line"] == 2
+    # Все чтения идут через read_file_safe с явным байтовым лимитом (R.2).
+    assert repo.read_file_safe.call_count == 2
+    assert all(
+        call.kwargs.get("max_bytes") == MAX_FILE_READ_BYTES
+        for call in repo.read_file_safe.call_args_list
+    )
 
 
 def test_code_health_collect_skips_excluded_directories(tmp_path):
@@ -134,6 +141,66 @@ def test_code_health_collect_requires_cloned_workspace(mock_context):
     """collect без подготовленного клона — ошибка git-слоя, а не внутренняя (I.6)."""
     with pytest.raises(GitCloneError):
         ch_collect(mock_repo(temp_dir=None))
+
+
+@pytest.mark.skipif(not hasattr(os, "symlink"), reason="symlinks unsupported")
+def test_code_health_collect_ignores_symlink_outside_clone(tmp_path):
+    """Симлинк наружу клона не даёт вклад в TODO/FIXME (R.3).
+
+    Файл-симлинк встречается при os.walk, но read_file_safe отклоняет его по
+    realpath-контролю границ temp_dir и возвращает None — collect пропускает
+    файл и продолжает сканирование остальных.
+    """
+    outside = tmp_path.parent / "evil-outside.py"
+    outside.write_text("# TODO: evil\n# FIXME: secret\n", encoding="utf-8")
+    link = tmp_path / "evil.py"
+    try:
+        os.symlink(outside, link)
+    except OSError:
+        pytest.skip("symlink creation not permitted")
+
+    (tmp_path / "app.py").write_text("# TODO: real\n", encoding="utf-8")
+
+    facts = ch_collect(make_real_repo(tmp_path))
+
+    assert facts["total_files"] == 2  # оба файла встречены обходом директории
+    assert facts["todo_count"] == 1  # только app.py дал маркер
+    assert facts["fixme_count"] == 0  # evil.py наружу не прочитан
+    assert facts["files_with_debt"] == 1
+    assert [occurrence["path"] for occurrence in facts["occurrences"]] == ["app.py"]
+
+
+def test_code_health_collect_does_not_read_oversized_file_fully(tmp_path, monkeypatch):
+    """Файл больше лимита читается с ограничением, collect не зависает (R.2/R.3).
+
+    Создаётся реальный файл ~2 MiB (больше MAX_FILE_READ_BYTES = 1 MiB), поверх
+    read_file_safe ставится spy: лимит проверяется по вызову (mock), без
+    выделения гигабайтных фикстур. Маркер за пределами лимита в факты не попадает.
+    """
+    repo = make_real_repo(tmp_path)
+    big = tmp_path / "big.py"
+    chunk = "x" * (128 * 1024)  # блок 128 KiB, пишем частями, не раздувая память
+    with big.open("w", encoding="utf-8") as f:
+        f.write("# TODO: near start\n")
+        for _ in range(16):
+            f.write(chunk)
+        f.write("# FIXME: beyond limit\n")
+
+    captured_max_bytes: list[int] = []
+    original = LocalGitRepository.read_file_safe
+
+    def spy(self, relative_path, max_bytes=MAX_FILE_READ_BYTES):
+        captured_max_bytes.append(max_bytes)
+        return original(self, relative_path, max_bytes=max_bytes)
+
+    monkeypatch.setattr(LocalGitRepository, "read_file_safe", spy)
+
+    facts = ch_collect(repo)
+
+    assert captured_max_bytes == [MAX_FILE_READ_BYTES]
+    assert facts["total_files"] == 1
+    assert facts["todo_count"] == 1  # маркер в начале файла найден
+    assert facts["fixme_count"] == 0  # маркер за пределами лимита не прочитан
 
 
 # --- code_health: evaluate --------------------------------------------------

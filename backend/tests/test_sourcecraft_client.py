@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
 import httpx
 
@@ -48,6 +49,129 @@ class SourceCraftClientTest(unittest.TestCase):
         client = SourceCraftClient("test-token", http_client=http_client)
 
         self.assertIsNone(client.get_json("/appsec/defects"))
+
+    def test_get_paginated_objects_follows_next_page_token(self) -> None:
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            if request.url.params.get("page_token") == "page-2":
+                return httpx.Response(
+                    200,
+                    json={"runs": [{"id": "run-2"}], "next_page_token": ""},
+                )
+            return httpx.Response(
+                200,
+                json={"runs": [{"id": "run-1"}], "next_page_token": "page-2"},
+            )
+
+        http_client = httpx.Client(
+            base_url="https://api.sourcecraft.tech",
+            transport=httpx.MockTransport(handler),
+        )
+        client = SourceCraftClient("test-token", http_client=http_client)
+
+        runs = client.get_paginated_objects("/repos/example-org/example-repo/cicd/runs", items_field="runs")
+
+        self.assertEqual(runs, [{"id": "run-1"}, {"id": "run-2"}])
+        self.assertEqual(len(requests), 2)
+        self.assertEqual(requests[0].url.params["page_size"], "100")
+        self.assertNotIn("page_token", requests[0].url.params)
+        self.assertEqual(requests[1].url.params["page_token"], "page-2")
+
+    def test_get_paginated_objects_rejects_repeated_page_token(self) -> None:
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            return httpx.Response(200, json={"runs": [], "next_page_token": "same-token"})
+
+        http_client = httpx.Client(
+            base_url="https://api.sourcecraft.tech",
+            transport=httpx.MockTransport(handler),
+        )
+        client = SourceCraftClient("test-token", http_client=http_client)
+
+        with self.assertRaisesRegex(SourceCraftResponseError, "repeated next_page_token"):
+            client.get_paginated_objects("/repos/example-org/example-repo/cicd/runs", items_field="runs")
+
+        self.assertEqual(len(requests), 2)
+
+    def test_get_paginated_objects_rejects_invalid_page_shapes(self) -> None:
+        invalid_payloads: tuple[object, ...] = (
+            [{"id": "not-an-envelope"}],
+            {"runs": {"id": "not-a-list"}},
+            {"runs": ["not-an-object"]},
+            {"runs": [], "next_page_token": 42},
+        )
+
+        for payload in invalid_payloads:
+            with self.subTest(payload=payload):
+                http_client = httpx.Client(
+                    base_url="https://api.sourcecraft.tech",
+                    transport=httpx.MockTransport(
+                        lambda request, payload=payload: httpx.Response(200, json=payload)
+                    ),
+                )
+                client = SourceCraftClient("test-token", http_client=http_client)
+
+                with self.assertRaises(SourceCraftResponseError):
+                    client.get_paginated_objects(
+                        "/repos/example-org/example-repo/cicd/runs",
+                        items_field="runs",
+                    )
+
+    def test_get_paginated_objects_stops_at_configured_page_limit(self) -> None:
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            return httpx.Response(
+                200,
+                json={"runs": [], "next_page_token": f"page-{len(requests)}"},
+            )
+
+        http_client = httpx.Client(
+            base_url="https://api.sourcecraft.tech",
+            transport=httpx.MockTransport(handler),
+        )
+        client = SourceCraftClient("test-token", http_client=http_client)
+
+        with self.assertRaisesRegex(SourceCraftResponseError, "page limit"):
+            client.get_paginated_objects(
+                "/repos/example-org/example-repo/cicd/runs",
+                items_field="runs",
+                max_pages=2,
+            )
+
+        self.assertEqual(len(requests), 2)
+
+    def test_get_paginated_objects_validates_configuration_before_request(self) -> None:
+        requests: list[httpx.Request] = []
+        http_client = httpx.Client(
+            base_url="https://api.sourcecraft.tech",
+            transport=httpx.MockTransport(
+                lambda request: requests.append(request) or httpx.Response(200, json={"runs": []})
+            ),
+        )
+        client = SourceCraftClient("test-token", http_client=http_client)
+
+        with self.assertRaises(ValueError):
+            client.get_paginated_objects("/repos/example-org/example-repo/cicd/runs", items_field="")
+        with self.assertRaises(ValueError):
+            client.get_paginated_objects(
+                "/repos/example-org/example-repo/cicd/runs",
+                items_field="runs",
+                page_size=0,
+            )
+        with self.assertRaises(ValueError):
+            client.get_paginated_objects(
+                "/repos/example-org/example-repo/cicd/runs",
+                items_field="runs",
+                max_pages=0,
+            )
+
+        self.assertEqual(requests, [])
 
     def test_authentication_error_does_not_include_token(self) -> None:
         secret_token = "token-that-must-not-appear-in-errors"
@@ -152,6 +276,35 @@ class SourceCraftClientTest(unittest.TestCase):
     def test_untrusted_base_url_is_rejected(self) -> None:
         with self.assertRaisesRegex(ValueError, "official HTTPS API host"):
             SourceCraftClient("test-token", base_url="https://attacker.example")
+
+    def test_resolve_git_clone_url_rejects_untrusted_host(self) -> None:
+        """git-clone URL не строится для хоста вне allowlist доверенных хостов.
+
+        Дополнительно контролируется точка git-инвокации: ни один вызов
+        subprocess.run (клонирование) не должен произойти для недоверенного хоста.
+        """
+        with patch(
+            "backend.app.integrations.git_repository.subprocess.run"
+        ) as mock_run:
+            for untrusted_web_url in (
+                # Случай из ТЗ: полностью чужой домен.
+                "https://attacker.example/org/repo",
+                # Хосты-«двойники», содержащие официальный домен подстрокой:
+                # точное совпадение с allowlist обязательно, подстрока не проходит.
+                "https://api.sourcecraft.tech.attacker.example/org/repo",
+                "https://attacker-sourcecraft.dev/org/repo",
+                "https://sourcecraft.dev.attacker.example/org/repo",
+            ):
+                with self.subTest(web_url=untrusted_web_url), self.assertRaises(
+                    SourceCraftRequestError
+                ):
+                    SourceCraftClient.resolve_git_clone_url(
+                        "attacker",
+                        "repo",
+                        untrusted_web_url,
+                    )
+
+        mock_run.assert_not_called()
 
     def test_injected_http_client_with_untrusted_base_url_is_rejected_before_request(self) -> None:
         requests: list[httpx.Request] = []

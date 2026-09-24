@@ -1,0 +1,6 @@
+.page-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 24px 0;
+}

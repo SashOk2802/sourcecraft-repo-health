@@ -1,0 +1,10 @@
+/* Переключатель — пилюля, как сегменты в сервисах Яндекса. */
+.theme-switch {
+  --g-border-radius-m: var(--rh-radius-chip);
+  flex: 0 0 auto;
+}
+
+.theme-switch .g-segmented-radio-group__option-text {
+  display: inline-flex;
+  align-items: center;
+}

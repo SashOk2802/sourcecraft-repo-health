@@ -58,6 +58,10 @@ FIXME_PENALTY_PER_MARKER = 5.0
 TODO_PENALTY_PER_MARKER = 1.0
 DENSITY_SCALE_TO_POINTS = 100.0
 
+# Максимум байт, читаемых из одного файла репозитория: файлы больше лимита
+# обрезаются, а не читаются целиком (безопасное чтение через read_file_safe).
+MAX_FILE_READ_BYTES = 1_048_576
+
 # Порог, после которого рекомендация по TODO считается обоснованной.
 TODO_RECOMMENDATION_THRESHOLD = 15
 
@@ -96,11 +100,13 @@ def collect(repo: LocalGitRepository) -> dict:
                 continue
 
             facts["total_files"] += 1
-            full_path = os.path.join(root, file)
-            try:
-                with open(full_path, "r", encoding="utf-8", errors="ignore") as f:
-                    content = f.read()
-            except OSError:
+            relative_path = os.path.relpath(os.path.join(root, file), temp_dir).replace(
+                os.sep, "/"
+            )
+            content = repo.read_file_safe(relative_path, max_bytes=MAX_FILE_READ_BYTES)
+            if content is None:
+                # Путь вне temp_dir (симлинк наружу и т.п.) или ошибка чтения —
+                # файл пропускается, сканирование продолжается без прерывания.
                 continue
 
             todos = len(TODO_PATTERN.findall(content))
@@ -111,7 +117,6 @@ def collect(repo: LocalGitRepository) -> dict:
             facts["todo_count"] += todos
             facts["fixme_count"] += fixmes
             facts["files_with_debt"] += 1
-            relative_path = os.path.relpath(full_path, temp_dir).replace(os.sep, "/")
             facts["occurrences"].extend(
                 _marker_occurrences(relative_path, content, TODO_PATTERN, "TODO")
             )

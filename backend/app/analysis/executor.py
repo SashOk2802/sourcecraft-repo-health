@@ -83,6 +83,7 @@ class AnalysisExecutionService:
         context: AnalysisContext,
         analysis_id: str,
         *,
+        owner_subject: str,
         worker_id: str | None = None,
     ) -> AnalysisJob:
         """Создаёт queued-запуск до постановки его в очередь обработчику."""
@@ -90,6 +91,7 @@ class AnalysisExecutionService:
         job = AnalysisJob.queued(
             analysis_id=analysis_id,
             repository_id=context.repository.id,
+            owner_subject=owner_subject,
             created_at=self._clock(),
             worker_id=worker_id,
         )
@@ -148,7 +150,11 @@ class AnalysisExecutionService:
                     worker_id=worker_id,
                 )
 
-            await self._snapshot_store.save(job.analysis_id, execution)
+            await self._snapshot_store.save(
+                job.analysis_id,
+                execution,
+                owner_subject=job.owner_subject,
+            )
             return await self._job_store.finish(
                 job.analysis_id,
                 status=status,

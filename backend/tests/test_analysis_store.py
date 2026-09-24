@@ -22,7 +22,7 @@ class InMemoryAnalysisStoreTest(unittest.IsolatedAsyncioTestCase):
     async def test_saved_snapshot_can_be_retrieved_by_identifier(self) -> None:
         store = InMemoryAnalysisStore()
 
-        await store.save("analysis-42", self.execution)
+        await store.save("analysis-42", self.execution, owner_subject="user-42")
         snapshot = await store.get("analysis-42")
 
         self.assertIsNotNone(snapshot)
@@ -33,11 +33,15 @@ class InMemoryAnalysisStoreTest(unittest.IsolatedAsyncioTestCase):
         store = InMemoryAnalysisStore()
 
         with self.assertRaisesRegex(ValueError, "URL-safe characters"):
-            await store.save("analysis/part", self.execution)
+            await store.save("analysis/part", self.execution, owner_subject="user-42")
 
     async def test_snapshot_identifier_cannot_be_reused(self) -> None:
         store = InMemoryAnalysisStore()
-        await store.save("analysis-42", self.execution)
+        await store.save("analysis-42", self.execution, owner_subject="user-42")
 
         with self.assertRaisesRegex(ValueError, "analysis_id already exists"):
-            await store.save("analysis-42", self.execution)
+            await store.save(
+                "analysis-42",
+                self.execution,
+                owner_subject="user-42",
+            )

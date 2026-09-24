@@ -39,6 +39,7 @@ def _configure_mock_repo(mock_repo: MagicMock) -> None:
     mock_repo.cleanup.return_value = None
     mock_repo.file_exists.side_effect = lambda path: path in ("README.md", "LICENSE")
     mock_repo.read_file.return_value = "## How to run\n\n```bash\npytest\n```"
+    mock_repo.read_file_safe.return_value = "# TODO: fix me\n"
 
     def do_clone():
         mock_repo.temp_dir = "/fake"
@@ -94,13 +95,8 @@ def test_orchestration_no_analyzer_not_configured_for_new_categories(
     _configure_mock_repo(mock_repo)
     mock_repo_cls.return_value = mock_repo
 
-    with patch("backend.app.analysis.providers.os.walk") as mock_walk, patch(
-        "builtins.open", create=True
-    ) as mock_open:
+    with patch("backend.app.analysis.providers.os.walk") as mock_walk:
         mock_walk.return_value = [("/fake", [], ["main.py"])]
-        mock_file_ctx = MagicMock()
-        mock_file_ctx.__enter__.return_value.read.return_value = "# TODO: fix me"
-        mock_open.return_value = mock_file_ctx
 
         registrations = tuple(repo_content_analyzer_provider(mock_context))
         execution = run_analysis(mock_context, registrations)

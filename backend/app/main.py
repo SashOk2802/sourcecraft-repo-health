@@ -98,19 +98,8 @@ def create_app(
                 status_code=503,
                 detail="Analysis dispatch is not configured.",
             )
-        if principal_provider is None:
-            raise HTTPException(
-                status_code=503,
-                detail="Analysis authentication is not configured.",
-            )
 
-        try:
-            principal = await principal_provider(request)
-        except (PermissionError, ValueError) as error:
-            raise HTTPException(
-                status_code=401,
-                detail="Authentication required.",
-            ) from error
+        principal = await _require_principal(request)
 
         try:
             job = await analysis_dispatcher.submit(repository_id, principal)
@@ -123,25 +112,59 @@ def create_app(
 
         return _analysis_job_status_payload(job, snapshot=None)
 
+    async def _require_principal(request: Request) -> AnalysisPrincipal:
+        """Возвращает проверенную личность или отклоняет запрос как POST endpoint."""
+        if principal_provider is None:
+            raise HTTPException(
+                status_code=503,
+                detail="Analysis authentication is not configured.",
+            )
+        try:
+            return await principal_provider(request)
+        except (PermissionError, ValueError) as error:
+            raise HTTPException(
+                status_code=401,
+                detail="Authentication required.",
+            ) from error
+
+    def _require_owner(owner_subject: str, principal: AnalysisPrincipal) -> None:
+        """Разрешает чтение только инициатору анализа; чужие анализы скрывает."""
+        if owner_subject != principal.subject:
+            raise HTTPException(
+                status_code=403,
+                detail="Analysis access denied.",
+            )
+
     @app.get("/api/v1/analyses/{analysis_id}", tags=["analyses"])
-    async def get_analysis_status(analysis_id: str) -> dict[str, object]:
+    async def get_analysis_status(
+        analysis_id: str,
+        request: Request,
+    ) -> dict[str, object]:
         """Возвращает queued, running или terminal-состояние одного анализа."""
 
+        principal = await _require_principal(request)
         normalized_id = _normalize_analysis_id(analysis_id)
         job = await jobs.get(normalized_id)
         snapshot = await store.get(normalized_id)
 
         if job is not None:
+            _require_owner(job.owner_subject, principal)
             return _analysis_job_status_payload(job, snapshot)
         if snapshot is not None:
+            _require_owner(snapshot.owner_subject, principal)
             return _analysis_status_payload(snapshot, normalized_id)
         raise HTTPException(status_code=404, detail="Analysis not found.")
 
     @app.get("/api/v1/analyses/{analysis_id}/report", tags=["reports"])
-    async def get_report(analysis_id: str) -> dict[str, object]:
+    async def get_report(
+        analysis_id: str,
+        request: Request,
+    ) -> dict[str, object]:
         """Возвращает JSON-отчёт для одного сохранённого снимка анализа."""
 
+        principal = await _require_principal(request)
         snapshot = await _require_snapshot(store, _normalize_analysis_id(analysis_id))
+        _require_owner(snapshot.owner_subject, principal)
         return snapshot.report
 
     @app.get(
@@ -149,10 +172,15 @@ def create_app(
         tags=["reports"],
         response_class=PlainTextResponse,
     )
-    async def get_markdown_report(analysis_id: str) -> PlainTextResponse:
+    async def get_markdown_report(
+        analysis_id: str,
+        request: Request,
+    ) -> PlainTextResponse:
         """Возвращает Markdown-отчёт по тому же снимку анализа."""
 
+        principal = await _require_principal(request)
         snapshot = await _require_snapshot(store, _normalize_analysis_id(analysis_id))
+        _require_owner(snapshot.owner_subject, principal)
         return PlainTextResponse(snapshot.markdown, media_type="text/markdown")
 
     return app

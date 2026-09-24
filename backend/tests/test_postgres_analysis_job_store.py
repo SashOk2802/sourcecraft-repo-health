@@ -54,6 +54,7 @@ class PostgresAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
         job = AnalysisJob.queued(
             analysis_id=self.analysis_id,
             repository_id="repo-42",
+            owner_subject="user-42",
             created_at=self.created_at,
         )
 
@@ -76,6 +77,7 @@ class PostgresAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
         job = AnalysisJob.queued(
             analysis_id=self.analysis_id,
             repository_id="repo-42",
+            owner_subject="user-42",
             created_at=self.created_at,
         )
         execution = run_analysis(_context(self.created_at), (activity_registration(),))
@@ -100,6 +102,7 @@ class PostgresAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
         job = AnalysisJob.queued(
             analysis_id=self.analysis_id,
             repository_id="repo-42",
+            owner_subject="user-42",
             created_at=self.created_at,
         )
         execution = run_analysis(_context(self.created_at), (activity_registration(),))
@@ -109,7 +112,11 @@ class PostgresAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
             self.analysis_id,
             self.created_at + timedelta(seconds=1),
         )
-        await self.snapshot_store.save(self.analysis_id, execution)
+        await self.snapshot_store.save(
+            self.analysis_id,
+            execution,
+            owner_subject="user-42",
+        )
 
         with self.assertRaisesRegex(ValueError, "analysis_id already exists"):
             await self.snapshot_store.save_and_finish(
@@ -133,6 +140,7 @@ class PostgresAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
         job = AnalysisJob.queued(
             analysis_id=self.analysis_id,
             repository_id="repo-42",
+            owner_subject="user-42",
             created_at=self.created_at,
             worker_id=first_worker,
         )
@@ -170,6 +178,7 @@ class PostgresAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
         job = AnalysisJob.queued(
             analysis_id=self.analysis_id,
             repository_id="repo-42",
+            owner_subject="user-42",
             created_at=self.created_at,
         )
         await self.job_store.create(job)
