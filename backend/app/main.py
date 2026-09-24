@@ -23,6 +23,7 @@ from backend.app.analysis import (
     normalize_analysis_id,
 )
 from backend.app.analysis.dispatch import AnalysisPrincipal
+from backend.app.scoring.methodology import build_methodology_payload
 
 PrincipalProvider = Callable[[Request], Awaitable[AnalysisPrincipal]]
 
@@ -79,6 +80,12 @@ def create_app(
         """Возвращает endpoint с префиксом API для proxy frontend."""
 
         return {"status": "ok"}
+
+    @app.get("/api/v1/methodology", tags=["methodology"])
+    async def get_methodology() -> dict[str, object]:
+        """Возвращает публичное описание правил текущей версии Score."""
+
+        return build_methodology_payload()
 
     @app.post(
         "/api/v1/repositories/{repository_id}/analyses",

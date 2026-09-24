@@ -14,6 +14,41 @@
 
 Первый путь используют Docker healthcheck и инфраструктура. Второй — frontend через proxy.
 
+## Методика Score
+
+### GET /api/v1/methodology
+
+Возвращает публичное описание текущей версии методики для страницы «Как считаем». Ответ
+строится из тех же констант, что использует расчёт Score, поэтому веса и названия
+категорий не дублируются на frontend.
+
+~~~json
+{
+  "version": "v1",
+  "scoreRange": { "minimum": 0, "maximum": 100 },
+  "categories": [
+    { "code": "security", "label": "Безопасность", "weight": 25 }
+  ],
+  "aggregation": {
+    "code": "weighted_average_of_measured_categories",
+    "formula": "sum(categoryScore * weight) / sum(weight)",
+    "coverageFormula": "measuredWeight / applicableWeight"
+  },
+  "dataStatuses": [
+    {
+      "code": "unavailable",
+      "summary": "Источник не предоставил данные; это не нулевая оценка."
+    }
+  ],
+  "scoreLimits": [
+    { "code": "security-open-critical", "maximumScore": 60 }
+  ]
+}
+~~~
+
+`Coverage` показывает полноту измеренного веса, но не уменьшает итоговый Score.
+Если Coverage меньше 1, оценка помечается как предварительная.
+
 ## Запуск и состояние анализа
 
 ### POST /api/v1/repositories/{repository_id}/analyses

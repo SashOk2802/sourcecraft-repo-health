@@ -5,22 +5,9 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 from math import fsum, isclose
-from types import MappingProxyType
 
 from backend.app.contracts import CategoryResult, DataStatus
-
-METHODOLOGY_VERSION = "v1"
-
-CATEGORY_WEIGHTS = MappingProxyType(
-    {
-        "security": 25.0,
-        "cicd": 20.0,
-        "documentation": 20.0,
-        "activity": 15.0,
-        "issues": 15.0,
-        "code_health": 5.0,
-    }
-)
+from backend.app.scoring.methodology import CATEGORY_WEIGHTS
 
 
 @dataclass(frozen=True, slots=True)

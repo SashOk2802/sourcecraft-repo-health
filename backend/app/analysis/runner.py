@@ -16,11 +16,11 @@ from backend.app.contracts import (
 )
 from backend.app.scoring.engine import (
     CATEGORY_WEIGHTS,
-    METHODOLOGY_VERSION,
     ScoreLimit,
     ScoreSummary,
     calculate_score,
 )
+from backend.app.scoring.methodology import METHODOLOGY_VERSION
 
 logger = logging.getLogger(__name__)
 
