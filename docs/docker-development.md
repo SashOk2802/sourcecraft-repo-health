@@ -78,3 +78,13 @@ Backend и frontend-контейнеры создают пользователя
 в образе выполняется до переключения пользователя; в рантайме повышенных прав
 нет. Это защита контейнера, а не замена обновления зависимостей или проверки
 входных данных приложения.
+
+## Вход через Яндекс ID
+
+По умолчанию вход выключен: без пары `YANDEX_CLIENT_ID` и `YANDEX_REDIRECT_URI` API отвечает `503`, а остальные сценарии разработки продолжают работать. Чтобы проверить вход локально:
+
+1. Зарегистрируйте тестовый OAuth-клиент в Яндекс ID с redirect URI `http://localhost:5173/api/v1/auth/yandex/callback`.
+2. Скопируйте `.env.example` в `.env` и заполните `YANDEX_CLIENT_ID`, `YANDEX_REDIRECT_URI`; `YANDEX_CLIENT_SECRET` нужен только если его выдал Яндекс ID.
+3. Оставьте `YANDEX_SESSION_COOKIE_SECURE=false` только для локального HTTP и выполните `docker compose up --build`.
+
+OAuth-токен не попадает в браузер, отчёты или логи. В развёрнутой среде redirect URI использует HTTPS, а `YANDEX_SESSION_COOKIE_SECURE` должен быть `true`.
