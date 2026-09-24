@@ -36,7 +36,11 @@ _EVENT_TYPES = frozenset({"push", "pr_update", "manual", "restart", "schedule", 
 
 @dataclass(frozen=True, slots=True)
 class SourceCraftCiRun:
-    """Минимальные поля запуска CI, нужные будущему анализатору категории."""
+    """Минимальные поля запуска CI, нужные будущему анализатору категории.
+
+    SourceCraft может вернуть пустой ``id`` запуска. Поэтому это поле не
+    используется как идентификатор: для сопоставления запусков нужен ``slug``.
+    """
 
     id: str
     slug: str
@@ -101,7 +105,8 @@ def _parse_run(payload: dict[str, Any]) -> SourceCraftCiRun:
         raise SourceCraftResponseError("SourceCraft CI run must contain an array of workflows")
 
     return SourceCraftCiRun(
-        id=_require_string(payload, "id"),
+        # В наблюдённом ответе платформы id бывает пустым, однако slug заполнен.
+        id=_require_string(payload, "id", allow_empty=True),
         slug=_require_string(payload, "slug"),
         status=status,
         event_type=event_type,
@@ -113,9 +118,14 @@ def _parse_run(payload: dict[str, Any]) -> SourceCraftCiRun:
     )
 
 
-def _require_string(payload: dict[str, Any], field: str) -> str:
+def _require_string(
+    payload: dict[str, Any],
+    field: str,
+    *,
+    allow_empty: bool = False,
+) -> str:
     value = payload.get(field)
-    if not isinstance(value, str) or not value:
+    if not isinstance(value, str) or (not allow_empty and not value):
         raise SourceCraftResponseError(f"SourceCraft CI run must contain a string {field}")
     return value
 

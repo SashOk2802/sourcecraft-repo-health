@@ -17,6 +17,7 @@ from backend.app.integrations.sourcecraft import (
 from backend.app.integrations.sourcecraft_cicd import SourceCraftCicdClient
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "sourcecraft" / "cicd_runs_page.json"
+OBSERVED_FIXTURE_PATH = Path(__file__).parent / "fixtures" / "sourcecraft" / "ci_runs.json"
 
 
 class SourceCraftCicdClientTest(unittest.TestCase):
@@ -39,6 +40,7 @@ class SourceCraftCicdClientTest(unittest.TestCase):
         runs = client.list_runs(_repository())
 
         self.assertEqual(len(runs), 1)
+        self.assertEqual(runs[0].id, "")
         self.assertEqual(runs[0].slug, "17")
         self.assertEqual(runs[0].status, "success")
         self.assertEqual(runs[0].workflow_slugs, ("example-workflow",))
@@ -122,17 +124,53 @@ class SourceCraftCicdClientTest(unittest.TestCase):
         with self.assertRaisesRegex(SourceCraftResponseError, "unknown CI run status"):
             client.list_runs(_repository())
 
-    def test_list_runs_rejects_empty_run_id(self) -> None:
-        payload = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
-        payload["runs"][0]["id"] = ""
+    def test_list_runs_accepts_observed_empty_run_id(self) -> None:
+        # Реальная обезличенная CLI fixture содержит пустой id, но стабильный slug.
+        payload = {
+            "runs": json.loads(OBSERVED_FIXTURE_PATH.read_text(encoding="utf-8")),
+            "next_page_token": "",
+        }
         http_client = httpx.Client(
             base_url="https://api.sourcecraft.tech",
             transport=httpx.MockTransport(lambda request: httpx.Response(200, json=payload)),
         )
         client = SourceCraftCicdClient(SourceCraftClient("test-token", http_client=http_client))
 
-        with self.assertRaisesRegex(SourceCraftResponseError, "string id"):
-            client.list_runs(_repository())
+        runs = client.list_runs(_repository())
+
+        self.assertEqual(len(runs), 1)
+        self.assertEqual(runs[0].id, "")
+        self.assertEqual(runs[0].slug, "1")
+        self.assertEqual(runs[0].event_type, "manual")
+
+    def test_list_runs_rejects_missing_or_non_string_run_id(self) -> None:
+        for invalid_id in (None, 123, True, [], {}):
+            with self.subTest(invalid_id=invalid_id):
+                payload = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+                payload["runs"][0]["id"] = invalid_id
+                with httpx.Client(
+                    base_url="https://api.sourcecraft.tech",
+                    transport=httpx.MockTransport(
+                        lambda request, payload=payload: httpx.Response(200, json=payload)
+                    ),
+                ) as http_client:
+                    client = SourceCraftCicdClient(
+                        SourceCraftClient("test-token", http_client=http_client)
+                    )
+
+                    with self.assertRaisesRegex(SourceCraftResponseError, "string id"):
+                        client.list_runs(_repository())
+
+        payload = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+        del payload["runs"][0]["id"]
+        with httpx.Client(
+            base_url="https://api.sourcecraft.tech",
+            transport=httpx.MockTransport(lambda request: httpx.Response(200, json=payload)),
+        ) as http_client:
+            client = SourceCraftCicdClient(SourceCraftClient("test-token", http_client=http_client))
+
+            with self.assertRaisesRegex(SourceCraftResponseError, "string id"):
+                client.list_runs(_repository())
 
     def test_list_runs_combines_pages_and_normalizes_timezones(self) -> None:
         first_page = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
@@ -160,6 +198,7 @@ class SourceCraftCicdClientTest(unittest.TestCase):
         runs = client.list_runs(_repository(), page_size=1)
 
         self.assertEqual(tuple(run.slug for run in runs), ("17", "18"))
+        self.assertEqual(tuple(run.id for run in runs), ("", "second-run-id-redacted"))
         self.assertEqual(tuple(run.event_type for run in runs), ("manual", "repository_event"))
         self.assertEqual(runs[1].created_at.isoformat(), "2026-01-01T00:00:00+00:00")
         self.assertEqual(len(requests), 2)
