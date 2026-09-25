@@ -10,7 +10,7 @@ Workflow `Generate SBOM` создаёт два отдельных CycloneDX JSON
 | Артефакт | Источник | Что входит |
 | --- | --- | --- |
 | `python-runtime-sbom-<commit>` | Изолированное Python-окружение с установкой `-e .` без группы `dev` | Backend runtime-зависимости и их граф |
-| `frontend-runtime-sbom-<commit>` | `frontend/package-lock.json` | Frontend runtime-зависимости без `devDependencies` |
+| `frontend-runtime-sbom-<commit>` | `frontend/package-lock.json` и CycloneDX npm 6.0.1 | Frontend runtime-зависимости без `devDependencies` |
 
 Генерация выполняется для pull request, после изменения `main` и вручную.
 Артефакты доступны на странице соответствующего запуска GitHub Actions и
@@ -22,6 +22,8 @@ Workflow `Generate SBOM` создаёт два отдельных CycloneDX JSON
 - Checkout не сохраняет GitHub credentials.
 - Внешние Actions закреплены полными commit SHA.
 - Генератор Python SBOM установлен отдельно и не попадает в опись приложения.
+- Генератор frontend SBOM закреплён в `package-lock.json` как `devDependency`
+  и исключён из описи runtime-зависимостей флагом `--omit dev`.
 - Результат публикуется только после проверки формата, корневого компонента,
   числа компонентов и ссылочной целостности графа зависимостей.
 - Валидатор отклоняет credential URL, чувствительные query-параметры и локальные

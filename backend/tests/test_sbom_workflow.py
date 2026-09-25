@@ -26,7 +26,12 @@ class SbomWorkflowTest(unittest.TestCase):
         workflow = self._read_workflow()
 
         self.assertIn("cyclonedx-bom==7.4.0", workflow)
-        self.assertIn("npm sbom --package-lock-only --omit=dev", workflow)
+        self.assertIn('"@cyclonedx/cyclonedx-npm": "6.0.1"', self._read_frontend_package())
+        self.assertIn("./node_modules/.bin/cyclonedx-npm", workflow)
+        self.assertIn("--package-lock-only", workflow)
+        self.assertIn("--omit dev", workflow)
+        self.assertIn("--flatten-components", workflow)
+        self.assertIn("npm ci --ignore-scripts", workflow)
         self.assertEqual(workflow.count("scripts/validate_sbom.py"), 2)
         self.assertEqual(workflow.count("retention-days: 7"), 2)
         self.assertEqual(workflow.count("if-no-files-found: error"), 2)
@@ -43,3 +48,9 @@ class SbomWorkflowTest(unittest.TestCase):
         if not SBOM_WORKFLOW.is_file():
             self.skipTest("GitHub workflow is intentionally absent from the runtime image")
         return SBOM_WORKFLOW.read_text(encoding="utf-8")
+
+    def _read_frontend_package(self) -> str:
+        package_json = PROJECT_ROOT / "frontend" / "package.json"
+        if not package_json.is_file():
+            self.skipTest("frontend package is intentionally absent from the runtime image")
+        return package_json.read_text(encoding="utf-8")

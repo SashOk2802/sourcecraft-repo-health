@@ -51,23 +51,31 @@ class ValidateSbomTest(unittest.TestCase):
                 with self.assertRaises(SbomValidationError):
                     self._validate(document)
 
-    def test_accepts_repeated_component_reference_for_the_same_identity(self) -> None:
+    def test_rejects_duplicate_component_reference_for_the_same_identity(self) -> None:
         document = self._document()
         duplicate = deepcopy(document["components"][0])
         duplicate["properties"] = [{"name": "install-path", "value": "nested/httpx"}]
         document["components"].append(duplicate)
 
-        validated = self._validate(document)
+        with self.assertRaisesRegex(SbomValidationError, "duplicate bom-ref"):
+            self._validate(document)
 
-        self.assertEqual(len(validated["components"]), 2)
-
-    def test_rejects_conflicting_component_reference(self) -> None:
+    def test_rejects_duplicate_component_reference_for_different_identity(self) -> None:
         document = self._document()
         conflicting = deepcopy(document["components"][0])
         conflicting["version"] = "9.9.9"
         document["components"].append(conflicting)
 
-        with self.assertRaisesRegex(SbomValidationError, "conflicting bom-ref"):
+        with self.assertRaisesRegex(SbomValidationError, "duplicate bom-ref"):
+            self._validate(document)
+
+    def test_rejects_component_reference_that_duplicates_root(self) -> None:
+        document = self._document()
+        document["components"][0]["bom-ref"] = document["metadata"]["component"][
+            "bom-ref"
+        ]
+
+        with self.assertRaisesRegex(SbomValidationError, "duplicate bom-ref"):
             self._validate(document)
 
     def test_rejects_unknown_dependency_reference(self) -> None:
@@ -75,6 +83,39 @@ class ValidateSbomTest(unittest.TestCase):
         document["dependencies"][0]["dependsOn"].append("pkg:unknown/missing@1")
 
         with self.assertRaisesRegex(SbomValidationError, "unknown component"):
+            self._validate(document)
+
+    def test_rejects_dependency_graph_when_components_have_no_bom_refs(self) -> None:
+        document = self._document()
+        del document["metadata"]["component"]["bom-ref"]
+        del document["components"][0]["bom-ref"]
+
+        with self.assertRaisesRegex(SbomValidationError, "unknown component"):
+            self._validate(document)
+
+    def test_accepts_empty_dependency_graph_when_components_have_no_bom_refs(self) -> None:
+        document = self._document()
+        del document["metadata"]["component"]["bom-ref"]
+        del document["components"][0]["bom-ref"]
+        document["dependencies"] = []
+
+        validated = self._validate(document)
+
+        self.assertEqual(validated["dependencies"], [])
+
+    def test_rejects_duplicate_dependency_ref(self) -> None:
+        document = self._document()
+        document["dependencies"].append(deepcopy(document["dependencies"][0]))
+
+        with self.assertRaisesRegex(SbomValidationError, "duplicate dependency ref"):
+            self._validate(document)
+
+    def test_rejects_duplicate_depends_on_reference(self) -> None:
+        document = self._document()
+        target = document["components"][0]["bom-ref"]
+        document["dependencies"][0]["dependsOn"].append(target)
+
+        with self.assertRaisesRegex(SbomValidationError, "duplicate reference"):
             self._validate(document)
 
     def test_rejects_credential_url(self) -> None:

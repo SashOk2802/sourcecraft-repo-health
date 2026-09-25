@@ -90,28 +90,27 @@ def validate_sbom(
     if not minimum_components <= len(components) <= MAX_COMPONENTS:
         raise SbomValidationError("SBOM component count is outside the configured limits")
 
-    known_refs: dict[str, tuple[str, str, str | None]] = {}
+    known_refs: set[str] = set()
     root_ref = _optional_non_empty_string(root_component, "bom-ref", "root component")
     if root_ref is not None:
-        known_refs[root_ref] = _component_identity(root_component, "root component")
+        known_refs.add(root_ref)
 
     for index, component in enumerate(components):
         label = f"component {index}"
         if not isinstance(component, dict):
             raise SbomValidationError(f"{label} must be an object")
-        identity = _component_identity(component, label)
+        _component_identity(component, label)
         bom_ref = _optional_non_empty_string(component, "bom-ref", label)
         if bom_ref is not None:
-            previous_identity = known_refs.get(bom_ref)
-            if previous_identity is not None and previous_identity != identity:
-                raise SbomValidationError("SBOM contains a conflicting bom-ref value")
-            known_refs[bom_ref] = identity
+            if bom_ref in known_refs:
+                raise SbomValidationError("SBOM contains a duplicate bom-ref value")
+            known_refs.add(bom_ref)
 
     dependencies = document.get("dependencies")
     if dependencies is not None:
         if not isinstance(dependencies, list):
             raise SbomValidationError("SBOM dependencies must be an array")
-        _validate_dependency_graph(dependencies, set(known_refs))
+        _validate_dependency_graph(dependencies, known_refs)
 
     _validate_safe_strings(document)
     return document
@@ -163,14 +162,24 @@ def _optional_non_empty_string(
 
 
 def _validate_dependency_graph(dependencies: list[Any], known_refs: set[str]) -> None:
+    dependency_refs: set[str] = set()
     for index, dependency in enumerate(dependencies):
         if not isinstance(dependency, dict):
             raise SbomValidationError(f"dependency {index} must be an object")
         reference = _required_non_empty_string(dependency, "ref", f"dependency {index}")
+        if reference in dependency_refs:
+            raise SbomValidationError("SBOM contains a duplicate dependency ref")
+        dependency_refs.add(reference)
+
         targets = dependency.get("dependsOn", [])
-        if not isinstance(targets, list) or not all(isinstance(item, str) for item in targets):
+        if not isinstance(targets, list) or not all(
+            isinstance(item, str) and bool(item.strip()) for item in targets
+        ):
             raise SbomValidationError("dependency dependsOn must be an array of strings")
-        if known_refs and (reference not in known_refs or not set(targets) <= known_refs):
+        target_refs = set(targets)
+        if len(target_refs) != len(targets):
+            raise SbomValidationError("dependency dependsOn contains a duplicate reference")
+        if reference not in known_refs or not target_refs <= known_refs:
             raise SbomValidationError("dependency graph refers to an unknown component")
 
 
