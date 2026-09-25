@@ -24,6 +24,10 @@ class SourceCraftClientError(RuntimeError):
 class SourceCraftAuthenticationError(SourceCraftClientError):
     """SourceCraft отклонил токен или у него нет прав на ресурс."""
 
+    def __init__(self, message: str, *, status_code: int | None = None) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+
 
 class SourceCraftRateLimitError(SourceCraftClientError):
     """SourceCraft временно ограничил частоту запросов."""
@@ -39,6 +43,10 @@ class SourceCraftTimeoutError(SourceCraftClientError):
 
 class SourceCraftResponseError(SourceCraftClientError):
     """SourceCraft вернул ошибочный HTTP-ответ или неожиданный JSON."""
+
+    def __init__(self, message: str, *, status_code: int | None = None) -> None:
+        super().__init__(message)
+        self.status_code = status_code
 
 
 class SourceCraftRequestError(SourceCraftClientError):
@@ -118,6 +126,7 @@ class SourceCraftClient:
         ``_SOURCECRAFT_GIT_HOSTS``, иначе URL клона не конструируется вовсе.
         Метод чистый и не требует экземпляра клиента: сам URL секретов не несёт.
         """
+
         parsed = urlsplit(web_url or "")
         if not web_url:
             host = _SOURCECRAFT_API_HOST
@@ -236,7 +245,8 @@ class SourceCraftClient:
 
         if response.status_code in (401, 403):
             raise SourceCraftAuthenticationError(
-                f"SourceCraft denied access with HTTP {response.status_code}"
+                f"SourceCraft denied access with HTTP {response.status_code}",
+                status_code=response.status_code,
             )
 
         if response.status_code == 429:
@@ -248,7 +258,8 @@ class SourceCraftClient:
 
         if response.is_error:
             raise SourceCraftResponseError(
-                f"SourceCraft returned unexpected HTTP {response.status_code}"
+                f"SourceCraft returned unexpected HTTP {response.status_code}",
+                status_code=response.status_code,
             )
 
     @staticmethod

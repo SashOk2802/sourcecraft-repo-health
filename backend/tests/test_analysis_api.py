@@ -70,6 +70,7 @@ class AnalysisApiTest(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(report.status_code, 200)
         self.assertEqual(report.json()["analysis"]["id"], "analysis-42")
+        self.assertEqual((await self.job_store.get("analysis-42")).owner_subject, "user-42")
 
     async def test_serves_running_status_while_sync_analyzer_waits_in_thread(self) -> None:
         analyzer_started = threading.Event()

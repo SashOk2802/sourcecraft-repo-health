@@ -20,6 +20,7 @@ class AnalysisJobTest(unittest.TestCase):
             analysis_id="analysis-42",
             repository_id="repo-42",
             created_at=self.created_at,
+            owner_subject="user-42",
         )
 
         running = queued.started(self.created_at + timedelta(seconds=1))
@@ -29,6 +30,7 @@ class AnalysisJobTest(unittest.TestCase):
         )
 
         self.assertEqual(partial.status, AnalysisJobStatus.PARTIAL)
+        self.assertEqual(partial.owner_subject, "user-42")
         self.assertEqual(partial.started_at, self.created_at + timedelta(seconds=1))
         self.assertEqual(partial.finished_at, self.created_at + timedelta(seconds=2))
 
@@ -37,6 +39,7 @@ class AnalysisJobTest(unittest.TestCase):
             analysis_id="analysis-42",
             repository_id="repo-42",
             created_at=self.created_at,
+            owner_subject="user-42",
         )
 
         with self.assertRaises(AnalysisJobTransitionError):
@@ -50,6 +53,7 @@ class AnalysisJobTest(unittest.TestCase):
             analysis_id="analysis-42",
             repository_id="repo-42",
             created_at=self.created_at,
+            owner_subject="user-42",
         ).started(self.created_at + timedelta(seconds=1))
 
         with self.assertRaisesRegex(ValueError, "failed jobs require"):
@@ -67,6 +71,7 @@ class InMemoryAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
             analysis_id="analysis-42",
             repository_id="repo-42",
             created_at=created_at,
+            owner_subject="user-42",
         )
 
         await store.create(job)
@@ -90,12 +95,14 @@ class InMemoryAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
             analysis_id="analysis-active",
             repository_id="repo-42",
             created_at=created_at,
+            owner_subject="user-42",
             worker_id=active_worker,
         )
         abandoned = AnalysisJob.queued(
             analysis_id="analysis-abandoned",
             repository_id="repo-42",
             created_at=created_at,
+            owner_subject="user-42",
             worker_id=abandoned_worker,
         )
 

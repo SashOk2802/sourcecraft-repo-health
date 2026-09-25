@@ -83,6 +83,7 @@ class AnalysisExecutionService:
         context: AnalysisContext,
         analysis_id: str,
         *,
+        owner_subject: str,
         worker_id: str | None = None,
     ) -> AnalysisJob:
         """Создаёт queued-запуск до постановки его в очередь обработчику."""
@@ -91,6 +92,7 @@ class AnalysisExecutionService:
             analysis_id=analysis_id,
             repository_id=context.repository.id,
             created_at=self._clock(),
+            owner_subject=owner_subject,
             worker_id=worker_id,
         )
         return await self._job_store.create(job)

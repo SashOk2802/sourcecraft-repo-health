@@ -55,6 +55,7 @@ class PostgresAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
             analysis_id=self.analysis_id,
             repository_id="repo-42",
             created_at=self.created_at,
+            owner_subject="user-42",
         )
 
         await self.job_store.create(job)
@@ -77,6 +78,7 @@ class PostgresAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
             analysis_id=self.analysis_id,
             repository_id="repo-42",
             created_at=self.created_at,
+            owner_subject="user-42",
         )
         execution = run_analysis(_context(self.created_at), (activity_registration(),))
 
@@ -101,6 +103,7 @@ class PostgresAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
             analysis_id=self.analysis_id,
             repository_id="repo-42",
             created_at=self.created_at,
+            owner_subject="user-42",
         )
         execution = run_analysis(_context(self.created_at), (activity_registration(),))
 
@@ -134,6 +137,7 @@ class PostgresAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
             analysis_id=self.analysis_id,
             repository_id="repo-42",
             created_at=self.created_at,
+            owner_subject="user-42",
             worker_id=first_worker,
         )
         await self.job_store.heartbeat_worker(
@@ -171,6 +175,7 @@ class PostgresAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
             analysis_id=self.analysis_id,
             repository_id="repo-42",
             created_at=self.created_at,
+            owner_subject="user-42",
         )
         await self.job_store.create(job)
         await self.job_store.mark_running(

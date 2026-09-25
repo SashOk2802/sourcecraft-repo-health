@@ -4,10 +4,25 @@ import unittest
 from datetime import UTC, datetime
 
 import httpx
+from fastapi import Request
 
-from backend.app.analysis import AnalyzerRegistration, InMemoryAnalysisStore, run_analysis
+from backend.app.analysis import (
+    AnalysisJob,
+    AnalysisJobStatus,
+    AnalyzerRegistration,
+    InMemoryAnalysisJobStore,
+    InMemoryAnalysisStore,
+    run_analysis,
+)
+from backend.app.analysis.dispatch import AnalysisPrincipal
 from backend.app.contracts import AnalysisContext, CategoryResult, DataStatus, RepositoryRef
 from backend.app.main import create_app
+
+OWNER_TOKEN = "report-owner-token"
+OTHER_TOKEN = "report-other-token"
+OWNER_ID = "user-owner"
+OTHER_ID = "user-other"
+PRIVATE_MARKERS = ("platform-api", "abc123", "team")
 
 
 class ReportApiTest(unittest.IsolatedAsyncioTestCase):
@@ -22,12 +37,32 @@ class ReportApiTest(unittest.IsolatedAsyncioTestCase):
         )
         self.execution = run_analysis(context, (registration("activity", 80),))
         self.store = InMemoryAnalysisStore()
+        self.job_store = InMemoryAnalysisJobStore()
         await self.store.save("analysis-42", self.execution)
-        self.app = create_app(analysis_store=self.store)
+        await self.job_store.create(
+            AnalysisJob.queued(
+                analysis_id="analysis-42",
+                repository_id="repo-42",
+                created_at=timestamp,
+                owner_subject=OWNER_ID,
+            )
+        )
+        await self.job_store.mark_running("analysis-42", timestamp)
+        await self.job_store.finish(
+            "analysis-42",
+            status=AnalysisJobStatus.PARTIAL,
+            finished_at=timestamp,
+        )
+        self.headers = {"Authorization": f"Bearer {OWNER_TOKEN}"}
+        self.app = create_app(
+            analysis_store=self.store,
+            job_store=self.job_store,
+            principal_provider=_session_principal,
+        )
 
     async def test_returns_status_for_saved_analysis(self) -> None:
         async with api_client(self.app) as client:
-            response = await client.get("/api/v1/analyses/analysis-42")
+            response = await client.get("/api/v1/analyses/analysis-42", headers=self.headers)
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
@@ -44,6 +79,10 @@ class ReportApiTest(unittest.IsolatedAsyncioTestCase):
                 },
                 "score": 80,
                 "isPreliminary": True,
+                "createdAt": "2026-09-18T15:30:00Z",
+                "startedAt": "2026-09-18T15:30:00Z",
+                "finishedAt": "2026-09-18T15:30:00Z",
+                "error": None,
                 "reportUrl": "/api/v1/analyses/analysis-42/report",
                 "markdownReportUrl": "/api/v1/analyses/analysis-42/report.md",
             },
@@ -58,7 +97,10 @@ class ReportApiTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_returns_json_report_for_saved_analysis(self) -> None:
         async with api_client(self.app) as client:
-            response = await client.get("/api/v1/analyses/analysis-42/report")
+            response = await client.get(
+                "/api/v1/analyses/analysis-42/report",
+                headers=self.headers,
+            )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.headers["content-type"], "application/json")
@@ -68,7 +110,10 @@ class ReportApiTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_returns_markdown_from_the_same_snapshot(self) -> None:
         async with api_client(self.app) as client:
-            response = await client.get("/api/v1/analyses/analysis-42/report.md")
+            response = await client.get(
+                "/api/v1/analyses/analysis-42/report.md",
+                headers=self.headers,
+            )
 
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.headers["content-type"].startswith("text/markdown"))
@@ -77,8 +122,14 @@ class ReportApiTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_normalizes_identifier_before_lookup_and_rendering(self) -> None:
         async with api_client(self.app) as client:
-            json_response = await client.get("/api/v1/analyses/analysis-42%20/report")
-            markdown_response = await client.get("/api/v1/analyses/analysis-42%20/report.md")
+            json_response = await client.get(
+                "/api/v1/analyses/analysis-42%20/report",
+                headers=self.headers,
+            )
+            markdown_response = await client.get(
+                "/api/v1/analyses/analysis-42%20/report.md",
+                headers=self.headers,
+            )
 
         self.assertEqual(json_response.status_code, 200)
         self.assertEqual(json_response.json()["analysis"]["id"], "analysis-42")
@@ -99,10 +150,49 @@ class ReportApiTest(unittest.IsolatedAsyncioTestCase):
                 "/api/v1/analyses/missing/report.md",
             ):
                 with self.subTest(path=path):
-                    response = await client.get(path)
+                    response = await client.get(path, headers=self.headers)
 
                     self.assertEqual(response.status_code, 404)
                     self.assertEqual(response.json(), {"detail": "Analysis not found."})
+
+    async def test_private_report_requires_owner(self) -> None:
+        paths = (
+            "/api/v1/analyses/analysis-42",
+            "/api/v1/analyses/analysis-42/report",
+            "/api/v1/analyses/analysis-42/report.md",
+        )
+        async with api_client(self.app) as client:
+            for path in paths:
+                with self.subTest(path=path, case="missing-token"):
+                    response = await client.get(path)
+                    self.assertEqual(response.status_code, 401)
+                    self.assertEqual(response.json(), {"detail": "Authentication required."})
+                    self._assert_hides_private_report(response)
+
+                with self.subTest(path=path, case="other-user"):
+                    response = await client.get(
+                        path,
+                        headers={"Authorization": f"Bearer {OTHER_TOKEN}"},
+                    )
+                    self.assertEqual(response.status_code, 404)
+                    self.assertEqual(response.json(), {"detail": "Analysis not found."})
+                    self._assert_hides_private_report(response)
+
+    def _assert_hides_private_report(self, response: httpx.Response) -> None:
+        rendered = response.text
+        for marker in PRIVATE_MARKERS:
+            self.assertNotIn(marker, rendered)
+        self.assertNotIn(OWNER_TOKEN, rendered)
+
+
+async def _session_principal(request: Request) -> AnalysisPrincipal:
+    header = request.headers.get("authorization") or ""
+    token = header.removeprefix("Bearer ").strip()
+    if token == OWNER_TOKEN:
+        return AnalysisPrincipal(OWNER_ID)
+    if token == OTHER_TOKEN:
+        return AnalysisPrincipal(OTHER_ID)
+    raise PermissionError("authentication required")
 
 
 def registration(category: str, score: float) -> AnalyzerRegistration:

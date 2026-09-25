@@ -120,6 +120,7 @@ class InProcessAnalysisDispatcher:
         job = await self._execution_service.create_job(
             context,
             self._analysis_id_factory(),
+            owner_subject=principal.subject,
             worker_id=self._worker_id,
         )
         task = asyncio.create_task(
