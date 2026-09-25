@@ -363,17 +363,34 @@ class ProjectLifeHttpLaunchTest(unittest.IsolatedAsyncioTestCase):
                     f"/api/v1/repositories/{REPOSITORY_ID}/analyses",
                     headers={"Authorization": f"Bearer {USER_TOKEN}"},
                 )
-                completed = await _wait_for_terminal_status(client, "analysis-http-1")
-                report = await client.get("/api/v1/analyses/analysis-http-1/report")
+                completed = await _wait_for_terminal_status(
+                    client,
+                    "analysis-http-1",
+                    token=USER_TOKEN,
+                )
+                report = await client.get(
+                    "/api/v1/analyses/analysis-http-1/report",
+                    headers={"Authorization": f"Bearer {USER_TOKEN}"},
+                )
                 self.assert_launch(created, completed, report, authorizations, USER_TOKEN)
+                stored = await application.state.analysis_job_store.get("analysis-http-1")
+                self.assertEqual(stored.owner_subject, _token_subject(USER_TOKEN))
+                self.assertNotIn(USER_TOKEN, stored.owner_subject)
 
                 authorizations.clear()
                 second = await client.post(
                     f"/api/v1/repositories/{REPOSITORY_ID}/analyses",
                     headers={"Authorization": f"Bearer {OTHER_TOKEN}"},
                 )
-                second_done = await _wait_for_terminal_status(client, "analysis-http-2")
-                second_report = await client.get("/api/v1/analyses/analysis-http-2/report")
+                second_done = await _wait_for_terminal_status(
+                    client,
+                    "analysis-http-2",
+                    token=OTHER_TOKEN,
+                )
+                second_report = await client.get(
+                    "/api/v1/analyses/analysis-http-2/report",
+                    headers={"Authorization": f"Bearer {OTHER_TOKEN}"},
+                )
                 self.assert_launch(second, second_done, second_report, authorizations, OTHER_TOKEN)
 
         # Два запуска: resolver и по клиенту на Activity и Issues. Все пулы закрыты.
@@ -431,6 +448,50 @@ class ProjectLifeHttpLaunchTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(response.status_code, 401)
         self.assertEqual(response.json(), {"detail": "Authentication required."})
+
+    async def test_private_report_is_hidden_without_token_and_from_another_user(self) -> None:
+        application = isolated_sourcecraft_app(
+            http_client_factory=lambda: httpx.Client(
+                base_url="https://api.sourcecraft.tech",
+                transport=httpx.MockTransport(lambda request: sourcecraft_response(request)),
+            ),
+            clock=lambda: ANALYZED_AT,
+            analysis_id_factory=lambda: "analysis-private",
+        )
+        owner_headers = {"Authorization": f"Bearer {USER_TOKEN}"}
+        paths = (
+            "/api/v1/analyses/analysis-private",
+            "/api/v1/analyses/analysis-private/report",
+            "/api/v1/analyses/analysis-private/report.md",
+        )
+
+        async with api_client(application) as client:
+            created = await client.post(
+                f"/api/v1/repositories/{REPOSITORY_ID}/analyses",
+                headers=owner_headers,
+            )
+            await _wait_for_terminal_status(client, "analysis-private", token=USER_TOKEN)
+            for path in paths:
+                with self.subTest(path=path, case="missing-token"):
+                    response = await client.get(path)
+                    self.assertEqual(response.status_code, 401)
+                    self.assertEqual(response.json(), {"detail": "Authentication required."})
+                    self.assertNotIn("platform", response.text)
+                    self.assertNotIn(COMMIT_SHA, response.text)
+                with self.subTest(path=path, case="other-user"):
+                    response = await client.get(
+                        path,
+                        headers={"Authorization": f"Bearer {OTHER_TOKEN}"},
+                    )
+                    self.assertEqual(response.status_code, 403)
+                    self.assertEqual(response.json(), {"detail": "Analysis access denied."})
+                    self.assertNotIn("platform", response.text)
+                    self.assertNotIn(COMMIT_SHA, response.text)
+
+        self.assertEqual(created.status_code, 202)
+        stored = await application.state.analysis_job_store.get("analysis-private")
+        self.assertEqual(stored.owner_subject, _token_subject(USER_TOKEN))
+        self.assertNotIn(USER_TOKEN, stored.owner_subject or "")
 
     async def test_process_app_requires_bearer(self) -> None:
         self.assertIsNotNone(app.state.analysis_dispatcher)
@@ -605,13 +666,27 @@ def api_client(application: httpx.ASGITransport | object) -> httpx.AsyncClient:
     )
 
 
+def _token_subject(token: str) -> str:
+    digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    return f"token:{digest}"
+
+
 async def _wait_for_terminal_status(
     client: httpx.AsyncClient,
     analysis_id: str,
+    *,
+    token: str,
 ) -> httpx.Response:
     for _ in range(100):
-        response = await client.get(f"/api/v1/analyses/{analysis_id}")
-        if response.json()["status"] in {"completed", "partial", "failed"}:
+        response = await client.get(
+            f"/api/v1/analyses/{analysis_id}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        if response.status_code == 200 and response.json()["status"] in {
+            "completed",
+            "partial",
+            "failed",
+        }:
             return response
         await asyncio.sleep(0)
     raise AssertionError("Background analysis did not finish.")

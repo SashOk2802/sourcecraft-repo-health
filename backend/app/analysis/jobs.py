@@ -48,6 +48,7 @@ class AnalysisJob:
     repository_id: str
     status: AnalysisJobStatus
     created_at: datetime
+    owner_subject: str | None = None
     started_at: datetime | None = None
     finished_at: datetime | None = None
     error_code: str | None = None
@@ -61,6 +62,8 @@ class AnalysisJob:
             raise ValueError("analysis_id must not contain surrounding whitespace")
         if not self.repository_id.strip():
             raise ValueError("repository_id must not be empty")
+        if self.owner_subject is not None:
+            _require_owner_subject(self.owner_subject)
         if self.worker_id is not None and not self.worker_id.strip():
             raise ValueError("worker_id must not be empty")
         _require_timezone(self.created_at, "created_at")
@@ -73,15 +76,21 @@ class AnalysisJob:
         analysis_id: str,
         repository_id: str,
         created_at: datetime,
+        owner_subject: str,
         worker_id: str | None = None,
     ) -> AnalysisJob:
-        """Создаёт задание, ожидающее обработчик."""
+        """Создаёт задание, ожидающее обработчик.
 
+        owner_subject — несекретный отпечаток инициатора. Сырой Bearer сюда не кладётся.
+        """
+
+        _require_owner_subject(owner_subject)
         return cls(
             analysis_id=normalize_analysis_id(analysis_id),
             repository_id=repository_id.strip(),
             status=AnalysisJobStatus.QUEUED,
             created_at=created_at,
+            owner_subject=owner_subject,
             worker_id=worker_id.strip() if worker_id is not None else None,
         )
 
@@ -331,13 +340,14 @@ class PostgresAnalysisJobStore:
             await self._require_pool().execute(
                 """
                 INSERT INTO analysis_jobs (
-                    analysis_id, repository_id, status, created_at,
+                    analysis_id, repository_id, owner_subject, status, created_at,
                     started_at, finished_at, error_code, error_summary, worker_id
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                 """,
                 job.analysis_id,
                 job.repository_id,
+                job.owner_subject,
                 job.status.value,
                 job.created_at,
                 job.started_at,
@@ -356,7 +366,7 @@ class PostgresAnalysisJobStore:
         row = await self._require_pool().fetchrow(
             """
             SELECT
-                analysis_id, repository_id, status, created_at,
+                analysis_id, repository_id, owner_subject, status, created_at,
                 started_at, finished_at, error_code, error_summary, worker_id
             FROM analysis_jobs
             WHERE analysis_id = $1
@@ -384,7 +394,7 @@ class PostgresAnalysisJobStore:
             WHERE analysis_id = $1 AND status = $4
                 AND worker_id IS NOT DISTINCT FROM $5
             RETURNING
-                analysis_id, repository_id, status, created_at,
+                analysis_id, repository_id, owner_subject, status, created_at,
                 started_at, finished_at, error_code, error_summary, worker_id
             """,
             updated.analysis_id,
@@ -424,7 +434,7 @@ class PostgresAnalysisJobStore:
             WHERE analysis_id = $1 AND status = $6
                 AND worker_id IS NOT DISTINCT FROM $7
             RETURNING
-                analysis_id, repository_id, status, created_at,
+                analysis_id, repository_id, owner_subject, status, created_at,
                 started_at, finished_at, error_code, error_summary, worker_id
             """,
             updated.analysis_id,
@@ -468,8 +478,8 @@ class PostgresAnalysisJobStore:
         rows = await self._require_pool().fetch(
             """
             SELECT
-                job.analysis_id, job.repository_id, job.status, job.created_at,
-                job.started_at, job.finished_at, job.error_code,
+                job.analysis_id, job.repository_id, job.owner_subject, job.status,
+                job.created_at, job.started_at, job.finished_at, job.error_code,
                 job.error_summary, job.worker_id
             FROM analysis_jobs AS job
             LEFT JOIN analysis_worker_leases AS lease
@@ -529,8 +539,8 @@ class PostgresAnalysisJobStore:
                         )
                     )
                 RETURNING
-                    analysis_id, repository_id, status, created_at,
-                    started_at, finished_at, error_code, error_summary, worker_id
+                analysis_id, repository_id, owner_subject, status, created_at,
+                started_at, finished_at, error_code, error_summary, worker_id
                 """,
                 updated.analysis_id,
                 updated.status.value,
@@ -557,6 +567,15 @@ class PostgresAnalysisJobStore:
         if self._pool is None:
             raise RuntimeError("Analysis job store is not started.")
         return self._pool
+
+
+def _require_owner_subject(owner_subject: str) -> None:
+    if (
+        not isinstance(owner_subject, str)
+        or not owner_subject
+        or owner_subject != owner_subject.strip()
+    ):
+        raise ValueError("owner_subject must not be empty")
 
 
 def _require_job_owner(job: AnalysisJob, worker_id: str | None) -> None:
@@ -608,6 +627,7 @@ def _job_from_row(row: asyncpg.Record) -> AnalysisJob:
         repository_id=str(row["repository_id"]),
         status=AnalysisJobStatus(str(row["status"])),
         created_at=row["created_at"],
+        owner_subject=row["owner_subject"],
         started_at=row["started_at"],
         finished_at=row["finished_at"],
         error_code=row["error_code"],

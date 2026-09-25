@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hmac
 import os
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
@@ -146,24 +147,21 @@ def create_app(
             clear_request_token()
 
     @app.get("/api/v1/analyses/{analysis_id}", tags=["analyses"])
-    async def get_analysis_status(analysis_id: str) -> dict[str, object]:
-        """Возвращает queued, running или terminal-состояние одного анализа."""
+    async def get_analysis_status(analysis_id: str, request: Request) -> dict[str, object]:
+        """Возвращает состояние анализа только его владельцу."""
 
         normalized_id = _normalize_analysis_id(analysis_id)
-        job = await jobs.get(normalized_id)
+        job = await _authorized_job(request, jobs, principal_provider, normalized_id)
         snapshot = await store.get(normalized_id)
-
-        if job is not None:
-            return _analysis_job_status_payload(job, snapshot)
-        if snapshot is not None:
-            return _analysis_status_payload(snapshot, normalized_id)
-        raise HTTPException(status_code=404, detail="Analysis not found.")
+        return _analysis_job_status_payload(job, snapshot)
 
     @app.get("/api/v1/analyses/{analysis_id}/report", tags=["reports"])
-    async def get_report(analysis_id: str) -> dict[str, object]:
-        """Возвращает JSON-отчёт для одного сохранённого снимка анализа."""
+    async def get_report(analysis_id: str, request: Request) -> dict[str, object]:
+        """Возвращает JSON-отчёт только владельцу анализа."""
 
-        snapshot = await _require_snapshot(store, _normalize_analysis_id(analysis_id))
+        normalized_id = _normalize_analysis_id(analysis_id)
+        await _authorized_job(request, jobs, principal_provider, normalized_id)
+        snapshot = await _require_snapshot(store, normalized_id)
         return snapshot.report
 
     @app.get(
@@ -171,10 +169,12 @@ def create_app(
         tags=["reports"],
         response_class=PlainTextResponse,
     )
-    async def get_markdown_report(analysis_id: str) -> PlainTextResponse:
-        """Возвращает Markdown-отчёт по тому же снимку анализа."""
+    async def get_markdown_report(analysis_id: str, request: Request) -> PlainTextResponse:
+        """Возвращает Markdown-отчёт только владельцу анализа."""
 
-        snapshot = await _require_snapshot(store, _normalize_analysis_id(analysis_id))
+        normalized_id = _normalize_analysis_id(analysis_id)
+        await _authorized_job(request, jobs, principal_provider, normalized_id)
+        snapshot = await _require_snapshot(store, normalized_id)
         return PlainTextResponse(snapshot.markdown, media_type="text/markdown")
 
     return app
@@ -235,6 +235,38 @@ def _default_analysis_job_store() -> AnalysisJobStore:
     if database_url:
         return PostgresAnalysisJobStore(database_url)
     return InMemoryAnalysisJobStore()
+
+
+async def _authorized_job(
+    request: Request,
+    jobs: AnalysisJobStore,
+    principal_provider: PrincipalProvider | None,
+    analysis_id: str,
+) -> AnalysisJob:
+    """Сверяет Bearer с несекретным subject задания. Без токена — 401, чужой — 403."""
+
+    if principal_provider is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Analysis authentication is not configured.",
+        )
+    try:
+        try:
+            principal = await principal_provider(request)
+        except (PermissionError, ValueError) as error:
+            raise HTTPException(status_code=401, detail="Authentication required.") from error
+    finally:
+        clear_request_token()
+
+    job = await jobs.get(analysis_id)
+    if job is None or not job.owner_subject:
+        raise HTTPException(status_code=404, detail="Analysis not found.")
+    if not hmac.compare_digest(
+        job.owner_subject.encode("utf-8"),
+        principal.subject.encode("utf-8"),
+    ):
+        raise HTTPException(status_code=403, detail="Analysis access denied.")
+    return job
 
 
 def _normalize_analysis_id(analysis_id: str) -> str:

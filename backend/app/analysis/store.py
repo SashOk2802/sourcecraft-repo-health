@@ -171,7 +171,7 @@ class PostgresAnalysisStore:
                 current_row = await connection.fetchrow(
                     """
                     SELECT
-                        analysis_id, repository_id, status, created_at,
+                        analysis_id, repository_id, owner_subject, status, created_at,
                         started_at, finished_at, error_code, error_summary, worker_id
                     FROM analysis_jobs
                     WHERE analysis_id = $1
@@ -206,7 +206,7 @@ class PostgresAnalysisStore:
                     WHERE analysis_id = $1 AND status = $6
                         AND worker_id IS NOT DISTINCT FROM $7
                     RETURNING
-                        analysis_id, repository_id, status, created_at,
+                        analysis_id, repository_id, owner_subject, status, created_at,
                         started_at, finished_at, error_code, error_summary, worker_id
                     """,
                     updated.analysis_id,

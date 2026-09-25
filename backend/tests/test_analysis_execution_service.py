@@ -18,7 +18,7 @@ class AnalysisExecutionServiceTest(unittest.IsolatedAsyncioTestCase):
         context = _context("repo-42", timestamp)
         service, job_store, snapshot_store = _service(timestamp)
 
-        await service.create_job(context, "analysis-42")
+        await service.create_job(context, "analysis-42", owner_subject="user-42")
         finished_job = await service.execute(
             analysis_id="analysis-42",
             context=context,
@@ -48,7 +48,7 @@ class AnalysisExecutionServiceTest(unittest.IsolatedAsyncioTestCase):
             evaluation_calls.append("called")
             raise AssertionError("Analyzer must not run for another repository.")
 
-        await service.create_job(expected_context, "analysis-42")
+        await service.create_job(expected_context, "analysis-42", owner_subject="user-42")
         rejected_job = await service.execute(
             analysis_id="analysis-42",
             context=foreign_context,
