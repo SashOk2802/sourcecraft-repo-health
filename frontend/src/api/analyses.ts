@@ -100,7 +100,12 @@ export function describeStartError(error: Error): string {
     if (error.status === 404) return "Такого репозитория нет в каталоге, который проверяет сервис.";
     if (error.status === 422) return "Такой идентификатор репозитория не подходит — проверьте, что скопировали его целиком.";
     if (error.status === 429) return "Этот репозиторий уже проверяли только что — повторить можно через 15 минут.";
-    if (error.status === 503) return "Запуск анализа на сервере пока не настроен или SourceCraft не отвечает. Попробуйте позже.";
+    if (error.status === 503) {
+      // backend/app/main.py: каталог SourceCraft не ответил — это временно; иначе запуск не настроен.
+      return /catalog/i.test(error.message)
+        ? "SourceCraft сейчас не отдаёт данные этого репозитория. Попробуйте через несколько минут."
+        : "Запуск анализа на сервере пока не настроен. Попробуйте позже.";
+    }
   }
   return describeError(error);
 }

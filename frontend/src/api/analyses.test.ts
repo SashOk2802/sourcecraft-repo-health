@@ -11,6 +11,12 @@ describe("describeStartError", () => {
     expect(describeStartError(new ApiError(429, "Too Many Requests"))).toContain("15 минут");
   });
 
+  it("503 из-за недоступного каталога SourceCraft не выдаёт за ненастроенный сервер", () => {
+    const busy = describeStartError(new ApiError(503, "SourceCraft repository catalog is unavailable."));
+    expect(busy).toContain("SourceCraft");
+    expect(busy).not.toContain("не настроен");
+  });
+
   it("остальное объясняет общими словами", () => {
     expect(describeStartError(new ApiError(0, "Сервер не отвечает"))).toContain("Сервер не отвечает");
     expect(describeStartError(new Error("сбой"))).toBe("сбой");

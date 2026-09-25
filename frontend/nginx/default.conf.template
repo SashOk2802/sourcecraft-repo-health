@@ -4,7 +4,8 @@
 # записаны без фигурных скобок, их подстановка не трогает.
 
 server {
-    listen 80;
+    # nginx работает не от root (Dockerfile.prod), поэтому порт выше 1024.
+    listen 8080;
     server_name _;
 
     root /usr/share/nginx/html;

@@ -61,10 +61,10 @@ $env:VITE_DATA_SOURCE = "api"; npm run dev
 
 | Экран | Endpoint | На main |
 | --- | --- | --- |
-| Отчёт | `GET /api/v1/analyses/{id}/report` | есть |
+| Отчёт | `GET /api/v1/analyses/{id}/report` | есть; в production — Activity, Issues, CI/CD, Documentation и Code health, Security пока `unavailable` |
 | Markdown | `GET /api/v1/analyses/{id}/report.md` | есть; демо-отчёт собирается в браузере в том же формате |
 | Ход анализа | `GET /api/v1/analyses/{id}` — `queued`, `running`, `completed`, `partial`, `failed` с `error: {code, summary}` | есть |
-| Запуск анализа | `POST /api/v1/repositories/{id}/analyses` | есть: после входа, только публичные репозитории из `SOURCECRAFT_PUBLIC_ORGANIZATIONS`; без настройки — 503 |
+| Запуск анализа | `POST /api/v1/repositories/{id}/analyses` | есть: после входа, по внутреннему id репозитория SourceCraft, только публичные репозитории из `SOURCECRAFT_PUBLIC_ORGANIZATIONS`; без неё и `SOURCECRAFT_TOKEN` — 503 |
 | Методика | `GET /api/v1/methodology` | есть: веса, названия и лимит — с backend, объяснения и политика пересчёта — в `src/lib/methodologyTexts.ts` |
 | Вход | `/api/v1/auth/yandex/start`, `/callback`, `GET /api/v1/me` (`{id, login}`), `POST /api/v1/auth/logout` | есть; без `YANDEX_CLIENT_ID` и `YANDEX_REDIRECT_URI` backend отвечает 503 — тогда работает демо-кабинет |
 | Рейтинг | `GET /api/v1/leaderboard` | нет — демо; места и сортировки по [docs/leaderboard-policy.md](../docs/leaderboard-policy.md) |
@@ -76,9 +76,11 @@ $env:VITE_DATA_SOURCE = "api"; npm run dev
 
 Для стенда есть отдельный образ: `Dockerfile.prod` собирает приложение и отдаёт его через nginx. Обычный `Dockerfile` остаётся для разработки — его запускает `compose.yaml` с Vite и перезагрузкой на лету.
 
+Как и остальные контейнеры проекта, nginx в этом образе работает не от root: образ `nginxinc/nginx-unprivileged` запускается пользователем с uid 101 и слушает порт **8080**.
+
 ~~~bash
 docker build -f frontend/Dockerfile.prod -t repo-health-frontend frontend
-docker run -p 80:80 -e API_PROXY_TARGET=http://backend:8000 repo-health-frontend
+docker run -p 80:8080 -e API_PROXY_TARGET=http://backend:8000 repo-health-frontend
 ~~~
 
 Что делает nginx (`nginx/default.conf.template`):
@@ -90,7 +92,7 @@ docker run -p 80:80 -e API_PROXY_TARGET=http://backend:8000 repo-health-frontend
 
 Режим данных задаётся при сборке: `--build-arg VITE_DATA_SOURCE=api`, по умолчанию `auto`.
 
-С compose frontend для стенда подключается файлом-дополнением рядом с `compose.yaml` — сам `compose.yaml` при этом не меняется:
+С compose frontend для стенда подключается файлом-дополнением рядом с `compose.yaml` — сам `compose.yaml` при этом не меняется. Порты и тома dev-сервера заменяются, а не дописываются (`!override` и `!reset` понимает Docker Compose 2.24 и новее):
 
 ~~~yaml
 # compose.stand.yaml
@@ -98,7 +100,8 @@ services:
   frontend:
     build:
       dockerfile: Dockerfile.prod
-    ports: ["80:80"]
+    ports: !override ["80:8080"]
+    volumes: !reset []
 ~~~
 
 ~~~bash
