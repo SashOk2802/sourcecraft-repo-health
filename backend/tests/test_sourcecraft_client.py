@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
 import httpx
 
@@ -17,6 +18,18 @@ from backend.app.integrations.sourcecraft import (
 
 class SourceCraftClientTest(unittest.TestCase):
     """Проверяет клиента без сети через искусственный HTTP transport."""
+
+    def test_owned_client_ignores_proxy_and_ca_environment(self) -> None:
+        with patch("backend.app.integrations.sourcecraft.httpx.Client") as factory:
+            client = SourceCraftClient("test-token", timeout_seconds=15)
+
+        factory.assert_called_once_with(
+            base_url="https://api.sourcecraft.tech",
+            timeout=15,
+            follow_redirects=False,
+            trust_env=False,
+        )
+        client.close()
 
     def test_get_json_sends_bearer_token_and_returns_object(self) -> None:
         secret_token = "token-that-must-not-appear-in-errors"
@@ -70,7 +83,9 @@ class SourceCraftClientTest(unittest.TestCase):
         )
         client = SourceCraftClient("test-token", http_client=http_client)
 
-        runs = client.get_paginated_objects("/repos/example-org/example-repo/cicd/runs", items_field="runs")
+        runs = client.get_paginated_objects(
+            "/repos/example-org/example-repo/cicd/runs", items_field="runs"
+        )
 
         self.assertEqual(runs, [{"id": "run-1"}, {"id": "run-2"}])
         self.assertEqual(len(requests), 2)
@@ -92,7 +107,9 @@ class SourceCraftClientTest(unittest.TestCase):
         client = SourceCraftClient("test-token", http_client=http_client)
 
         with self.assertRaisesRegex(SourceCraftResponseError, "repeated next_page_token"):
-            client.get_paginated_objects("/repos/example-org/example-repo/cicd/runs", items_field="runs")
+            client.get_paginated_objects(
+                "/repos/example-org/example-repo/cicd/runs", items_field="runs"
+            )
 
         self.assertEqual(len(requests), 2)
 
@@ -156,7 +173,9 @@ class SourceCraftClientTest(unittest.TestCase):
         client = SourceCraftClient("test-token", http_client=http_client)
 
         with self.assertRaises(ValueError):
-            client.get_paginated_objects("/repos/example-org/example-repo/cicd/runs", items_field="")
+            client.get_paginated_objects(
+                "/repos/example-org/example-repo/cicd/runs", items_field=""
+            )
         with self.assertRaises(ValueError):
             client.get_paginated_objects(
                 "/repos/example-org/example-repo/cicd/runs",

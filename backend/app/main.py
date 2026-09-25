@@ -12,22 +12,29 @@ from fastapi.responses import PlainTextResponse, RedirectResponse, Response
 
 from backend.app.analysis import (
     AnalysisDispatcher,
+    AnalysisExecutionService,
     AnalysisJob,
     AnalysisJobStore,
     AnalysisSnapshot,
     AnalysisStore,
     InMemoryAnalysisJobStore,
     InMemoryAnalysisStore,
+    InProcessAnalysisDispatcher,
     PostgresAnalysisJobStore,
     PostgresAnalysisStore,
     normalize_analysis_id,
 )
 from backend.app.analysis.dispatch import AnalysisPrincipal
+from backend.app.analysis.providers import sourcecraft_analyzer_provider
 from backend.app.identity import (
     YandexAuthenticationError,
     YandexAuthService,
     YandexProviderError,
     create_yandex_auth_service_from_environment,
+)
+from backend.app.integrations.sourcecraft_repository import (
+    SourceCraftRepositoryUnavailableError,
+    create_sourcecraft_public_repository_resolver_from_environment,
 )
 from backend.app.scoring.methodology import build_methodology_payload
 
@@ -46,14 +53,15 @@ def create_app(
 
     store = analysis_store or _default_analysis_store()
     jobs = job_store or (
-        InMemoryAnalysisJobStore()
-        if analysis_store is not None
-        else _default_analysis_job_store()
+        InMemoryAnalysisJobStore() if analysis_store is not None else _default_analysis_job_store()
     )
 
     effective_principal_provider = principal_provider or _yandex_principal_provider(
         yandex_auth_service,
     )
+    effective_analysis_dispatcher = analysis_dispatcher
+    if effective_analysis_dispatcher is None and analysis_store is None and job_store is None:
+        effective_analysis_dispatcher = _create_default_analysis_dispatcher(store, jobs)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -69,13 +77,13 @@ def create_app(
             if yandex_auth_service is not None:
                 await yandex_auth_service.start()
                 auth_started = True
-            if analysis_dispatcher is not None:
-                await analysis_dispatcher.start()
+            if effective_analysis_dispatcher is not None:
+                await effective_analysis_dispatcher.start()
                 dispatcher_started = True
             yield
         finally:
             if dispatcher_started:
-                await analysis_dispatcher.close()
+                await effective_analysis_dispatcher.close()
             if auth_started:
                 await yandex_auth_service.close()
             if jobs_started:
@@ -91,7 +99,7 @@ def create_app(
     )
     app.state.analysis_store = store
     app.state.analysis_job_store = jobs
-    app.state.analysis_dispatcher = analysis_dispatcher
+    app.state.analysis_dispatcher = effective_analysis_dispatcher
     app.state.principal_provider = effective_principal_provider
     app.state.yandex_auth_service = yandex_auth_service
 
@@ -195,7 +203,7 @@ def create_app(
 
         if not repository_id.strip():
             raise HTTPException(status_code=422, detail="Repository id must not be empty.")
-        if analysis_dispatcher is None:
+        if effective_analysis_dispatcher is None:
             raise HTTPException(
                 status_code=503,
                 detail="Analysis dispatch is not configured.",
@@ -215,7 +223,12 @@ def create_app(
             ) from error
 
         try:
-            job = await analysis_dispatcher.submit(repository_id, principal)
+            job = await effective_analysis_dispatcher.submit(repository_id, principal)
+        except SourceCraftRepositoryUnavailableError as error:
+            raise HTTPException(
+                status_code=503,
+                detail="SourceCraft repository catalog is unavailable.",
+            ) from error
         except LookupError as error:
             raise HTTPException(status_code=404, detail="Repository not found.") from error
         except PermissionError as error:
@@ -287,6 +300,30 @@ def _yandex_principal_provider(
         return AnalysisPrincipal(user.id)
 
     return provide
+
+
+def _create_default_analysis_dispatcher(
+    store: AnalysisStore,
+    jobs: AnalysisJobStore,
+) -> AnalysisDispatcher | None:
+    """Создаёт production worker только для явно настроенного public-каталога.
+
+    Личные SourceCraft-подключения ещё не реализованы. Пока resolver не
+    сконфигурирован, endpoint остаётся fail-closed с 503; сервисный токен не
+    используется для private/internal репозиториев произвольного пользователя.
+    """
+
+    resolver = create_sourcecraft_public_repository_resolver_from_environment()
+    if resolver is None:
+        return None
+    return InProcessAnalysisDispatcher(
+        execution_service=AnalysisExecutionService(
+            job_store=jobs,
+            snapshot_store=store,
+        ),
+        context_resolver=resolver,
+        analyzer_provider=sourcecraft_analyzer_provider,
+    )
 
 
 def _default_analysis_store() -> AnalysisStore:
