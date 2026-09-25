@@ -7,7 +7,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1
 
 RUN apt-get update \
-    && apt-get install --no-install-recommends -y git \
+    && apt-get install --no-install-recommends -y ca-certificates git \
     && rm -rf /var/lib/apt/lists/*
 
 RUN groupadd --system app \

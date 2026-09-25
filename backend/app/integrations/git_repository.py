@@ -1,47 +1,50 @@
-"""Локальная git-рабочая область для анализа файлов репозитория.
-
-Класс выполняет git строго через list-form вызовы без shell-интерполяции,
-перехватывает stderr для диагностики и никогда не включает URL или токен
-в тексты пользовательских ошибок (требование блока «не светить секреты»).
-"""
+"""Безопасная временная Git-рабочая область для анализа файлов SourceCraft."""
 
 from __future__ import annotations
 
 import logging
 import os
+import re
 import shutil
 import stat
 import subprocess
 import tempfile
+from base64 import b64encode
+from collections.abc import Iterator
+from pathlib import Path
+from urllib.parse import urlsplit
 
 logger = logging.getLogger(__name__)
 
+SOURCECRAFT_GIT_HOST = "git.sourcecraft.dev"
 DEFAULT_GIT_TIMEOUT_SECONDS = 60.0
+MAX_FILE_BYTES = 512 * 1024
+_SEGMENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+_COMMIT_SHA = re.compile(r"^[0-9a-fA-F]{7,64}$")
 
 
 class GitCloneError(RuntimeError):
-    """Ошибка клонирования/подготовки рабочей области.
+    """Ошибка подготовки рабочего дерева без URL, токена и stderr Git."""
 
-    Текст исключения не содержит URL репозитория и токен аутентификации.
+
+def sourcecraft_clone_url(organization_slug: str, repository_slug: str) -> str:
+    """Строит допустимый HTTPS URL SourceCraft из двух slug.
+
+    ``web_url`` репозитория не используется: это отображаемая ссылка, а не
+    доверенный адрес, на который разрешено посылать учетные данные Git.
     """
 
-
-class GitOperationError(GitCloneError):
-    """Неуспешный exit-код git-команды внутри подготовленной рабочей области."""
-
-
-def _redact(value: str, *, repo_url: str | None, token: str | None) -> str:
-    """Убирает URL репозитория и токен из строки перед её показом."""
-    redacted = value
-    if token:
-        redacted = redacted.replace(token, "<token>")
-    if repo_url:
-        redacted = redacted.replace(repo_url, "<repo>")
-    return redacted
+    for value, name in (
+        (organization_slug, "organization_slug"),
+        (repository_slug, "repository_slug"),
+    ):
+        if not isinstance(value, str) or not _SEGMENT.fullmatch(value):
+            raise ValueError(f"SourceCraft {name} must be one URL path segment")
+    return f"https://git@{SOURCECRAFT_GIT_HOST}/{organization_slug}/{repository_slug}.git"
 
 
 class LocalGitRepository:
-    """Управляет временной рабочей областью для анализа файлов репозитория."""
+    """Клонирует доверенный SourceCraft-репозиторий во временную папку."""
 
     def __init__(
         self,
@@ -51,169 +54,167 @@ class LocalGitRepository:
         auth_token: str | None = None,
         timeout_seconds: float = DEFAULT_GIT_TIMEOUT_SECONDS,
     ) -> None:
-        """Принимает URL, ссылку для checkout и токен аутентификации.
-
-        ``ref`` может быть именем ветки, тегом или полным commit SHA.
-        ``auth_token`` передаётся в git как Bearer-заголовок (тот же
-        механизм, что у SourceCraftClient), поэтому не попадает в URL.
-        """
-        self.repo_url = repo_url
-        self.ref = ref
-        self._auth_token = auth_token
+        _validate_clone_url(repo_url)
+        if ref is not None and (not isinstance(ref, str) or not _COMMIT_SHA.fullmatch(ref)):
+            raise ValueError("repository ref must be a commit SHA")
+        if timeout_seconds <= 0:
+            raise ValueError("git timeout must be positive")
+        self._repo_url = repo_url
+        self._ref = ref
+        self._auth_token = auth_token or None
         self._timeout_seconds = timeout_seconds
         self.temp_dir: str | None = None
 
-    @property
-    def auth_token(self) -> str | None:
-        """Токен аутентификации (нужен только для локального редактирования текстов)."""
-        return self._auth_token
-
-    def redact(self, value: str) -> str:
-        """Убирает URL репозитория и токен из строки для пользовательских сообщений."""
-        return _redact(value, repo_url=self.repo_url, token=self._auth_token)
-
     def clone(self) -> str:
-        """Клонирует репозиторий во временную папку и переключается на ``ref``.
+        """Клонирует дерево и, если задан SHA, переключается на него."""
 
-        Для веток и тегов используется shallow clone этой ссылки. Если ``ref``
-        оказался commit SHA (например, ``AnalysisContext.commit_sha``), а не именем
-        ветки, клонируем дефолтную ветку поверхностно и подтягиваем нужный коммит
-        адресно (работает при поддержке сервера, как в GitHub/GitLab).
-        """
-        # Повторный clone без предварительной cleanup не должен молча терять
-        # предыдущую временную директорию: убираем её, если она ещё существует.
-        if self.temp_dir is not None:
-            self.cleanup()
-
+        self.cleanup()
         self.temp_dir = tempfile.mkdtemp(prefix="repo-health-")
         try:
-            if self.ref:
-                self._clone_shallow_with_ref(self.ref)
-            else:
-                self._run_git(["clone", "--depth", "1", self.repo_url, self.temp_dir])
+            self._run_git(["clone", "--depth", "1", self._repo_url, self.temp_dir])
+            if self._ref is not None:
+                self._run_git(["-C", self.temp_dir, "fetch", "--depth", "1", "origin", self._ref])
+                self._run_git(["-C", self.temp_dir, "checkout", "--detach", "FETCH_HEAD"])
             return self.temp_dir
-        except subprocess.TimeoutExpired as error:
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
             self.cleanup()
-            raise GitCloneError(
-                "Клонирование репозитория превысило допустимое время ожидания."
-            ) from error
-        except subprocess.CalledProcessError as error:
-            self.cleanup()
-            raise GitCloneError(
-                "Не удалось получить содержимое репозитория: git-команда завершилась ошибкой."
-            ) from error
-
-    def _clone_shallow_with_ref(self, ref: str) -> None:
-        try:
-            self._run_git(["clone", "--branch", ref, "--depth", "1", self.repo_url, self.temp_dir])
-            return
-        except subprocess.CalledProcessError:
-            # ref, вероятно, commit SHA, а не ветка/тег: клонируем дефолтную ветку
-            # и подтягиваем нужный коммит адресно (fetch по хешу поддерживается
-            # GitHub/GitLab-подобными серверами; этот fallback покрыт тестом T.2).
-            self.cleanup()
-            self.temp_dir = tempfile.mkdtemp(prefix="repo-health-")
-            self._run_git(["clone", "--depth", "1", self.repo_url, self.temp_dir])
-            self._run_git(["-C", self.temp_dir, "fetch", "--depth", "1", "origin", ref])
-            self._run_git(["-C", self.temp_dir, "checkout", "--detach", "FETCH_HEAD"])
-
-    def _run_git(self, arguments: list[str]) -> subprocess.CompletedProcess[str]:
-        command = ["git"]
-        if self._auth_token:
-            # Тот же Bearer-PAT, что и у API-клиента; в URL токен не попадает.
-            command += ["-c", f"http.extraheader=AUTHORIZATION: Bearer {self._auth_token}"]
-        command += arguments
-
-        try:
-            return subprocess.run(
-                command,
-                check=True,
-                capture_output=True,
-                text=True,
-                timeout=self._timeout_seconds,
-            )
-        except subprocess.TimeoutExpired:
-            raise
-        except subprocess.CalledProcessError as error:
-            diagnostic = _redact(
-                error.stderr or "",
-                repo_url=self.repo_url,
-                token=self._auth_token,
-            )
-            logger.debug(
-                "git %s failed (exit %s): %s",
-                arguments[0],
-                error.returncode,
-                diagnostic,
-            )
-            raise
+            if isinstance(error, subprocess.TimeoutExpired):
+                raise GitCloneError("Клонирование репозитория превысило лимит времени.") from error
+            raise GitCloneError("Не удалось подготовить содержимое репозитория.") from error
 
     def file_exists(self, relative_path: str) -> bool:
-        """Проверяет наличие файла по относительному пути от корня репозитория."""
-        if not self.temp_dir:
-            return False
-        return self._resolve_within_temp(relative_path) is not None
+        """Проверяет обычный файл внутри временного дерева, не следуя симлинкам."""
 
-    def read_file(self, relative_path: str) -> str | None:
-        """Безопасно читает содержимое файла (делегирует read_file_safe).
+        path = self._resolve_file(relative_path)
+        return path is not None and path.is_file() and not path.is_symlink()
 
-        Обратная совместимость: полный лимит размера применяется внутри
-        :meth:`read_file_safe` со значением по умолчанию (1 MiB).
-        """
-        return self.read_file_safe(relative_path)
+    def read_file(self, relative_path: str, *, max_bytes: int = MAX_FILE_BYTES) -> str | None:
+        """Читает текстовый файл с лимитом размера; выход из дерева запрещён."""
 
-    def read_file_safe(self, relative_path: str, max_bytes: int = 1_048_576) -> str | None:
-        """Безопасно читает содержимое файла с ограничением размера.
-
-        Путь нормализуется через realpath и обязан находиться внутри временной
-        директории; ``..``, абсолютные пути и симлинки наружу отклоняются
-        (см. :meth:`_resolve_within_temp`). Читается не более ``max_bytes`` байт —
-        файл больше лимита обрезается, а не читается целиком. Возвращает ``None``
-        при попытке выхода за пределы temp_dir или ошибке чтения.
-        """
-        full_path = self._resolve_within_temp(relative_path)
-        if full_path is None:
+        if max_bytes < 1:
+            raise ValueError("max_bytes must be positive")
+        path = self._resolve_file(relative_path)
+        if path is None or not path.is_file() or path.is_symlink():
             return None
         try:
-            with open(full_path, "r", encoding="utf-8", errors="ignore") as f:
-                return f.read(max_bytes)
+            with path.open("rb") as file:
+                return file.read(max_bytes).decode("utf-8", errors="replace")
         except OSError:
             return None
 
-    def _resolve_within_temp(self, relative_path: str) -> str | None:
-        """Возвращает realpath внутри temp_dir либо ``None`` при попытке выхода."""
-        if not self.temp_dir:
+    def iter_files(self, *, excluded_directories: frozenset[str]) -> Iterator[str]:
+        """Возвращает обычные файлы, не покидая workspace."""
+
+        if self.temp_dir is None:
+            return
+        root = Path(self.temp_dir).resolve()
+        for current_root, directories, filenames in os.walk(root, followlinks=False):
+            directories[:] = sorted(
+                directory
+                for directory in directories
+                if directory not in excluded_directories
+                and not Path(current_root, directory).is_symlink()
+            )
+            for filename in sorted(filenames):
+                candidate = Path(current_root, filename)
+                if candidate.is_symlink() or not candidate.is_file():
+                    continue
+                try:
+                    yield str(candidate.resolve().relative_to(root))
+                except ValueError:
+                    continue
+
+    def file_size(self, relative_path: str) -> int | None:
+        path = self._resolve_file(relative_path)
+        if path is None or path.is_symlink():
             return None
-        root = os.path.realpath(self.temp_dir)
-        candidate = os.path.realpath(os.path.join(self.temp_dir, relative_path))
-        if candidate == root:
+        try:
+            return path.stat().st_size
+        except OSError:
             return None
-        if not candidate.startswith(root + os.sep):
+
+    def cleanup(self) -> None:
+        """Удаляет только созданную этим объектом временную рабочую папку."""
+
+        temp_dir, self.temp_dir = self.temp_dir, None
+        if temp_dir is None:
+            return
+        try:
+            shutil.rmtree(temp_dir, onerror=_remove_readonly)
+        except OSError:
+            logger.warning("Не удалось удалить временную папку Git-клона.")
+
+    def _run_git(self, arguments: list[str]) -> subprocess.CompletedProcess[str]:
+        environment = os.environ.copy()
+        # Backend-процесс не должен ожидать ввода логина или пароля в терминале.
+        environment["GIT_TERMINAL_PROMPT"] = "0"
+        if self._auth_token is not None:
+            # Для Git SourceCraft PAT является паролем HTTP Basic. Заголовок
+            # передаётся через окружение и не попадает в URL или argv процесса.
+            credentials = b64encode(f"git:{self._auth_token}".encode()).decode("ascii")
+            environment["GIT_CONFIG_COUNT"] = "1"
+            environment["GIT_CONFIG_KEY_0"] = (
+                f"http.https://{SOURCECRAFT_GIT_HOST}/.extraHeader"
+            )
+            environment["GIT_CONFIG_VALUE_0"] = f"Authorization: Basic {credentials}"
+        return subprocess.run(
+            [
+                "git",
+                "-c",
+                "protocol.file.allow=never",
+                "-c",
+                "protocol.ext.allow=never",
+                "-c",
+                "http.followRedirects=false",
+                *arguments,
+            ],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=self._timeout_seconds,
+            env=environment,
+        )
+
+    def _resolve_file(self, relative_path: str) -> Path | None:
+        if self.temp_dir is None or not isinstance(relative_path, str):
+            return None
+        root = Path(self.temp_dir).resolve()
+        candidate = (root / relative_path).resolve()
+        try:
+            candidate.relative_to(root)
+        except ValueError:
             return None
         return candidate
 
-    def cleanup(self) -> None:
-        """Удаляет временную папку.
 
-        Обязательно к вызову после завершения анализа. Ошибка удаления не
-        пробрасывается наружу: она не должна затирать уже собранный результат
-        категории (Windows не позволяет удалять read-only файлы .git).
-        """
-        temp_dir, self.temp_dir = self.temp_dir, None
-        if not temp_dir:
-            return
-        try:
-            if os.path.exists(temp_dir):
-                shutil.rmtree(temp_dir, onerror=_force_remove_readonly)
-        except OSError:
-            logger.warning("Не удалось удалить временную директорию git-клона.", exc_info=True)
+def _validate_clone_url(repo_url: str) -> None:
+    parsed = urlsplit(repo_url)
+    path_segments = parsed.path.split("/")
+    valid_path = (
+        len(path_segments) == 3
+        and not path_segments[0]
+        and _SEGMENT.fullmatch(path_segments[1]) is not None
+        and path_segments[2].endswith(".git")
+        and _SEGMENT.fullmatch(path_segments[2][:-4]) is not None
+    )
+    if (
+        parsed.scheme != "https"
+        or parsed.hostname != SOURCECRAFT_GIT_HOST
+        or parsed.port not in (None, 443)
+        or parsed.username != "git"
+        or parsed.password is not None
+        or parsed.query
+        or parsed.fragment
+        or not valid_path
+    ):
+        raise ValueError("repository URL must use the official SourceCraft Git HTTPS host")
 
 
-def _force_remove_readonly(func: object, path: str, exc_info: object) -> None:
-    """Снимает read-only атрибут (например, у файлов .git на Windows) и повторяет."""
+def _remove_readonly(function: object, path: str, _: object) -> None:
     try:
         os.chmod(path, stat.S_IWRITE)
     except OSError:
         pass
-    if callable(func):
-        func(path)
+    if callable(function):
+        function(path)

@@ -22,6 +22,12 @@ class ContainerSecurityTest(unittest.TestCase):
             r"^FROM node:22-alpine@sha256:[0-9a-f]{64}$",
         )
 
+    def test_backend_image_installs_git_runtime(self) -> None:
+        dockerfile = _read("backend/Dockerfile")
+
+        self.assertIn("apt-get install --no-install-recommends -y ca-certificates git", dockerfile)
+        self.assertIn("rm -rf /var/lib/apt/lists/*", dockerfile)
+
     def test_backend_container_runs_as_named_non_root_user(self) -> None:
         dockerfile = _read("backend/Dockerfile")
 
