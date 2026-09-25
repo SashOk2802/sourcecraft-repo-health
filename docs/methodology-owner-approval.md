@@ -24,8 +24,8 @@
 (`_density_penalty()`), при одном FIXME и `total_files <= 5` penalty ≥ 100,
 score = 0. Это следствие нормировки на число файлов, а не отдельное правило.
 
-Фактическая кривая (1 FIXME, без TODO, измерено регрессионным тестом
-`test_code_health_small_repo_single_marker_density_semantics`):
+Фактическая кривая (1 FIXME, без TODO, рассчитана по формуле
+`_density_penalty()` выше; регрессионного теста на эти точки пока нет):
 
 | total_files | FIXME | Score |
 | ---: | ---: | ---: |

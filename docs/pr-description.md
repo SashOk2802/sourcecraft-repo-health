@@ -10,15 +10,13 @@
 ### Правило малых репозиториев (ревью V.1)
 
 Поведение **задокументировано** в `docs/scoring-methodology.md` §5.2
-(«Правило малых репозиториев») и **покрыто регрессионным тестом**
-`test_code_health_small_repo_single_marker_density_semantics` в
-`backend/tests/test_file_analysis.py`: штраф растёт как `1 / total_files`,
+(«Правило малых репозиториев»): штраф растёт как `1 / total_files`,
 поэтому одинокий FIXME обнуляет категорию при `total_files <= 5`
 (penalty ≥ 100), одинокий TODO — при `total_files = 1`. Интерпретация —
 «концентрированный долг в маленьком репо хуже», а не дефект нормировки.
 
-Тест и документация доказывают **стабильность и воспроизводимость** поведения,
-но не корректность самого порога: значение `total_files <= 5` помечено
+Документация фиксирует поведение и делает его воспроизводимым, но не
+корректность самого порога: значение `total_files <= 5` помечено
 `PENDING_APPROVAL` в §5.2 и **ожидает согласования владельцем методики**
 (см. [`docs/methodology-owner-approval.md`](methodology-owner-approval.md)).
 
@@ -38,7 +36,7 @@
 ## Проверка
 
 - `python -m pytest` — весь набор тестов, включая
-  `backend/tests/test_file_analysis.py::test_code_health_small_repo_single_marker_density_semantics`.
+  `backend/tests/test_file_analyzers.py::FileAnalyzersTest::test_documentation_and_code_health_measure_prepared_clone`.
 - `ruff check backend --ignore EXE002`.
 
 ## Для ревью
