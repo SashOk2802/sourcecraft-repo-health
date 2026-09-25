@@ -74,6 +74,7 @@ class FileAnalysisTest(unittest.TestCase):
                 "function build() { return /[//] TODO/; }\n"
                 "if (ok) /[//] TODO/.test(value);\n"
                 "if ((ok && check())) {} /[//] TODO/.test(value);\n"
+                "export default /[//] TODO/;\n"
                 "const grouped = (left + right) / divisor; // TODO: grouped division\n"
                 "const objectRatio = {value: 2} / divisor; // TODO: object division\n"
                 "const propertyRatio = obj.if(value) / divisor; // TODO: property call\n"

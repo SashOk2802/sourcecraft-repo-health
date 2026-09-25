@@ -227,7 +227,9 @@ def _javascript_comments(content: str) -> list[str]:
 
     ``/`` после обычной ``)`` означает деление, а после закрытия
     условия ``if (...)`` может начинать regex-выражение. Стек скобок
-    сохраняет этот контекст и для вложенных выражений.
+    сохраняет этот контекст и для вложенных выражений. Отдельно
+    отслеживается начало ESM-декларации: в ``export default <expression>``
+    после ``default`` также может начинаться regex-литерал.
     """
 
     comments: list[str] = []
@@ -236,6 +238,7 @@ def _javascript_comments(content: str) -> list[str]:
     index = 0
     expects_expression = True
     last_token: str | None = None
+    module_export_pending = False
 
     while index < len(content):
         if content[index].isspace():
@@ -286,8 +289,21 @@ def _javascript_comments(content: str) -> list[str]:
             # После точки reserved word является именем свойства: ``obj.if()``
             # не должен превращать обычную ``)`` в закрытие условия.
             is_keyword = last_token != "."
-            last_token = word if is_keyword else "identifier"
-            expects_expression = is_keyword and word in _JS_EXPRESSION_PREFIX_KEYWORDS
+            if is_keyword and word == "export":
+                # ``export`` сам по себе не является выражением, но задаёт
+                # контекст для следующего token. Это важно для конструкции
+                # ``export default /.../``: regex начинается после default.
+                module_export_pending = True
+                expects_expression = True
+                last_token = word
+            elif is_keyword and word == "default" and module_export_pending:
+                module_export_pending = False
+                expects_expression = True
+                last_token = "export_default"
+            else:
+                module_export_pending = False
+                last_token = word if is_keyword else "identifier"
+                expects_expression = is_keyword and word in _JS_EXPRESSION_PREFIX_KEYWORDS
             index = word_end
             continue
         if character.isdigit():
@@ -326,6 +342,8 @@ def _javascript_comments(content: str) -> list[str]:
             expects_expression = True
         elif character == ".":
             expects_expression = False
+        if character == ";":
+            module_export_pending = False
         last_token = character
         index += 1
 
