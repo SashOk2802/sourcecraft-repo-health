@@ -6,7 +6,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from backend.app.analyzers import code_health, documentation
-from backend.app.contracts import AnalysisContext, DataStatus, RepositoryRef
+from backend.app.contracts import (
+    AnalysisContext,
+    DataStatus,
+    Recommendation,
+    RecommendationPriority,
+    RepositoryRef,
+)
 from backend.app.integrations.git_repository import LocalGitRepository
 
 
@@ -52,6 +58,75 @@ class FileAnalyzersTest(unittest.TestCase):
             {metric.code for metric in code_health_result.metrics},
             {"total_analyzed_files", "todo_count", "fixme_count"},
         )
+
+    def test_code_health_small_repo_single_marker_density_semantics(self) -> None:
+        """Одинокий FIXME в репозитории из 1–5 файлов обнуляет категорию (V.1).
+
+        Плотность — задокументированная семантика формулы (методика §4.3, ревью
+        V.1): штраф растёт как 1/total_files, поэтому один FIXME даёт penalty
+        >= 100 при total_files <= 5 и score 0. Тест фиксирует кривую 1/3/6/100
+        файлов; корректность порога ожидает согласования владельцем методики
+        (PENDING_APPROVAL в §4.3) и этим тестом не доказывается.
+        """
+        context = analysis_context()
+
+        def score_for(total_files: int) -> float:
+            result = code_health.evaluate(
+                context,
+                {
+                    "total_files": total_files,
+                    "todo_count": 0,
+                    "fixme_count": 1,
+                    "files_with_debt": 1,
+                },
+            )
+            assert result.score is not None
+            return result.score
+
+        # penalty = (1*5)/1*100 = 500 → score 0
+        self.assertEqual(score_for(1), 0.0)
+        # penalty = (1*5)/3*100 ≈ 166.67 → score 0
+        self.assertEqual(score_for(3), 0.0)
+        # Градиент непрерывен: за пределами «обнуляющего» диапазона score > 0.
+        self.assertAlmostEqual(score_for(6), 16.67, places=2)
+        self.assertGreater(score_for(6), score_for(3))
+        # В обычном по размеру репо одинокий FIXME категорию не обнуляет.
+        self.assertEqual(score_for(100), 95.0)
+
+    def test_code_health_fixme_critical_count_boundary(self) -> None:
+        """Граница FIXME_CRITICAL_COUNT = 2 зафиксирована тестом (V.2).
+
+        Единичный FIXME — P2; от FIXME_CRITICAL_COUNT включительно рекомендация
+        эскалируется до жёсткой P1 с формулировкой про опасный код.
+        """
+        self.assertEqual(code_health.FIXME_CRITICAL_COUNT, 2)
+        context = analysis_context()
+
+        def recommendation_for(fixme_count: int) -> Recommendation:
+            result = code_health.evaluate(
+                context,
+                {
+                    "total_files": 100,
+                    "todo_count": 0,
+                    "fixme_count": fixme_count,
+                    "files_with_debt": 1,
+                },
+            )
+            return next(
+                r for r in result.recommendations if r.code == "code_health_resolve_fixme"
+            )
+
+        single = recommendation_for(code_health.FIXME_CRITICAL_COUNT - 1)
+        self.assertEqual(single.priority, RecommendationPriority.P2)
+        self.assertNotIn("опасный", single.rationale)
+
+        at_threshold = recommendation_for(code_health.FIXME_CRITICAL_COUNT)
+        self.assertEqual(at_threshold.priority, RecommendationPriority.P1)
+        self.assertIn("опасный", at_threshold.rationale)
+
+        above_threshold = recommendation_for(code_health.FIXME_CRITICAL_COUNT + 1)
+        self.assertEqual(above_threshold.priority, RecommendationPriority.P1)
+        self.assertIn("опасный", above_threshold.rationale)
 
 
 def analysis_context() -> AnalysisContext:
