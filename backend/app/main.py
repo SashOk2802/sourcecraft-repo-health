@@ -37,6 +37,11 @@ from backend.app.identity import (
     create_yandex_auth_service_from_environment,
 )
 from backend.app.integrations.sourcecraft import SourceCraftClient
+from backend.app.integrations.sourcecraft_public_catalog import (
+    PublicRepositoryCatalog,
+    create_sourcecraft_public_repository_catalog_from_environment,
+)
+from backend.app.integrations.sourcecraft_repositories import SourceCraftRepository
 from backend.app.integrations.sourcecraft_repository import (
     SourceCraftRepositoryUnavailableError,
     create_sourcecraft_public_repository_resolver_from_environment,
@@ -61,6 +66,8 @@ def create_app(
     principal_provider: PrincipalProvider | None = None,
     yandex_auth_service: YandexAuthService | None = None,
     bind_sourcecraft_token: bool = False,
+    repository_catalog: PublicRepositoryCatalog | None = None,
+    configure_public_repository_catalog: bool = True,
 ) -> FastAPI:
     """Создаёт HTTP-приложение с хранилищами и необязательным worker анализа."""
 
@@ -75,6 +82,9 @@ def create_app(
     effective_analysis_dispatcher = analysis_dispatcher
     if effective_analysis_dispatcher is None and analysis_store is None and job_store is None:
         effective_analysis_dispatcher = _create_default_analysis_dispatcher(store, jobs)
+    effective_repository_catalog = repository_catalog
+    if effective_repository_catalog is None and configure_public_repository_catalog:
+        effective_repository_catalog = _create_default_public_repository_catalog()
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -116,6 +126,7 @@ def create_app(
     app.state.principal_provider = effective_principal_provider
     app.state.yandex_auth_service = yandex_auth_service
     app.state.binds_caller_sourcecraft_token = bind_sourcecraft_token
+    app.state.public_repository_catalog = effective_repository_catalog
 
     @app.get("/health", tags=["system"])
     async def health() -> dict[str, str]:
@@ -187,6 +198,47 @@ def create_app(
         auth = _require_yandex_auth(yandex_auth_service)
         user = await _require_yandex_user(auth, request)
         return {"id": user.id, "login": user.login}
+
+    @app.get("/api/v1/me/repositories", tags=["repositories"])
+    async def get_my_repositories(request: Request) -> dict[str, object]:
+        """Возвращает безопасный список публичных репозиториев для выбора анализа."""
+
+        auth = _require_yandex_auth(yandex_auth_service)
+        await _require_yandex_user(auth, request)
+        if effective_repository_catalog is None:
+            raise HTTPException(
+                status_code=503,
+                detail="SourceCraft repository catalog is not configured.",
+            )
+
+        try:
+            repositories = await effective_repository_catalog.list_repositories()
+        except SourceCraftRepositoryUnavailableError as error:
+            raise HTTPException(
+                status_code=503,
+                detail="SourceCraft repository catalog is unavailable.",
+            ) from error
+
+        if any(repository.visibility != "public" for repository in repositories):
+            raise HTTPException(
+                status_code=503,
+                detail="SourceCraft repository catalog is unavailable.",
+            )
+        repositories = tuple(
+            sorted(
+                repositories,
+                key=lambda repository: (
+                    repository.organization_slug,
+                    repository.slug,
+                    repository.id,
+                ),
+            )
+        )
+
+        return {
+            "repositories": [_public_repository_payload(repository) for repository in repositories],
+            "total": len(repositories),
+        }
 
     @app.post("/api/v1/auth/logout", tags=["authentication"], status_code=204)
     async def logout(request: Request) -> Response:
@@ -320,9 +372,7 @@ def create_sourcecraft_app(
 
     store = analysis_store or _default_analysis_store()
     jobs = job_store or (
-        InMemoryAnalysisJobStore()
-        if analysis_store is not None
-        else _default_analysis_job_store()
+        InMemoryAnalysisJobStore() if analysis_store is not None else _default_analysis_job_store()
     )
     open_bound_client = build_request_opener(http_client_factory)
 
@@ -345,6 +395,7 @@ def create_sourcecraft_app(
         principal_provider=principal_provider,
         yandex_auth_service=yandex_auth_service,
         bind_sourcecraft_token=True,
+        configure_public_repository_catalog=False,
     )
 
 
@@ -362,6 +413,21 @@ async def _require_yandex_user(
         return await auth.require_user(request.cookies.get(auth.settings.cookie_name))
     except PermissionError as error:
         raise HTTPException(status_code=401, detail="Authentication required.") from error
+
+
+def _public_repository_payload(repository: SourceCraftRepository) -> dict[str, object]:
+    """Строит публичную проекцию каталога без служебных полей SourceCraft."""
+
+    return {
+        "id": repository.id,
+        "organizationSlug": repository.organization_slug,
+        "repositorySlug": repository.slug,
+        "name": f"{repository.organization_slug}/{repository.slug}",
+        "url": repository.web_url,
+        "defaultBranch": repository.default_branch or None,
+        "language": repository.language,
+        "isEmpty": repository.is_empty,
+    }
 
 
 def _yandex_principal_provider(
@@ -399,6 +465,12 @@ def _create_default_analysis_dispatcher(
         context_resolver=resolver,
         analyzer_provider=sourcecraft_analyzer_provider,
     )
+
+
+def _create_default_public_repository_catalog() -> PublicRepositoryCatalog | None:
+    """Создаёт каталог списка только из явно разрешённых public-организаций."""
+
+    return create_sourcecraft_public_repository_catalog_from_environment()
 
 
 def _default_analysis_store() -> AnalysisStore:
