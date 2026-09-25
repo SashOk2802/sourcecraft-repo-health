@@ -43,6 +43,21 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
+/** Текстовый ответ — Markdown-отчёт. */
+export async function getText(path: string): Promise<string> {
+  let response: Response;
+  try {
+    response = await fetch(path, { headers: { Accept: "text/markdown, text/plain" }, credentials: "same-origin" });
+  } catch {
+    throw new ApiError(0, "Сервер не отвечает");
+  }
+
+  if (!response.ok) {
+    throw new ApiError(response.status, await readErrorMessage(response));
+  }
+  return response.text();
+}
+
 async function readErrorMessage(response: Response): Promise<string> {
   try {
     // FastAPI кладёт текст ошибки в поле detail.

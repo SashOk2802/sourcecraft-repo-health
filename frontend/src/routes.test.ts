@@ -5,19 +5,17 @@ import { matchRoute, paths } from "./routes";
 describe("matchRoute", () => {
   it("узнаёт все страницы", () => {
     expect(matchRoute("/")).toEqual({ page: "leaderboard" });
-    expect(matchRoute("/repositories/team/platform-api")).toEqual({
-      page: "report",
-      organizationSlug: "team",
-      repositorySlug: "platform-api",
+    expect(matchRoute("/analyses/analysis-2026-09-15")).toEqual({
+      page: "analysis",
+      analysisId: "analysis-2026-09-15",
     });
     expect(matchRoute("/me/repositories")).toEqual({ page: "myRepositories" });
-    expect(matchRoute("/analyses/an-42")).toEqual({ page: "analysis", analysisId: "an-42" });
     expect(matchRoute("/methodology/")).toEqual({ page: "methodology" });
   });
 
   it("не путает похожие адреса", () => {
-    expect(matchRoute("/repositories/team")).toEqual({ page: "notFound" });
-    expect(matchRoute("/repositories/team/api/extra")).toEqual({ page: "notFound" });
+    expect(matchRoute("/analyses")).toEqual({ page: "notFound" });
+    expect(matchRoute("/analyses/an-1/report")).toEqual({ page: "notFound" });
     expect(matchRoute("/me")).toEqual({ page: "notFound" });
   });
 
@@ -26,11 +24,6 @@ describe("matchRoute", () => {
   });
 
   it("разбирает адрес, собранный через paths", () => {
-    const path = paths.report("org with space", "repo/slash");
-    expect(matchRoute(path)).toEqual({
-      page: "report",
-      organizationSlug: "org with space",
-      repositorySlug: "repo/slash",
-    });
+    expect(matchRoute(paths.analysis("an 42/x"))).toEqual({ page: "analysis", analysisId: "an 42/x" });
   });
 });

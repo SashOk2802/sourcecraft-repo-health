@@ -1,0 +1,144 @@
+.breadcrumb {
+  color: var(--g-color-text-secondary);
+  text-decoration: none;
+}
+
+.breadcrumb:hover {
+  color: var(--g-color-text-primary);
+}
+
+.breadcrumb__separator {
+  margin: 0 8px;
+  color: var(--g-color-text-hint);
+}
+
+/* Шапка отчёта — тот же разворот, что у остальных страниц: крупное имя на цветной подложке. */
+.report__head {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px 24px;
+  margin: 10px 0 20px;
+  padding: 30px 34px 28px;
+  overflow: hidden;
+  border-radius: 28px;
+  background: var(--rh-hero-strong);
+  color: var(--rh-hero-ink);
+}
+
+.report__head .report__title > h1 {
+  font-size: 40px;
+  line-height: 1.06;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--rh-hero-ink);
+}
+
+.report__org {
+  color: color-mix(in srgb, var(--rh-hero-ink) 50%, transparent);
+  font-weight: 500;
+}
+
+.report__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  margin-top: 6px;
+}
+
+.report__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Ошибка выгрузки — отдельной строкой под кнопками. */
+.report__export-error {
+  flex-basis: 100%;
+  text-align: right;
+}
+
+.report__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 16px;
+  align-items: start;
+}
+
+.report__main {
+  display: grid;
+  gap: 24px;
+}
+
+.no-report {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  padding: 24px 0;
+}
+
+.no-report > div {
+  margin-top: 8px;
+}
+
+@media (max-width: 1000px) {
+  .report__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* PDF — это печать страницы: остаются только данные отчёта. */
+@media print {
+  @page {
+    margin: 12mm;
+  }
+
+  .site-header,
+  .site-footer,
+  .page__breadcrumbs,
+  .report__actions {
+    display: none;
+  }
+
+  .page {
+    min-height: 0;
+    padding: 0;
+  }
+
+  .report__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .card {
+    border-color: var(--g-color-line-generic-accent);
+  }
+
+  /* Шкалы и штриховка нарисованы фоном: без этого браузер их не напечатает. */
+  .report,
+  .report * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+@media (max-width: 700px) {
+  .report__head {
+    padding: 22px 20px;
+    border-radius: 22px;
+  }
+
+  .report__head .report__title > h1 {
+    font-size: 28px;
+  }
+}
+
+@media print {
+  .report__head {
+    padding: 0 0 12px;
+    border-radius: 0;
+    background: none;
+  }
+}

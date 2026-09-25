@@ -16,8 +16,8 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { label: "Рейтинг", to: paths.leaderboard(), pages: ["leaderboard", "report"] },
-  { label: "Мои репозитории", to: paths.myRepositories(), pages: ["myRepositories", "analysis"] },
+  { label: "Рейтинг", to: paths.leaderboard(), pages: ["leaderboard", "analysis"] },
+  { label: "Мои репозитории", to: paths.myRepositories(), pages: ["myRepositories"] },
   { label: "Как считаем", to: paths.methodology(), pages: ["methodology"] },
 ];
 

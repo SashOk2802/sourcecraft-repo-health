@@ -1,0 +1,152 @@
+/* Шапка отчёта — не белый прямоугольник, а мягкий разворот, как разделы Yandex Cloud. */
+.score-card {
+  display: grid;
+  gap: 14px;
+  background: var(--rh-hero);
+  overflow: hidden;
+}
+
+/* Радар слева, Score и пояснение справа. */
+.score-card__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(230px, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+
+.score-card__chart {
+  min-width: 0;
+}
+
+.score-card__side {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  justify-items: start;
+}
+
+.score-card__verdict {
+  letter-spacing: -0.02em;
+  max-width: 520px;
+}
+
+.score-card__verdict-note {
+  max-width: 520px;
+  margin-top: -4px;
+}
+
+.score-card__of {
+  max-width: 160px;
+}
+
+.score-card__value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: -6px;
+}
+
+.score-card__value {
+  font-size: 84px;
+  line-height: 84px;
+  font-weight: 600;
+  letter-spacing: -0.05em;
+}
+
+.score-card__value_band_high {
+  color: var(--rh-band-high);
+}
+
+.score-card__value_band_mid {
+  color: var(--rh-band-mid);
+}
+
+.score-card__value_band_low {
+  color: var(--rh-band-low);
+}
+
+.score-card__value_empty {
+  font-size: 28px;
+  line-height: 40px;
+  color: var(--g-color-text-secondary);
+}
+
+.score-card__labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.score-card__labels:empty {
+  display: none;
+}
+
+.score-card__note {
+  max-width: 520px;
+}
+
+.score-card__limit {
+  width: 100%;
+}
+
+.score-card__explain {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  max-width: 520px;
+  padding-top: 10px;
+  border-top: 1px solid var(--g-color-line-generic);
+}
+
+@media (max-width: 1100px) {
+  .score-card__layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
+
+  .score-card__value {
+    font-size: 56px;
+    line-height: 60px;
+  }
+}
+
+@media print {
+  .score-card {
+    background: #fff;
+  }
+
+  .score-card__layout {
+    grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+    gap: 20px;
+  }
+
+  .score-card__value {
+    font-size: 48px;
+    line-height: 52px;
+  }
+}
+
+/* Правая колонка проявляется следом за фигурой, сверху вниз. */
+@media (prefers-reduced-motion: no-preference) {
+  .score-card__side > * {
+    animation: rh-side-in 460ms ease-out backwards;
+  }
+
+  .score-card__side > *:nth-child(1) { animation-delay: 120ms; }
+  .score-card__side > *:nth-child(2) { animation-delay: 180ms; }
+  .score-card__side > *:nth-child(3) { animation-delay: 260ms; }
+  .score-card__side > *:nth-child(4) { animation-delay: 340ms; }
+  .score-card__side > *:nth-child(5) { animation-delay: 420ms; }
+  .score-card__side > *:nth-child(6) { animation-delay: 500ms; }
+}
+
+@keyframes rh-side-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.score-card__value {
+  font-variant-numeric: tabular-nums;
+}
