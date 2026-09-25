@@ -34,6 +34,18 @@ class ContainerSecurityTest(unittest.TestCase):
         self.assertIn('"dev": "vite --configLoader runner"', package_json)
         self.assertIn('cacheDir: process.env.VITE_CACHE_DIR ?? "node_modules/.vite"', vite_config)
 
+    def test_backend_test_service_is_opt_in_and_mounts_test_inputs_read_only(self) -> None:
+        compose = _read("compose.yaml")
+
+        self.assertIn("  backend-test:\n", compose)
+        self.assertIn('profiles: ["test"]', compose)
+        self.assertIn("- ./frontend:/app/frontend:ro", compose)
+        self.assertIn("- ./scripts:/app/scripts:ro", compose)
+        self.assertIn("- ./.github:/app/.github:ro", compose)
+        self.assertIn("- ./compose.yaml:/app/compose.yaml:ro", compose)
+        self.assertIn("python -m unittest discover -s backend/tests -v", compose)
+        self.assertIn("ruff check backend --ignore EXE002", compose)
+
 
 def _read(relative_path: str) -> str:
     return (PROJECT_ROOT / relative_path).read_text(encoding="utf-8")

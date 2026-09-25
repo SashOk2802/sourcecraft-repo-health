@@ -39,12 +39,14 @@ python -m unittest discover -s backend/tests -v
 ruff check backend --ignore EXE002
 ~~~
 
-Если используете Docker Desktop, команды можно выполнять в том же контейнере, что и backend:
+Если используете Docker Desktop, весь backend-набор выполняет отдельный
+opt-in сервис. Он не запускает PostgreSQL/Redis, не пишет в volumes и монтирует
+`frontend`, `scripts`, `.github` и `compose.yaml` только для чтения: нескольким
+тестам нужны эти файлы проекта.
 
 ~~~powershell
 docker compose run --rm --no-deps backend alembic upgrade head
-docker compose run --rm --no-deps backend python -m unittest discover -s backend/tests -v
-docker compose run --rm --no-deps backend ruff check backend --ignore EXE002
+docker compose --profile test run --rm --no-deps backend-test
 ~~~
 
 ### Frontend

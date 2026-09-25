@@ -65,10 +65,26 @@ docker compose down
 | --- | --- | --- |
 | frontend | localhost:5173 | интерфейс React/Vite |
 | backend | localhost:8000 | FastAPI и OpenAPI |
+| backend-test | запускается только с profile `test` | полный набор backend-тестов и Ruff |
 | postgres | только внутри Docker-сети | постоянные данные приложения |
 | redis | только внутри Docker-сети | кэш и фоновые задачи |
 
 Пароли PostgreSQL в compose.yaml предназначены только для локальной разработки. Перед развёртыванием значения передаются через секреты окружения.
+
+## Полная проверка backend в Docker
+
+Обычный `backend` — сервис разработки: он применяет миграции и запускает API.
+Для полного тестового набора используйте отдельный сервис, который не стартует
+при `docker compose up` и не подключает PostgreSQL или Redis:
+
+~~~powershell
+docker compose --profile test run --rm --no-deps backend-test
+~~~
+
+Он монтирует `frontend`, `scripts`, `.github` и `compose.yaml` только для чтения,
+потому что часть статических тестов проверяет Dockerfile, workflow, Compose и
+скрипт редактирования fixtures. Запуск не меняет `postgres_data` и
+`frontend_node_modules`.
 
 ## Права внутри контейнеров
 
