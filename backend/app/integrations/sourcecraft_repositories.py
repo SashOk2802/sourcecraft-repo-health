@@ -15,6 +15,7 @@ from backend.app.integrations.sourcecraft import (
 )
 
 _SOURCECRAFT_SLUG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+_CONTROL_CHARACTERS = re.compile(r"[\x00-\x1f\x7f-\x9f]")
 _SOURCECRAFT_WEB_HOST = "sourcecraft.dev"
 _VISIBILITIES = frozenset({"public", "internal", "private"})
 _UINT64_MAX = 2**64 - 1
@@ -195,6 +196,10 @@ def _parse_web_url(
         return None
     if not isinstance(value, str) or not value:
         raise SourceCraftResponseError("SourceCraft repository web_url must be a string or null")
+    # urlsplit() удаляет \n, \r и \t перед разбором. Проверяем исходную
+    # строку, чтобы в отчёт не попал URL с управляющими символами.
+    if _CONTROL_CHARACTERS.search(value):
+        raise SourceCraftResponseError("SourceCraft repository web_url is not an official URL")
 
     try:
         parsed = urlsplit(value)

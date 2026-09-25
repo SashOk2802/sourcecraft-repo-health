@@ -174,6 +174,26 @@ class SourceCraftRepositoryCatalogClientTest(unittest.TestCase):
 
                 self.assertNotIn("private-marker", str(raised.exception))
 
+    def test_rejects_web_url_with_raw_control_characters(self) -> None:
+        unsafe_urls = (
+            "https://sourcecraft.dev/example-org/example-\nrepo",
+            "https://sourcecraft.dev/example-org/example-\rrepo",
+            "https://sourcecraft.dev/example-org/example-\trepo",
+            "\x00https://sourcecraft.dev/example-org/example-repo",
+            "https://sourcecraft.dev/example-org/example-repo\x7f",
+        )
+        for web_url in unsafe_urls:
+            with self.subTest(web_url=repr(web_url)):
+                client = Mock(spec=SourceCraftClient)
+                payload = _repository_payload("repository-1", "example-repo")
+                payload["web_url"] = web_url
+                client.get_paginated_objects.return_value = [payload]
+
+                with self.assertRaisesRegex(SourceCraftResponseError, "not an official URL"):
+                    SourceCraftRepositoryCatalogClient(client).list_repositories(
+                        "example-org"
+                    )
+
     def test_rejects_duplicate_id_or_slug_across_pages(self) -> None:
         duplicate_cases = (
             (
