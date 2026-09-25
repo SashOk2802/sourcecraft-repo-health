@@ -215,7 +215,8 @@ const axisStatusWords: Record<Exclude<CategoryStatus, "measured">, string> = {
 
 /**
  * Вторая строка подписи луча: вес и оценка, а без оценки — почему её нет.
- * short — для телефона: без слова «оценка», места у края фигуры там мало.
+ * short — для телефона, где места у края фигуры мало: без слова «оценка», а у категории
+ * без оценки — только статус. Вес и так виден по длине луча, подробности — в карточке ниже.
  */
 export function describeAxis(axis: RadarAxis, { short = false }: { short?: boolean } = {}): string {
   const weight = `вес ${formatPoints(axis.weight)}%`;
@@ -224,7 +225,7 @@ export function describeAxis(axis: RadarAxis, { short = false }: { short?: boole
   }
   // Измеренная категория без оценки невозможна по контракту; на всякий случай — «нет данных».
   const word = axis.status === "measured" ? axisStatusWords.unavailable : axisStatusWords[axis.status];
-  return `${weight} · ${word}`;
+  return short ? word : `${weight} · ${word}`;
 }
 
 /** Точки многоугольника в формате атрибута points. */
