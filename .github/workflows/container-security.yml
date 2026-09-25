@@ -1,0 +1,63 @@
+name: Container security
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+# Сборка и сканирование образов не требуют записи в репозиторий.
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    name: Scan ${{ matrix.name }} image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      # Оба образа должны быть проверены, даже если первый скан нашёл проблему.
+      fail-fast: false
+      matrix:
+        include:
+          - name: backend
+            context: .
+            dockerfile: backend/Dockerfile
+            image: sourcecraft-repo-health-backend:scan
+          - name: frontend
+            context: frontend
+            dockerfile: frontend/Dockerfile
+            image: sourcecraft-repo-health-frontend:scan
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Build image
+        run: >-
+          docker build
+          --pull
+          --file "${{ matrix.dockerfile }}"
+          --tag "${{ matrix.image }}"
+          "${{ matrix.context }}"
+
+      - name: Install Trivy
+        uses: aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514 # v0.2.6
+        with:
+          version: v0.74.0
+          cache: true
+
+      # Запускаем CLI напрямую: exit code 1 точно попадёт в статус job.
+      - name: Scan fixable high and critical OS vulnerabilities
+        run: >-
+          trivy image
+          --scanners vuln
+          --pkg-types os
+          --severity HIGH,CRITICAL
+          --ignore-unfixed
+          --exit-code 1
+          --format table
+          --no-progress
+          --timeout 10m
+          "${{ matrix.image }}"
