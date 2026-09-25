@@ -9,6 +9,12 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 class ContainerSecurityTest(unittest.TestCase):
+    def test_backend_image_installs_git_runtime(self) -> None:
+        dockerfile = _read("backend/Dockerfile")
+
+        self.assertIn("apt-get install --yes --no-install-recommends ca-certificates git", dockerfile)
+        self.assertIn("rm -rf /var/lib/apt/lists/*", dockerfile)
+
     def test_backend_container_runs_as_named_non_root_user(self) -> None:
         dockerfile = _read("backend/Dockerfile")
 

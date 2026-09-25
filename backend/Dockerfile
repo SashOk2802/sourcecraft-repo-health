@@ -6,7 +6,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
 
-RUN groupadd --system app \
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends ca-certificates git \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system app \
     && useradd --system --gid app --no-create-home --home-dir /app --shell /usr/sbin/nologin app
 
 COPY pyproject.toml README.md ./
