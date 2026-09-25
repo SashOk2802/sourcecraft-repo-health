@@ -1,27 +1,30 @@
 import type { MyRepository } from "../me";
 import { analysisRunState } from "./analyses";
 import { mockAnalysisId, mockRepositories } from "./catalog";
-import { isMockSourceCraftConnected } from "./connections";
 import { activeRunFor, finishedAt, lastFinishedRunFor } from "./runs";
 import { scoreMockCategories } from "./scoring";
 import { mockSession } from "./session";
 import { daysAgo, minutesAgo } from "./time";
 
-/** К этим репозиториям у mock-пользователя есть доступ в SourceCraft. */
-const accessibleRepositoryIds = ["repo-2001", "repo-1008", "repo-2002", "repo-2003"];
+/*
+ * Демо-кабинет повторяет первый этап настоящего: после входа — публичные репозитории из
+ * организаций, которые проверяет сервис (у backend это SOURCECRAFT_PUBLIC_ORGANIZATIONS).
+ */
+const catalogOrganizations = ["gorod-dev", "shkola-it"];
 
-/** null — пользователь не вошёл; пустой список — SourceCraft не подключён. */
+/** null — пользователь не вошёл. */
 export function mockMyRepositories(now = Date.now()): MyRepository[] | null {
   if (!mockSession.isSignedIn()) {
     return null;
   }
-  if (!isMockSourceCraftConnected()) {
-    return [];
-  }
 
-  return accessibleRepositoryIds.flatMap((id): MyRepository[] => {
-    const repository = mockRepositories.find((item) => item.id === id);
-    if (!repository || repository.categories === null) {
+  const catalog = mockRepositories.filter(
+    (repository) => repository.visibility === "public" && catalogOrganizations.includes(repository.organizationSlug),
+  );
+
+  return catalog.flatMap((repository): MyRepository[] => {
+    const id = repository.id;
+    if (repository.categories === null) {
       return [];
     }
 

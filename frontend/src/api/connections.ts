@@ -1,6 +1,5 @@
-import { getJson, postJson, request } from "./http";
-import { mocksEnabled, withMockDelay } from "./mockMode";
-import { connectMockSourceCraft, disconnectMockSourceCraft, mockConnection } from "./mocks/connections";
+import { ApiError, getJson, postJson, request } from "./http";
+import { mocksEnabled } from "./mockMode";
 
 /*
  * Подключение SourceCraft по личному токену (docs/frontend-review-response.md, раздел 4):
@@ -10,6 +9,11 @@ import { connectMockSourceCraft, disconnectMockSourceCraft, mockConnection } fro
  *
  * Яндекс ID подтверждает личность, но доступа к репозиториям SourceCraft не даёт.
  * Токен уходит на backend один раз, хранится зашифрованно и в браузер не возвращается.
+ *
+ * На первом этапе кабинет показывает публичные репозитории из каталога сервиса и без
+ * подключения (GET /api/v1/me/repositories). Подключение понадобится для закрытых
+ * репозиториев: пока backend его не поддерживает, интерфейс его не предлагает — ни в
+ * живом режиме, ни в демо.
  */
 
 export interface SourceCraftConnection {
@@ -19,24 +23,23 @@ export interface SourceCraftConnection {
   connectedAt: string | null;
 }
 
-export async function fetchSourceCraftConnection(): Promise<SourceCraftConnection> {
+/** null — backend подключение SourceCraft к кабинету пока не поддерживает. */
+export async function fetchSourceCraftConnection(): Promise<SourceCraftConnection | null> {
   if (mocksEnabled) {
-    return withMockDelay(mockConnection(), 120);
+    return null;
   }
-  return getJson<SourceCraftConnection>("/api/v1/connections/sourcecraft");
+  try {
+    return await getJson<SourceCraftConnection>("/api/v1/connections/sourcecraft");
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return null;
+    throw error;
+  }
 }
 
 export async function connectSourceCraft(token: string): Promise<SourceCraftConnection> {
-  if (mocksEnabled) {
-    return withMockDelay(connectMockSourceCraft(token), 400);
-  }
   return postJson<SourceCraftConnection>("/api/v1/connections/sourcecraft", { token });
 }
 
 export async function disconnectSourceCraft(): Promise<void> {
-  if (mocksEnabled) {
-    disconnectMockSourceCraft();
-    return withMockDelay(undefined, 200);
-  }
   await request<void>("/api/v1/connections/sourcecraft", { method: "DELETE" });
 }

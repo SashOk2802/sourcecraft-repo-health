@@ -1,3 +1,4 @@
+import { isAnalysisFinished } from "./analyses";
 import type { AnalysisStatus } from "./common";
 import { ApiError, getJson, postJson } from "./http";
 import { mocksEnabled, withMockDelay } from "./mockMode";
@@ -9,7 +10,11 @@ import { mockSession } from "./mocks/session";
  * { id, login }, без сессии — 401, если вход не настроен — 503. Вход выполняет backend:
  * интерфейс только уводит на /api/v1/auth/yandex/start, после входа backend сам возвращает
  * на /me/repositories. Токенов интерфейс не видит.
- * Репозитории пользователя (/api/v1/me/repositories) — пока предложение к контракту.
+ *
+ * GET /api/v1/me/repositories — репозитории, которые можно проверить. На первом этапе backend
+ * отдаёт публичные репозитории из организаций SOURCECRAFT_PUBLIC_ORGANIZATIONS: стабильный id,
+ * название, организацию, webUrl, ветку по умолчанию и последний анализ, если он был. Id из
+ * списка уходит в POST /api/v1/repositories/{id}/analyses — сам пользователь его не видит.
  */
 
 export interface CurrentUser {
@@ -84,7 +89,89 @@ export async function fetchMyRepositories(): Promise<MyRepositoriesResponse> {
     if (items === null) throw new ApiError(401, "Нужно войти");
     return withMockDelay({ items });
   }
-  return getJson<MyRepositoriesResponse>("/api/v1/me/repositories");
+  return toMyRepositories(await getJson<MyRepositoriesPayload>("/api/v1/me/repositories"));
+}
+
+/*
+ * Endpoint ещё в работе, поэтому ответ разбирается терпимо: список в items, repositories
+ * или сразу массивом; запись плоская или с вложенным repository; организация строкой,
+ * объектом или organizationSlug; slug или repositorySlug. Запись без id пропускаем:
+ * анализ запускается только по id из каталога, а не по названию.
+ */
+interface RepositoryPayload {
+  id?: string;
+  name?: string;
+  slug?: string;
+  repositorySlug?: string;
+  organizationSlug?: string;
+  organization?: string | { slug?: string };
+  webUrl?: string | null;
+  url?: string | null;
+  description?: string | null;
+  language?: string | null;
+  visibility?: string;
+}
+
+interface LastAnalysisPayload {
+  id: string;
+  status: AnalysisStatus;
+  score?: number | null;
+  isPreliminary?: boolean | null;
+  analyzedAt?: string | null;
+  finishedAt?: string | null;
+  createdAt?: string | null;
+}
+
+type MyRepositoryPayload = RepositoryPayload & {
+  repository?: RepositoryPayload;
+  lastAnalysis?: LastAnalysisPayload | null;
+  activeAnalysisId?: string | null;
+};
+
+export type MyRepositoriesPayload =
+  | MyRepositoryPayload[]
+  | { items?: MyRepositoryPayload[]; repositories?: MyRepositoryPayload[] };
+
+export function toMyRepositories(payload: MyRepositoriesPayload): MyRepositoriesResponse {
+  const rows = Array.isArray(payload) ? payload : (payload.items ?? payload.repositories ?? []);
+  return { items: rows.flatMap((row) => (row.repository?.id ?? row.id ? [toMyRepository(row)] : [])) };
+}
+
+function toMyRepository(row: MyRepositoryPayload): MyRepository {
+  const source = row.repository ?? row;
+  const organizationSlug =
+    source.organizationSlug ??
+    (typeof source.organization === "string" ? source.organization : source.organization?.slug) ??
+    (source.name?.includes("/") ? source.name.split("/")[0] : undefined) ??
+    "";
+  const repositorySlug = source.repositorySlug ?? source.slug ?? source.name?.split("/").pop() ?? "";
+  const last = row.lastAnalysis ?? null;
+  // Идущий анализ ещё не дал оценки: строка показывает «идёт анализ» и ведёт на его ход.
+  const running = last !== null && !isAnalysisFinished(last.status);
+
+  return {
+    repository: {
+      id: source.id ?? row.id ?? "",
+      organizationSlug,
+      repositorySlug,
+      name: `${organizationSlug}/${repositorySlug}`,
+      url: source.webUrl ?? source.url ?? null,
+      description: source.description ?? null,
+      language: source.language ?? null,
+      visibility: source.visibility === "private" || source.visibility === "internal" ? "private" : "public",
+    },
+    lastAnalysis:
+      last === null || running
+        ? null
+        : {
+            id: last.id,
+            status: last.status,
+            analyzedAt: last.analyzedAt ?? last.finishedAt ?? last.createdAt ?? null,
+            score: last.score ?? null,
+            isPreliminary: last.isPreliminary ?? false,
+          },
+    activeAnalysisId: row.activeAnalysisId ?? (running && last !== null ? last.id : null),
+  };
 }
 
 /** Адрес входа: backend уводит на Яндекс ID и после входа возвращает на returnTo. */
