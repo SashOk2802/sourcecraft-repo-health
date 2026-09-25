@@ -2,9 +2,14 @@ import { ArrowRotateLeft, ArrowUpRightFromSquare, Printer } from "@gravity-ui/ic
 import { Button, Icon, Link as GravityLink, Text } from "@gravity-ui/uikit";
 import { useEffect, useState } from "react";
 
-import { fetchAnalysisStatus, isAnalysisFinished, type AnalysisStatusResponse } from "../api/analyses";
+import {
+  describeStartError,
+  fetchAnalysisStatus,
+  isAnalysisFinished,
+  type AnalysisStatusResponse,
+} from "../api/analyses";
 import { usesDemo } from "../api/dataSource";
-import { ApiError, describeError } from "../api/http";
+import { ApiError } from "../api/http";
 import { fetchReport, type RepositoryReport } from "../api/report";
 import { signInUnavailableHint, useAuth } from "../auth/AuthContext";
 import { DemoNote } from "../components/DemoNote";
@@ -173,7 +178,7 @@ function ReportView({ report }: { report: RepositoryReport }) {
 
       {rerun.error && (
         <Text variant="body-2" color="danger" className="report__rerun-error">
-          Не удалось запустить анализ. {describeError(rerun.error)}
+          Не удалось запустить анализ. {describeStartError(rerun.error)}
         </Text>
       )}
 

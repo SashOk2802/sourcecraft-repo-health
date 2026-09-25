@@ -1,8 +1,7 @@
 import { Circle, CircleCheckFill, CircleMinus, CircleXmarkFill } from "@gravity-ui/icons";
 import { Button, Icon, Spin, Text } from "@gravity-ui/uikit";
 
-import type { AnalysisStage, AnalysisStatusResponse } from "../../api/analyses";
-import { describeError } from "../../api/http";
+import { describeStartError, type AnalysisStage, type AnalysisStatusResponse } from "../../api/analyses";
 import { cn } from "../../lib/classNames";
 import { formatDuration } from "../../lib/format";
 import { analysisStatusLabels } from "../../lib/labels";
@@ -105,7 +104,7 @@ export function AnalysisFailed({ analysis, canRestart, restarting, restartError,
       )}
       {restartError && (
         <Text variant="body-2" color="danger">
-          Не удалось запустить анализ. {describeError(restartError)}
+          Не удалось запустить анализ. {describeStartError(restartError)}
         </Text>
       )}
     </section>

@@ -8,7 +8,8 @@ import {
   fetchSourceCraftConnection,
   type SourceCraftConnection,
 } from "../api/connections";
-import { describeError } from "../api/http";
+import { describeStartError } from "../api/analyses";
+import { ApiError, describeError } from "../api/http";
 import { fetchMyRepositories, type MyRepository } from "../api/me";
 import { signInUnavailableHint, useAuth } from "../auth/AuthContext";
 import { DemoNote } from "../components/DemoNote";
@@ -92,6 +93,10 @@ function ConnectedArea({ demo }: { demo: boolean }) {
   const connection = dataOf(state);
 
   if (!connection) {
+    // Вход уже работает, а подключения SourceCraft к кабинету у backend ещё нет.
+    if (state.status === "error" && isRouteMissing(state.error)) {
+      return <CabinetPending />;
+    }
     return state.status === "error" ? (
       <ErrorNote title="Не удалось проверить подключение к SourceCraft" error={state.error} onRetry={reload} />
     ) : (
@@ -109,6 +114,69 @@ function ConnectedArea({ demo }: { demo: boolean }) {
       <RepositoryList />
     </>
   );
+}
+
+/**
+ * Вход через Яндекс ID уже работает, а список репозиториев и подключение SourceCraft
+ * к кабинету — ещё нет. Вместо ошибки — честное объяснение и то, что можно сделать уже сейчас:
+ * backend проверяет публичные репозитории из своего каталога по идентификатору SourceCraft.
+ */
+function CabinetPending() {
+  const [repositoryId, setRepositoryId] = useState("");
+  const analysis = useStartAnalysis();
+  const trimmed = repositoryId.trim();
+
+  return (
+    <section className="card my-repos__connect">
+      <Text variant="subheader-2" as="h2">
+        Вход выполнен, список репозиториев скоро появится
+      </Text>
+      <Text variant="body-2" color="secondary">
+        Вы вошли через Яндекс ID. Список ваших репозиториев SourceCraft и проверка закрытых появятся, когда сервис
+        подключит SourceCraft к кабинету. Уже сейчас можно проверить публичный репозиторий из каталога сервиса — по
+        его идентификатору в SourceCraft.
+      </Text>
+
+      <form
+        className="my-repos__token-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (trimmed) void analysis.start(trimmed);
+        }}
+      >
+        <TextInput
+          value={repositoryId}
+          onUpdate={setRepositoryId}
+          placeholder="Идентификатор репозитория в SourceCraft"
+          size="l"
+          autoComplete="off"
+          className="my-repos__token-input"
+          disabled={analysis.startingId !== null}
+        />
+        <Button view="action" size="l" type="submit" disabled={!trimmed} loading={analysis.startingId !== null}>
+          Проверить
+        </Button>
+      </form>
+
+      {analysis.error && (
+        <Alert
+          theme="danger"
+          view="outlined"
+          title="Не удалось запустить анализ"
+          message={describeStartError(analysis.error)}
+        />
+      )}
+
+      <Text variant="body-1" color="secondary">
+        Готовые отчёты по открытым репозиториям — в <Link to={paths.leaderboard()}>рейтинге</Link>.
+      </Text>
+    </section>
+  );
+}
+
+/** Маршрута у backend ещё нет: это «раздел в работе», а не сбой. */
+function isRouteMissing(error: Error): boolean {
+  return error instanceof ApiError && error.routeMissing;
 }
 
 function ConnectForm({ demo, onConnected }: { demo: boolean; onConnected: () => void }) {
@@ -229,6 +297,9 @@ function RepositoryList() {
   const items = useRecentAnalyses(data?.items);
 
   if (!data) {
+    if (state.status === "error" && isRouteMissing(state.error)) {
+      return <CabinetPending />;
+    }
     return state.status === "error" ? (
       <ErrorNote title="Не удалось получить список репозиториев" error={state.error} onRetry={reload} />
     ) : (
@@ -276,7 +347,7 @@ function RepositoryList() {
           theme="danger"
           view="outlined"
           title="Не удалось запустить анализ"
-          message={describeError(analysis.error)}
+          message={describeStartError(analysis.error)}
         />
       )}
     </>

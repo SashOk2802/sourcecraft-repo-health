@@ -179,6 +179,17 @@ ol {
   color: var(--g-color-text-secondary);
 }
 
+/* Ссылка в тексте страницы — цветом ссылок интерфейса, подчёркивание только при наведении. */
+.page a:not([class]) {
+  color: var(--g-color-text-link);
+  text-decoration: none;
+}
+
+.page a:not([class]):hover {
+  color: var(--g-color-text-link-hover);
+  text-decoration: underline;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;

@@ -64,11 +64,11 @@ $env:VITE_DATA_SOURCE = "api"; npm run dev
 | Отчёт | `GET /api/v1/analyses/{id}/report` | есть |
 | Markdown | `GET /api/v1/analyses/{id}/report.md` | есть; демо-отчёт собирается в браузере в том же формате |
 | Ход анализа | `GET /api/v1/analyses/{id}` — `queued`, `running`, `completed`, `partial`, `failed` с `error: {code, summary}` | есть |
-| Запуск анализа | `POST /api/v1/repositories/{id}/analyses` | есть, до подключения входа отвечает 503 |
-| Рейтинг | `GET /api/v1/leaderboard` | нет — демо |
-| Вход и репозитории | `/api/v1/auth/*`, `/api/v1/me`, `/api/v1/me/repositories` | нет — демо-кабинет |
-| Подключение SourceCraft | `/api/v1/connections/sourcecraft` | нет — демо-кабинет |
-| Методика | `GET /api/v1/methodology` | нет — показывается v1 из [docs/scoring-methodology.md](../docs/scoring-methodology.md) |
+| Запуск анализа | `POST /api/v1/repositories/{id}/analyses` | есть: после входа, только публичные репозитории из `SOURCECRAFT_PUBLIC_ORGANIZATIONS`; без настройки — 503 |
+| Методика | `GET /api/v1/methodology` | есть: веса, названия и лимит — с backend, объяснения и политика пересчёта — в `src/lib/methodologyTexts.ts` |
+| Вход | `/api/v1/auth/yandex/start`, `/callback`, `GET /api/v1/me` (`{id, login}`), `POST /api/v1/auth/logout` | есть; без `YANDEX_CLIENT_ID` и `YANDEX_REDIRECT_URI` backend отвечает 503 — тогда работает демо-кабинет |
+| Рейтинг | `GET /api/v1/leaderboard` | нет — демо; места и сортировки по [docs/leaderboard-policy.md](../docs/leaderboard-policy.md) |
+| Мои репозитории и подключение SourceCraft | `/api/v1/me/repositories`, `/api/v1/connections/sourcecraft` | нет; после настоящего входа кабинет предлагает проверить публичный репозиторий по идентификатору |
 
 Формат ответов описан в [docs/api-contract.md](../docs/api-contract.md); типы лежат в `src/api/*.ts`.
 

@@ -1,6 +1,6 @@
 import type { AnalysisStatus } from "./common";
 import { usesDemo, withDemoDelay } from "./dataSource";
-import { ApiError, getJson, postJson } from "./http";
+import { ApiError, describeError, getJson, postJson } from "./http";
 import { fetchMockAnalysis, startMockAnalysis } from "./mocks/analyses";
 
 /*
@@ -84,4 +84,23 @@ export async function startAnalysis(repositoryId: string): Promise<StartedAnalys
     return withDemoDelay(started, 250);
   }
   return postJson<StartedAnalysis>(`/api/v1/repositories/${encodeURIComponent(repositoryId)}/analyses`);
+}
+
+/**
+ * Почему не запустился анализ — по кодам POST /api/v1/repositories/{id}/analyses
+ * (docs/api-contract.md). Пока без подключения SourceCraft к кабинету backend проверяет
+ * только публичные репозитории из настроенного каталога, отсюда отдельные тексты для 403 и 404.
+ */
+export function describeStartError(error: Error): string {
+  if (error instanceof ApiError) {
+    if (error.status === 401) return "Сессия закончилась — войдите через Яндекс ID ещё раз.";
+    if (error.status === 403) {
+      return "Сейчас можно проверить только публичный репозиторий: закрытые и внутренние откроются, когда SourceCraft подключат к кабинету.";
+    }
+    if (error.status === 404) return "Такого репозитория нет в каталоге, который проверяет сервис.";
+    if (error.status === 422) return "Такой идентификатор репозитория не подходит — проверьте, что скопировали его целиком.";
+    if (error.status === 429) return "Этот репозиторий уже проверяли только что — повторить можно через 15 минут.";
+    if (error.status === 503) return "Запуск анализа на сервере пока не настроен или SourceCraft не отвечает. Попробуйте позже.";
+  }
+  return describeError(error);
 }
