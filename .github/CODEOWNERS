@@ -1,0 +1,41 @@
+# CODEOWNERS
+#
+# Распределение владения путями по зонам команды.
+# При совпадении нескольких правил применяется последнее из них.
+# Пути без правила ниже остаются без владельца — дефолтный владелец (*) не задан.
+# Подробнее: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Zone 1 — Анализ файлов: Documentation и Code health
+/backend/app/analyzers/documentation.py    @A1ienberg
+/backend/app/analyzers/code_health.py      @A1ienberg
+/backend/app/integrations/git_repository.py @A1ienberg
+/backend/tests/test_file_analysis.py       @A1ienberg
+/backend/tests/test_git_repository.py      @A1ienberg
+/docs/methodology-owner-approval.md        @A1ienberg
+/docs/pr-description.md                    @A1ienberg
+
+# Zone 2 — Интеграция SourceCraft: CI/CD и Security
+/backend/app/analyzers/cicd.py             @eReem0
+/backend/app/analyzers/security.py         @eReem0
+/backend/app/integrations/sourcecraft.py   @eReem0
+/backend/app/integrations/sourcecraft_cicd.py @eReem0
+/backend/app/integrations/sourcecraft_cicd_facts.py @eReem0
+/backend/app/integrations/sourcecraft_appsec_probe.py @eReem0
+/docs/cicd-analyzer.md                     @eReem0
+/docs/security-analyzer.md                 @eReem0
+/docs/ci-security.md                       @eReem0
+/.github/workflows/security.yml            @eReem0
+
+# Zone 3 — Жизнь проекта: Activity и Issues
+/backend/app/analyzers/activity.py         @mifoto7
+/backend/app/analyzers/issues.py           @mifoto7
+
+# Zone 4 — Ядро анализа: контракты, Score, оркестрация, запуск, отчёты
+/backend/app/contracts.py                  @SashOk2802
+/backend/app/analysis/                     @SashOk2802
+/backend/app/main.py                       @SashOk2802
+/docs/scoring-methodology.md               @SashOk2802
+/docs/architecture-proposal.md             @SashOk2802
+
+# Frontend
+/frontend/                                 @Wels112
