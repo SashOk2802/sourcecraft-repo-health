@@ -4,9 +4,11 @@ import {
   defaultLeaderboardQuery,
   parseLeaderboardQuery,
   stringifyLeaderboardQuery,
+  toLeaderboardResponse,
+  type LeaderboardItem,
   type LeaderboardSort,
 } from "./leaderboard";
-import { queryMockLeaderboard } from "./mocks/leaderboard";
+import { queryMockLeaderboard, rankByScore } from "./mocks/leaderboard";
 
 describe("фильтры рейтинга в адресной строке", () => {
   it("не пишет значения по умолчанию", () => {
@@ -27,12 +29,39 @@ describe("mock-рейтинг", () => {
   const all = (sort: LeaderboardSort) =>
     queryMockLeaderboard({ ...defaultLeaderboardQuery, sort, includePreliminary: true }, 100);
 
-  it("нумерует места подряд и только по Score", () => {
+  it("нумерует места только по Score", () => {
     const { items } = all("score");
-    expect(items.map((item) => item.place)).toEqual(items.map((_, index) => index + 1));
+    expect(items[0].place).toBe(1);
     for (let i = 1; i < items.length; i += 1) {
       expect(items[i - 1].score ?? 0).toBeGreaterThanOrEqual(items[i].score ?? 0);
+      expect(items[i - 1].place ?? 0).toBeLessThanOrEqual(items[i].place ?? 0);
     }
+  });
+
+  it("равный Score делит место, как в backend/app/leaderboard/policy.py", () => {
+    const row = (id: string, score: number) => ({ repository: { id }, score, place: null }) as unknown as LeaderboardItem;
+    const items = [row("c", 80), row("a", 90), row("b", 80), row("d", 70)];
+    rankByScore(items);
+    expect(items.map((item) => [item.repository.id, item.place])).toEqual([
+      ["c", 2],
+      ["a", 1],
+      ["b", 2],
+      ["d", 4],
+    ]);
+  });
+
+  it("ищет по организации и репозиторию, а не по описанию", () => {
+    const byName = queryMockLeaderboard({ ...defaultLeaderboardQuery, search: "kvant-lab/sched" }, 100);
+    expect(byName.items.map((item) => item.repository.name)).toEqual(["kvant-lab/scheduler"]);
+    // «Планировщик задач…» — описание kvant-lab/scheduler: по нему backend не ищет.
+    const byDescription = queryMockLeaderboard({ ...defaultLeaderboardQuery, search: "планировщик" }, 100);
+    expect(byDescription.items).toEqual([]);
+  });
+
+  it("считает предварительные, даже когда их список не запрошен", () => {
+    const response = queryMockLeaderboard(defaultLeaderboardQuery, 100);
+    expect(response.preliminaryTotal).toBeGreaterThan(0);
+    expect(response.methodologyVersion).toBe("v1");
   });
 
   it("при сортировке по лайкам места не меняются", () => {
@@ -60,5 +89,55 @@ describe("mock-рейтинг", () => {
     const response = queryMockLeaderboard({ ...defaultLeaderboardQuery, language: "Go" }, 100);
     expect(response.items.every((item) => item.repository.language === "Go")).toBe(true);
     expect(response.languages.length).toBeGreaterThan(1);
+  });
+});
+
+describe("ответ backend о рейтинге", () => {
+  it("принимает имена из backend/app/leaderboard/policy.py", () => {
+    const response = toLeaderboardResponse(
+      {
+        methodologyVersion: "v1",
+        entries: [
+          {
+            repositoryId: "repo-1",
+            organizationSlug: "team",
+            repositorySlug: "api",
+            score: 91.5,
+            isPreliminary: false,
+            language: "Go",
+            likes: 12,
+            lastActivityAt: "2026-09-20T10:00:00Z",
+            rank: 1,
+          },
+        ],
+        total: 1,
+        preliminaryEntries: [],
+        preliminaryTotal: 3,
+      },
+      defaultLeaderboardQuery,
+    );
+    const [item] = response.items;
+    expect(item.place).toBe(1);
+    expect(item.repository).toMatchObject({ id: "repo-1", name: "team/api", language: "Go", url: null });
+    // Без снимка анализа строку не к чему вести — страница не делает её ссылкой.
+    expect(item.analysisId).toBeNull();
+    expect(item.categories).toEqual([]);
+    expect(response.preliminaryTotal).toBe(3);
+    expect(response.methodologyVersion).toBe("v1");
+    expect(response.languages).toEqual([{ name: "Go", count: 1 }]);
+    expect(response.pageSize).toBeGreaterThan(0);
+  });
+
+  it("принимает и формат из предложения к контракту", () => {
+    const mock = queryMockLeaderboard({ ...defaultLeaderboardQuery, includePreliminary: true }, 15);
+    expect(toLeaderboardResponse(mock, defaultLeaderboardQuery)).toEqual(mock);
+  });
+
+  it("пустой ответ не ломает страницу", () => {
+    const response = toLeaderboardResponse({}, defaultLeaderboardQuery);
+    expect(response.items).toEqual([]);
+    expect(response.preliminary).toEqual([]);
+    expect(response.total).toBe(0);
+    expect(response.methodologyVersion).toBeNull();
   });
 });

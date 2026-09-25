@@ -99,6 +99,15 @@
   background: var(--rh-accent-soft);
 }
 
+/* Строка без отчёта: открыть нечего, поэтому и не притворяется ссылкой. */
+.board__row_static {
+  cursor: default;
+}
+
+.board__row_static:hover td {
+  background: none;
+}
+
 .board__place {
   width: 72px;
   color: var(--g-color-text-secondary);

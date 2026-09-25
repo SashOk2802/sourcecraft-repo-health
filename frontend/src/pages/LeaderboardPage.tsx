@@ -96,7 +96,11 @@ export function LeaderboardPage() {
         <Checkbox
           checked={query.includePreliminary}
           onUpdate={(checked) => update({ includePreliminary: checked })}
-          content="Показать предварительные"
+          content={
+            data && data.preliminaryTotal > 0
+              ? `Показать предварительные · ${formatInteger(data.preliminaryTotal)}`
+              : "Показать предварительные"
+          }
           className="leaderboard__preliminary-toggle"
         />
       </div>
@@ -223,16 +227,23 @@ function LeaderboardTable({ items, loading, showPlaces, emptyText, onReset }: Le
 
 function LeaderboardRow({ item, showPlace }: { item: LeaderboardItem; showPlace: boolean }) {
   const { repository } = item;
-  const reportPath = paths.analysis(item.analysisId);
+  // Без идентификатора снимка отчёт не открыть: строка остаётся, но не ведёт в никуда.
+  const reportPath = item.analysisId === null ? null : paths.analysis(item.analysisId);
 
   // Кликабельна вся строка; с клавиатуры переходят по ссылке в названии.
   function openReport(event: MouseEvent<HTMLTableRowElement>): void {
-    if ((event.target as HTMLElement).closest("a, button")) return;
+    if (reportPath === null || (event.target as HTMLElement).closest("a, button")) return;
     navigate(reportPath);
   }
 
+  const title = (
+    <>
+      <span className="board__org">{repository.organizationSlug} /</span> {repository.repositorySlug}
+    </>
+  );
+
   return (
-    <tr className="board__row" onClick={openReport}>
+    <tr className={cn("board__row", reportPath === null && "board__row_static")} onClick={openReport}>
       {showPlace && (
         <td className="board__place num">
           {item.place === null ? (
@@ -246,9 +257,13 @@ function LeaderboardRow({ item, showPlace }: { item: LeaderboardItem; showPlace:
       )}
       <td className="board__name">
         <span className="board__title">
-          <Link className="board__link" to={reportPath}>
-            <span className="board__org">{repository.organizationSlug} /</span> {repository.repositorySlug}
-          </Link>
+          {reportPath === null ? (
+            <span className="board__link">{title}</span>
+          ) : (
+            <Link className="board__link" to={reportPath}>
+              {title}
+            </Link>
+          )}
           {/* ТЗ, п. 4: в рейтинге нужна ссылка на сам репозиторий, а не только на отчёт. */}
           {repository.url && (
             <a
@@ -357,6 +372,10 @@ function SearchField({ value, onChange }: { value: string; onChange: (value: str
 
 function describeCoverage(data: LeaderboardResponse): string {
   const parts = [`${formatInteger(data.total)} ${plural(data.total, "репозиторий", "репозитория", "репозиториев")}`];
+  // Места сравнивают оценки только одной версии методики (docs/leaderboard-policy.md).
+  if (data.methodologyVersion) {
+    parts.push(`методика ${data.methodologyVersion}`);
+  }
   if (data.updatedAt) {
     const relative = formatRelativeDay(data.updatedAt);
     parts.push(

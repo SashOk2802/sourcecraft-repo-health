@@ -3,7 +3,10 @@ import { mockAnalysisId, mockRepositories, type MockRepository } from "./catalog
 import { scoreMockCategories } from "./scoring";
 import { minutesAgo, todayAt } from "./time";
 
-/** Имитация backend: места, фильтры, сортировка и страницы. */
+/*
+ * Имитация backend по правилам docs/leaderboard-policy.md: места, фильтры, сортировка и страницы.
+ * Место считается до фильтров и только по Score полных оценок; поиск — по «организация/репозиторий».
+ */
 export function queryMockLeaderboard(query: LeaderboardQuery, pageSize: number): LeaderboardResponse {
   // В публичный рейтинг попадают только открытые репозитории.
   const publicRepositories = mockRepositories.filter(
@@ -16,15 +19,10 @@ export function queryMockLeaderboard(query: LeaderboardQuery, pageSize: number):
 
   // Место зависит только от Score и только среди полных оценок.
   const complete = analyzed.filter((item) => !item.isPreliminary && item.score !== null);
-  [...complete]
-    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
-    .forEach((item, index) => {
-      item.place = index + 1;
-    });
+  rankByScore(complete);
 
   const search = query.search.toLowerCase();
-  const matchesSearch = (item: LeaderboardItem): boolean =>
-    !search || `${item.repository.name} ${item.repository.description ?? ""}`.toLowerCase().includes(search);
+  const matchesSearch = (item: LeaderboardItem): boolean => !search || item.repository.name.toLowerCase().includes(search);
 
   const languageCounts = new Map<string, number>();
   for (const item of analyzed.filter(matchesSearch)) {
@@ -47,6 +45,7 @@ export function queryMockLeaderboard(query: LeaderboardQuery, pageSize: number):
     items: filtered.slice(start, start + pageSize),
     preliminary: query.includePreliminary ? preliminary : [],
     total: filtered.length,
+    preliminaryTotal: preliminary.length,
     page: query.page,
     pageSize,
     languages: [...languageCounts]
@@ -54,7 +53,24 @@ export function queryMockLeaderboard(query: LeaderboardQuery, pageSize: number):
       .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)),
     updatedAt: todayAt(6),
     pendingCount: publicRepositories.filter((repository) => repository.categories === null).length,
+    methodologyVersion: "v1",
   };
+}
+
+/** Спортивные места, как в backend/app/leaderboard/policy.py: равный Score — общее место, 1, 2, 2, 4. */
+export function rankByScore(items: LeaderboardItem[]): void {
+  const ordered = [...items].sort(
+    (a, b) => (b.score ?? 0) - (a.score ?? 0) || a.repository.id.localeCompare(b.repository.id),
+  );
+  let place = 0;
+  let previousScore: number | null = null;
+  ordered.forEach((item, index) => {
+    if (item.score !== previousScore) {
+      place = index + 1;
+      previousScore = item.score;
+    }
+    item.place = place;
+  });
 }
 
 function toItem(repository: MockRepository): LeaderboardItem {
@@ -87,7 +103,8 @@ function toItem(repository: MockRepository): LeaderboardItem {
 
 const byPlace = (a: LeaderboardItem, b: LeaderboardItem): number =>
   (a.place ?? Number.MAX_SAFE_INTEGER) - (b.place ?? Number.MAX_SAFE_INTEGER) ||
-  (b.score ?? -1) - (a.score ?? -1);
+  (b.score ?? -1) - (a.score ?? -1) ||
+  a.repository.id.localeCompare(b.repository.id);
 
 const comparators: Record<LeaderboardSort, (a: LeaderboardItem, b: LeaderboardItem) => number> = {
   score: byPlace,
