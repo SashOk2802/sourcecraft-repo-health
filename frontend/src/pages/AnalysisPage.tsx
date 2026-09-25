@@ -2,11 +2,11 @@ import { ArrowUpRightFromSquare, Printer } from "@gravity-ui/icons";
 import { Button, Icon, Link as GravityLink, Text } from "@gravity-ui/uikit";
 
 import { ApiError } from "../api/http";
-import { mocksEnabled } from "../api/mockMode";
-import { fetchReport, markdownReportUrl, type RepositoryReport } from "../api/report";
+import { fetchReport, type RepositoryReport } from "../api/report";
 import { ErrorNote, LoadingNote } from "../components/PageNotes";
 import { AnalysisFacts } from "../components/report/AnalysisFacts";
 import { CategoryMarks } from "../components/report/CategoryMarks";
+import { MarkdownExport } from "../components/report/MarkdownExport";
 import { ProjectHighlights } from "../components/report/ProjectHighlights";
 import { RecommendationList } from "../components/report/RecommendationList";
 import { ScoreCard } from "../components/report/ScoreCard";
@@ -84,15 +84,7 @@ function ReportView({ report }: { report: RepositoryReport }) {
             <Icon data={Printer} size={16} />
             Печать / сохранить PDF
           </Button>
-          {mocksEnabled ? (
-            <Button view="outlined" disabled title="Markdown отдаёт backend — в mock-режиме выгрузки нет">
-              Скачать .md
-            </Button>
-          ) : (
-            <Button view="outlined" href={markdownReportUrl(analysis.id)} target="_blank">
-              Скачать .md
-            </Button>
-          )}
+          <MarkdownExport report={report} />
         </div>
       </header>
 

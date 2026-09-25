@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ReportCategory } from "../api/report";
-import { buildRadar, toPoints } from "./radar";
+import { buildRadar, describeAxis, toPoints } from "./radar";
 
 function measured(code: string, score: number, weight: number): ReportCategory {
   return {
@@ -109,6 +109,94 @@ describe("buildRadar", () => {
     // У верхней половины вторая строка уходит вверх, чтобы не залезать на фигуру.
     expect(top.labelSpot.subAt.y).toBeLessThan(top.labelSpot.at.y);
     expect(upperRight.labelSpot.anchor).toBe("start");
+  });
+});
+
+const notApplicable = (code: string, weight: number): ReportCategory => ({
+  ...unavailable,
+  code,
+  label: code,
+  status: "not_applicable",
+  weight,
+  reason: null,
+});
+
+describe("статус категории на радаре", () => {
+  it("ось помнит статус, который прислал backend", () => {
+    const radar = buildRadar([...categories.slice(0, 4), notApplicable("issues", 15), categories[5]]);
+    const byCode = Object.fromEntries(radar!.axes.map((axis) => [axis.code, axis]));
+
+    expect(byCode.security.status).toBe("unavailable");
+    expect(byCode.issues.status).toBe("not_applicable");
+    expect(byCode.issues.vertex).toBeNull();
+    expect(byCode.cicd.status).toBe("measured");
+  });
+
+  it("«не применимо» подписано отдельно от «нет данных»", () => {
+    const radar = buildRadar([...categories.slice(0, 4), notApplicable("issues", 15), categories[5]]);
+    const byCode = Object.fromEntries(radar!.axes.map((axis) => [axis.code, axis]));
+
+    expect(describeAxis(byCode.issues)).toBe("вес 15% · не применимо");
+    expect(describeAxis(byCode.security)).toBe("вес 25% · нет данных");
+    expect(describeAxis(byCode.cicd)).toBe("вес 20% · оценка 58");
+  });
+
+  it("«мало данных» и сбой тоже названы своими словами", () => {
+    const insufficient: ReportCategory = { ...unavailable, code: "activity", status: "insufficient_sample", weight: 15 };
+    const failed: ReportCategory = { ...unavailable, code: "cicd", status: "error", weight: 20 };
+    const radar = buildRadar([measured("a", 50, 10), insufficient, failed]);
+    const byCode = Object.fromEntries(radar!.axes.map((axis) => [axis.code, axis]));
+
+    expect(describeAxis(byCode.activity)).toBe("вес 15% · мало данных");
+    expect(describeAxis(byCode.cicd)).toBe("вес 20% · ошибка сбора");
+  });
+});
+
+describe("заливка радара", () => {
+  const m = (code: string) => measured(code, 60, 10);
+  const gap = (code: string): ReportCategory => ({ ...unavailable, code, label: code, weight: 10 });
+
+  it("без пропусков — один многоугольник по всем вершинам", () => {
+    const radar = buildRadar([m("a"), m("b"), m("c")]);
+    expect(radar!.fills).toHaveLength(1);
+    expect(radar!.fills[0]).toEqual(radar!.vertices);
+  });
+
+  it("сектор категории без оценки не закрывает: веер от центра по соседним вершинам", () => {
+    // Отчёт transit-api: безопасность без данных — первый луч.
+    const radar = buildRadar(categories);
+    expect(radar!.fills).toHaveLength(1);
+    const [fill] = radar!.fills;
+    expect(fill[0]).toEqual(radar!.center);
+    expect(fill.slice(1)).toEqual(radar!.vertices);
+  });
+
+  it("два пропуска делят заливку на отдельные веера", () => {
+    const radar = buildRadar([m("a"), m("b"), gap("c"), m("d"), m("e"), gap("f")]);
+    const byCode = Object.fromEntries(radar!.axes.map((axis) => [axis.code, axis.vertex]));
+    // Порядок вееров для отрисовки не важен — важно, что их два и сектора c и f пустые.
+    expect(radar!.fills).toHaveLength(2);
+    expect(radar!.fills).toContainEqual([radar!.center, byCode.a, byCode.b]);
+    expect(radar!.fills).toContainEqual([radar!.center, byCode.d, byCode.e]);
+  });
+
+  it("серия может идти через стык последнего и первого луча", () => {
+    const radar = buildRadar([m("a"), gap("b"), m("c"), m("d"), gap("e"), m("f")]);
+    const byCode = Object.fromEntries(radar!.axes.map((axis) => [axis.code, axis.vertex]));
+    expect(radar!.fills).toHaveLength(2);
+    expect(radar!.fills).toContainEqual([radar!.center, byCode.c, byCode.d]);
+    // f и a — соседи через стык последнего и первого луча.
+    expect(radar!.fills).toContainEqual([radar!.center, byCode.f, byCode.a]);
+  });
+
+  it("одна измеренная вершина площади не даёт — заливки нет", () => {
+    expect(buildRadar([m("a"), gap("b"), gap("c")])!.fills).toEqual([]);
+  });
+
+  it("«не применимо» — тоже разрыв заливки", () => {
+    const radar = buildRadar([m("a"), m("b"), notApplicable("c", 10), m("d")]);
+    const byCode = Object.fromEntries(radar!.axes.map((axis) => [axis.code, axis.vertex]));
+    expect(radar!.fills).toEqual([[radar!.center, byCode.d, byCode.a, byCode.b]]);
   });
 });
 

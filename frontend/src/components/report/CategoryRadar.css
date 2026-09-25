@@ -50,6 +50,12 @@
   stroke-dasharray: 7 6;
 }
 
+/* Не применимо: бледный сплошной луч без кружка — данных здесь и не ждём. */
+.category-radar__arm_na {
+  stroke: var(--g-color-text-hint);
+  stroke-opacity: 0.3;
+}
+
 .category-radar__shape {
   fill: url(#rh-radar-fill);
 }
@@ -147,6 +153,13 @@
 
 .category-radar__key_empty {
   border: 2px dashed var(--g-color-text-hint);
+}
+
+.category-radar__key_na {
+  height: 2px;
+  border-radius: 1px;
+  background: var(--g-color-text-hint);
+  opacity: 0.5;
 }
 
 /* Сборка фигуры: кольца, потом лучи, потом контур, вершины и подписи. */

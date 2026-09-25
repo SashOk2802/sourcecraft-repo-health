@@ -55,6 +55,12 @@
   gap: 8px;
 }
 
+/* Ошибка выгрузки — отдельной строкой под кнопками. */
+.report__export-error {
+  flex-basis: 100%;
+  text-align: right;
+}
+
 .report__grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;

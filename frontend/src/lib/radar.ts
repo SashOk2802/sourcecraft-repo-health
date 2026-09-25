@@ -1,11 +1,13 @@
+import type { CategoryStatus } from "../api/common";
 import type { ReportCategory } from "../api/report";
 import { isMeasured } from "../components/report/reportHelpers";
+import { formatPoints, formatScore } from "./format";
 
 /*
  * Геометрия радара отчёта. Длина луча — вес категории в методике,
- * вершина на луче — её оценка. У категории без данных вершины нет:
- * контур в этом месте разомкнут, и ноль ей не приписывается.
- * Здесь только расчёт координат, рисует их CategoryRadar.
+ * вершина на луче — её оценка. У категории без оценки вершины нет:
+ * контур в этом месте разомкнут, заливка этот сектор не закрывает,
+ * и ноль ей не приписывается. Здесь только расчёт координат, рисует их CategoryRadar.
  */
 
 export interface Point {
@@ -27,8 +29,13 @@ export interface RadarAxis {
   label: string;
   /** Вес категории в процентах методики. */
   weight: number;
-  /** Оценка 0–100; null — категория без данных. */
+  /** Оценка 0–100; null — категория без оценки. */
   score: number | null;
+  /**
+   * Статус данных как прислал backend. «Не применимо» — не то же, что «нет данных»:
+   * категория к репозиторию просто не относится, и подпись должна это сказать.
+   */
+  status: CategoryStatus;
   /** Конец луча: длина пропорциональна весу. */
   end: Point;
   /** Конец дорожки, одинаковый у всех лучей: до него дотягивается подпись. */
@@ -55,8 +62,14 @@ export interface RadarGeometry {
   rings: Point[][];
   /** Контур оценок: сплошной между соседними категориями, пунктирный через пропуск. */
   edges: RadarEdge[];
-  /** Вершины контура — по ним рисуются точки и заливка. */
+  /** Вершины контура в порядке лучей. */
   vertices: Point[];
+  /**
+   * Заливка. Без пропусков — один многоугольник по всем вершинам. С пропуском —
+   * «веера» от центра по сериям соседних измеренных категорий: сектор категории
+   * без оценки остаётся пустым, как и обещает разрыв контура.
+   */
+  fills: Point[][];
 }
 
 export interface RadarOptions {
@@ -74,7 +87,7 @@ export interface RadarOptions {
 const DEFAULT_RINGS = [0.5, 1];
 
 const DEFAULTS = {
-  width: 560,
+  width: 600,
   height: 420,
   radius: 150,
   labelGap: 20,
@@ -127,6 +140,7 @@ export function buildRadar(categories: ReportCategory[], options: RadarOptions =
       label: category.label,
       weight: category.weight,
       score,
+      status: category.status,
       end: at(center, dir, armLengths[index]),
       tip: at(center, dir, radius),
       vertex: score === null ? null : at(center, dir, (armLengths[index] * score) / 100),
@@ -157,7 +171,57 @@ export function buildRadar(categories: ReportCategory[], options: RadarOptions =
           };
         });
 
-  return { width, height, center, radius, axes, rings, edges, vertices };
+  return { width, height, center, radius, axes, rings, edges, vertices, fills: buildFills(axes, center) };
+}
+
+/**
+ * Заливка без сектора, где оценки нет. Серии соседних измеренных лучей ищутся
+ * по кругу: серия может переходить через последний луч к первому. Одна вершина
+ * площади не даёт, такую серию заливать нечем.
+ */
+function buildFills(axes: RadarAxis[], center: Point): Point[][] {
+  const measured = axes.map((axis) => axis.vertex !== null);
+  if (measured.every(Boolean)) {
+    return axes.length >= 3 ? [axes.map((axis) => axis.vertex as Point)] : [];
+  }
+
+  const total = axes.length;
+  // Начинаем сразу после любого пропуска, чтобы серия не разрезалась на стыке конца и начала.
+  const start = (measured.findIndex((isMeasuredAxis) => !isMeasuredAxis) + 1) % total;
+  const fills: Point[][] = [];
+  let run: Point[] = [];
+
+  for (let step = 0; step < total; step += 1) {
+    const axis = axes[(start + step) % total];
+    if (axis.vertex) {
+      run.push(axis.vertex);
+      continue;
+    }
+    if (run.length >= 2) fills.push([center, ...run]);
+    run = [];
+  }
+  if (run.length >= 2) fills.push([center, ...run]);
+
+  return fills;
+}
+
+/** Короткие слова для подписи на радаре: места у края фигуры мало, а статус должен читаться точно. */
+const axisStatusWords: Record<Exclude<CategoryStatus, "measured">, string> = {
+  unavailable: "нет данных",
+  insufficient_sample: "мало данных",
+  error: "ошибка сбора",
+  not_applicable: "не применимо",
+};
+
+/** Вторая строка подписи луча: вес и оценка, а без оценки — почему её нет. */
+export function describeAxis(axis: RadarAxis): string {
+  const weight = `вес ${formatPoints(axis.weight)}%`;
+  if (axis.score !== null) {
+    return `${weight} · оценка ${formatScore(axis.score)}`;
+  }
+  // Измеренная категория без оценки невозможна по контракту; на всякий случай — «нет данных».
+  const word = axis.status === "measured" ? axisStatusWords.unavailable : axisStatusWords[axis.status];
+  return `${weight} · ${word}`;
 }
 
 /** Точки многоугольника в формате атрибута points. */

@@ -5,15 +5,15 @@ import type { ReportCategory } from "../../api/report";
 import { usePointerTilt } from "../../hooks/usePointerTilt";
 import { describeCategory } from "../../lib/categoryMeaning";
 import { cn } from "../../lib/classNames";
-import { formatPoints, formatScore } from "../../lib/format";
-import { buildRadar, toPoints } from "../../lib/radar";
+import { buildRadar, describeAxis, toPoints } from "../../lib/radar";
 import { getScoreBand } from "../../lib/scoreBands";
 import "./CategoryRadar.css";
 
 /*
  * Одна фигура вместо таблицы: длина луча — вес категории, вершина на луче — оценка.
- * У категории без данных вершины нет, и контур в этом месте разомкнут пунктиром:
- * так видно, что её не приравняли к нулю.
+ * У категории без данных вершины нет: контур в этом месте разомкнут пунктиром,
+ * а заливка сектор не закрывает — так видно, что её не приравняли к нулю.
+ * «Не применимо» рисуется бледным лучом без пунктирного кружка: данных тут и не ждём.
  * Фигура собирается при появлении и чуть поворачивается за курсором.
  */
 export function CategoryRadar({ categories }: { categories: ReportCategory[] }) {
@@ -66,7 +66,10 @@ export function CategoryRadar({ categories }: { categories: ReportCategory[] }) 
           {radar.axes.map((axis, index) => (
             <line
               key={`arm-${axis.code}`}
-              className={axis.vertex ? "category-radar__arm" : "category-radar__arm category-radar__arm_empty"}
+              className={cn(
+                "category-radar__arm",
+                !axis.vertex && (axis.status === "not_applicable" ? "category-radar__arm_na" : "category-radar__arm_empty"),
+              )}
               x1={radar.center.x}
               y1={radar.center.y}
               x2={axis.end.x}
@@ -75,9 +78,10 @@ export function CategoryRadar({ categories }: { categories: ReportCategory[] }) 
             />
           ))}
 
-          {radar.vertices.length >= 3 && (
-            <polygon className="category-radar__shape" points={toPoints(radar.vertices)} />
-          )}
+          {/* Сектор категории без оценки заливка не закрывает: там разрыв, а не ноль. */}
+          {radar.fills.map((fill, index) => (
+            <polygon key={`fill-${index}`} className="category-radar__shape" points={toPoints(fill)} />
+          ))}
 
           {radar.edges.map((edge, index) => (
             <line
@@ -101,7 +105,8 @@ export function CategoryRadar({ categories }: { categories: ReportCategory[] }) 
                 r={5.5}
                 style={order(index)}
               />
-            ) : (
+            ) : axis.status === "not_applicable" ? null : (
+              // Пунктирный кружок — «данных нет». У неприменимой категории его нет: ей нечего ждать.
               <circle
                 key={`dot-${axis.code}`}
                 className="category-radar__dot category-radar__dot_empty"
@@ -131,7 +136,7 @@ export function CategoryRadar({ categories }: { categories: ReportCategory[] }) 
                 y={axis.labelSpot.subAt.y}
                 textAnchor={axis.labelSpot.anchor}
               >
-                {`вес ${formatPoints(axis.weight)}% · ${axis.score === null ? "нет данных" : `оценка ${formatScore(axis.score)}`}`}
+                {describeAxis(axis)}
               </text>
             </g>
           ))}
@@ -157,6 +162,14 @@ export function CategoryRadar({ categories }: { categories: ReportCategory[] }) 
             пунктир — данных по этой части нет
           </Text>
         </li>
+        {radar.axes.some((axis) => axis.status === "not_applicable") && (
+          <li>
+            <span className="category-radar__key category-radar__key_na" />
+            <Text variant="body-1" color="secondary">
+              бледный луч — часть к этому проекту не относится
+            </Text>
+          </li>
+        )}
       </ul>
     </div>
   );

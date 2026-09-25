@@ -1,7 +1,8 @@
 import type { AnalysisStatus, CategoryStatus, Evidence, RecommendationPriority } from "./common";
-import { ApiError, getJson } from "./http";
+import { ApiError, getJson, getText } from "./http";
 import { mocksEnabled, withMockDelay } from "./mockMode";
 import { findMockReport } from "./mocks/reports";
+import { renderReportMarkdown } from "../lib/reportMarkdown";
 
 /*
  * GET /api/v1/analyses/{analysisId}/report — docs/api-contract.md, раздел «Формат JSON-отчёта».
@@ -110,4 +111,15 @@ export async function fetchReport(analysisId: string): Promise<RepositoryReport>
 /** Markdown по тому же снимку анализа. */
 export function markdownReportUrl(analysisId: string): string {
   return `/api/v1/analyses/${encodeURIComponent(analysisId)}/report.md`;
+}
+
+/**
+ * Текст Markdown-отчёта. Настоящий отдаёт backend; в mock-режиме отчёт собирается здесь же
+ * в том же формате, что и backend/app/reporting/builder.py.
+ */
+export async function fetchReportMarkdown(report: RepositoryReport): Promise<string> {
+  if (mocksEnabled) {
+    return renderReportMarkdown(report, { demo: true });
+  }
+  return getText(markdownReportUrl(report.analysis.id));
 }
