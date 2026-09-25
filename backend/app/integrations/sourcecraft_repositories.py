@@ -1,0 +1,230 @@
+"""Безопасный каталог репозиториев организации SourceCraft."""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass, field
+from typing import Any, Literal
+from urllib.parse import urlsplit
+
+from backend.app.contracts import RepositoryRef
+from backend.app.integrations.sourcecraft import (
+    SourceCraftClient,
+    SourceCraftRequestError,
+    SourceCraftResponseError,
+)
+
+_SOURCECRAFT_SLUG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+_SOURCECRAFT_WEB_HOST = "sourcecraft.dev"
+_VISIBILITIES = frozenset({"public", "internal", "private"})
+_UINT64_MAX = 2**64 - 1
+
+REPOSITORY_PAGE_SIZE = 100
+REPOSITORY_MAX_PAGES = 100
+RepositoryVisibility = Literal["public", "internal", "private"]
+
+
+@dataclass(frozen=True, slots=True)
+class SourceCraftRepository:
+    """Проверенные поля каталога, нужные сервису здоровья репозиториев.
+
+    Идентификаторы и приватные метаданные скрыты из ``repr``, чтобы случайный
+    журнал объекта не раскрыл имя закрытого репозитория.
+    """
+
+    id: str = field(repr=False)
+    name: str = field(repr=False)
+    organization_slug: str = field(repr=False)
+    slug: str = field(repr=False)
+    default_branch: str = field(repr=False)
+    visibility: RepositoryVisibility
+    is_empty: bool
+    language: str | None = field(repr=False)
+    branch_count: int
+    web_url: str | None = field(repr=False)
+
+    def as_repository_ref(self) -> RepositoryRef:
+        """Возвращает минимальную ссылку для общего контекста анализа."""
+
+        return RepositoryRef(
+            id=self.id,
+            organization_slug=self.organization_slug,
+            repository_slug=self.slug,
+            web_url=self.web_url,
+        )
+
+
+class SourceCraftRepositoryCatalogClient:
+    """Читает доступные репозитории одной организации через REST API."""
+
+    def __init__(self, sourcecraft_client: SourceCraftClient) -> None:
+        self._sourcecraft_client = sourcecraft_client
+
+    def list_repositories(
+        self,
+        organization_slug: str,
+    ) -> tuple[SourceCraftRepository, ...]:
+        """Возвращает проверенный полный список в пределах заданного бюджета."""
+
+        _validate_slug(organization_slug, "organization_slug")
+        payloads = self._sourcecraft_client.get_paginated_objects(
+            f"/orgs/{organization_slug}/repos",
+            items_field="repositories",
+            page_size=REPOSITORY_PAGE_SIZE,
+            max_pages=REPOSITORY_MAX_PAGES,
+        )
+        repositories = tuple(
+            _parse_repository(payload, expected_organization_slug=organization_slug)
+            for payload in payloads
+        )
+        _validate_unique_repositories(repositories)
+        return repositories
+
+
+def _parse_repository(
+    payload: dict[str, Any],
+    *,
+    expected_organization_slug: str,
+) -> SourceCraftRepository:
+    repository_id = _require_string(payload, "id")
+    name = _require_string(payload, "name")
+    slug = _require_string(payload, "slug")
+    _validate_response_slug(slug, "repository slug")
+
+    organization = payload.get("organization")
+    if not isinstance(organization, dict):
+        raise SourceCraftResponseError("SourceCraft repository must contain an organization")
+    organization_slug = _require_string(organization, "slug")
+    _validate_response_slug(organization_slug, "organization slug")
+    if organization_slug != expected_organization_slug:
+        raise SourceCraftResponseError(
+            "SourceCraft repository belongs to an unexpected organization"
+        )
+
+    visibility = payload.get("visibility")
+    if not isinstance(visibility, str) or visibility not in _VISIBILITIES:
+        raise SourceCraftResponseError("SourceCraft repository has an unknown visibility")
+
+    is_empty = payload.get("is_empty")
+    if not isinstance(is_empty, bool):
+        raise SourceCraftResponseError("SourceCraft repository is_empty must be a boolean")
+
+    default_branch = payload.get("default_branch")
+    if not isinstance(default_branch, str) or (not is_empty and not default_branch):
+        raise SourceCraftResponseError(
+            "SourceCraft non-empty repository must contain a default branch"
+        )
+
+    language = _parse_language(payload.get("language"))
+
+    counters = payload.get("counters")
+    if not isinstance(counters, dict):
+        raise SourceCraftResponseError("SourceCraft repository must contain counters")
+    branch_count = _parse_uint64(counters.get("branches"), "branch counter")
+
+    web_url = _parse_web_url(
+        payload.get("web_url"),
+        organization_slug=organization_slug,
+        repository_slug=slug,
+    )
+
+    return SourceCraftRepository(
+        id=repository_id,
+        name=name,
+        organization_slug=organization_slug,
+        slug=slug,
+        default_branch=default_branch,
+        visibility=visibility,
+        is_empty=is_empty,
+        language=language,
+        branch_count=branch_count,
+        web_url=web_url,
+    )
+
+
+def _validate_slug(value: str, field_name: str) -> None:
+    if not isinstance(value, str) or not _SOURCECRAFT_SLUG.fullmatch(value):
+        raise SourceCraftRequestError(
+            f"SourceCraft {field_name} must be a safe URL path segment"
+        )
+
+
+def _validate_response_slug(value: str, field_name: str) -> None:
+    if not _SOURCECRAFT_SLUG.fullmatch(value):
+        raise SourceCraftResponseError(f"SourceCraft returned an invalid {field_name}")
+
+
+def _require_string(payload: dict[str, Any], field_name: str) -> str:
+    value = payload.get(field_name)
+    if not isinstance(value, str) or not value:
+        raise SourceCraftResponseError(
+            f"SourceCraft repository must contain a non-empty string {field_name}"
+        )
+    return value
+
+
+def _parse_language(value: object) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise SourceCraftResponseError("SourceCraft repository language must be an object or null")
+    name = value.get("name")
+    if not isinstance(name, str) or not name:
+        raise SourceCraftResponseError(
+            "SourceCraft repository language must contain a non-empty name"
+        )
+    return name
+
+
+def _parse_uint64(value: object, field_name: str) -> int:
+    if not isinstance(value, str) or not value.isascii() or not value.isdigit():
+        raise SourceCraftResponseError(f"SourceCraft repository {field_name} must be uint64")
+    parsed = int(value)
+    if parsed > _UINT64_MAX:
+        raise SourceCraftResponseError(f"SourceCraft repository {field_name} must be uint64")
+    return parsed
+
+
+def _parse_web_url(
+    value: object,
+    *,
+    organization_slug: str,
+    repository_slug: str,
+) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value:
+        raise SourceCraftResponseError("SourceCraft repository web_url must be a string or null")
+
+    try:
+        parsed = urlsplit(value)
+        is_safe = (
+            parsed.scheme == "https"
+            and parsed.hostname == _SOURCECRAFT_WEB_HOST
+            and parsed.port in (None, 443)
+            and parsed.username is None
+            and parsed.password is None
+            and parsed.query == ""
+            and parsed.fragment == ""
+            and parsed.path.rstrip("/") == f"/{organization_slug}/{repository_slug}"
+        )
+    except ValueError:
+        is_safe = False
+    if not is_safe:
+        raise SourceCraftResponseError("SourceCraft repository web_url is not an official URL")
+    return value
+
+
+def _validate_unique_repositories(
+    repositories: tuple[SourceCraftRepository, ...],
+) -> None:
+    ids: set[str] = set()
+    slugs: set[tuple[str, str]] = set()
+    for repository in repositories:
+        repository_slug = (repository.organization_slug, repository.slug)
+        if repository.id in ids or repository_slug in slugs:
+            raise SourceCraftResponseError(
+                "SourceCraft returned a duplicate repository across catalog pages"
+            )
+        ids.add(repository.id)
+        slugs.add(repository_slug)
