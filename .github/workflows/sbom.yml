@@ -1,0 +1,90 @@
+name: Generate SBOM
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python-sbom:
+    name: Python runtime SBOM
+    runs-on: ubuntu-latest
+    env:
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+      PIP_NO_CACHE_DIR: "1"
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+      - name: Install application and SBOM generator separately
+        run: |
+          python -m venv .sbom-app-venv
+          python -m venv .sbom-tool-venv
+          .sbom-app-venv/bin/python -m pip install pip==26.2.1
+          .sbom-tool-venv/bin/python -m pip install pip==26.2.1
+          .sbom-app-venv/bin/python -m pip install -e .
+          .sbom-tool-venv/bin/python -m pip install cyclonedx-bom==7.4.0
+      - name: Generate Python CycloneDX inventory
+        run: |
+          env -u PYTHONPATH -u PYTHONHOME -u VIRTUAL_ENV \
+            .sbom-tool-venv/bin/python -m cyclonedx_py environment \
+            .sbom-app-venv/bin/python \
+            --pyproject pyproject.toml \
+            --mc-type application \
+            --spec-version 1.6 \
+            --output-format JSON \
+            --output-reproducible \
+            --output-file sbom-python.cdx.json
+          python scripts/validate_sbom.py sbom-python.cdx.json \
+            --expected-root sourcecraft-repo-health \
+            --minimum-components 10
+      - name: Upload validated Python SBOM
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: python-runtime-sbom-${{ github.sha }}
+          path: sbom-python.cdx.json
+          if-no-files-found: error
+          retention-days: 7
+
+  frontend-sbom:
+    name: Frontend runtime SBOM
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+      - name: Generate frontend CycloneDX inventory
+        run: |
+          npm sbom --package-lock-only --omit=dev \
+            --sbom-format=cyclonedx \
+            --sbom-type=application \
+            > sbom-frontend.cdx.json
+          python ../scripts/validate_sbom.py sbom-frontend.cdx.json \
+            --expected-root sourcecraft-repo-health-frontend \
+            --minimum-components 5
+      - name: Upload validated frontend SBOM
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: frontend-runtime-sbom-${{ github.sha }}
+          path: frontend/sbom-frontend.cdx.json
+          if-no-files-found: error
+          retention-days: 7
