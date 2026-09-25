@@ -83,7 +83,9 @@ class SourceCraftClientTest(unittest.TestCase):
         )
         client = SourceCraftClient("test-token", http_client=http_client)
 
-        runs = client.get_paginated_objects("/repos/example-org/example-repo/cicd/runs", items_field="runs")
+        runs = client.get_paginated_objects(
+            "/repos/example-org/example-repo/cicd/runs", items_field="runs"
+        )
 
         self.assertEqual(runs, [{"id": "run-1"}, {"id": "run-2"}])
         self.assertEqual(len(requests), 2)
@@ -105,7 +107,9 @@ class SourceCraftClientTest(unittest.TestCase):
         client = SourceCraftClient("test-token", http_client=http_client)
 
         with self.assertRaisesRegex(SourceCraftResponseError, "repeated next_page_token"):
-            client.get_paginated_objects("/repos/example-org/example-repo/cicd/runs", items_field="runs")
+            client.get_paginated_objects(
+                "/repos/example-org/example-repo/cicd/runs", items_field="runs"
+            )
 
         self.assertEqual(len(requests), 2)
 
@@ -169,7 +173,9 @@ class SourceCraftClientTest(unittest.TestCase):
         client = SourceCraftClient("test-token", http_client=http_client)
 
         with self.assertRaises(ValueError):
-            client.get_paginated_objects("/repos/example-org/example-repo/cicd/runs", items_field="")
+            client.get_paginated_objects(
+                "/repos/example-org/example-repo/cicd/runs", items_field=""
+            )
         with self.assertRaises(ValueError):
             client.get_paginated_objects(
                 "/repos/example-org/example-repo/cicd/runs",

@@ -17,6 +17,7 @@ from typing import Any, Literal
 
 _SOURCECRAFT_SLUG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 APPSEC_ENGINES = ("SAST", "SCA", "SECRETS")
+APPSEC_SAMPLE_LIMIT = 100
 AppSecAvailability = Literal["available", "unavailable", "error"]
 CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
 _KNOWN_SEVERITIES = frozenset({"INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"})
@@ -51,8 +52,18 @@ class AppSecProbeResult:
             raise ValueError("Unknown SourceCraft AppSec engine")
         if self.availability not in {"available", "unavailable", "error"}:
             raise ValueError("Unknown SourceCraft AppSec availability")
-        if self.finding_count is not None and self.finding_count < 0:
-            raise ValueError("finding_count must be non-negative or None")
+        if self.finding_count is not None and (
+            not isinstance(self.finding_count, int) or isinstance(self.finding_count, bool)
+        ):
+            raise TypeError("finding_count must be an integer or None")
+        if self.finding_count is not None and not 0 <= self.finding_count <= APPSEC_SAMPLE_LIMIT:
+            raise ValueError("finding_count must fit the configured AppSec sample limit")
+        if not isinstance(self.severities, tuple):
+            raise TypeError("severities must be a tuple")
+        if not all(isinstance(severity, str) for severity in self.severities):
+            raise TypeError("severities must contain strings")
+        if len(set(self.severities)) != len(self.severities):
+            raise ValueError("AppSec result severities must be unique")
         if self.availability == "available" and self.finding_count is None:
             raise ValueError("available AppSec result must have finding_count")
         if self.availability != "available" and self.finding_count is not None:
@@ -65,6 +76,8 @@ class AppSecProbeResult:
             raise ValueError("AppSec result must use a known safe reason")
         if any(severity not in _KNOWN_SEVERITIES for severity in self.severities):
             raise ValueError("AppSec result contains an unknown severity")
+        if self.finding_count is not None and len(self.severities) > self.finding_count:
+            raise ValueError("AppSec result cannot have more severities than findings")
 
     def as_dict(self) -> dict[str, str | int | list[str] | None]:
         """Возвращает JSON-представление, в котором нет сырых findings."""
@@ -121,7 +134,7 @@ class SourceCraftAppSecCliProbe:
             "--type",
             engine,
             "--limit",
-            "100",
+            str(APPSEC_SAMPLE_LIMIT),
             "--json",
         ]
         try:

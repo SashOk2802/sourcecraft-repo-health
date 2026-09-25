@@ -88,3 +88,14 @@ Backend и frontend-контейнеры создают пользователя
 3. Оставьте `YANDEX_SESSION_COOKIE_SECURE=false` только для локального HTTP и выполните `docker compose up --build`.
 
 OAuth-токен не попадает в браузер, отчёты или логи. В развёрнутой среде redirect URI использует HTTPS, а `YANDEX_SESSION_COOKIE_SECURE` должен быть `true`.
+
+## Анализ публичных репозиториев SourceCraft
+
+Чтобы включить production-анализ, заполните в `.env` обе переменные:
+
+~~~dotenv
+SOURCECRAFT_TOKEN=...
+SOURCECRAFT_PUBLIC_ORGANIZATIONS=org-one,org-two
+~~~
+
+Вторая переменная содержит slug организаций SourceCraft через запятую. Сервисный токен применяется только для этих каталогов, а анализ разрешён лишь для репозиториев с `visibility: public`; private/internal запросы получают `403`. Если одна из переменных не задана, dispatcher не запускается и endpoint анализа вернёт `503`. Подробности о категориях и безопасном git-клоне — в [документе production-анализатора](sourcecraft-production-analysis.md).

@@ -66,9 +66,7 @@ def create_app(
 
     store = analysis_store or _default_analysis_store()
     jobs = job_store or (
-        InMemoryAnalysisJobStore()
-        if analysis_store is not None
-        else _default_analysis_job_store()
+        InMemoryAnalysisJobStore() if analysis_store is not None else _default_analysis_job_store()
     )
 
     effective_principal_provider = principal_provider or _yandex_principal_provider(
@@ -387,7 +385,7 @@ def _create_default_analysis_dispatcher(
 
     Личные SourceCraft-подключения собирает `create_sourcecraft_app()`. Пока
     каталог не сконфигурирован, endpoint остаётся fail-closed с 503; сервисный
-    токен не используется для private/internal репозиториев.
+    токен не используется для private/internal репозиториев произвольного пользователя.
     """
 
     resolver = create_sourcecraft_public_repository_resolver_from_environment()

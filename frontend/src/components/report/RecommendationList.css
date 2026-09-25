@@ -1,0 +1,139 @@
+/* Список тоже карточка: на тонированной странице голые строки выглядят незакончеными. */
+.recommendations {
+  border-radius: var(--rh-radius-card);
+  background: var(--rh-surface);
+  box-shadow: var(--rh-shadow-1);
+  padding: 4px 24px;
+}
+
+.recommendation {
+  display: grid;
+  grid-template-columns: 52px 132px minmax(0, 1fr) 96px;
+  gap: 0 12px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--rh-hairline);
+  transition: background 160ms ease-out;
+}
+
+.recommendation:last-child {
+  border-bottom: 0;
+}
+
+.recommendation:hover {
+  background: var(--rh-surface-muted);
+  box-shadow: 0 0 0 12px var(--rh-surface-muted);
+  border-radius: 2px;
+}
+
+/* Крупный номер, как пункты «#1 #2» у Вебмастера: порядок виден без чтения. */
+.recommendation__index {
+  color: var(--g-color-text-hint);
+  font-size: 30px;
+  font-weight: 300;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.recommendation__priority {
+  padding-top: 2px;
+}
+
+.recommendation__body {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+}
+
+.recommendation__text {
+  max-width: 680px;
+}
+
+.recommendation__effect {
+  margin-top: 2px;
+}
+
+.recommendation__gain {
+  display: grid;
+  align-content: start;
+  justify-items: end;
+  text-align: right;
+}
+
+.recommendation__delta {
+  font-size: 20px;
+  line-height: 24px;
+  font-weight: 600;
+  color: var(--g-color-text-positive-heavy);
+}
+
+.recommendations__note {
+  display: block;
+  margin-top: 10px;
+  max-width: 760px;
+}
+
+@media (max-width: 900px) {
+  .recommendation {
+    grid-template-columns: 40px minmax(0, 1fr);
+  }
+
+  .recommendation__index {
+    font-size: 22px;
+  }
+
+  .recommendation__priority,
+  .recommendation__body,
+  .recommendation__gain {
+    grid-column: 2;
+    justify-items: start;
+    text-align: left;
+  }
+}
+
+@media print {
+  .recommendation {
+    break-inside: avoid;
+  }
+}
+
+/* Рекомендации проявляются сверху вниз, в том же порядке, в каком их читают. */
+@media (prefers-reduced-motion: no-preference) {
+  .recommendation {
+    animation: rh-rec-in 440ms cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
+  }
+
+  .recommendation:nth-child(1) { animation-delay: 60ms; }
+  .recommendation:nth-child(2) { animation-delay: 130ms; }
+  .recommendation:nth-child(3) { animation-delay: 200ms; }
+  .recommendation:nth-child(4) { animation-delay: 270ms; }
+  .recommendation:nth-child(5) { animation-delay: 340ms; }
+  .recommendation:nth-child(n + 6) { animation-delay: 400ms; }
+}
+
+@keyframes rh-rec-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+.recommendation__delta {
+  font-variant-numeric: tabular-nums;
+}
+
+@media print {
+  .recommendations {
+    border: 1px solid #d9dae0;
+    box-shadow: none;
+    padding: 4px 16px;
+  }
+
+  .recommendation {
+    break-inside: avoid;
+  }
+
+  .recommendation:hover {
+    background: none;
+    box-shadow: none;
+  }
+}

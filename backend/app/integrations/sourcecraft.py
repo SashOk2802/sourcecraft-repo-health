@@ -251,7 +251,9 @@ class SourceCraftClient:
 
         if response.status_code == 429:
             retry_after = response.headers.get("Retry-After")
-            retry_after_seconds = int(retry_after) if retry_after and retry_after.isdigit() else None
+            retry_after_seconds = (
+                int(retry_after) if retry_after and retry_after.isdigit() else None
+            )
             raise SourceCraftRateLimitError(retry_after_seconds)
 
         if response.is_error:
@@ -275,12 +277,7 @@ class SourceCraftClient:
     @staticmethod
     def _validate_path(path: str) -> None:
         parsed = urlsplit(path)
-        if (
-            not path.startswith("/")
-            or path.startswith("//")
-            or parsed.scheme
-            or parsed.netloc
-        ):
+        if not path.startswith("/") or path.startswith("//") or parsed.scheme or parsed.netloc:
             raise SourceCraftRequestError(
                 "SourceCraft request path must be a relative path beginning with '/'"
             )

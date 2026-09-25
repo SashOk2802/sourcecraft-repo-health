@@ -1,0 +1,223 @@
+.category-marks {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+/* Карточка приподнята над страницей, как в сервисах Яндекса: тень вместо обводки. */
+.category-card {
+  border-radius: var(--rh-radius-card);
+  background: var(--rh-surface);
+  box-shadow: var(--rh-shadow-1);
+  padding: 18px 20px 16px;
+  /* Переход из «Сильных и слабых сторон»: карточка не прячется под липкой шапкой. */
+  scroll-margin-top: 88px;
+}
+
+/* Карточка, к которой перешли по ссылке, обведена акцентом. */
+.category-card:target {
+  box-shadow:
+    0 0 0 2px var(--rh-accent),
+    var(--rh-shadow-2);
+}
+
+.category-card__head {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.category-card__name {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+/* Объяснение обычными словами занимает всю ширину карточки, а не остаток строки. */
+.category-card__meaning {
+  display: block;
+  padding-top: 8px;
+}
+
+.category-card__status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 0 8px;
+  border-bottom: 1px solid var(--g-color-line-generic);
+  margin-bottom: 2px;
+}
+
+.category-card__score {
+  margin-left: auto;
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--g-text-header-1-font-size);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.category-card__score_band_high {
+  color: var(--rh-band-high);
+}
+
+.category-card__score_band_mid {
+  color: var(--rh-band-mid);
+}
+
+.category-card__score_band_low {
+  color: var(--rh-band-low);
+}
+
+.category-card__metrics {
+  list-style: none;
+}
+
+.category-card__metric {
+  display: grid;
+  /* Справа — оценка, «есть/нет» или число вроде «1 284»: колонка растёт под значение. */
+  grid-template-columns: 9px minmax(0, 1fr) minmax(34px, auto);
+  gap: 10px;
+  align-items: start;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--g-color-line-generic-solid);
+}
+
+.category-card__metric:last-child {
+  border-bottom: 0;
+}
+
+.category-card__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-top: 6px;
+}
+
+.category-card__dot_tone_high {
+  background: var(--rh-band-high);
+}
+
+.category-card__dot_tone_mid {
+  background: var(--rh-band-mid);
+}
+
+.category-card__dot_tone_low {
+  background: var(--rh-band-low);
+}
+
+.category-card__dot_tone_info {
+  background: var(--g-color-text-hint);
+}
+
+.category-card__metric-body {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+/*
+ * Длину текста метрики backend не гарантирует, поэтому вёрстка не рассчитана
+ * на одну строку: длинное описание обрезается по двум строкам.
+ */
+.category-card__metric-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  color: var(--g-color-text-secondary);
+  font-size: var(--g-text-body-1-font-size);
+  line-height: var(--g-text-body-1-line-height);
+}
+
+.category-card__metric-score {
+  text-align: right;
+  white-space: nowrap;
+  color: var(--g-color-text-hint);
+  font-size: var(--g-text-body-1-font-size);
+  padding-top: 1px;
+}
+
+.category-card__reason {
+  padding-top: 12px;
+}
+
+.category-card__excluded {
+  display: block;
+  padding-top: 12px;
+}
+
+@media (max-width: 1100px) {
+  .category-marks {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .category-marks {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media print {
+  .category-card {
+    border: 1px solid #d9dae0;
+    box-shadow: none;
+  }
+
+  .category-marks {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .category-card {
+    break-inside: avoid;
+  }
+}
+
+/* Карточки выкладываются по очереди и чуть поднимаются под курсором. */
+.category-card {
+  transition:
+    transform 200ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    box-shadow 200ms ease-out,
+    border-color 200ms ease-out;
+}
+
+.category-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--rh-shadow-2);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .category-card {
+    animation: rh-card-in 460ms cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
+    animation-delay: calc(var(--rh-step, 0) * 70ms);
+  }
+
+  .category-card__dot {
+    animation: rh-dot-in 320ms cubic-bezier(0.34, 1.4, 0.64, 1) backwards;
+    animation-delay: calc(240ms + var(--rh-step, 0) * 70ms);
+  }
+}
+
+@keyframes rh-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+@keyframes rh-dot-in {
+  from {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+}
+
+@media print {
+  .category-card:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}
