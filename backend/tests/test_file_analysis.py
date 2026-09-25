@@ -65,6 +65,25 @@ class FileAnalysisTest(unittest.TestCase):
             facts = code_health.collect(repository)
         self.assertEqual((facts.total_files, facts.todo_count, facts.fixme_count, facts.skipped_large_files), (2, 1, 1, 1))
 
+    def test_collect_ignores_javascript_regex_but_keeps_real_comments(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "regex.js").write_text(
+                "const re = /[//] TODO/; // FIXME: real comment\n"
+                "const block = /[/*] FIXME/;\n"
+                "function build() { return /[//] TODO/; }\n"
+                "const ratio = left / right; // TODO: real comment\n",
+                encoding="utf-8",
+            )
+            repository = LocalGitRepository(sourcecraft_clone_url("team", "service"))
+            repository.temp_dir = directory
+            facts = code_health.collect(repository)
+
+        self.assertEqual(facts.total_files, 1)
+        self.assertEqual(facts.todo_count, 1)
+        self.assertEqual(facts.fixme_count, 1)
+        self.assertEqual(facts.files_with_debt, 1)
+
     def test_evaluate_is_reproducible(self) -> None:
         docs = documentation.evaluate(self.context, documentation.DocumentationFacts(True, False, False, False, True))
         health = code_health.evaluate(self.context, code_health.CodeHealthFacts(2, 1, 1, 1, 0))

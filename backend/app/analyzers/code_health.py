@@ -26,6 +26,23 @@ EXCLUDED_DIRECTORIES = frozenset({
     ".git", ".venv", "__pycache__", "build", "coverage", "dist", "generated", "node_modules", "vendor", "venv",
 })
 _MARKER = re.compile(r"\b(TODO|FIXME)\b")
+_JS_REGEX_PREFIX_CHARS = frozenset("([{:;,=!?&|+-*%^~<>")
+_JS_REGEX_PREFIX_KEYWORDS = frozenset({
+    "await",
+    "case",
+    "delete",
+    "do",
+    "else",
+    "in",
+    "instanceof",
+    "new",
+    "of",
+    "return",
+    "throw",
+    "typeof",
+    "void",
+    "yield",
+})
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,11 +125,13 @@ def _comments_only(content: str, extension: str) -> str:
             )
         except tokenize.TokenError:
             return ""
-    return "\n".join(_c_style_comments(content))
+    return "\n".join(
+        _c_style_comments(content, javascript=extension in {".js", ".ts"})
+    )
 
 
-def _c_style_comments(content: str) -> list[str]:
-    """Небольшой lexer: строковые литералы не становятся комментариями."""
+def _c_style_comments(content: str, *, javascript: bool = False) -> list[str]:
+    """Небольшой lexer: строки и JS-regex не становятся комментариями."""
 
     comments: list[str] = []
     index = 0
@@ -136,6 +155,59 @@ def _c_style_comments(content: str) -> list[str]:
                     break
                 else:
                     index += 1
+        elif javascript and content[index] == "/" and _can_start_js_regex(content, index):
+            regex_end = _skip_js_regex(content, index)
+            index = regex_end if regex_end is not None else index + 1
         else:
             index += 1
     return comments
+
+
+def _can_start_js_regex(content: str, slash_index: int) -> bool:
+    """Отличает начало regex-литерала от оператора деления.
+
+    В JavaScript регулярное выражение может начинаться только там, где
+    ожидается новое выражение: в начале файла, после оператора или
+    после некоторых ключевых слов. После имени или числа ``/`` остаётся
+    оператором деления.
+    """
+
+    previous = slash_index - 1
+    while previous >= 0 and content[previous].isspace():
+        previous -= 1
+    if previous < 0:
+        return True
+    if content[previous] in _JS_REGEX_PREFIX_CHARS:
+        return True
+    if not (content[previous].isalnum() or content[previous] in "_$"):
+        return False
+
+    word_end = previous + 1
+    while previous >= 0 and (content[previous].isalnum() or content[previous] in "_$"):
+        previous -= 1
+    return content[previous + 1:word_end] in _JS_REGEX_PREFIX_KEYWORDS
+
+
+def _skip_js_regex(content: str, slash_index: int) -> int | None:
+    """Возвращает позицию после ``/.../flags`` или ``None`` для незакрытого regex."""
+
+    index = slash_index + 1
+    in_character_class = False
+    while index < len(content):
+        character = content[index]
+        if character in "\r\n":
+            return None
+        if character == "\\":
+            index += 2
+            continue
+        if character == "[":
+            in_character_class = True
+        elif character == "]" and in_character_class:
+            in_character_class = False
+        elif character == "/" and not in_character_class:
+            index += 1
+            while index < len(content) and content[index].isalpha():
+                index += 1
+            return index
+        index += 1
+    return None
