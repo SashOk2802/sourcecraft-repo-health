@@ -199,13 +199,21 @@ function MethodologyBody({ methodology }: { methodology: Methodology }) {
 
       <Section index={6}>
         {methodology.schedule ? (
-          <Text variant="body-2">
-            Открытые репозитории пересчитываются по расписанию: обычно раз в{" "}
-            {hoursText(methodology.schedule.regularHours)}, активные — раз в{" "}
-            {hoursText(methodology.schedule.activeHours)}, давно неактивные — раз в{" "}
-            {hoursText(methodology.schedule.inactiveHours)}. Свой репозиторий можно проверить в любой момент в
-            разделе <Link to={paths.myRepositories()}>«Мои репозитории»</Link>.
-          </Text>
+          <>
+            <Text variant="body-2">
+              Открытые репозитории пересчитываются по расписанию: обычно раз в{" "}
+              {hoursText(methodology.schedule.regularHours)}, активные — с изменениями за последние{" "}
+              {daysText(methodology.schedule.activeWithinDays)} — раз в {hoursText(methodology.schedule.activeHours)},
+              а без изменений больше {daysText(methodology.schedule.inactiveAfterDays)} — раз в{" "}
+              {hoursText(methodology.schedule.inactiveHours)}. Если SourceCraft временно не ответил, повтор идёт
+              раньше: через 15 минут, потом всё реже, но не реже раза в 6 часов.
+            </Text>
+            <Text variant="body-2">
+              Свой репозиторий можно проверить в любой момент в разделе{" "}
+              <Link to={paths.myRepositories()}>«Мои репозитории»</Link> — один и тот же не чаще раза в{" "}
+              {methodology.schedule.manualCooldownMinutes} минут.
+            </Text>
+          </>
         ) : (
           <Text variant="body-2">
             Свой репозиторий можно проверить в любой момент в разделе{" "}
@@ -332,6 +340,11 @@ const priorityExamples: Array<{ priority: RecommendationPriority; text: string }
 ];
 
 /** «сутки», «3 суток», «6 часов» — для фразы «раз в …». */
+/** «7 дней», «90 дней» — для порогов активности. */
+function daysText(days: number): string {
+  return `${days} ${plural(days, "день", "дня", "дней")}`;
+}
+
 function hoursText(hours: number): string {
   if (hours % 24 === 0) {
     const days = hours / 24;
