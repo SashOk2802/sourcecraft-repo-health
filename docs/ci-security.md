@@ -8,6 +8,7 @@ Security workflow выполняет четыре независимых кла�
 | `Python SAST` | Опасные конструкции в Python-коде приложения через Bandit | При находке не ниже medium severity и medium confidence |
 | `Python dependency audit` | Установленные Python-зависимости через `pip-audit` | При известной уязвимости любого уровня |
 | `Frontend dependency audit` | Дерево из `package-lock.json` через `npm audit` | При уязвимости уровня high или critical |
+| Base image pinning | Базовые образы backend и frontend закреплены SHA-256 digest | При возврате к изменяемому Docker tag |
 
 Проверка запускается при каждом `push`, `pull_request` и вручную из вкладки
 Actions. Для сканирования истории checkout получает все коммиты (`fetch-depth: 0`).
@@ -93,3 +94,23 @@ Workflow `Container security` собирает backend- и frontend-образы
 
 Эта проверка отвечает только за системный слой образов. Python- и npm-зависимости
 проверяются отдельными SCA-job, чтобы правила и ошибки каждой проверки были понятны.
+
+
+## Закрепление базовых образов
+
+`backend/Dockerfile` и `frontend/Dockerfile` используют читаемый tag вместе с
+SHA-256 digest официального multi-platform image index. Tag объясняет назначение
+образа, а digest фиксирует байты образа, которые проверялись в CI. Без digest
+поставщик registry может обновить `python:3.12-slim` или `node:22-alpine` без
+изменения нашего Git-коммита.
+
+При плановом обновлении сначала проверьте новый digest командой:
+
+~~~powershell
+docker buildx imagetools inspect python:3.12-slim
+docker buildx imagetools inspect node:22-alpine
+~~~
+
+Затем обновите tag и digest в одном PR, пересоберите оба контейнера и дождитесь
+Trivy/CI. Тест `test_base_images_are_pinned_to_immutable_digests` не позволяет
+случайно вернуть изменяемый tag без digest.
