@@ -13,6 +13,7 @@ AnalysisPrincipal и AnalysisContext секретов не хранят. Вла�
 from __future__ import annotations
 
 import asyncio
+import re
 from collections.abc import Callable
 from contextvars import ContextVar
 from datetime import UTC, datetime, timedelta
@@ -36,6 +37,11 @@ from backend.app.integrations.sourcecraft import (
 # Контрольный период методик Activity и Issues: 180 дней до момента анализа.
 ANALYSIS_WINDOW = timedelta(days=180)
 _BRANCH_PAGE_SIZE = 100
+# Тот же потолок, что у SourceCraftClient.get_paginated_objects: новый page token
+# на каждой странице не должен крутить запрос до создания задания.
+_BRANCH_MAX_PAGES = 100
+# Полный SHA-1 (40 hex) или SHA-256 (64 hex). Короткий префикс и имя ветки не подходят.
+_FULL_COMMIT_SHA = re.compile(r"^[0-9a-fA-F]{40}(?:[0-9a-fA-F]{24})?$")
 
 _request_token: ContextVar[str | None] = ContextVar("sourcecraft_request_token", default=None)
 
@@ -101,10 +107,10 @@ def bind_request_token(request: Request) -> None:
 class SourceCraftRepositoryContextResolver:
     """Проверяет доступ токеном вызывающего и собирает AnalysisContext.
 
-    Сначала отпечаток токена сверяется с principal. Доступ — это ответ
-    SourceCraft на чтение репозитория этим токеном. Успешное чтение
-    приватного репозитория означает, что токен туда допущен. Отказ 401
-    или 403 не создаёт задание.
+    principal — subject сессии и с токеном не сравнивается. Доступ — это ответ
+    SourceCraft на чтение репозитория этим Bearer. Отказ 401 или 403 не создаёт
+    задание. Этот resolver не является входом процесса: рабочее приложение
+    пускает только public-репозитории из настроенного каталога.
     """
 
     def __init__(
@@ -197,24 +203,27 @@ def _repository_ref(
     organization = payload.get("organization")
     org_slug = organization.get("slug") if isinstance(organization, dict) else None
     repo_slug = payload.get("slug")
-    if (
-        not isinstance(org_slug, str)
-        or not org_slug.strip()
-        or not isinstance(repo_slug, str)
-        or not repo_slug.strip()
-    ):
+    if not isinstance(org_slug, str) or not isinstance(repo_slug, str):
+        raise RepositorySnapshotError("SourceCraft repository identity is incomplete")
+    org_slug = org_slug.strip()
+    repo_slug = repo_slug.strip()
+    if not org_slug or not repo_slug:
         raise RepositorySnapshotError("SourceCraft repository identity is incomplete")
     web_url = payload.get("web_url")
     default_branch = payload.get("default_branch")
+    if isinstance(web_url, str):
+        web_url = web_url.strip() or None
+    else:
+        web_url = None
     return (
         RepositoryRef(
             id=repository_id,
             organization_slug=org_slug,
             repository_slug=repo_slug,
-            web_url=web_url if isinstance(web_url, str) and web_url.strip() else None,
+            web_url=web_url,
         ),
-        default_branch if isinstance(default_branch, str) else "",
-        bool(payload.get("is_empty")),
+        default_branch.strip() if isinstance(default_branch, str) else "",
+        payload.get("is_empty") is True,
     )
 
 
@@ -231,7 +240,7 @@ def _commit_sha(
 
     params: dict[str, str | int] = {"page_size": _BRANCH_PAGE_SIZE}
     seen_page_tokens: set[str] = set()
-    while True:
+    for _page in range(_BRANCH_MAX_PAGES):
         payload = _read_object(client, f"{repository_path}/branches", params=params)
         branches = payload.get("branches")
         if not isinstance(branches, list):
@@ -245,6 +254,8 @@ def _commit_sha(
             break
         seen_page_tokens.add(next_token)
         params["page_token"] = next_token
+    else:
+        raise RepositorySnapshotError("SourceCraft branch page limit exceeded")
     raise RepositorySnapshotError("default branch commit is unavailable")
 
 
@@ -269,7 +280,7 @@ def _read_object(
         payload = client.get_json(path, params=params)
     except SourceCraftAuthenticationError as error:
         if error.status_code == 401:
-            raise AnalysisLaunchError(401, "Authentication required.") from error
+            raise AnalysisLaunchError(401, "SourceCraft rejected the token.") from error
         raise PermissionError("repository access denied") from error
     except SourceCraftRateLimitError as error:
         raise AnalysisLaunchError(
@@ -297,7 +308,11 @@ def _read_object(
 
 
 def _branch_commit_hash(branch: object, default_branch: str) -> str | None:
-    """Берёт только hash. Имя, почту и сообщение коммита в контекст не копирует."""
+    """Берёт только полный hash. Имя, почту и сообщение коммита в контекст не копирует.
+
+    Непустая строка из API сама по себе не является коммитом: имя ветки и
+    короткий SHA отклоняют весь снимок до создания задания.
+    """
 
     if not isinstance(branch, dict) or branch.get("name") != default_branch:
         return None
@@ -307,7 +322,9 @@ def _branch_commit_hash(branch: object, default_branch: str) -> str | None:
     digest = commit.get("hash")
     if not isinstance(digest, str) or not digest.strip():
         return None
-    return digest.strip()
+    if _FULL_COMMIT_SHA.fullmatch(digest) is None:
+        raise RepositorySnapshotError("SourceCraft default branch commit SHA is invalid")
+    return digest.lower()
 
 
 def _utc_now() -> datetime:

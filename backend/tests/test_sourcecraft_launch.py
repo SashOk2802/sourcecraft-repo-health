@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import os
 import unittest
 from datetime import UTC, datetime, timedelta
@@ -14,6 +15,7 @@ from fastapi import Request
 
 from backend.app.analysis import InMemoryAnalysisJobStore, InMemoryAnalysisStore
 from backend.app.analysis.dispatch import AnalysisPrincipal
+from backend.app.identity import InMemoryYandexAuthStore, YandexAuthService, YandexAuthSettings
 from backend.app.integrations.sourcecraft import (
     SourceCraftAuthenticationError,
     SourceCraftRateLimitError,
@@ -120,11 +122,12 @@ class ScriptedClient:
     def __init__(self, steps: list[object]) -> None:
         self._steps = list(steps)
         self.calls: list[str] = []
+        self.queries: list[dict[str, object]] = []
         self.closed = False
 
     def get_json(self, path: str, *, params: object = None) -> object:
-        del params
         self.calls.append(path)
+        self.queries.append({} if params is None else dict(params))
         if not self._steps:
             raise AssertionError(path)
         step = self._steps.pop(0)
@@ -174,6 +177,85 @@ class SourceCraftResolverTest(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn(SECRET_EMAIL, repr(context))
         self.assertNotIn("Hidden Name", repr(context))
 
+    async def test_default_branch_requires_full_commit_sha_before_a_job(self) -> None:
+        invalid_hashes = (
+            "main",
+            "a" * 7,
+            "a" * 12,
+            "a" * 39,
+            "a" * 41,
+            "g" * 40,
+            "a" * 63,
+            "a" * 65,
+            f" {'a' * 40}",
+        )
+        for digest in invalid_hashes:
+            with self.subTest(digest=digest):
+                client = ScriptedClient(
+                    [
+                        repository_payload(),
+                        {
+                            "branches": [branch("main", digest)],
+                            "next_page_token": "later-page",
+                        },
+                        {
+                            "branches": [branch("main", COMMIT_SHA)],
+                            "next_page_token": "",
+                        },
+                    ]
+                )
+
+                def open_client(bound: ScriptedClient = client) -> ScriptedClient:
+                    return bound
+
+                resolver = SourceCraftRepositoryContextResolver(
+                    open_client,
+                    clock=lambda: ANALYZED_AT,
+                )
+
+                with self.assertRaises(AnalysisLaunchError) as raised:
+                    await resolver.resolve(REPOSITORY_ID, bound_principal())
+
+                self.assertEqual(raised.exception.status_code, 502)
+                self.assertEqual(
+                    raised.exception.detail,
+                    "SourceCraft returned an unusable response.",
+                )
+                self.assertNotIn(digest, str(raised.exception))
+                self.assertEqual(client.calls, [REPOSITORY_BY_ID, BRANCHES_BY_ID])
+                self.assertTrue(client.closed)
+
+    async def test_full_sha1_and_sha256_are_stored_in_lowercase(self) -> None:
+        sha256 = "Ab" * 32
+        cases = ((COMMIT_SHA.upper(), COMMIT_SHA), (sha256, sha256.lower()))
+        for digest, expected in cases:
+            with self.subTest(digest=digest):
+                client = ScriptedClient(
+                    [
+                        repository_payload(),
+                        {
+                            "branches": [
+                                branch("other", "not-a-sha"),
+                                branch("main", digest),
+                            ],
+                            "next_page_token": "",
+                        },
+                    ]
+                )
+
+                def open_client(bound: ScriptedClient = client) -> ScriptedClient:
+                    return bound
+
+                resolver = SourceCraftRepositoryContextResolver(
+                    open_client,
+                    clock=lambda: ANALYZED_AT,
+                )
+
+                context = await resolver.resolve(REPOSITORY_ID, bound_principal())
+
+                self.assertEqual(context.commit_sha, expected)
+                self.assertTrue(client.closed)
+
     async def test_empty_repository_has_no_commit_and_skips_branches(self) -> None:
         client = ScriptedClient([repository_payload(is_empty=True)])
         resolver = SourceCraftRepositoryContextResolver(lambda: client, clock=lambda: ANALYZED_AT)
@@ -182,6 +264,45 @@ class SourceCraftResolverTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(context.commit_sha, "")
         self.assertEqual(client.calls, [REPOSITORY_BY_ID])
+        self.assertTrue(client.closed)
+
+    async def test_non_boolean_is_empty_still_reads_the_default_branch(self) -> None:
+        payload = repository_payload()
+        payload["is_empty"] = "false"
+        client = ScriptedClient(
+            [
+                payload,
+                {"branches": [branch("main", COMMIT_SHA)], "next_page_token": ""},
+            ]
+        )
+        resolver = SourceCraftRepositoryContextResolver(lambda: client, clock=lambda: ANALYZED_AT)
+
+        context = await resolver.resolve(REPOSITORY_ID, bound_principal())
+
+        self.assertEqual(context.commit_sha, COMMIT_SHA)
+        self.assertEqual(client.calls, [REPOSITORY_BY_ID, BRANCHES_BY_ID])
+        self.assertTrue(client.closed)
+
+    async def test_repository_identity_is_stripped_before_it_is_stored(self) -> None:
+        payload = repository_payload()
+        payload["slug"] = " platform "
+        payload["organization"] = {"id": "org-1", "slug": " team "}
+        payload["default_branch"] = " main "
+        payload["web_url"] = " https://sourcecraft.dev/team/platform "
+        client = ScriptedClient(
+            [
+                payload,
+                {"branches": [branch("main", COMMIT_SHA)], "next_page_token": ""},
+            ]
+        )
+        resolver = SourceCraftRepositoryContextResolver(lambda: client, clock=lambda: ANALYZED_AT)
+
+        context = await resolver.resolve(REPOSITORY_ID, bound_principal())
+
+        self.assertEqual(context.repository.organization_slug, "team")
+        self.assertEqual(context.repository.repository_slug, "platform")
+        self.assertEqual(context.repository.web_url, "https://sourcecraft.dev/team/platform")
+        self.assertEqual(context.commit_sha, COMMIT_SHA)
         self.assertTrue(client.closed)
 
     async def test_denied_repository_closes_client_and_does_not_continue(self) -> None:
@@ -232,7 +353,7 @@ class SourceCraftResolverTest(unittest.IsolatedAsyncioTestCase):
             await resolver.resolve(REPOSITORY_ID, bound_principal())
 
         self.assertEqual(raised.exception.status_code, 401)
-        self.assertEqual(raised.exception.detail, "Authentication required.")
+        self.assertEqual(raised.exception.detail, "SourceCraft rejected the token.")
         self.assertTrue(client.closed)
         self.assertEqual(client.calls, [REPOSITORY_BY_ID])
 
@@ -316,7 +437,110 @@ class SourceCraftResolverTest(unittest.IsolatedAsyncioTestCase):
         context = await resolver.resolve(REPOSITORY_ID, bound_principal())
 
         self.assertEqual(context.commit_sha, COMMIT_SHA)
-        self.assertEqual(client.calls.count(BRANCHES_BY_ID), 6)
+        self.assertEqual(
+            [query for path, query in zip(client.calls, client.queries, strict=True) if path == BRANCHES_BY_ID],
+            [
+                {"page_size": 100},
+                {"page_size": 100, "page_token": "page-0"},
+                {"page_size": 100, "page_token": "page-1"},
+                {"page_size": 100, "page_token": "page-2"},
+                {"page_size": 100, "page_token": "page-3"},
+                {"page_size": 100, "page_token": "page-4"},
+            ],
+        )
+
+    async def test_repeated_branch_page_token_does_not_walk_further(self) -> None:
+        client = ScriptedClient(
+            [
+                repository_payload(),
+                {"branches": [branch("other", "b" * 40)], "next_page_token": "again"},
+                {"branches": [branch("other-2", "c" * 40)], "next_page_token": "again"},
+                {"branches": [branch("main", COMMIT_SHA)], "next_page_token": ""},
+            ]
+        )
+        resolver = SourceCraftRepositoryContextResolver(lambda: client, clock=lambda: ANALYZED_AT)
+
+        with self.assertRaises(AnalysisLaunchError) as raised:
+            await resolver.resolve(REPOSITORY_ID, bound_principal())
+
+        self.assertEqual(raised.exception.status_code, 502)
+        self.assertEqual(
+            [query for path, query in zip(client.calls, client.queries, strict=True) if path == BRANCHES_BY_ID],
+            [
+                {"page_size": 100},
+                {"page_size": 100, "page_token": "again"},
+            ],
+        )
+        self.assertTrue(client.closed)
+
+    async def test_non_string_branch_page_token_stops_the_walk(self) -> None:
+        client = ScriptedClient(
+            [
+                repository_payload(),
+                {"branches": [branch("other", "b" * 40)], "next_page_token": 7},
+                {"branches": [branch("main", COMMIT_SHA)], "next_page_token": ""},
+            ]
+        )
+        resolver = SourceCraftRepositoryContextResolver(lambda: client, clock=lambda: ANALYZED_AT)
+
+        with self.assertRaises(AnalysisLaunchError) as raised:
+            await resolver.resolve(REPOSITORY_ID, bound_principal())
+
+        self.assertEqual(raised.exception.status_code, 502)
+        self.assertEqual(client.calls, [REPOSITORY_BY_ID, BRANCHES_BY_ID])
+        self.assertTrue(client.closed)
+
+    async def test_branch_pages_stop_at_the_limit(self) -> None:
+        with patch("backend.app.launch._BRANCH_MAX_PAGES", 2):
+            pages = [
+                {
+                    "branches": [branch(f"other-{index}", "b" * 40)],
+                    "next_page_token": f"page-{index}",
+                }
+                for index in range(5)
+            ]
+            client = ScriptedClient([repository_payload(), *pages])
+            resolver = SourceCraftRepositoryContextResolver(
+                lambda: client,
+                clock=lambda: ANALYZED_AT,
+            )
+
+            with self.assertRaises(AnalysisLaunchError) as raised:
+                await resolver.resolve(REPOSITORY_ID, bound_principal())
+
+        self.assertEqual(raised.exception.status_code, 502)
+        self.assertEqual(raised.exception.detail, "SourceCraft returned an unusable response.")
+        self.assertEqual(
+            [query for path, query in zip(client.calls, client.queries, strict=True) if path == BRANCHES_BY_ID],
+            [
+                {"page_size": 100},
+                {"page_size": 100, "page_token": "page-0"},
+            ],
+        )
+        self.assertTrue(client.closed)
+
+    async def test_parallel_resolves_keep_their_own_tokens(self) -> None:
+        seen: list[str] = []
+
+        def open_client() -> ScriptedClient:
+            seen.append(current_request_token())
+            return ScriptedClient([repository_payload(is_empty=True)])
+
+        async def resolve(token: str) -> None:
+            _request_token.set(token)
+            try:
+                resolver = SourceCraftRepositoryContextResolver(
+                    open_client,
+                    clock=lambda: ANALYZED_AT,
+                )
+                context = await resolver.resolve(REPOSITORY_ID, AnalysisPrincipal("session"))
+                self.assertEqual(context.repository.id, REPOSITORY_ID)
+            finally:
+                _request_token.set(None)
+
+        await asyncio.gather(resolve(USER_TOKEN), resolve(OTHER_TOKEN))
+
+        self.assertCountEqual(seen, [USER_TOKEN, OTHER_TOKEN])
 
     async def test_opener_without_bound_token_does_not_call_sourcecraft(self) -> None:
         resolver = SourceCraftRepositoryContextResolver(
@@ -475,7 +699,7 @@ class ProjectLifeHttpLaunchTest(unittest.IsolatedAsyncioTestCase):
             response = await client.post(f"/api/v1/repositories/{REPOSITORY_ID}/analyses")
 
         self.assertEqual(response.status_code, 401)
-        self.assertEqual(response.json(), {"detail": "Authentication required."})
+        self.assertEqual(response.json(), {"detail": "SourceCraft token is required."})
 
     async def test_private_report_is_hidden_without_token_and_from_another_user(self) -> None:
         application = isolated_sourcecraft_app(
@@ -521,13 +745,107 @@ class ProjectLifeHttpLaunchTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(stored.owner_subject, OWNER_ID)
         self.assertNotIn(USER_TOKEN, stored.owner_subject or "")
 
-    async def test_process_app_does_not_analyze_without_a_session(self) -> None:
-        self.assertIsNotNone(app.state.analysis_dispatcher)
+    async def test_yandex_cookie_owns_the_report_not_the_sourcecraft_bearer(self) -> None:
+        """Сессия Яндекс ID и Bearer SourceCraft — разные удостоверения."""
 
+        auth, owner_id, owner_cookie, other_cookie = await _yandex_sessions()
+        authorizations: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            authorizations.append(request.headers["authorization"])
+            return sourcecraft_response(request)
+
+        application = create_sourcecraft_app(
+            analysis_store=InMemoryAnalysisStore(),
+            job_store=InMemoryAnalysisJobStore(),
+            http_client_factory=lambda: httpx.Client(
+                base_url="https://api.sourcecraft.tech",
+                transport=httpx.MockTransport(handler),
+            ),
+            clock=lambda: ANALYZED_AT,
+            analysis_id_factory=lambda: "analysis-cookie",
+            yandex_auth_service=auth,
+        )
+        owner_cookie_header = {"Cookie": f"repo_health_session={owner_cookie}"}
+        other_with_same_token = {
+            "Authorization": f"Bearer {USER_TOKEN}",
+            "Cookie": f"repo_health_session={other_cookie}",
+        }
+
+        with patch.dict(os.environ, {"SOURCECRAFT_TOKEN": SERVICE_TOKEN}):
+            async with api_client(application) as client:
+                bearer_only = await client.post(
+                    f"/api/v1/repositories/{REPOSITORY_ID}/analyses",
+                    headers={"Authorization": f"Bearer {USER_TOKEN}"},
+                )
+                cookie_only = await client.post(
+                    f"/api/v1/repositories/{REPOSITORY_ID}/analyses",
+                    headers=owner_cookie_header,
+                )
+                created = await client.post(
+                    f"/api/v1/repositories/{REPOSITORY_ID}/analyses",
+                    headers={
+                        "Authorization": f"Bearer {USER_TOKEN}",
+                        **owner_cookie_header,
+                    },
+                )
+                completed = await _wait_for_terminal_status(
+                    client,
+                    "analysis-cookie",
+                    cookie=owner_cookie,
+                )
+                report = await client.get(
+                    "/api/v1/analyses/analysis-cookie/report",
+                    headers=owner_cookie_header,
+                )
+                markdown = await client.get(
+                    "/api/v1/analyses/analysis-cookie/report.md",
+                    headers=owner_cookie_header,
+                )
+                for path in (
+                    "/api/v1/analyses/analysis-cookie",
+                    "/api/v1/analyses/analysis-cookie/report",
+                    "/api/v1/analyses/analysis-cookie/report.md",
+                ):
+                    with self.subTest(path=path):
+                        hidden = await client.get(path, headers=other_with_same_token)
+                        self.assertEqual(hidden.status_code, 404)
+                        self.assertEqual(hidden.json(), {"detail": "Analysis not found."})
+                        self.assertNotIn("platform", hidden.text)
+                        self.assertNotIn(COMMIT_SHA, hidden.text)
+                        self.assertNotIn(USER_TOKEN, hidden.text)
+                        self.assertNotIn(owner_cookie, hidden.text)
+
+        self.assertEqual(bearer_only.status_code, 401)
+        self.assertEqual(bearer_only.json(), {"detail": "Authentication required."})
+        self.assertEqual(cookie_only.status_code, 401)
+        self.assertEqual(cookie_only.json(), {"detail": "SourceCraft token is required."})
+        self.assertEqual(created.status_code, 202)
+        self.assertEqual(completed.status_code, 200)
+        self.assertEqual(completed.json()["status"], "partial")
+        self.assertEqual(report.status_code, 200)
+        body = report.json()
+        self.assertEqual(body["analysis"]["commitSha"], COMMIT_SHA)
+        categories = {item["code"]: item for item in body["categories"]}
+        self.assertEqual(categories["activity"]["status"], "measured")
+        self.assertEqual(categories["issues"]["status"], "measured")
+        self.assertNotIn("authorization", {name.lower() for name in report.request.headers})
+        self.assertEqual(markdown.status_code, 200)
+        self.assertNotIn(USER_TOKEN, report.text)
+        self.assertNotIn(owner_cookie, report.text)
+        self.assertNotIn(SERVICE_TOKEN, report.text)
+        stored = await application.state.analysis_job_store.get("analysis-cookie")
+        self.assertEqual(stored.owner_subject, owner_id)
+        self.assertNotIn(USER_TOKEN, stored.owner_subject or "")
+        self.assertNotIn(owner_cookie, stored.owner_subject or "")
+        self.assertEqual(set(authorizations), {f"Bearer {USER_TOKEN}"})
+        self.assertNotIn(f"Bearer {SERVICE_TOKEN}", authorizations)
+
+    async def test_process_app_does_not_analyze_without_a_session(self) -> None:
         async with api_client(app) as client:
             response = await client.post(f"/api/v1/repositories/{REPOSITORY_ID}/analyses")
 
-        if app.state.principal_provider is None:
+        if app.state.principal_provider is None or app.state.analysis_dispatcher is None:
             self.assertEqual(response.status_code, 503)
         else:
             self.assertEqual(response.status_code, 401)
@@ -564,10 +882,50 @@ class ProjectLifeHttpLaunchTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(paths, [REPOSITORY_BY_ID])
         self.assertEqual(authorizations, [f"Bearer {USER_TOKEN}"])
 
+    async def test_invalid_commit_sha_does_not_create_a_job(self) -> None:
+        created_ids: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            path = unquote(request.url.path)
+            if path == REPOSITORY_BY_ID:
+                return httpx.Response(200, json=repository_payload())
+            if path == BRANCHES_BY_ID:
+                return httpx.Response(
+                    200,
+                    json={
+                        "branches": [branch("main", "main")],
+                        "next_page_token": "should-not-follow",
+                    },
+                )
+            raise AssertionError(path)
+
+        application = isolated_sourcecraft_app(
+            http_client_factory=lambda: httpx.Client(
+                base_url="https://api.sourcecraft.tech",
+                transport=httpx.MockTransport(handler),
+            ),
+            clock=lambda: ANALYZED_AT,
+            analysis_id_factory=lambda: created_ids.append("analysis-bad-sha") or "analysis-bad-sha",
+        )
+
+        async with api_client(application) as client:
+            response = await client.post(
+                f"/api/v1/repositories/{REPOSITORY_ID}/analyses",
+                headers={"Authorization": f"Bearer {USER_TOKEN}"},
+            )
+
+        self.assertEqual(response.status_code, 502)
+        self.assertEqual(
+            response.json(),
+            {"detail": "SourceCraft returned an unusable response."},
+        )
+        self.assertNotIn("main", response.text)
+        self.assertEqual(created_ids, [])
+
     async def test_rejected_sourcecraft_token_is_unauthorized(self) -> None:
         response = await _post_with_status(401)
         self.assertEqual(response.status_code, 401)
-        self.assertEqual(response.json(), {"detail": "Authentication required."})
+        self.assertEqual(response.json(), {"detail": "SourceCraft rejected the token."})
 
     async def test_rate_limit_is_too_many_requests(self) -> None:
         response = await _post_with_status(429, headers={"Retry-After": "9"})
@@ -705,16 +1063,49 @@ def _user_id(token: str) -> str:
     raise PermissionError("authentication required")
 
 
+async def _yandex_sessions() -> tuple[YandexAuthService, str, str, str]:
+    """Две серверные сессии. Subject — id пользователя, не Bearer SourceCraft."""
+
+    store = InMemoryYandexAuthStore()
+    auth = YandexAuthService(
+        YandexAuthSettings(
+            client_id="client-42",
+            redirect_uri="http://localhost:5173/api/v1/auth/yandex/callback",
+            cookie_secure=False,
+        ),
+        store,
+        clock=lambda: ANALYZED_AT,
+    )
+    owner = await store.upsert_user("yandex-owner", "alex", ANALYZED_AT)
+    other = await store.upsert_user("yandex-other", "other", ANALYZED_AT)
+    owner_cookie = "yandex-session-owner"
+    other_cookie = "yandex-session-other"
+    expires_at = ANALYZED_AT + timedelta(days=1)
+    await store.create_session(_session_digest(owner_cookie), owner.id, expires_at)
+    await store.create_session(_session_digest(other_cookie), other.id, expires_at)
+    return auth, owner.id, owner_cookie, other_cookie
+
+
+def _session_digest(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
 async def _wait_for_terminal_status(
     client: httpx.AsyncClient,
     analysis_id: str,
     *,
-    token: str,
+    token: str | None = None,
+    cookie: str | None = None,
 ) -> httpx.Response:
+    headers: dict[str, str] = {}
+    if token is not None:
+        headers["Authorization"] = f"Bearer {token}"
+    if cookie is not None:
+        headers["Cookie"] = f"repo_health_session={cookie}"
     for _ in range(100):
         response = await client.get(
             f"/api/v1/analyses/{analysis_id}",
-            headers={"Authorization": f"Bearer {token}"},
+            headers=headers,
         )
         if response.status_code == 200 and response.json()["status"] in {
             "completed",

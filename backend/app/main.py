@@ -223,7 +223,13 @@ def create_app(
 
         try:
             if bind_sourcecraft_token:
-                bind_request_token(request)
+                try:
+                    bind_request_token(request)
+                except PermissionError as error:
+                    raise HTTPException(
+                        status_code=401,
+                        detail="SourceCraft token is required.",
+                    ) from error
             try:
                 principal = await effective_principal_provider(request)
             except (PermissionError, ValueError) as error:
