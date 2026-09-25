@@ -24,7 +24,8 @@ describe("ход mock-анализа", () => {
     const state = analysisRunState(run, repository, MOCK_ANALYSIS_DURATION_MS);
     expect(state.stages?.find((stage) => stage.code === "appsec")?.status).toBe("unavailable");
     expect(state.isPreliminary).toBe(true);
-    expect(state.score).toBe(73.4);
+    // (58×20 + 85×20 + 91×15 + 58×15 + 70×5) ÷ 75: безопасность без данных в расчёт не входит.
+    expect(state.score).toBe(72.6);
     expect(state.finishedAt).not.toBeNull();
   });
 
