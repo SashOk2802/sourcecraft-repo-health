@@ -31,6 +31,9 @@ class ContainerSecurityWorkflowTest(unittest.TestCase):
         self.assertIn("permissions:\n  contents: read", self.workflow)
         self.assertIn("persist-credentials: false", self.workflow)
 
+    def test_push_scan_runs_only_after_changes_reach_main(self) -> None:
+        self.assertIn("push:\n    branches:\n      - main", self.workflow)
+
     def test_backend_and_frontend_images_are_built(self) -> None:
         self.assertIn("dockerfile: backend/Dockerfile", self.workflow)
         self.assertIn("context: .", self.workflow)

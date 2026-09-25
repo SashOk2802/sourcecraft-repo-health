@@ -3,6 +3,8 @@ name: Container security
 on:
   pull_request:
   push:
+    branches:
+      - main
   workflow_dispatch:
 
 # Сборка и сканирование образов не требуют записи в репозиторий.
