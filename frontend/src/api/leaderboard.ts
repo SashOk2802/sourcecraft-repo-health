@@ -114,6 +114,20 @@ export function stringifyLeaderboardQuery(query: LeaderboardQuery): string {
   return text ? `?${text}` : "";
 }
 
+/**
+ * Адрес рейтинга после смены фильтра. Остальные фильтры берутся из текущего адреса, а не из
+ * того, что видел обработчик при создании: отложенный поиск не должен откатывать язык или
+ * сортировку, выбранные, пока он ждал. Любая смена возвращает на первую страницу.
+ */
+export function patchLeaderboardSearch(currentSearch: string, patch: Partial<LeaderboardQuery>): string {
+  return stringifyLeaderboardQuery({ ...parseLeaderboardQuery(currentSearch), page: 1, ...patch });
+}
+
+/** Последняя страница рейтинга; у пустого списка — первая. */
+export function lastLeaderboardPage(total: number, pageSize: number): number {
+  return Math.max(1, Math.ceil(total / pageSize));
+}
+
 export async function fetchLeaderboard(query: LeaderboardQuery): Promise<LeaderboardResponse> {
   if (mocksEnabled) {
     return withMockDelay(queryMockLeaderboard(query, LEADERBOARD_PAGE_SIZE));

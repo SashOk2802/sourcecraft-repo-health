@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   defaultLeaderboardQuery,
+  lastLeaderboardPage,
   parseLeaderboardQuery,
+  patchLeaderboardSearch,
   stringifyLeaderboardQuery,
   toLeaderboardResponse,
   type LeaderboardItem,
@@ -22,6 +24,40 @@ describe("фильтры рейтинга в адресной строке", () 
 
   it("игнорирует мусор", () => {
     expect(parseLeaderboardQuery("?sort=stars&page=-3&language=")).toEqual(defaultLeaderboardQuery);
+  });
+});
+
+describe("смена фильтра", () => {
+  it("не откатывает фильтр, выбранный, пока ждал отложенный поиск", () => {
+    // Начали печатать «kit», за 300 мс до отправки выбрали язык Go — поиск применяется поверх Go.
+    expect(patchLeaderboardSearch("?language=Go", { search: "kit" })).toBe("?language=Go&q=kit");
+  });
+
+  it("возвращает на первую страницу, если страницу не задали явно", () => {
+    expect(patchLeaderboardSearch("?sort=likes&page=3", { language: "Rust" })).toBe("?language=Rust&sort=likes");
+    expect(patchLeaderboardSearch("?page=3", { page: 2 })).toBe("?page=2");
+  });
+
+  it("сброс фильтров очищает адрес", () => {
+    expect(patchLeaderboardSearch("?language=Go&q=kit&page=2", defaultLeaderboardQuery)).toBe("");
+  });
+});
+
+describe("последняя страница", () => {
+  it("считает страницы по total", () => {
+    expect(lastLeaderboardPage(17, 15)).toBe(2);
+    expect(lastLeaderboardPage(30, 15)).toBe(2);
+    expect(lastLeaderboardPage(31, 15)).toBe(3);
+  });
+
+  it("у пустого списка последняя страница — первая", () => {
+    expect(lastLeaderboardPage(0, 15)).toBe(1);
+  });
+
+  it("?page=999 за концом списка — это страница за пределами", () => {
+    const response = queryMockLeaderboard({ ...defaultLeaderboardQuery, page: 999 }, 15);
+    expect(response.items).toEqual([]);
+    expect(999).toBeGreaterThan(lastLeaderboardPage(response.total, response.pageSize));
   });
 });
 

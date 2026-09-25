@@ -1,12 +1,13 @@
 import { ArrowUpRightFromSquare, Magnifier } from "@gravity-ui/icons";
 import { Button, Checkbox, Icon, SegmentedRadioGroup, Select, Text, TextInput } from "@gravity-ui/uikit";
-import { useEffect, useState, type MouseEvent } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 
 import {
   defaultLeaderboardQuery,
   fetchLeaderboard,
+  lastLeaderboardPage,
   parseLeaderboardQuery,
-  stringifyLeaderboardQuery,
+  patchLeaderboardSearch,
   type LeaderboardItem,
   type LeaderboardQuery,
   type LeaderboardResponse,
@@ -28,7 +29,8 @@ import {
   plural,
 } from "../lib/format";
 import { getScoreBand } from "../lib/scoreBands";
-import { Link, navigate, useLocation } from "../router";
+import { createSearchDebounce, type SearchDebounce } from "../lib/searchDebounce";
+import { currentLocation, Link, navigate, useLocation } from "../router";
 import { paths } from "../routes";
 import "./LeaderboardPage.css";
 
@@ -46,10 +48,19 @@ export function LeaderboardPage() {
   const data = dataOf(state);
 
   function update(patch: Partial<LeaderboardQuery>): void {
-    // Любая смена фильтра возвращает на первую страницу.
-    const next: LeaderboardQuery = { ...query, page: 1, ...patch };
-    navigate(`${paths.leaderboard()}${stringifyLeaderboardQuery(next)}`, { replace: true, keepScroll: true });
+    // Фильтры — из адреса на момент вызова: обработчик мог быть создан на прошлом рендере.
+    const next = patchLeaderboardSearch(currentLocation().search, patch);
+    navigate(`${paths.leaderboard()}${next}`, { replace: true, keepScroll: true });
   }
+
+  // Страница за концом списка (?page=999, старая ссылка): открываем последнюю, а не пустую
+  // таблицу. Смотрим только свежий ответ — пока идёт загрузка, данные ещё от прошлого адреса.
+  const lastPage = data ? lastLeaderboardPage(data.total, data.pageSize) : 1;
+  const pageOutOfRange = state.status === "success" && query.page > lastPage;
+
+  useEffect(() => {
+    if (pageOutOfRange) update({ page: lastPage });
+  }, [pageOutOfRange, lastPage]);
 
   return (
     <div className="page__inner">
@@ -108,9 +119,9 @@ export function LeaderboardPage() {
       {state.status === "error" && (
         <ErrorNote title="Не удалось загрузить рейтинг" error={state.error} onRetry={reload} />
       )}
-      {!data && state.status === "loading" && <LoadingNote>Загружаем рейтинг</LoadingNote>}
+      {((!data && state.status === "loading") || pageOutOfRange) && <LoadingNote>Загружаем рейтинг</LoadingNote>}
 
-      {data && (
+      {data && !pageOutOfRange && (
         <>
           <LeaderboardTable
             items={data.items}
@@ -348,20 +359,30 @@ function Legend() {
 
 function SearchField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const [draft, setDraft] = useState(value);
+  // Таймер зовёт последний onChange, а не тот, что был, когда человек начал печатать.
+  const onChangeRef = useRef(onChange);
+  // Ждём паузу в наборе, чтобы не дёргать backend на каждую букву (src/lib/searchDebounce.ts).
+  const debounce = useRef<SearchDebounce | null>(null);
+  debounce.current ??= createSearchDebounce(value, (next) => onChangeRef.current(next));
 
-  useEffect(() => setDraft(value), [value]);
-
-  // Ждём паузу в наборе, чтобы не дёргать backend на каждую букву.
   useEffect(() => {
-    if (draft.trim() === value) return;
-    const timer = window.setTimeout(() => onChange(draft.trim()), 300);
-    return () => window.clearTimeout(timer);
-  }, [draft]);
+    onChangeRef.current = onChange;
+  });
+
+  // Поиск поменялся извне — сброс фильтров, «Назад», ссылка: черновик и ожидающий поиск устарели.
+  useEffect(() => {
+    if (debounce.current?.sync(value)) setDraft(value);
+  }, [value]);
+
+  useEffect(() => () => debounce.current?.cancel(), []);
 
   return (
     <TextInput
       value={draft}
-      onUpdate={setDraft}
+      onUpdate={(text) => {
+        setDraft(text);
+        debounce.current?.input(text);
+      }}
       placeholder="Организация или репозиторий"
       startContent={<Icon data={Magnifier} size={16} className="leaderboard__search-icon" />}
       hasClear
