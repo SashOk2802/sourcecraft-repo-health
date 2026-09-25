@@ -52,6 +52,19 @@ from backend.app.scoring.methodology import build_methodology_payload
 
 PrincipalProvider = Callable[[Request], Awaitable[AnalysisPrincipal]]
 
+_COMMON_SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Permissions-Policy": "camera=(), geolocation=(), microphone=()",
+    "Cross-Origin-Resource-Policy": "same-origin",
+}
+_API_CONTENT_SECURITY_POLICY = (
+    "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+)
+_API_DOCUMENT_PATHS = frozenset({"/health", "/openapi.json"})
+_SENSITIVE_RESPONSE_PREFIXES = ("/api/v1/auth/", "/api/v1/me")
+
 
 def create_app(
     *,
@@ -116,6 +129,25 @@ def create_app(
     app.state.principal_provider = effective_principal_provider
     app.state.yandex_auth_service = yandex_auth_service
     app.state.binds_caller_sourcecraft_token = bind_sourcecraft_token
+
+    @app.exception_handler(Exception)
+    async def unexpected_server_error(request: Request, _: Exception) -> Response:
+        """Не оставляет непойманный 500-ответ без browser-защиты."""
+
+        response = PlainTextResponse("Internal Server Error", status_code=500)
+        _apply_http_security_headers(response, request.url.path)
+        return response
+
+    @app.middleware("http")
+    async def apply_http_security_headers(
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
+        """Добавляет browser-защиту, не включая межсайтовый доступ к API."""
+
+        response = await call_next(request)
+        _apply_http_security_headers(response, request.url.path)
+        return response
 
     @app.get("/health", tags=["system"])
     async def health() -> dict[str, str]:
@@ -446,6 +478,16 @@ async def _authorized_job(
     ):
         raise HTTPException(status_code=404, detail="Analysis not found.")
     return job
+
+
+def _apply_http_security_headers(response: Response, path: str) -> None:
+    for name, value in _COMMON_SECURITY_HEADERS.items():
+        response.headers.setdefault(name, value)
+
+    if path.startswith("/api/") or path in _API_DOCUMENT_PATHS:
+        response.headers.setdefault("Content-Security-Policy", _API_CONTENT_SECURITY_POLICY)
+    if path.startswith(_SENSITIVE_RESPONSE_PREFIXES):
+        response.headers["Cache-Control"] = "no-store"
 
 
 def _normalize_analysis_id(analysis_id: str) -> str:
