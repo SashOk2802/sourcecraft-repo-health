@@ -72,6 +72,11 @@ class FileAnalysisTest(unittest.TestCase):
                 "const re = /[//] TODO/; // FIXME: real comment\n"
                 "const block = /[/*] FIXME/;\n"
                 "function build() { return /[//] TODO/; }\n"
+                "if (ok) /[//] TODO/.test(value);\n"
+                "if ((ok && check())) {} /[//] TODO/.test(value);\n"
+                "const grouped = (left + right) / divisor; // TODO: grouped division\n"
+                "const objectRatio = {value: 2} / divisor; // TODO: object division\n"
+                "const propertyRatio = obj.if(value) / divisor; // TODO: property call\n"
                 "const ratio = left / right; // TODO: real comment\n",
                 encoding="utf-8",
             )
@@ -80,7 +85,7 @@ class FileAnalysisTest(unittest.TestCase):
             facts = code_health.collect(repository)
 
         self.assertEqual(facts.total_files, 1)
-        self.assertEqual(facts.todo_count, 1)
+        self.assertEqual(facts.todo_count, 4)
         self.assertEqual(facts.fixme_count, 1)
         self.assertEqual(facts.files_with_debt, 1)
 

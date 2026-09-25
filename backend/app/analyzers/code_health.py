@@ -28,8 +28,8 @@ EXCLUDED_DIRECTORIES = frozenset({
     ".git", ".venv", "__pycache__", "build", "coverage", "dist", "generated", "node_modules", "vendor", "venv",
 })
 _MARKER = re.compile(r"\b(TODO|FIXME)\b")
-_JS_REGEX_PREFIX_CHARS = frozenset("([{:;,=!?&|+-*%^~<>")
-_JS_REGEX_PREFIX_KEYWORDS = frozenset({
+_JS_CONTROL_PAREN_KEYWORDS = frozenset({"catch", "for", "if", "switch", "while", "with"})
+_JS_EXPRESSION_PREFIX_KEYWORDS = frozenset({
     "await",
     "case",
     "delete",
@@ -190,7 +190,10 @@ def _comments_only(content: str, extension: str) -> str:
 
 
 def _c_style_comments(content: str, *, javascript: bool = False) -> list[str]:
-    """Небольшой lexer: строки и JS-regex не становятся комментариями."""
+    """Извлекает C-style комментарии, не путая их со строками."""
+
+    if javascript:
+        return _javascript_comments(content)
 
     comments: list[str] = []
     index = 0
@@ -214,37 +217,140 @@ def _c_style_comments(content: str, *, javascript: bool = False) -> list[str]:
                     break
                 else:
                     index += 1
-        elif javascript and content[index] == "/" and _can_start_js_regex(content, index):
-            regex_end = _skip_js_regex(content, index)
-            index = regex_end if regex_end is not None else index + 1
         else:
             index += 1
     return comments
 
 
-def _can_start_js_regex(content: str, slash_index: int) -> bool:
-    """Отличает начало regex-литерала от оператора деления.
+def _javascript_comments(content: str) -> list[str]:
+    """Контекстный tokenizer для JS/TS-комментариев и regex-литералов.
 
-    В JavaScript регулярное выражение может начинаться только там, где
-    ожидается новое выражение: в начале файла, после оператора или
-    после некоторых ключевых слов. После имени или числа ``/`` остаётся
-    оператором деления.
+    ``/`` после обычной ``)`` означает деление, а после закрытия
+    условия ``if (...)`` может начинать regex-выражение. Стек скобок
+    сохраняет этот контекст и для вложенных выражений.
     """
 
-    previous = slash_index - 1
-    while previous >= 0 and content[previous].isspace():
-        previous -= 1
-    if previous < 0:
-        return True
-    if content[previous] in _JS_REGEX_PREFIX_CHARS:
-        return True
-    if not (content[previous].isalnum() or content[previous] in "_$"):
-        return False
+    comments: list[str] = []
+    paren_context: list[bool] = []
+    brace_context: list[bool] = []
+    index = 0
+    expects_expression = True
+    last_token: str | None = None
 
-    word_end = previous + 1
-    while previous >= 0 and (content[previous].isalnum() or content[previous] in "_$"):
-        previous -= 1
-    return content[previous + 1:word_end] in _JS_REGEX_PREFIX_KEYWORDS
+    while index < len(content):
+        if content[index].isspace():
+            index += 1
+            continue
+        if content.startswith("//", index):
+            end = content.find("\n", index)
+            comments.append(content[index + 2:] if end == -1 else content[index + 2:end])
+            index = len(content) if end == -1 else end + 1
+            continue
+        if content.startswith("/*", index):
+            end = content.find("*/", index + 2)
+            comments.append(content[index + 2:] if end == -1 else content[index + 2:end])
+            index = len(content) if end == -1 else end + 2
+            continue
+
+        character = content[index]
+        if character in "\"'`":
+            index = _skip_quoted_literal(content, index)
+            expects_expression = False
+            last_token = "literal"
+            continue
+        if content.startswith("=>", index):
+            index += 2
+            expects_expression = True
+            last_token = "arrow"
+            continue
+        if content.startswith(("++", "--"), index):
+            index += 2
+            # Префиксный update всё ещё ожидает выражение, постфиксный его завершает.
+            last_token = "update"
+            continue
+        if character == "/":
+            if expects_expression and (regex_end := _skip_js_regex(content, index)) is not None:
+                index = regex_end
+                expects_expression = False
+                last_token = "regex"
+                continue
+            index += 2 if content.startswith("/=", index) else 1
+            expects_expression = True
+            last_token = "/"
+            continue
+        if _is_js_identifier_start(character):
+            word_end = index + 1
+            while word_end < len(content) and _is_js_identifier_part(content[word_end]):
+                word_end += 1
+            word = content[index:word_end]
+            # После точки reserved word является именем свойства: ``obj.if()``
+            # не должен превращать обычную ``)`` в закрытие условия.
+            is_keyword = last_token != "."
+            last_token = word if is_keyword else "identifier"
+            expects_expression = is_keyword and word in _JS_EXPRESSION_PREFIX_KEYWORDS
+            index = word_end
+            continue
+        if character.isdigit():
+            index += 1
+            while index < len(content) and (content[index].isalnum() or content[index] in "._"):
+                index += 1
+            expects_expression = False
+            last_token = "number"
+            continue
+        if character == "(":
+            paren_context.append(last_token in _JS_CONTROL_PAREN_KEYWORDS)
+            expects_expression = True
+        elif character == ")":
+            closes_control = paren_context.pop() if paren_context else False
+            expects_expression = closes_control
+            last_token = "control_paren_end" if closes_control else ")"
+            index += 1
+            continue
+        elif character == "{":
+            is_block = (
+                last_token is None
+                or not expects_expression
+                or last_token in {"arrow", "control_paren_end", "do", "else", "finally", "try"}
+            )
+            brace_context.append(is_block)
+            expects_expression = True
+        elif character == "}":
+            closes_block = brace_context.pop() if brace_context else False
+            expects_expression = closes_block
+            last_token = "block_end" if closes_block else "object_end"
+            index += 1
+            continue
+        elif character == "]":
+            expects_expression = False
+        elif character in "([,;:?=+*-!~%&|^<>":
+            expects_expression = True
+        elif character == ".":
+            expects_expression = False
+        last_token = character
+        index += 1
+
+    return comments
+
+
+def _skip_quoted_literal(content: str, quote_index: int) -> int:
+    quote = content[quote_index]
+    index = quote_index + 1
+    while index < len(content):
+        if content[index] == "\\":
+            index += 2
+        elif content[index] == quote:
+            return index + 1
+        else:
+            index += 1
+    return index
+
+
+def _is_js_identifier_start(character: str) -> bool:
+    return character in "_$" or character.isalpha()
+
+
+def _is_js_identifier_part(character: str) -> bool:
+    return _is_js_identifier_start(character) or character.isdigit()
 
 
 def _skip_js_regex(content: str, slash_index: int) -> int | None:
