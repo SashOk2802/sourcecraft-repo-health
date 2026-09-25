@@ -17,6 +17,10 @@ import { minutesAgo } from "./time";
  * - edu-kit/olympiad-judge — все статусы без оценки сразу;
  * - empty-org/new-service — оценку посчитать не из чего.
  * Остальные собираются из каталога с типовыми формулировками.
+ *
+ * Метрики, рекомендации и причины в подробных отчётах — те, что отдают анализаторы на main:
+ * Activity, Issues, CI/CD, Documentation и Code health, включая ошибки клиента SourceCraft
+ * в reason. Так демо выглядит как настоящий отчёт.
  */
 
 type NonMeasuredStatus = Exclude<CategoryStatus, "measured">;
@@ -111,6 +115,7 @@ export function buildMockReport(repository: MockRepository, details: ReportDetai
 
 function detailsFor(repository: MockRepository): ReportDetails {
   const base = sourceCraftUrl(repository);
+  const sha = fakeCommitSha(repository.id);
 
   switch (`${repository.organizationSlug}/${repository.repositorySlug}`) {
     case "gorod-dev/transit-api":
@@ -132,14 +137,10 @@ function detailsFor(repository: MockRepository): ReportDetails {
               metric("automated_ci_success_rate", 57.5, 57.5, "Успешно 23 из 40 автоматических прогонов CI.", []),
             ],
           },
+          // backend/app/analyzers/documentation.py: нет только CODEOWNERS, 100 − 15 = 85.
           documentation: {
-            summary: "README с запуском и тестами, CONTRIBUTING и лицензия MIT. Нет CODEOWNERS.",
-            metrics: [
-              metric("readme_sections", "запуск, тесты", 100, "README объясняет, как запустить и проверить проект.", [
-                file(base, "README.md", "разделы «Запуск» и «Тесты»"),
-              ]),
-              metric("codeowners", "нет", 0, "Файла CODEOWNERS нет: непонятно, кого звать на ревью.", []),
-            ],
+            summary: "Оценка документации: 85/100. Проверены базовые файлы репозитория.",
+            metrics: documentationMetrics(["has_codeowners"]),
           },
           // Метрики и веса — как в docs/scoring-methodology.md, §3: 0,4×94 + 0,25×100 + 0,2×67 + 0,15×100 ≈ 91.
           activity: {
@@ -168,14 +169,10 @@ function detailsFor(repository: MockRepository): ReportDetails {
               metric("median_days_to_close", 21, 92, "Обычно задачу решают за 21 день — это медиана по задачам, решённым за полгода.", []),
             ],
           },
+          // backend/app/analyzers/code_health.py: 100 − (5 × 7 FIXME + 40 TODO) ÷ 250 файлов × 100 = 70.
           code_health: {
-            summary: "47 TODO и FIXME в 31 файле, 12 из них старше полугода.",
-            metrics: [
-              metric("todo_fixme_count", 47, 70, "Больше всего пометок в модуле синхронизации.", [
-                file(base, "src/sync/importer.ts", "FIXME: дубли остановок при импорте"),
-                file(base, "src/routes/stops.ts", "TODO: кэшировать ответ"),
-              ]),
-            ],
+            summary: "Оценка чистоты кода: 70.0/100. Обнаружено TODO: 40, FIXME: 7.",
+            metrics: codeHealthMetrics(250, 40, 7),
           },
         },
         recommendations: [
@@ -215,16 +212,21 @@ function detailsFor(repository: MockRepository): ReportDetails {
             expectedScoreDelta: null,
             evidence: [{ source: "sourcecraft-appsec", reference: "AppSec", summary: "нет ни одного завершённого скана", url: null }],
           },
-          {
-            code: "docs-codeowners",
-            priority: "p3",
-            problem: "В репозитории нет файла CODEOWNERS.",
-            action: "Добавить файл CODEOWNERS",
-            rationale: "Станет понятно, кого звать на ревью в каждую часть кода, и merge requests не будут ждать случайного ревьюера.",
-            expectedEffect: "Документация поднимется примерно с 88 до 94.",
-            expectedScoreDelta: 1.6,
-            evidence: [{ source: "sourcecraft-repository", reference: "CODEOWNERS", summary: "файла нет ни в корне, ни в .sourcecraft/", url: null }],
-          },
+          // Прирост — по итоговому Score, как требует контракт: 15 баллов документации × 20 ÷ 75.
+          documentationRecommendation("has_codeowners", sha, 4),
+          // 14 баллов Code health без FIXME × 5 ÷ 75 и 16 баллов без TODO × 5 ÷ 75.
+          fixmeRecommendation(7, 0.9, [
+            marker("src/sync/importer.ts", 118, "FIXME"),
+            marker("src/sync/importer.ts", 243, "FIXME"),
+            marker("src/routes/stops.ts", 57, "FIXME"),
+            marker("src/routes/stops.ts", 57, "TODO"),
+            marker("src/gtfs/export.ts", 12, "FIXME"),
+          ]),
+          todoRecommendation(40, 1.1, [
+            marker("src/routes/stops.ts", 57, "TODO"),
+            marker("src/cache/schedule.ts", 31, "TODO"),
+            marker("src/cache/schedule.ts", 88, "TODO"),
+          ]),
         ],
       };
 
@@ -243,12 +245,18 @@ function detailsFor(repository: MockRepository): ReportDetails {
             ],
           },
           cicd: { summary: "Успешно прошли 38 из 40 автоматических прогонов CI за полгода." },
+          // В README нет ни раздела про запуск и тесты, ни команды для них: 100 − 15 = 85.
           documentation: {
-            summary: "README с примерами подключения SDK, лицензия Apache 2.0 и CONTRIBUTING. Не описано, как запускать тесты.",
+            summary: "Оценка документации: 85/100. Проверены базовые файлы репозитория.",
+            metrics: documentationMetrics(["has_shortcuts"]),
           },
           activity: { summary: "Релизы выходят раз в две-три недели, последний — 4.8.1." },
           issues: { summary: "Обычно задачу решают за 9 дней, 3 из 41 открытой не двигались дольше 90 дней." },
-          code_health: { summary: "22 TODO и FIXME, 4 из них старше года." },
+          // 100 − (5 × 5 FIXME + 32 TODO) ÷ 300 файлов × 100 = 81.
+          code_health: {
+            summary: "Оценка чистоты кода: 81.0/100. Обнаружено TODO: 32, FIXME: 5.",
+            metrics: codeHealthMetrics(300, 32, 5),
+          },
         },
         recommendations: [
           {
@@ -265,16 +273,22 @@ function detailsFor(repository: MockRepository): ReportDetails {
               finding(base, "SCA-1187", "критичность critical"),
             ],
           },
+          // Пока действует ограничение Score, прирост от остальных рекомендаций оценить нельзя.
           {
-            code: "docs-tests",
-            priority: "p3",
-            problem: "В README нет раздела про тесты.",
-            action: "Описать в README, как запускать тесты",
-            rationale: "Внешним контрибьюторам приходится разбираться по конфигурации Gradle.",
-            expectedEffect: "Документация поднимется примерно с 84 до 90, но Score не изменится, пока действует ограничение.",
-            expectedScoreDelta: null,
-            evidence: [file(base, "README.md", "нет раздела про тесты")],
+            ...documentationRecommendation("has_shortcuts", sha, null),
+            expectedEffect: "Документация поднимется до 100, но Score не изменится, пока действует ограничение.",
           },
+          {
+            ...fixmeRecommendation(5, null, [
+              marker("sdk/src/main/kotlin/pay/Checkout.kt", 204, "FIXME"),
+              marker("sdk/src/main/kotlin/pay/Checkout.kt", 311, "FIXME"),
+              marker("sdk/src/main/kotlin/pay/Tokenizer.kt", 77, "FIXME"),
+              marker("sdk/src/main/kotlin/pay/Tokenizer.kt", 132, "FIXME"),
+              marker("sdk/src/main/kotlin/pay/Receipt.kt", 18, "FIXME"),
+            ]),
+            expectedEffect: "Состояние кода поднимется, но Score не изменится, пока действует ограничение.",
+          },
+          todoRecommendation(32, null, [marker("sdk/src/main/kotlin/pay/Receipt.kt", 45, "TODO")]),
         ],
       };
 
@@ -283,33 +297,41 @@ function detailsFor(repository: MockRepository): ReportDetails {
         analyzedMinutesAgo: 300,
         categories: {
           security: { summary: "Открытых уязвимостей высокой критичности нет, одна средняя — в зависимости сборки." },
-          cicd: { summary: "Данные CI не получены.", reason: "analyzer_execution_failed" },
-          documentation: { summary: "README описывает сборку и запуск, но не объясняет, как прогнать тесты." },
+          // Ошибка клиента SourceCraft попадает в reason как есть — отчёт пересказывает её по-русски.
+          cicd: { summary: "Не удалось получить данные из SourceCraft.", reason: "SourceCraft request timed out" },
+          // Нет CONTRIBUTING: 100 − 20 = 80.
+          documentation: {
+            summary: "Оценка документации: 80/100. Проверены базовые файлы репозитория.",
+            metrics: documentationMetrics(["has_contributing"]),
+          },
           activity: { summary: "Истории пока мало: репозиторий перенесли в SourceCraft три недели назад." },
-          issues: { summary: "Issues отключены: команда ведёт задачи вне SourceCraft." },
-          code_health: { summary: "31 TODO и FIXME, почти все — в модуле checker/." },
+          // backend/app/analyzers/issues.py: задач нет — категория неприменима, reason — готовая фраза.
+          issues: {
+            summary: "В репозитории нет задач: работу с обращениями оценивать не на чем.",
+            reason: "Трекер задач не используется.",
+          },
+          // 100 − (5 × 3 FIXME + 19 TODO) ÷ 100 файлов × 100 = 66.
+          code_health: {
+            summary: "Оценка чистоты кода: 66.0/100. Обнаружено TODO: 19, FIXME: 3.",
+            metrics: codeHealthMetrics(100, 19, 3),
+          },
         },
+        // Измерены безопасность, документация и Code health — вместе 50% веса.
         recommendations: [
-          {
-            code: "docs-tests",
-            priority: "p2",
-            problem: "В README нет раздела про тесты.",
-            action: "Описать в README, как прогнать тесты",
-            rationale: "Участники олимпиад и новые разработчики не смогут проверить свои изменения перед отправкой.",
-            expectedEffect: "Документация поднимется примерно до 88.",
-            expectedScoreDelta: 2.4,
-            evidence: [file(base, "README.md", "есть «Сборка» и «Запуск», нет «Тесты»")],
-          },
-          {
-            code: "code-todo-checker",
-            priority: "p3",
-            problem: "27 из 31 TODO и FIXME находятся в checker/.",
-            action: "Разобрать TODO в модуле checker/",
-            rationale: "Это ядро проверки решений: недоделки здесь напрямую влияют на честность результатов.",
-            expectedEffect: "Состояние кода поднимется примерно до 75.",
-            expectedScoreDelta: 0.6,
-            evidence: [file(base, "checker/limits.cpp", "TODO: учитывать память дочерних процессов")],
-          },
+          // 20 баллов документации × 20 ÷ 50.
+          documentationRecommendation("has_contributing", sha, 8),
+          // 15 баллов Code health без FIXME × 5 ÷ 50 и 19 баллов без TODO × 5 ÷ 50.
+          fixmeRecommendation(3, 1.5, [
+            marker("checker/limits.cpp", 88, "FIXME"),
+            marker("checker/limits.cpp", 142, "FIXME"),
+            marker("checker/sandbox.cpp", 23, "FIXME"),
+          ]),
+          todoRecommendation(19, 1.9, [
+            marker("checker/limits.cpp", 61, "TODO"),
+            marker("checker/interactor.cpp", 9, "TODO"),
+            marker("checker/interactor.cpp", 214, "TODO"),
+            marker("web/submit.py", 40, "TODO"),
+          ]),
         ],
       };
 
@@ -319,10 +341,21 @@ function detailsFor(repository: MockRepository): ReportDetails {
         categories: {
           security: { summary: "Результаты AppSec не получены.", reason: "appsec_not_available" },
           cicd: { summary: "Данные CI не получены.", reason: "analyzer_execution_failed" },
-          documentation: { summary: "Дерево файлов недоступно: ветка по умолчанию пустая.", reason: "analyzer_execution_failed" },
+          // Так backend/app/analysis/providers.py описывает неудачный git-клон: reason продолжает summary.
+          documentation: {
+            summary: "Не удалось получить содержимое репозитория.",
+            reason: "Не удалось получить содержимое репозитория: git-команда завершилась ошибкой.",
+          },
           activity: { summary: "Репозиторий создан пять дней назад: merge requests и релизов ещё не было." },
-          issues: { summary: "Нет доступа к issues репозитория.", reason: "analyzer_not_configured" },
-          code_health: { summary: "Дерево файлов недоступно: ветка по умолчанию пустая.", reason: "analyzer_execution_failed" },
+          // Issues склеивает ошибки открытого и закрытого списков через «; ».
+          issues: {
+            summary: "Не удалось получить задачи репозитория.",
+            reason: "open: SourceCraft denied access with HTTP 403; closed: SourceCraft denied access with HTTP 403",
+          },
+          code_health: {
+            summary: "Не удалось получить содержимое репозитория.",
+            reason: "Не удалось получить содержимое репозитория: git-команда завершилась ошибкой.",
+          },
         },
         recommendations: [],
       };
@@ -362,8 +395,8 @@ const bandSummaries: Record<MockCategoryCode, Record<ScoreBand, string>> = {
   },
   code_health: {
     high: "TODO и FIXME почти нет.",
-    mid: "Встречаются старые TODO и FIXME, но их немного.",
-    low: "TODO и FIXME разбросаны по коду, многие старше года.",
+    mid: "TODO и FIXME встречаются, но на файл их немного.",
+    low: "TODO и FIXME разбросаны по всему коду, среди них много FIXME.",
   },
 };
 
@@ -431,11 +464,12 @@ const lowScoreTemplates: Record<MockCategoryCode, RecommendationTemplate> = {
     problem: "Больше трёх месяцев в репозитории ничего не менялось.",
     rationale: "Долгое отсутствие обновлений говорит, что проектом перестали пользоваться как рабочей кодовой базой.",
   },
+  // Как code_health_resolve_fixme в backend/app/analyzers/code_health.py: P1 от двух FIXME.
   code_health: {
-    priority: "p3",
-    action: "Разобрать старые TODO и FIXME",
-    problem: "В коде много давних TODO и FIXME.",
-    rationale: "Старые пометки прячут настоящий технический долг.",
+    priority: "p1",
+    action: "Устранить FIXME или перенести их в трекер задач",
+    problem: "В коде остались неразрешённые пометки FIXME.",
+    rationale: "FIXME отмечает заведомо неработающий или опасный код.",
   },
 };
 
@@ -488,6 +522,133 @@ function metric(
   return { code, value, normalizedScore, summary, evidence };
 }
 
+/*
+ * Документация — как backend/app/analyzers/documentation.py: пять признаков «есть/нет»
+ * (value 1 или 0, оценка 100 или 0), а оценка категории — 100 минус штрафы за то, чего нет:
+ * README 35, CONTRIBUTING 20, лицензия, CODEOWNERS и инструкция запуска — по 15.
+ * Без README инструкцию запуска не проверяют.
+ */
+type DocumentationCheck = "has_readme" | "has_contributing" | "has_license" | "has_codeowners" | "has_shortcuts";
+
+interface DocumentationCheckText {
+  label: string;
+  priority: RecommendationPriority;
+  problem: string;
+  action: string;
+}
+
+const documentationChecks: Record<DocumentationCheck, DocumentationCheckText> = {
+  has_readme: {
+    label: "README.md",
+    priority: "p1",
+    problem: "В репозитории нет README.md.",
+    action: "Добавить README.md с описанием архитектуры и назначения проекта",
+  },
+  has_contributing: {
+    label: "CONTRIBUTING.md",
+    priority: "p2",
+    problem: "В репозитории нет CONTRIBUTING.md.",
+    action: "Создать CONTRIBUTING.md с правилами ведения веток и код-ревью",
+  },
+  has_license: {
+    label: "LICENSE",
+    priority: "p2",
+    problem: "В репозитории нет файла лицензии.",
+    action: "Добавить файл LICENSE или COPYING",
+  },
+  has_codeowners: {
+    label: "CODEOWNERS",
+    priority: "p3",
+    problem: "В репозитории нет файла CODEOWNERS.",
+    action: "Настроить CODEOWNERS, чтобы ревьюеры назначались автоматически",
+  },
+  has_shortcuts: {
+    label: "Инструкции запуска",
+    priority: "p2",
+    problem: "В README нет команд для запуска проекта и тестов.",
+    action: "Добавить в README команды быстрого запуска проекта и тестов",
+  },
+};
+
+function documentationMetrics(missing: DocumentationCheck[]): CategoryMetric[] {
+  const hasReadme = !missing.includes("has_readme");
+  return (Object.keys(documentationChecks) as DocumentationCheck[])
+    .filter((code) => code !== "has_shortcuts" || hasReadme)
+    .map((code) => {
+      const present = !missing.includes(code);
+      const { label } = documentationChecks[code];
+      return metric(code, present ? 1 : 0, present ? 100 : 0, `Наличие файла/информации: ${label}`, []);
+    });
+}
+
+function documentationRecommendation(
+  check: DocumentationCheck,
+  commitSha: string,
+  expectedScoreDelta: number | null,
+): Recommendation {
+  const { priority, problem, action } = documentationChecks[check];
+  return {
+    code: `doc_missing_${check}`,
+    priority,
+    problem,
+    action,
+    rationale: "Понятная документация и прозрачные правила упрощают вход в проект и ускоряют выпуск изменений.",
+    expectedEffect: null,
+    expectedScoreDelta,
+    evidence: [
+      {
+        source: "repository_structure",
+        reference: commitSha,
+        summary: "Проверка файлов регламентов и инструкций в корне репозитория.",
+        url: null,
+      },
+    ],
+  };
+}
+
+/*
+ * Code health — как backend/app/analyzers/code_health.py: справочные числа без оценки,
+ * а оценка категории — 100 минус (5 × FIXME + TODO) на файл кода × 100.
+ */
+function codeHealthMetrics(files: number, todos: number, fixmes: number): CategoryMetric[] {
+  return [
+    metric("total_analyzed_files", files, null, "Всего проанализировано файлов кода", []),
+    metric("todo_count", todos, null, "Количество меток TODO в коде", []),
+    metric("fixme_count", fixmes, null, "Количество критических меток FIXME", []),
+  ];
+}
+
+function fixmeRecommendation(fixmes: number, expectedScoreDelta: number | null, evidence: Evidence[]): Recommendation {
+  return {
+    code: "code_health_resolve_fixme",
+    priority: fixmes >= 2 ? "p1" : "p2",
+    problem: `В коде остались неразрешённые пометки FIXME (${fixmes} шт.).`,
+    action: "Устранить FIXME или перенести их в трекер задач",
+    rationale: "FIXME отмечает заведомо неработающий или опасный код.",
+    expectedEffect: null,
+    expectedScoreDelta,
+    evidence,
+  };
+}
+
+function todoRecommendation(todos: number, expectedScoreDelta: number | null, evidence: Evidence[]): Recommendation {
+  return {
+    code: "code_health_clear_todos",
+    priority: "p3",
+    problem: `В коде скопилось много пометок TODO (${todos} шт.).`,
+    action: "Пересмотреть TODO и убрать неактуальные",
+    rationale: "Когда пометок слишком много, важные теряются среди остальных.",
+    expectedEffect: null,
+    expectedScoreDelta,
+    evidence,
+  };
+}
+
+/** Пометка в коде — такой факт Code health кладёт в рекомендацию: путь и номер строки. */
+function marker(path: string, line: number, kind: "TODO" | "FIXME"): Evidence {
+  return { source: "git_repository", reference: `${path}:${line}`, summary: `${kind} на строке ${line} в файле ${path}.`, url: null };
+}
+
 export function sourceCraftUrl(repository: MockRepository): string {
   return `https://sourcecraft.dev/${repository.organizationSlug}/${repository.repositorySlug}`;
 }
@@ -502,10 +663,6 @@ function issue(base: string, id: number, summary: string): Evidence {
 
 function pull(base: string, id: number, summary: string): Evidence {
   return { source: "sourcecraft-pulls", reference: `MR !${id}`, summary, url: `${base}/pr/${id}` };
-}
-
-function file(base: string, path: string, summary: string): Evidence {
-  return { source: "sourcecraft-repository", reference: path, summary, url: `${base}/browse/${path}` };
 }
 
 function finding(base: string, id: string, summary: string): Evidence {

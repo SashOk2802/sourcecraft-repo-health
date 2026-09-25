@@ -76,7 +76,8 @@
 
 .category-card__metric {
   display: grid;
-  grid-template-columns: 9px minmax(0, 1fr) 34px;
+  /* Справа — оценка, «есть/нет» или число вроде «1 284»: колонка растёт под значение. */
+  grid-template-columns: 9px minmax(0, 1fr) minmax(34px, auto);
   gap: 10px;
   align-items: start;
   padding: 8px 0;
@@ -133,6 +134,7 @@
 
 .category-card__metric-score {
   text-align: right;
+  white-space: nowrap;
   color: var(--g-color-text-hint);
   font-size: var(--g-text-body-1-font-size);
   padding-top: 1px;

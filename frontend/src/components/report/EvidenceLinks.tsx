@@ -2,7 +2,7 @@ import { Link as GravityLink, Text } from "@gravity-ui/uikit";
 import { useState } from "react";
 
 import type { Evidence } from "../../api/common";
-import { isTechnicalReference } from "./reportHelpers";
+import { evidenceReferenceText, evidenceSummaryText, isTechnicalReference } from "./reportHelpers";
 import "./EvidenceLinks.css";
 
 interface EvidenceLinksProps {
@@ -24,8 +24,9 @@ export function EvidenceLinks({ items, limit = 3 }: EvidenceLinksProps) {
 
   return (
     <ul className="evidence">
-      {shown.map((item) => (
-        <li className="evidence__item" key={`${item.source}:${item.reference}`}>
+      {/* Ссылки могут повторяться: TODO и FIXME на одной строке файла дают одинаковый «путь:строка». */}
+      {shown.map((item, index) => (
+        <li className="evidence__item" key={`${index}:${item.source}:${item.reference}`}>
           <EvidenceItem item={item} />
         </li>
       ))}
@@ -54,19 +55,21 @@ function EvidenceItem({ item }: { item: Evidence }) {
     );
   }
 
+  const reference = evidenceReferenceText(item.reference);
+  const summary = evidenceSummaryText(item);
   return (
     <>
       {item.url ? (
         <GravityLink href={item.url} target="_blank" rel="noreferrer" className="evidence__ref">
-          {item.reference}
+          {reference}
         </GravityLink>
       ) : (
-        <span className="evidence__ref">{item.reference}</span>
+        <span className="evidence__ref">{reference}</span>
       )}
-      {item.summary && (
+      {summary && (
         <Text variant="body-1" color="secondary">
           {" "}
-          — {item.summary}
+          — {summary}
         </Text>
       )}
     </>

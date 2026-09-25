@@ -4,13 +4,19 @@ import type { CategoryMetric, ReportCategory } from "../../api/report";
 import {
   biggestLosses,
   buildFormula,
+  evidenceReferenceText,
+  evidenceSummaryText,
   hasMetrics,
   isMeasured,
+  isPresenceMetric,
   isTechnicalReference,
   metricEvidence,
+  metricLabel,
   metricTone,
+  metricValueText,
   splitHighlights,
   summarizeBands,
+  summaryWithoutScore,
   visibleMetrics,
 } from "./reportHelpers";
 
@@ -215,5 +221,82 @@ describe("isTechnicalReference", () => {
     for (const reference of ["#311", "79", "v2.14.0", "README.md", "src/sync/importer.ts", "CODEOWNERS", "AppSec", "readme"]) {
       expect(isTechnicalReference(reference)).toBe(false);
     }
+  });
+});
+
+// Так метрики отдают backend/app/analyzers/documentation.py и code_health.py.
+const hasReadme: CategoryMetric = {
+  code: "has_readme",
+  value: 1,
+  normalizedScore: 100,
+  summary: "Наличие файла/информации: README.md",
+  evidence: [],
+};
+const noCodeowners: CategoryMetric = { ...hasReadme, code: "has_codeowners", value: 0, normalizedScore: 0 };
+const todoCount: CategoryMetric = {
+  code: "todo_count",
+  value: 1284,
+  normalizedScore: null,
+  summary: "Количество меток TODO в коде",
+  evidence: [],
+};
+
+describe("метрики документации и Code health", () => {
+  it("признак «есть/нет» показывает словом, а не баллами 100 и 0", () => {
+    expect(isPresenceMetric(hasReadme)).toBe(true);
+    expect(metricValueText(hasReadme)).toBe("есть");
+    expect(metricValueText(noCodeowners)).toBe("нет");
+    expect(metricLabel(noCodeowners)).toContain("CODEOWNERS");
+    expect(metricLabel(noCodeowners)).not.toContain("Наличие");
+    // Цвет остаётся по оценке: отсутствующий файл — красная точка.
+    expect(metricTone(noCodeowners)).toBe("low");
+  });
+
+  it("у справочной метрики без оценки показывает число", () => {
+    expect(isPresenceMetric(todoCount)).toBe(false);
+    expect(metricLabel(todoCount)).toBe("Количество меток TODO в коде");
+    expect(metricValueText(todoCount)).toBe("1 284");
+    expect(metricValueText({ ...todoCount, value: "unavailable" })).toBe("—");
+  });
+
+  it("у метрики с оценкой показывает оценку", () => {
+    expect(metricValueText({ ...todoCount, value: 0.3, normalizedScore: 44.4 })).toBe("44");
+  });
+
+  it("незнакомый has_* с другим значением считает обычной метрикой", () => {
+    expect(isPresenceMetric({ ...hasReadme, code: "has_something", value: 1 })).toBe(false);
+    expect(isPresenceMetric({ ...hasReadme, value: "да" })).toBe(false);
+  });
+});
+
+describe("summaryWithoutScore", () => {
+  it("убирает повтор оценки в начале summary", () => {
+    expect(summaryWithoutScore("Оценка документации: 85/100. Проверены базовые файлы репозитория.")).toBe(
+      "Проверены базовые файлы репозитория.",
+    );
+    expect(summaryWithoutScore("Оценка чистоты кода: 69.4/100. Обнаружено TODO: 40, FIXME: 7.")).toBe(
+      "Обнаружено TODO: 40, FIXME: 7.",
+    );
+    expect(summaryWithoutScore("Оценка документации: 85/100.")).toBe("");
+  });
+
+  it("обычный summary не трогает", () => {
+    const summary = "Успешно прошли 23 из 40 автоматических прогонов CI за полгода.";
+    expect(summaryWithoutScore(summary)).toBe(summary);
+  });
+});
+
+describe("ссылки фактов", () => {
+  it("полный SHA сокращает до коммита", () => {
+    expect(evidenceReferenceText("0f3c9a1e".padEnd(40, "0"))).toBe("коммит 0f3c9a1");
+    expect(evidenceReferenceText("#311")).toBe("#311");
+    expect(evidenceReferenceText("d7bebd1")).toBe("d7bebd1");
+  });
+
+  it("не повторяет путь и строку пометки в описании", () => {
+    const todo = { source: "git_repository", reference: "src/app.py:42", summary: "TODO на строке 42 в файле src/app.py.", url: null };
+    expect(evidenceSummaryText(todo)).toBe("TODO");
+    expect(evidenceSummaryText({ ...todo, reference: "src/other.py:42" })).toBe(todo.summary);
+    expect(evidenceSummaryText({ ...todo, summary: "142 дня без движения" })).toBe("142 дня без движения");
   });
 });

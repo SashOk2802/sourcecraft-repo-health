@@ -1,6 +1,6 @@
 import type { Evidence } from "../../api/common";
 import type { CategoryMetric, ReportCategory } from "../../api/report";
-import { formatPoints } from "../../lib/format";
+import { formatPoints, formatScore } from "../../lib/format";
 import { getScoreBand } from "../../lib/scoreBands";
 
 /*
@@ -79,6 +79,54 @@ export function visibleMetrics(category: ReportCategory): CategoryMetric[] {
   );
 }
 
+/*
+ * Признаки «есть/нет» анализатора документации (backend/app/analyzers/documentation.py):
+ * value 1 или 0, оценка 100 или 0. Баллы «100» и «0» у них читаются как оценка, а summary
+ * служебный («Наличие файла/информации: README.md») — поэтому подпись и значение свои.
+ */
+const presenceLabels: Record<string, string> = {
+  has_readme: "README",
+  has_contributing: "CONTRIBUTING — правила участия",
+  has_license: "Лицензия",
+  has_codeowners: "CODEOWNERS — ответственные за код",
+  has_shortcuts: "Инструкция по запуску и тестам в README",
+};
+
+export function isPresenceMetric(metric: CategoryMetric): boolean {
+  return metric.code in presenceLabels && (metric.value === 0 || metric.value === 1);
+}
+
+/** Подпись метрики: у признака «есть/нет» — своя, у остальных — summary backend. */
+export function metricLabel(metric: CategoryMetric): string {
+  return isPresenceMetric(metric) ? presenceLabels[metric.code] : metric.summary;
+}
+
+/**
+ * Значение справа от метрики: её оценка 0–100; у признака — «есть» или «нет»; у справочной
+ * метрики без оценки — само число, если оно есть: так Code health присылает, сколько
+ * найдено TODO и FIXME и сколько файлов проверено.
+ */
+export function metricValueText(metric: CategoryMetric): string {
+  if (isPresenceMetric(metric)) {
+    return metric.value === 1 ? "есть" : "нет";
+  }
+  if (metric.normalizedScore !== null) {
+    return formatScore(metric.normalizedScore);
+  }
+  if (typeof metric.value === "number" && Number.isFinite(metric.value)) {
+    return formatPoints(metric.value);
+  }
+  return "—";
+}
+
+/**
+ * Summary категории без повтора её оценки. Документация и Code health начинают его с того
+ * же числа, что уже стоит рядом: «Оценка документации: 85/100. Проверены базовые файлы…».
+ */
+export function summaryWithoutScore(summary: string): string {
+  return summary.replace(/^\s*Оценка[^:]{0,40}:\s*\d+(?:[.,]\d+)?\s*\/\s*100\s*\.?\s*/i, "").trim();
+}
+
 /**
  * Служебная ссылка факта вида ci-runs или last_updated: человеку она ничего не говорит,
  * поэтому вместо неё показываем описание. Номера задач, теги релизов и пути к файлам
@@ -86,6 +134,20 @@ export function visibleMetrics(category: ReportCategory): CategoryMetric[] {
  */
 export function isTechnicalReference(reference: string): boolean {
   return /^[a-z][a-z0-9]*(?:[_-][a-z0-9]+)+$/.test(reference);
+}
+
+/** Полный SHA коммита в ссылке факта сокращаем, как в шапке отчёта: «коммит 0f3c9a1». */
+export function evidenceReferenceText(reference: string): string {
+  return /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/i.test(reference) ? `коммит ${reference.slice(0, 7)}` : reference;
+}
+
+/**
+ * Описание факта без повтора ссылки. Code health пишет к пометке «TODO на строке 42 в файле
+ * src/app.py.» при ссылке «src/app.py:42» — из описания остаётся только «TODO».
+ */
+export function evidenceSummaryText(item: Evidence): string {
+  const marker = item.summary.match(/^(TODO|FIXME) на строке (\d+) в файле (.+?)\.?$/);
+  return marker && item.reference === `${marker[3]}:${marker[2]}` ? marker[1] : item.summary;
 }
 
 /** Факты метрики без повтора её же текста: у служебных фактов описание совпадает с метрикой. */

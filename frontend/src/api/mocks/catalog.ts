@@ -108,7 +108,7 @@ export const mockRepositories: MockRepository[] = [
     categories: {
       security: 84,
       cicd: "error",
-      documentation: 78,
+      documentation: 80,
       activity: "insufficient_sample",
       issues: "not_applicable",
       code_health: 66,
@@ -134,7 +134,7 @@ export const mockRepositories: MockRepository[] = [
     likes: 1290,
     lastActivityAt: daysAgo(2),
     visibility: "public",
-    categories: { security: "unavailable", cicd: 58, documentation: 88, activity: 91, issues: 58, code_health: 70 },
+    categories: { security: "unavailable", cicd: 58, documentation: 85, activity: 91, issues: 58, code_health: 70 },
   },
   {
     id: "repo-1009",
@@ -178,7 +178,7 @@ export const mockRepositories: MockRepository[] = [
     likes: 1530,
     lastActivityAt: daysAgo(4),
     visibility: "public",
-    categories: { security: 22, cicd: 91, documentation: 84, activity: 86, issues: 79, code_health: 81 },
+    categories: { security: 22, cicd: 91, documentation: 85, activity: 86, issues: 79, code_health: 81 },
     scoreLimit: 60,
   },
   {

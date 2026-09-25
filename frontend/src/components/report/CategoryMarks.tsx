@@ -6,12 +6,19 @@ import type { CategoryMetric, ReportCategory } from "../../api/report";
 import { describeCategory } from "../../lib/categoryMeaning";
 import { cn } from "../../lib/classNames";
 import { formatPoints, formatScore } from "../../lib/format";
-import { describeReason } from "../../lib/reasonCodes";
+import { reasonDetail } from "../../lib/reasonCodes";
 import { getScoreBand, SCORE_BAND_LIMITS } from "../../lib/scoreBands";
 import { CategoryIcon } from "../CategoryIcon";
 import { CategoryStatusLabel } from "../StatusLabels";
 import { EvidenceLinks } from "./EvidenceLinks";
-import { metricEvidence, metricTone, visibleMetrics } from "./reportHelpers";
+import {
+  metricEvidence,
+  metricLabel,
+  metricTone,
+  metricValueText,
+  summaryWithoutScore,
+  visibleMetrics,
+} from "./reportHelpers";
 import "./CategoryMarks.css";
 
 /*
@@ -48,6 +55,9 @@ function CategoryCard({ category, order }: { category: ReportCategory; order: nu
   const band = score !== null ? getScoreBand(score) : null;
   const meaning = describeCategory(category.code);
   const metrics = visibleMetrics(category);
+  // Оценка уже стоит в шапке карточки: «Оценка документации: 85/100.» из summary не повторяем.
+  const summary = score === null ? category.summary : summaryWithoutScore(category.summary);
+  const detail = score === null ? reasonDetail(category.summary, category.reason) : null;
 
   return (
     <article id={`category-${category.code}`} className="category-card" style={{ "--rh-step": order } as CSSProperties}>
@@ -79,12 +89,12 @@ function CategoryCard({ category, order }: { category: ReportCategory; order: nu
       </div>
 
       {/* Без оценки главное — почему её нет: summary backend и объяснение причины. */}
-      {(score === null || metrics.length === 0) && (
+      {(score === null || metrics.length === 0) && summary !== "" && (
         <p className="category-card__reason">
-          <Text variant="body-2">{category.summary}</Text>{" "}
-          {score === null && category.reason !== null && (
+          <Text variant="body-2">{summary}</Text>{" "}
+          {detail !== null && (
             <Text variant="body-2" color="secondary">
-              {describeReason(category.reason)}
+              {detail}
             </Text>
           )}
         </p>
@@ -110,12 +120,10 @@ function MetricRow({ metric }: { metric: CategoryMetric }) {
     <li className="category-card__metric">
       <span className={cn("category-card__dot", `category-card__dot_tone_${tone}`)} />
       <span className="category-card__metric-body">
-        <span className="category-card__metric-text">{metric.summary}</span>
+        <span className="category-card__metric-text">{metricLabel(metric)}</span>
         {evidence.length > 0 && <EvidenceLinks items={evidence} limit={2} />}
       </span>
-      <span className="category-card__metric-score num">
-        {metric.normalizedScore === null ? "—" : formatScore(metric.normalizedScore)}
-      </span>
+      <span className="category-card__metric-score num">{metricValueText(metric)}</span>
     </li>
   );
 }

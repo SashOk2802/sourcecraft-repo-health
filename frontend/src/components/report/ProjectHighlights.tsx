@@ -7,7 +7,7 @@ import { cn } from "../../lib/classNames";
 import { formatScore } from "../../lib/format";
 import { getScoreBand } from "../../lib/scoreBands";
 import { CategoryIcon } from "../CategoryIcon";
-import { splitHighlights, type MeasuredCategory } from "./reportHelpers";
+import { splitHighlights, summaryWithoutScore, type MeasuredCategory } from "./reportHelpers";
 import "./ProjectHighlights.css";
 
 /*
@@ -85,6 +85,8 @@ function Column({ kind, title, empty, items }: ColumnProps) {
 
 function Item({ category, order }: { category: MeasuredCategory; order: number }) {
   const band = getScoreBand(category.score);
+  // Оценка стоит справа, поэтому «Оценка документации: 85/100.» из summary не повторяем.
+  const summary = summaryWithoutScore(category.summary);
 
   return (
     <li style={{ "--rh-step": order } as CSSProperties}>
@@ -92,7 +94,7 @@ function Item({ category, order }: { category: MeasuredCategory; order: number }
         <CategoryIcon code={category.code} band={band} size={16} />
         <span className="highlights__text">
           <span className="highlights__label">{category.label}</span>
-          {category.summary && <span className="highlights__summary">{category.summary}</span>}
+          {summary && <span className="highlights__summary">{summary}</span>}
         </span>
         <span className={cn("highlights__score", "num", `highlights__score_band_${band}`)}>
           {formatScore(category.score)}
