@@ -75,8 +75,8 @@ export function AnalysisPage({ analysisId }: { analysisId: string }) {
       {!analysis && (
         <section className="card">
           {statusError === null && <LoadingNote>Загружаем анализ</LoadingNote>}
-          {statusError !== null && isNotFound(statusError) && <NoReportNote />}
-          {statusError !== null && !isNotFound(statusError) && (
+          {statusError !== null && isAccessProblem(statusError) && <NoReportNote signInRequired={isSignInRequired(statusError)} />}
+          {statusError !== null && !isAccessProblem(statusError) && (
             <ErrorNote title="Не удалось получить статус анализа" error={statusError} onRetry={retry} />
           )}
         </section>
@@ -108,7 +108,9 @@ export function AnalysisPage({ analysisId }: { analysisId: string }) {
 
       {analysis && finished && !failed && !report && (
         <section className="card">
-          {reportState.status === "error" ? (
+          {reportState.status === "error" && isAccessProblem(reportState.error) ? (
+            <NoReportNote signInRequired={isSignInRequired(reportState.error)} />
+          ) : reportState.status === "error" ? (
             <ErrorNote title="Не удалось загрузить отчёт" error={reportState.error} onRetry={reloadReport} />
           ) : (
             <LoadingNote>Загружаем отчёт</LoadingNote>
@@ -197,21 +199,25 @@ function ReportView({ report }: { report: RepositoryReport }) {
   );
 }
 
-/** 404 — не сбой: такого снимка анализа нет. */
-function NoReportNote() {
+/*
+ * 401 и 404 — не сбой. Статус и отчёт backend отдаёт только тому, кто запускал анализ
+ * (docs/api-contract.md): без входа — 401, чужой или несуществующий анализ — одинаковый 404.
+ */
+function NoReportNote({ signInRequired }: { signInRequired: boolean }) {
   const auth = useAuth();
-  // Закрытый отчёт откроет только настоящий вход: демо-кабинет чужих репозиториев не видит.
-  const suggestSignIn = auth.status === "guest" && auth.mode !== "demo";
+  // Чужой отчёт откроет только настоящий вход: демо-кабинет чужих анализов не видит.
+  const suggestSignIn = (signInRequired || auth.status === "guest") && auth.mode !== "demo";
 
   return (
     <div className="no-report">
       <Text variant="header-2" as="h1">
-        Отчёта нет
+        {signInRequired ? "Отчёт виден после входа" : "Отчёта нет"}
       </Text>
       <Text variant="body-2" color="secondary">
-        Такого анализа не существует или ссылка устарела. Откройте репозиторий из рейтинга — там всегда ссылка на
-        последний отчёт.
-        {suggestSignIn && " Если это ваш закрытый репозиторий, войдите через Яндекс ID."}
+        {signInRequired
+          ? "Ход и результат анализа видит тот, кто его запускал. Войдите через Яндекс ID — если анализ ваш, отчёт откроется."
+          : "Такого анализа нет, ссылка устарела или анализ запускал другой пользователь — его отчёт видит только он."}{" "}
+        Открытые проекты других команд — в рейтинге.
       </Text>
       <div className="no-report__actions">
         {suggestSignIn && (
@@ -295,6 +301,10 @@ function describeReport(report: RepositoryReport): string {
   return `${score} для ${report.repository.name}: оценка по шести частям проекта, сильные и слабые стороны, рекомендации.`;
 }
 
-function isNotFound(error: Error): boolean {
-  return error instanceof ApiError && error.status === 404;
+function isSignInRequired(error: Error): boolean {
+  return error instanceof ApiError && error.status === 401;
+}
+
+function isAccessProblem(error: Error): boolean {
+  return error instanceof ApiError && (error.status === 401 || error.status === 404);
 }

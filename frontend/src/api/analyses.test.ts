@@ -8,7 +8,12 @@ describe("describeStartError", () => {
     expect(describeStartError(new ApiError(403, "Repository access denied."))).toContain("только публичный");
     expect(describeStartError(new ApiError(404, "Repository not found."))).toContain("нет в каталоге");
     expect(describeStartError(new ApiError(503, "Analysis dispatch is not configured."))).toContain("не настроен");
-    expect(describeStartError(new ApiError(429, "Too Many Requests"))).toContain("15 минут");
+  });
+
+  it("429 и 502 — ограничения и ответы SourceCraft, а не наша ошибка", () => {
+    // docs/api-contract.md после #20: 429 — лимит частоты SourceCraft, 502 — непригодный ответ SourceCraft.
+    expect(describeStartError(new ApiError(429, "Too Many Requests"))).toContain("Попробуйте через минуту");
+    expect(describeStartError(new ApiError(502, "Bad Gateway"))).toContain("SourceCraft вернул данные");
   });
 
   it("503 из-за недоступного каталога SourceCraft не выдаёт за ненастроенный сервер", () => {

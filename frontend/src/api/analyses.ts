@@ -99,7 +99,9 @@ export function describeStartError(error: Error): string {
     }
     if (error.status === 404) return "Такого репозитория нет в каталоге, который проверяет сервис.";
     if (error.status === 422) return "Такой идентификатор репозитория не подходит — проверьте, что скопировали его целиком.";
-    if (error.status === 429) return "Этот репозиторий уже проверяли только что — повторить можно через 15 минут.";
+    // 429 — SourceCraft ограничил частоту запросов, 502 — его ответ не превратить в анализ.
+    if (error.status === 429) return "SourceCraft просит подождать: слишком много запросов подряд. Попробуйте через минуту.";
+    if (error.status === 502) return "SourceCraft вернул данные, по которым анализ не запустить. Попробуйте позже.";
     if (error.status === 503) {
       // backend/app/main.py: каталог SourceCraft не ответил — это временно; иначе запуск не настроен.
       return /catalog/i.test(error.message)

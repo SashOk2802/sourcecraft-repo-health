@@ -59,6 +59,8 @@ export interface MyRepository {
     description: string | null;
     language: string | null;
     visibility: "public" | "private";
+    /** В репозитории ещё нет коммитов: анализировать нечего, запуск не предлагаем. */
+    isEmpty: boolean;
   };
   /** Последний завершённый анализ; null — репозиторий ещё не проверяли. */
   lastAnalysis: {
@@ -129,6 +131,7 @@ interface RepositoryPayload {
   description?: string | null;
   language?: string | null;
   visibility?: string;
+  isEmpty?: boolean;
 }
 
 interface LastAnalysisPayload {
@@ -178,6 +181,7 @@ function toMyRepository(row: MyRepositoryPayload): MyRepository {
       description: source.description ?? null,
       language: source.language ?? null,
       visibility: source.visibility === "private" || source.visibility === "internal" ? "private" : "public",
+      isEmpty: source.isEmpty === true,
     },
     lastAnalysis:
       last === null || running
