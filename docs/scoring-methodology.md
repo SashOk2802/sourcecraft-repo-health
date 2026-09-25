@@ -327,7 +327,7 @@ score = linear(min(count, 3), best=3, worst=0)
 | Issues | Описана в §2 | Роль 3 |
 | Activity | Описана в §3 | Роль 3 |
 | Documentation | Ожидает анализатор | Роль 1 |
-| Code health | Ожидает анализатор | Роль 1 |
+| Code health | Описана в §4.3 | Роль 1 |
 | CI/CD | Ожидает анализатор | Роль 2 |
 | Security | Ожидает анализатор | Роль 2 |
 
@@ -390,6 +390,35 @@ CI/CD score = successful_automated_outcome_runs / all_automated_outcome_runs * 1
 Security-анализатор пока нормализует доступность AppSec-данных. Числовая
 формула SAST, SCA и secret scanning появится только после подтверждённой схемы
 findings, полноты выборки и политики обработки чувствительных деталей.
+
+### 4.3. Code health — плотность технического долга
+
+<!-- PENDING_APPROVAL: awaiting methodology owner sign-off -->
+| Константа | Значение |
+| --- | ---: |
+| Штраф за один FIXME | 5 баллов |
+| Штраф за один TODO | 1 балл |
+| Нормировка | на `total_files`, масштаб ×100 |
+| Порог рекомендации по TODO | `todos > 15` |
+| Порог «критичного FIXME» (P1) | `fixmes >= 2`; единичный FIXME — P2 |
+
+```text
+penalty = (fixmes * 5 + todos * 1) / total_files * 100
+score   = max(0, 100 - penalty)
+expected_score_delta = score_после_устранения - score_до
+```
+
+<!-- PENDING_APPROVAL: awaiting methodology owner sign-off -->
+Правило малых репозиториев (семантика плотности, ревью V.1): штраф растёт как
+`1 / total_files`, поэтому одинокий FIXME обнуляет категорию при
+`total_files <= 5` (penalty ≥ 100), одинокий TODO — при `total_files = 1`.
+Оценка непрерывна (без скачков), и в репозитории обычного размера одинокий
+маркер категорию не обнуляет. Поведение зафиксировано регрессионным тестом
+`test_code_health_small_repo_single_marker_density_semantics` (кривая
+`total_files` 1/3/6/100 при одном FIXME → 0/0/16.67/95); границу эскалации
+P1/P2 закрепляет тест `test_code_health_fixme_critical_count_boundary`
+(единичный FIXME — P2, от `FIXME_CRITICAL_COUNT` включительно — P1). Тесты
+доказывают стабильность поведения, а не корректность самих чисел.
 
 ## 5. Как менять методику
 
