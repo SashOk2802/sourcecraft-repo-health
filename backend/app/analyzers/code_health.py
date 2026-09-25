@@ -78,8 +78,8 @@ def collect(
 ) -> CodeHealthFacts:
     """Анализирует исходники в пределах явного бюджета файлов и байтов."""
 
-    if max_files < 1 or max_total_bytes < 1:
-        raise ValueError("code health resource limits must be positive")
+    _validate_resource_limit(max_files, "max_files")
+    _validate_resource_limit(max_total_bytes, "max_total_bytes")
 
     total = todos = fixmes = debt_files = skipped_large = 0
     candidate_files = total_bytes = 0
@@ -98,10 +98,12 @@ def collect(
         if total_bytes + size > max_total_bytes:
             truncated = True
             break
+        # Бюджет ограничивает байты, прочитанные с диска, а не только тексты,
+        # которые позже прошли проверку. Бинарный файл с NUL тоже тратит лимит.
+        total_bytes += size
         content = repository.read_file(relative_path)
         if content is None or "\x00" in content:
             continue
-        total_bytes += size
         total += 1
         markers = _MARKER.findall(_comments_only(content, Path(relative_path).suffix.lower()))
         todo = markers.count("TODO")
@@ -110,6 +112,13 @@ def collect(
         fixmes += fixme
         debt_files += int(todo > 0 or fixme > 0)
     return CodeHealthFacts(total, todos, fixmes, debt_files, skipped_large, truncated)
+
+
+def _validate_resource_limit(value: object, name: str) -> None:
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise TypeError(f"{name} must be an integer")
+    if value < 1:
+        raise ValueError(f"{name} must be positive")
 
 
 def evaluate(context: AnalysisContext, facts: CodeHealthFacts) -> CategoryResult:

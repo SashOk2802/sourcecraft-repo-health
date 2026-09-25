@@ -106,12 +106,37 @@ class FileAnalysisTest(unittest.TestCase):
         self.assertIsNone(result.score)
         self.assertEqual(result.reason, "code_health_scan_limit_exceeded")
 
+    def test_binary_source_files_consume_byte_budget_before_they_are_read(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "first.py").write_bytes(b"\x00binary")
+            (root / "second.js").write_bytes(b"\x00binary")
+            repository = LocalGitRepository(sourcecraft_clone_url("team", "service"))
+            repository.temp_dir = directory
+            with patch.object(repository, "read_file", wraps=repository.read_file) as read_file:
+                facts = code_health.collect(repository, max_total_bytes=7)
+
+        self.assertTrue(facts.truncated)
+        self.assertEqual(facts.total_files, 0)
+        self.assertEqual(read_file.call_count, 1)
+
     def test_resource_limits_must_be_positive(self) -> None:
         repository = LocalGitRepository(sourcecraft_clone_url("team", "service"))
         with self.assertRaises(ValueError):
             code_health.collect(repository, max_files=0)
         with self.assertRaises(ValueError):
             code_health.collect(repository, max_total_bytes=0)
+
+    def test_resource_limits_reject_non_integer_values_and_booleans(self) -> None:
+        repository = LocalGitRepository(sourcecraft_clone_url("team", "service"))
+        invalid_values = (True, 1.0, float("inf"), float("nan"), "100")
+        for limit_name in ("max_files", "max_total_bytes"):
+            for value in invalid_values:
+                with (
+                    self.subTest(limit_name=limit_name, value=value),
+                    self.assertRaises(TypeError),
+                ):
+                    code_health.collect(repository, **{limit_name: value})
 
     def test_empty_source_tree_is_unavailable(self) -> None:
         result = code_health.evaluate(self.context, code_health.CodeHealthFacts(0, 0, 0, 0, 0))
