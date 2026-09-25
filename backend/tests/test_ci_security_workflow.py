@@ -40,6 +40,19 @@ class CiSecurityWorkflowTest(unittest.TestCase):
         self.assertIn("pip-audit==2.10.1", workflow)
         self.assertNotIn("pip-audit", pyproject)
 
+    def test_python_sast_is_pinned_blocking_and_scoped_to_application_code(self) -> None:
+        workflow = self._read_security_workflow()
+        pyproject = PYPROJECT.read_text(encoding="utf-8")
+
+        self.assertIn("name: Python SAST", workflow)
+        self.assertIn("bandit==1.9.4", workflow)
+        self.assertIn(".sast-venv/bin/bandit -r backend/app", workflow)
+        self.assertIn("--severity-level medium", workflow)
+        self.assertIn("--confidence-level medium", workflow)
+        self.assertIn("--ignore-nosec", workflow)
+        self.assertNotIn("--exit-zero", workflow)
+        self.assertNotIn("bandit", pyproject)
+
     def test_fixed_pytest_range_is_explicit(self) -> None:
         pyproject = PYPROJECT.read_text(encoding="utf-8")
 
