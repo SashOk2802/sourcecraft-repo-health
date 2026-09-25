@@ -13,8 +13,16 @@ from pathlib import Path
 from unittest.mock import Mock
 
 import httpx
+from fastapi import Request
 
-from backend.app.analysis import AnalyzerRegistration, InMemoryAnalysisStore, run_analysis
+from backend.app.analysis import (
+    AnalysisJob,
+    AnalysisPrincipal,
+    AnalyzerRegistration,
+    InMemoryAnalysisJobStore,
+    InMemoryAnalysisStore,
+    run_analysis,
+)
 from backend.app.analyzers.security import build_facts, make_analyzer
 from backend.app.contracts import AnalysisContext, CategoryResult, DataStatus, RepositoryRef
 from backend.app.main import create_app
@@ -80,7 +88,20 @@ class SecurityReportingTest(unittest.IsolatedAsyncioTestCase):
             ),
         )
         store = InMemoryAnalysisStore()
-        app = create_app(analysis_store=store)
+        job_store = InMemoryAnalysisJobStore()
+        await job_store.create(
+            AnalysisJob.queued(
+                analysis_id="security-test",
+                repository_id=_context().repository.id,
+                created_at=_context().analyzed_at,
+                owner_subject="security-report-owner",
+            )
+        )
+        app = create_app(
+            analysis_store=store,
+            job_store=job_store,
+            principal_provider=_security_report_principal,
+        )
         async with app.router.lifespan_context(app):
             await store.save("security-test", execution)
             async with httpx.AsyncClient(
@@ -125,3 +146,9 @@ def _context() -> AnalysisContext:
         period_start=timestamp,
         period_end=timestamp,
     )
+
+
+async def _security_report_principal(_: Request) -> AnalysisPrincipal:
+    """Представляет владельца сохранённого отчёта без токена в тесте."""
+
+    return AnalysisPrincipal("security-report-owner")
