@@ -7,7 +7,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import datetime
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse, RedirectResponse, Response
 
 from backend.app.analysis import (
@@ -36,6 +36,13 @@ from backend.app.integrations.sourcecraft_repository import (
     SourceCraftRepositoryUnavailableError,
     create_sourcecraft_public_repository_resolver_from_environment,
 )
+from backend.app.leaderboard import (
+    LeaderboardFilters,
+    LeaderboardPage,
+    LeaderboardPageRow,
+    LeaderboardService,
+    LeaderboardSort,
+)
 from backend.app.scoring.methodology import build_methodology_payload
 
 PrincipalProvider = Callable[[Request], Awaitable[AnalysisPrincipal]]
@@ -48,6 +55,7 @@ def create_app(
     analysis_dispatcher: AnalysisDispatcher | None = None,
     principal_provider: PrincipalProvider | None = None,
     yandex_auth_service: YandexAuthService | None = None,
+    leaderboard_service: LeaderboardService | None = None,
 ) -> FastAPI:
     """Создаёт HTTP-приложение с хранилищами и необязательным worker анализа."""
 
@@ -102,6 +110,7 @@ def create_app(
     app.state.analysis_dispatcher = effective_analysis_dispatcher
     app.state.principal_provider = effective_principal_provider
     app.state.yandex_auth_service = yandex_auth_service
+    app.state.leaderboard_service = leaderboard_service
 
     @app.get("/health", tags=["system"])
     async def health() -> dict[str, str]:
@@ -114,6 +123,39 @@ def create_app(
         """Возвращает endpoint с префиксом API для proxy frontend."""
 
         return {"status": "ok"}
+
+    @app.get("/api/v1/leaderboard", tags=["leaderboard"])
+    async def get_leaderboard(
+        language: str | None = None,
+        search: str | None = None,
+        sort: LeaderboardSort = LeaderboardSort.SCORE,
+        include_preliminary: bool = Query(default=False, alias="includePreliminary"),
+        page: int = Query(default=1, ge=1),
+        page_size: int = Query(default=15, ge=1, le=100, alias="pageSize"),
+    ) -> dict[str, object]:
+        """Возвращает публичный рейтинг одной текущей версии методики."""
+
+        if leaderboard_service is None:
+            raise HTTPException(status_code=503, detail="Leaderboard is not configured.")
+        try:
+            result = await leaderboard_service.get_page(
+                filters=LeaderboardFilters(language=language, search=search),
+                sort=sort,
+                page=page,
+                page_size=page_size,
+            )
+        except SourceCraftRepositoryUnavailableError as error:
+            raise HTTPException(
+                status_code=503,
+                detail="SourceCraft repository catalog is unavailable.",
+            ) from error
+        except (TypeError, ValueError) as error:
+            raise HTTPException(
+                status_code=503,
+                detail="Leaderboard data is unavailable.",
+            ) from error
+
+        return _leaderboard_page_payload(result, include_preliminary=include_preliminary)
 
     @app.get("/api/v1/methodology", tags=["methodology"])
     async def get_methodology() -> dict[str, object]:
@@ -271,6 +313,63 @@ def create_app(
         return PlainTextResponse(snapshot.markdown, media_type="text/markdown")
 
     return app
+
+
+def _leaderboard_page_payload(
+    result: LeaderboardPage,
+    *,
+    include_preliminary: bool,
+) -> dict[str, object]:
+    return {
+        "items": [_leaderboard_row_payload(row) for row in result.entries],
+        "preliminary": (
+            [_leaderboard_row_payload(row) for row in result.preliminary_entries]
+            if include_preliminary
+            else []
+        ),
+        "total": result.total,
+        "preliminaryTotal": result.preliminary_total,
+        "page": result.page,
+        "pageSize": result.page_size,
+        "languages": [{"name": facet.name, "count": facet.count} for facet in result.languages],
+        "updatedAt": _format_timestamp(result.updated_at),
+        "pendingCount": result.pending_count,
+        "methodologyVersion": result.methodology_version,
+    }
+
+
+def _leaderboard_row_payload(row: LeaderboardPageRow) -> dict[str, object]:
+    projection = row.projection
+    repository = projection.repository
+    return {
+        "place": row.rank,
+        "analysisId": projection.analysis_id,
+        "repository": {
+            "id": repository.repository_id,
+            "organizationSlug": repository.organization_slug,
+            "repositorySlug": repository.repository_slug,
+            "name": repository.name,
+            "url": repository.url,
+            "description": repository.description,
+            "language": repository.language,
+        },
+        "score": projection.score,
+        "coverage": projection.coverage,
+        "isPreliminary": projection.is_preliminary,
+        "scoreLimited": projection.score_limited,
+        "likes": repository.likes,
+        "lastActivityAt": _format_timestamp(repository.last_activity_at),
+        "analyzedAt": _format_timestamp(projection.analyzed_at),
+        "categories": [
+            {
+                "code": category.code,
+                "label": category.label,
+                "status": category.status,
+                "score": category.score,
+            }
+            for category in projection.categories
+        ],
+    }
 
 
 def _require_yandex_auth(auth: YandexAuthService | None) -> YandexAuthService:
