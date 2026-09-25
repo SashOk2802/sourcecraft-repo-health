@@ -5,11 +5,16 @@ from __future__ import annotations
 from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, Self
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
 import httpx
 
 _SOURCECRAFT_API_HOST = "api.sourcecraft.tech"
+
+# REST API принимает Bearer-PAT только на api.sourcecraft.tech. Git-клоны
+# дополнительно разрешены для официального sourcecraft.dev; этот набор используют
+# только resolve_git_clone_url, чтобы web_url не мог подменить host назначения.
+_SOURCECRAFT_GIT_HOSTS = frozenset({_SOURCECRAFT_API_HOST, "sourcecraft.dev"})
 
 
 class SourceCraftClientError(RuntimeError):
@@ -57,6 +62,9 @@ class SourceCraftClient:
 
     Токен передаётся только в HTTP-заголовке, только на официальный HTTPS-host
     SourceCraft и не включается в тексты исключений. Redirect не допускаются.
+    Тот же токен используется для аутентификации git-операций с каталогом
+    SourceCraft (см. ``resolve_git_clone_url``): credential path один и тот же,
+    новый механизм секретов не вводится.
     """
 
     def __init__(
@@ -79,6 +87,10 @@ class SourceCraftClient:
             base_url=base_url,
             timeout=timeout_seconds,
             follow_redirects=False,
+            # Bearer-PAT нельзя отправлять через proxy и доверять CA из
+            # переменных окружения процесса. Для SourceCraft используем только
+            # системную цепочку сертификатов и прямое HTTPS-соединение.
+            trust_env=False,
         )
 
     def close(self) -> None:
@@ -97,6 +109,46 @@ class SourceCraftClient:
         traceback: TracebackType | None,
     ) -> None:
         self.close()
+
+    @staticmethod
+    def resolve_git_clone_url(
+        organization_slug: str,
+        repository_slug: str,
+        web_url: str | None,
+    ) -> str:
+        """Возвращает URL git-remota для клонирования репозитория.
+
+        Git-хост выводится из каталога SourceCraft (host страницы репозитория),
+        а не придумывается заново; аутентификация — тот же Bearer-PAT клиента,
+        который git получает через ``http.extraheader`` (см. LocalGitRepository).
+        Если каталог не отдал страницу, используется официальный API-host.
+        Хост из web_url не доверяется вслепую: он обязан входить в
+        ``_SOURCECRAFT_GIT_HOSTS``, иначе URL клона не конструируется вовсе.
+        Метод чистый и не требует экземпляра клиента: сам URL секретов не несёт.
+        """
+
+        parsed = urlsplit(web_url or "")
+        if not web_url:
+            host = _SOURCECRAFT_API_HOST
+        else:
+            try:
+                is_allowed = (
+                    parsed.scheme == "https"
+                    and parsed.hostname in _SOURCECRAFT_GIT_HOSTS
+                    and parsed.port in (None, 443)
+                    and parsed.username is None
+                    and parsed.password is None
+                )
+            except ValueError:
+                is_allowed = False
+            if not is_allowed:
+                raise SourceCraftRequestError(
+                    "SourceCraft git clone URL must use an official SourceCraft host"
+                )
+            host = parsed.hostname
+        org = quote(organization_slug, safe="")
+        slug = quote(repository_slug, safe="")
+        return f"https://{host}/{org}/{slug}.git"
 
     def get_json(
         self,

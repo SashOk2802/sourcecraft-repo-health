@@ -7,7 +7,8 @@ AnalysisPrincipal и AnalysisContext секретов не хранят. Вла�
 
 Токен — это Bearer, который прислал сам вызывающий. Переменная окружения
 процесса здесь не читается: иначе приватный репозиторий открылся бы сервисным
-токеном от имени любого клиента.
+токеном от имени любого клиента. Вход процесса этот модуль не собирает:
+рабочее приложение пускает только public-репозитории из каталога.
 """
 
 from __future__ import annotations
@@ -108,9 +109,9 @@ class SourceCraftRepositoryContextResolver:
     """Проверяет доступ токеном вызывающего и собирает AnalysisContext.
 
     principal — subject сессии и с токеном не сравнивается. Доступ — это ответ
-    SourceCraft на чтение репозитория этим Bearer. Отказ 401 или 403 не создаёт
-    задание. Этот resolver не является входом процесса: рабочее приложение
-    пускает только public-репозитории из настроенного каталога.
+    SourceCraft на чтение репозитория этим Bearer, в том числе private, если
+    токен его видит. Отказ 401 или 403 не создаёт задание. Входом процесса
+    служит public-каталог в ``create_app()``, а не этот resolver.
     """
 
     def __init__(
@@ -238,7 +239,12 @@ def _commit_sha(
     if not default_branch.strip():
         raise RepositorySnapshotError("SourceCraft repository has no default branch")
 
-    params: dict[str, str | int] = {"page_size": _BRANCH_PAGE_SIZE}
+    # filter просит платформу отдать ветку по имени. Потолок страниц остаётся
+    # на случай, если ответ всё равно разбит на несколько страниц.
+    params: dict[str, str | int] = {
+        "page_size": _BRANCH_PAGE_SIZE,
+        "filter": default_branch,
+    }
     seen_page_tokens: set[str] = set()
     for _page in range(_BRANCH_MAX_PAGES):
         payload = _read_object(client, f"{repository_path}/branches", params=params)

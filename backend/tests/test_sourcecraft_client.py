@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
 import httpx
 
@@ -17,6 +18,18 @@ from backend.app.integrations.sourcecraft import (
 
 class SourceCraftClientTest(unittest.TestCase):
     """Проверяет клиента без сети через искусственный HTTP transport."""
+
+    def test_owned_client_ignores_proxy_and_ca_environment(self) -> None:
+        with patch("backend.app.integrations.sourcecraft.httpx.Client") as factory:
+            client = SourceCraftClient("test-token", timeout_seconds=15)
+
+        factory.assert_called_once_with(
+            base_url="https://api.sourcecraft.tech",
+            timeout=15,
+            follow_redirects=False,
+            trust_env=False,
+        )
+        client.close()
 
     def test_get_json_sends_bearer_token_and_returns_object(self) -> None:
         secret_token = "token-that-must-not-appear-in-errors"

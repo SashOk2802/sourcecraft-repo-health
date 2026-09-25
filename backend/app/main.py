@@ -27,6 +27,7 @@ from backend.app.analysis import (
     normalize_analysis_id,
 )
 from backend.app.analysis.dispatch import AnalysisPrincipal
+from backend.app.analysis.providers import sourcecraft_analyzer_provider
 from backend.app.analyzers.registration import project_life_analyzer_provider
 from backend.app.contracts import AnalysisContext
 from backend.app.identity import (
@@ -36,6 +37,10 @@ from backend.app.identity import (
     create_yandex_auth_service_from_environment,
 )
 from backend.app.integrations.sourcecraft import SourceCraftClient
+from backend.app.integrations.sourcecraft_repository import (
+    SourceCraftRepositoryUnavailableError,
+    create_sourcecraft_public_repository_resolver_from_environment,
+)
 from backend.app.launch import (
     AnalysisLaunchError,
     SourceCraftRepositoryContextResolver,
@@ -69,6 +74,9 @@ def create_app(
     effective_principal_provider = principal_provider or _yandex_principal_provider(
         yandex_auth_service,
     )
+    effective_analysis_dispatcher = analysis_dispatcher
+    if effective_analysis_dispatcher is None and analysis_store is None and job_store is None:
+        effective_analysis_dispatcher = _create_default_analysis_dispatcher(store, jobs)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -84,13 +92,13 @@ def create_app(
             if yandex_auth_service is not None:
                 await yandex_auth_service.start()
                 auth_started = True
-            if analysis_dispatcher is not None:
-                await analysis_dispatcher.start()
+            if effective_analysis_dispatcher is not None:
+                await effective_analysis_dispatcher.start()
                 dispatcher_started = True
             yield
         finally:
             if dispatcher_started:
-                await analysis_dispatcher.close()
+                await effective_analysis_dispatcher.close()
             if auth_started:
                 await yandex_auth_service.close()
             if jobs_started:
@@ -106,9 +114,10 @@ def create_app(
     )
     app.state.analysis_store = store
     app.state.analysis_job_store = jobs
-    app.state.analysis_dispatcher = analysis_dispatcher
+    app.state.analysis_dispatcher = effective_analysis_dispatcher
     app.state.principal_provider = effective_principal_provider
     app.state.yandex_auth_service = yandex_auth_service
+    app.state.binds_caller_sourcecraft_token = bind_sourcecraft_token
 
     @app.get("/health", tags=["system"])
     async def health() -> dict[str, str]:
@@ -210,7 +219,7 @@ def create_app(
 
         if not repository_id.strip():
             raise HTTPException(status_code=422, detail="Repository id must not be empty.")
-        if analysis_dispatcher is None:
+        if effective_analysis_dispatcher is None:
             raise HTTPException(
                 status_code=503,
                 detail="Analysis dispatch is not configured.",
@@ -238,7 +247,12 @@ def create_app(
                     detail="Authentication required.",
                 ) from error
             try:
-                job = await analysis_dispatcher.submit(repository_id, principal)
+                job = await effective_analysis_dispatcher.submit(repository_id, principal)
+            except SourceCraftRepositoryUnavailableError as error:
+                raise HTTPException(
+                    status_code=503,
+                    detail="SourceCraft repository catalog is unavailable.",
+                ) from error
             except LookupError as error:
                 raise HTTPException(status_code=404, detail="Repository not found.") from error
             except AnalysisLaunchError as error:
@@ -252,8 +266,6 @@ def create_app(
             except ValueError as error:
                 raise HTTPException(status_code=422, detail="Invalid analysis request.") from error
             return _analysis_job_status_payload(job, snapshot=None)
-        except (PermissionError, ValueError) as error:
-            raise HTTPException(status_code=401, detail="Authentication required.") from error
         finally:
             clear_request_token()
 
@@ -301,10 +313,11 @@ def create_sourcecraft_app(
     principal_provider: PrincipalProvider | None = None,
     yandex_auth_service: YandexAuthService | None = None,
 ) -> FastAPI:
-    """Собирает диспетчер SourceCraft. Владелец запуска — principal сессии.
+    """Явный пользовательский запуск Activity и Issues токеном вызывающего.
 
-    Bearer нужен только как токен SourceCraft и в subject не копируется.
-    `create_app()` без этих аргументов по-прежнему отвечает 503.
+    Это не вход процесса. Рабочее приложение — `create_app()`: оно берёт
+    public-каталог и все шесть категорий, а сервисный токен не открывает
+    private/internal. Bearer здесь не копируется в subject.
     """
 
     store = analysis_store or _default_analysis_store()
@@ -364,6 +377,30 @@ def _yandex_principal_provider(
         return AnalysisPrincipal(user.id)
 
     return provide
+
+
+def _create_default_analysis_dispatcher(
+    store: AnalysisStore,
+    jobs: AnalysisJobStore,
+) -> AnalysisDispatcher | None:
+    """Создаёт production worker только для явно настроенного public-каталога.
+
+    Личные SourceCraft-подключения собирает `create_sourcecraft_app()`. Пока
+    каталог не сконфигурирован, endpoint остаётся fail-closed с 503; сервисный
+    токен не используется для private/internal репозиториев.
+    """
+
+    resolver = create_sourcecraft_public_repository_resolver_from_environment()
+    if resolver is None:
+        return None
+    return InProcessAnalysisDispatcher(
+        execution_service=AnalysisExecutionService(
+            job_store=jobs,
+            snapshot_store=store,
+        ),
+        context_resolver=resolver,
+        analyzer_provider=sourcecraft_analyzer_provider,
+    )
 
 
 def _default_analysis_store() -> AnalysisStore:
@@ -491,7 +528,7 @@ def _format_timestamp(value: datetime | None) -> str | None:
     return value.isoformat().replace("+00:00", "Z")
 
 
-app = create_sourcecraft_app(
+app = create_app(
     yandex_auth_service=create_yandex_auth_service_from_environment(
         os.getenv("DATABASE_URL"),
     ),

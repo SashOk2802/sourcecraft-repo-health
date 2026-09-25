@@ -64,8 +64,9 @@ Bearer SourceCraft в этом запросе и не сверяет его с s
 403 — `403`. Нет сессии — `401` с текстом `Authentication required.`. Нет Bearer
 на пользовательском запуске — `401` с текстом `SourceCraft token is required.`.
 Отклонённый токен SourceCraft — `401` с текстом `SourceCraft rejected the token.`.
-Ограничение частоты — `429`, непригодный снимок, включая чужой id репозитория,
-— `502`, недоступный SourceCraft — `503`.
+Ограничение частоты — `429`,
+непригодный снимок, включая чужой id репозитория, — `502`, недоступный
+SourceCraft — `503`.
 
 `GET /api/v1/analyses/{analysis_id}` даёт frontend возможность опрашивать
 queued, running и terminal-состояния.
@@ -79,18 +80,23 @@ FastAPI. Он получает авторизованный контекст р�
 блокирует event loop и endpoint состояния продолжает отвечать.
 
 `create_app()` без dispatcher и без аутентификации отвечает `503`. Рабочий
-процесс собирает `create_sourcecraft_app()` и передаёт в `create_app` одни и
-те же хранилища, `InProcessAnalysisDispatcher`, resolver и principal provider.
+процесс вызывает `create_app()`: при заданных `SOURCECRAFT_TOKEN` и
+`SOURCECRAFT_PUBLIC_ORGANIZATIONS` он ставит public-resolver и все шесть
+категорий. Private и internal этот путь не анализирует, даже если сервисный
+токен их видит. `create_sourcecraft_app()` остаётся отдельной сборкой
+пользовательского Bearer для Activity и Issues и входом процесса не является.
 Жизненный цикл FastAPI сам вызывает `dispatcher.start()` и `dispatcher.close()`.
 
-Principal — это `user.id` сессии Яндекс ID. `Authorization: Bearer` несёт только
-токен SourceCraft и в subject не копируется. `SourceCraftRepositoryContextResolver`
-проверяет, что Bearer привязан к запросу, затем читает `GET /repos/id:{repository_id}`
-и commit ветки по умолчанию, не больше 100 страниц. Период анализа — 180 дней. Сервисный токен
-процесса для этого пути не используется.
+Principal — это `user.id` сессии Яндекс ID. На пользовательском пути
+`Authorization: Bearer` несёт только токен SourceCraft и в subject не копируется.
+`SourceCraftRepositoryContextResolver` проверяет, что Bearer привязан к запросу,
+затем читает `GET /repos/id:{repository_id}` и commit ветки по умолчанию:
+`filter` по имени ветки и не больше 100 страниц. Период анализа — 180 дней.
+Сервисный токен процесса для этого пути не используется.
 
-К запуску подключены категории activity и issues. Остальные категории ядро
-помечает `analyzer_not_configured`, пока их реализации не зарегистрируют.
+На пользовательском пути подключены категории activity и issues. Рабочий
+процесс регистрирует все шесть категорий. Незарегистрированная категория
+по-прежнему получает `analyzer_not_configured`.
 При переходе к отдельному worker или очереди нужно сохранить HTTP-контракт,
 передавать проверенный principal или безопасную ссылку на него и заменить
 recovery на requeue с устойчивой доставкой.

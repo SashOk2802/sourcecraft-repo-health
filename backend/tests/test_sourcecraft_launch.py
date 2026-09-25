@@ -440,12 +440,12 @@ class SourceCraftResolverTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             [query for path, query in zip(client.calls, client.queries, strict=True) if path == BRANCHES_BY_ID],
             [
-                {"page_size": 100},
-                {"page_size": 100, "page_token": "page-0"},
-                {"page_size": 100, "page_token": "page-1"},
-                {"page_size": 100, "page_token": "page-2"},
-                {"page_size": 100, "page_token": "page-3"},
-                {"page_size": 100, "page_token": "page-4"},
+                {"page_size": 100, "filter": "main"},
+                {"page_size": 100, "filter": "main", "page_token": "page-0"},
+                {"page_size": 100, "filter": "main", "page_token": "page-1"},
+                {"page_size": 100, "filter": "main", "page_token": "page-2"},
+                {"page_size": 100, "filter": "main", "page_token": "page-3"},
+                {"page_size": 100, "filter": "main", "page_token": "page-4"},
             ],
         )
 
@@ -467,8 +467,8 @@ class SourceCraftResolverTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             [query for path, query in zip(client.calls, client.queries, strict=True) if path == BRANCHES_BY_ID],
             [
-                {"page_size": 100},
-                {"page_size": 100, "page_token": "again"},
+                {"page_size": 100, "filter": "main"},
+                {"page_size": 100, "filter": "main", "page_token": "again"},
             ],
         )
         self.assertTrue(client.closed)
@@ -513,8 +513,8 @@ class SourceCraftResolverTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             [query for path, query in zip(client.calls, client.queries, strict=True) if path == BRANCHES_BY_ID],
             [
-                {"page_size": 100},
-                {"page_size": 100, "page_token": "page-0"},
+                {"page_size": 100, "filter": "main"},
+                {"page_size": 100, "filter": "main", "page_token": "page-0"},
             ],
         )
         self.assertTrue(client.closed)
@@ -698,6 +698,7 @@ class ProjectLifeHttpLaunchTest(unittest.IsolatedAsyncioTestCase):
         async with api_client(application) as client:
             response = await client.post(f"/api/v1/repositories/{REPOSITORY_ID}/analyses")
 
+        self.assertTrue(application.state.binds_caller_sourcecraft_token)
         self.assertEqual(response.status_code, 401)
         self.assertEqual(response.json(), {"detail": "SourceCraft token is required."})
 
@@ -842,6 +843,8 @@ class ProjectLifeHttpLaunchTest(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn(f"Bearer {SERVICE_TOKEN}", authorizations)
 
     async def test_process_app_does_not_analyze_without_a_session(self) -> None:
+        self.assertFalse(app.state.binds_caller_sourcecraft_token)
+
         async with api_client(app) as client:
             response = await client.post(f"/api/v1/repositories/{REPOSITORY_ID}/analyses")
 
@@ -849,6 +852,8 @@ class ProjectLifeHttpLaunchTest(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(response.status_code, 503)
         else:
             self.assertEqual(response.status_code, 401)
+            self.assertEqual(response.json(), {"detail": "Authentication required."})
+        self.assertNotEqual(response.json()["detail"], "SourceCraft token is required.")
         self.assertNotIn(REPOSITORY_ID, response.text)
 
     async def test_sourcecraft_denial_does_not_start_analysis(self) -> None:
