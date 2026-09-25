@@ -21,6 +21,8 @@ from backend.app.contracts import (
 from backend.app.integrations.git_repository import MAX_FILE_BYTES, LocalGitRepository
 
 CATEGORY_CODE = "code_health"
+DEFAULT_MAX_SOURCE_FILES = 20_000
+DEFAULT_MAX_TOTAL_SOURCE_BYTES = 50 * 1024 * 1024
 SUPPORTED_EXTENSIONS = frozenset({".py", ".js", ".ts", ".go", ".java", ".cpp", ".cs"})
 EXCLUDED_DIRECTORIES = frozenset({
     ".git", ".venv", "__pycache__", "build", "coverage", "dist", "generated", "node_modules", "vendor", "venv",
@@ -52,22 +54,54 @@ class CodeHealthFacts:
     fixme_count: int
     files_with_debt: int
     skipped_large_files: int
+    truncated: bool = False
+
+    def __post_init__(self) -> None:
+        counts = (
+            self.total_files,
+            self.todo_count,
+            self.fixme_count,
+            self.files_with_debt,
+            self.skipped_large_files,
+        )
+        if not all(isinstance(value, int) and not isinstance(value, bool) and value >= 0 for value in counts):
+            raise ValueError("code health counters must be non-negative integers")
+        if not isinstance(self.truncated, bool):
+            raise TypeError("code health truncated flag must be a boolean")
 
 
-def collect(repository: LocalGitRepository) -> CodeHealthFacts:
-    """Анализирует малые исходники, исключая vendor, generated и бинарные файлы."""
+def collect(
+    repository: LocalGitRepository,
+    *,
+    max_files: int = DEFAULT_MAX_SOURCE_FILES,
+    max_total_bytes: int = DEFAULT_MAX_TOTAL_SOURCE_BYTES,
+) -> CodeHealthFacts:
+    """Анализирует исходники в пределах явного бюджета файлов и байтов."""
+
+    if max_files < 1 or max_total_bytes < 1:
+        raise ValueError("code health resource limits must be positive")
 
     total = todos = fixmes = debt_files = skipped_large = 0
+    candidate_files = total_bytes = 0
+    truncated = False
     for relative_path in repository.iter_files(excluded_directories=EXCLUDED_DIRECTORIES):
         if Path(relative_path).suffix.lower() not in SUPPORTED_EXTENSIONS:
             continue
+        candidate_files += 1
+        if candidate_files > max_files:
+            truncated = True
+            break
         size = repository.file_size(relative_path)
         if size is None or size > MAX_FILE_BYTES:
             skipped_large += 1
             continue
+        if total_bytes + size > max_total_bytes:
+            truncated = True
+            break
         content = repository.read_file(relative_path)
         if content is None or "\x00" in content:
             continue
+        total_bytes += size
         total += 1
         markers = _MARKER.findall(_comments_only(content, Path(relative_path).suffix.lower()))
         todo = markers.count("TODO")
@@ -75,10 +109,26 @@ def collect(repository: LocalGitRepository) -> CodeHealthFacts:
         todos += todo
         fixmes += fixme
         debt_files += int(todo > 0 or fixme > 0)
-    return CodeHealthFacts(total, todos, fixmes, debt_files, skipped_large)
+    return CodeHealthFacts(total, todos, fixmes, debt_files, skipped_large, truncated)
 
 
 def evaluate(context: AnalysisContext, facts: CodeHealthFacts) -> CategoryResult:
+    if facts.truncated:
+        return CategoryResult(
+            category=CATEGORY_CODE,
+            status=DataStatus.INSUFFICIENT_SAMPLE,
+            score=None,
+            summary="Анализ исходного кода остановлен по лимиту ресурсов.",
+            reason="code_health_scan_limit_exceeded",
+            metrics=(
+                MetricResult(
+                    "partial_analyzed_files",
+                    facts.total_files,
+                    None,
+                    "Файлов проверено до достижения лимита",
+                ),
+            ),
+        )
     if facts.total_files == 0:
         return CategoryResult(
             CATEGORY_CODE, DataStatus.UNAVAILABLE, None,
