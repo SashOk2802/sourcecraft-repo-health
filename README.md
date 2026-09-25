@@ -53,6 +53,7 @@ compose.yaml         единый локальный запуск
 - [Миграции PostgreSQL](docs/database-migrations.md)
 - [Политика регулярного пересчёта](docs/scheduling-policy.md)
 - [Правила публичного рейтинга](docs/leaderboard-policy.md)
+- [Production-анализ SourceCraft](docs/sourcecraft-production-analysis.md)
 
 ## Работа в команде
 
