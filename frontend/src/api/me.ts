@@ -5,16 +5,37 @@ import { mockMyRepositories } from "./mocks/me";
 import { mockSession } from "./mocks/session";
 
 /*
- * Пользователь и его репозитории — предложение к docs/api-contract.md.
- * Вход через Яндекс ID выполняет backend: интерфейс только уводит на /api/v1/auth/yandex/start
- * и не видит токенов.
+ * Пользователь — docs/api-contract.md, «Вход через Яндекс ID»: GET /api/v1/me отдаёт
+ * { id, login }, без сессии — 401, если вход не настроен — 503. Вход выполняет backend:
+ * интерфейс только уводит на /api/v1/auth/yandex/start, после входа backend сам возвращает
+ * на /me/repositories. Токенов интерфейс не видит.
+ * Репозитории пользователя (/api/v1/me/repositories) — пока предложение к контракту.
  */
 
 export interface CurrentUser {
   id: string;
+  /** Как назвать пользователя в шапке: backend пока отдаёт только login. */
   displayName: string;
   login: string | null;
   avatarUrl: string | null;
+}
+
+/** Ответ GET /api/v1/me. Обязательны только id и login; остальное — на будущее. */
+export interface MePayload {
+  id: string;
+  login?: string | null;
+  displayName?: string | null;
+  avatarUrl?: string | null;
+}
+
+export function toCurrentUser(payload: MePayload): CurrentUser {
+  const login = payload.login?.trim() || null;
+  return {
+    id: payload.id,
+    login,
+    displayName: payload.displayName?.trim() || login || "Пользователь Яндекса",
+    avatarUrl: payload.avatarUrl ?? null,
+  };
 }
 
 export interface MyRepositoriesResponse {
@@ -50,7 +71,7 @@ export async function fetchCurrentUser(): Promise<CurrentUser | null> {
     return withMockDelay(mockSession.user(), 120);
   }
   try {
-    return await getJson<CurrentUser>("/api/v1/me");
+    return toCurrentUser(await getJson<MePayload>("/api/v1/me"));
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) return null;
     throw error;
