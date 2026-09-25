@@ -23,6 +23,8 @@ from backend.app.integrations.sourcecraft_repository import (
 )
 from backend.app.main import create_app
 
+COMMIT_SHA = "a" * 40
+
 
 class SourceCraftPublicRepositoryResolverTest(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
@@ -42,10 +44,32 @@ class SourceCraftPublicRepositoryResolverTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(context.repository.id, "repo-42")
         self.assertEqual(context.repository.organization_slug, "team")
         self.assertEqual(context.repository.repository_slug, "platform-api")
-        self.assertEqual(context.commit_sha, "main")
+        self.assertEqual(context.commit_sha, COMMIT_SHA)
         self.assertEqual(context.period_end, self.now)
         self.assertTrue(client.closed)
-        self.assertEqual(client.paths, ["/orgs/team/repos"])
+        self.assertEqual(
+            client.requests,
+            [
+                ("/orgs/team/repos", "repositories", None),
+                ("/repos/team/platform-api/branches", "branches", {"filter": "main"}),
+            ],
+        )
+
+    async def test_rejects_default_branch_without_full_commit_sha(self) -> None:
+        client = CatalogClient(
+            [repository_payload()],
+            branches=[{"name": "main", "commit": {"hash": "main"}}],
+        )
+        resolver = SourceCraftPublicRepositoryResolver(
+            SourceCraftPublicCatalogSettings("token", ("team",)),
+            client_factory=lambda _: client,
+            clock=lambda: self.now,
+        )
+
+        with self.assertRaisesRegex(SourceCraftRepositoryUnavailableError, "commit SHA"):
+            await resolver.resolve("repo-42", self.principal)
+
+        self.assertTrue(client.closed)
 
     async def test_rejects_private_repository_even_when_catalog_token_can_read_it(self) -> None:
         client = CatalogClient([repository_payload(visibility="private")])
@@ -170,6 +194,9 @@ class ProductionAnalysisWiringTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 202)
         self.assertEqual(response.json()["status"], "queued")
         self.assertEqual(resolver.calls, [("repo-42", AnalysisPrincipal("user-42"))])
+        snapshot = await store.get(response.json()["id"])
+        self.assertIsNotNone(snapshot)
+        self.assertEqual(snapshot.report["analysis"]["commitSha"], COMMIT_SHA)
 
     def test_sourcecraft_provider_registers_every_category(self) -> None:
         registrations = tuple(sourcecraft_analyzer_provider(analysis_context()))
@@ -181,9 +208,15 @@ class ProductionAnalysisWiringTest(unittest.IsolatedAsyncioTestCase):
 
 
 class CatalogClient:
-    def __init__(self, repositories: list[dict[str, object]]) -> None:
+    def __init__(
+        self,
+        repositories: list[dict[str, object]],
+        *,
+        branches: list[dict[str, object]] | None = None,
+    ) -> None:
         self._repositories = repositories
-        self.paths: list[str] = []
+        self._branches = branches or [{"name": "main", "commit": {"hash": COMMIT_SHA}}]
+        self.requests: list[tuple[str, str, dict[str, str | int] | None]] = []
         self.closed = False
 
     def get_paginated_objects(
@@ -191,13 +224,22 @@ class CatalogClient:
         path: str,
         *,
         items_field: str,
+        params: dict[str, str | int] | None = None,
         page_size: int = 100,
         max_pages: int = 100,
     ) -> list[dict[str, object]]:
-        self.paths.append(path)
-        if items_field != "repositories" or page_size != 100:
-            raise AssertionError("unexpected SourceCraft catalog request")
-        return self._repositories
+        self.requests.append((path, items_field, dict(params) if params is not None else None))
+        if page_size != 100:
+            raise AssertionError("unexpected SourceCraft page size")
+        if items_field == "repositories" and path == "/orgs/team/repos" and params is None:
+            return self._repositories
+        if (
+            items_field == "branches"
+            and path == "/repos/team/platform-api/branches"
+            and params == {"filter": "main"}
+        ):
+            return self._branches
+        raise AssertionError("unexpected SourceCraft catalog request")
 
     def close(self) -> None:
         self.closed = True
@@ -209,6 +251,7 @@ class FailingCatalogClient:
         path: str,
         *,
         items_field: str,
+        params: dict[str, str | int] | None = None,
         page_size: int = 100,
         max_pages: int = 100,
     ) -> list[dict[str, object]]:
@@ -245,7 +288,7 @@ def analysis_context() -> AnalysisContext:
             repository_slug="platform-api",
             web_url="https://sourcecraft.dev/team/platform-api",
         ),
-        commit_sha="main",
+        commit_sha=COMMIT_SHA,
         analyzed_at=now,
         period_start=now,
         period_end=now,

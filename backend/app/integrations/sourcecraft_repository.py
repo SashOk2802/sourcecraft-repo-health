@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import os
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Protocol
@@ -20,6 +20,7 @@ from backend.app.integrations.sourcecraft import (
 )
 
 _SOURCECRAFT_SLUG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+_COMMIT_SHA = re.compile(r"^[0-9a-fA-F]{40}(?:[0-9a-fA-F]{24})?$")
 _PUBLIC_VISIBILITY = "public"
 _DEFAULT_PERIOD = timedelta(days=365)
 _ORGANIZATIONS_ENV = "SOURCECRAFT_PUBLIC_ORGANIZATIONS"
@@ -38,6 +39,7 @@ class SourceCraftCatalogClient(Protocol):
         path: str,
         *,
         items_field: str,
+        params: Mapping[str, str | int] | None = None,
         page_size: int = 100,
         max_pages: int = 100,
     ) -> list[dict[str, object]]:
@@ -115,6 +117,7 @@ class SourceCraftPublicRepositoryResolver:
         client = self._client_factory(self._settings.token)
         try:
             repository = self._find_repository(client, repository_id)
+            commit_sha = self._find_default_branch_head(client, repository)
         except SourceCraftClientError as error:
             raise SourceCraftRepositoryUnavailableError(
                 "SourceCraft repository catalog is unavailable"
@@ -134,9 +137,10 @@ class SourceCraftPublicRepositoryResolver:
         now = now.astimezone(UTC)
         return AnalysisContext(
             repository=repository.repository,
-            # Каталог гарантирует default_branch, который LocalGitRepository
-            # передаёт git как ref. Commit SHA появится после расширения API.
-            commit_sha=repository.default_branch,
+            # SHA считывается из ветки до запуска анализаторов. Дальше все
+            # операции с файлами используют этот неизменяемый commit SHA, а не
+            # подвижное имя default branch.
+            commit_sha=commit_sha,
             analyzed_at=now,
             period_start=now - self._analysis_period,
             period_end=now,
@@ -159,6 +163,35 @@ class SourceCraftPublicRepositoryResolver:
                     continue
                 return _parse_public_repository(payload, organization_slug)
         raise LookupError("SourceCraft repository was not found")
+
+    def _find_default_branch_head(
+        self,
+        client: SourceCraftCatalogClient,
+        repository: _ResolvedRepository,
+    ) -> str:
+        """Возвращает полный SHA текущей default branch из API SourceCraft."""
+
+        source = repository.repository
+        path = (
+            f"/repos/{quote(source.organization_slug, safe='')}"
+            f"/{quote(source.repository_slug, safe='')}/branches"
+        )
+        branches = client.get_paginated_objects(
+            path,
+            items_field="branches",
+            params={"filter": repository.default_branch},
+            page_size=100,
+        )
+        for branch in branches:
+            if branch.get("name") != repository.default_branch:
+                continue
+            commit = branch.get("commit")
+            if not isinstance(commit, dict):
+                break
+            return _required_commit_sha(commit.get("hash"))
+        raise SourceCraftRepositoryUnavailableError(
+            "SourceCraft default branch head is unavailable"
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -201,7 +234,7 @@ def _parse_public_repository(
             "SourceCraft repository web URL is invalid"
         ) from error
 
-    default_branch = _required_slug(payload.get("default_branch"), "default branch")
+    default_branch = _required_branch_name(payload.get("default_branch"))
     return _ResolvedRepository(
         repository=RepositoryRef(
             id=identifier,
@@ -248,6 +281,26 @@ def _required_slug(value: object, field_name: str) -> str:
     if not isinstance(value, str) or not _SOURCECRAFT_SLUG.fullmatch(value):
         raise SourceCraftRepositoryUnavailableError(f"SourceCraft {field_name} is invalid")
     return value
+
+
+def _required_branch_name(value: object) -> str:
+    """Проверяет имя ветки, передаваемое только как query-параметр API."""
+
+    if not isinstance(value, str) or not value.strip() or "\x00" in value:
+        raise SourceCraftRepositoryUnavailableError(
+            "SourceCraft repository default branch is invalid"
+        )
+    return value.strip()
+
+
+def _required_commit_sha(value: object) -> str:
+    """Принимает только полный SHA-1 либо SHA-256 без сокращений."""
+
+    if not isinstance(value, str) or not _COMMIT_SHA.fullmatch(value):
+        raise SourceCraftRepositoryUnavailableError(
+            "SourceCraft default branch commit SHA is invalid"
+        )
+    return value.lower()
 
 
 def _utc_now() -> datetime:

@@ -79,6 +79,10 @@ class SourceCraftClient:
             base_url=base_url,
             timeout=timeout_seconds,
             follow_redirects=False,
+            # Bearer-PAT нельзя отправлять через proxy и доверять CA из
+            # переменных окружения процесса. Для SourceCraft используем только
+            # системную цепочку сертификатов и прямое HTTPS-соединение.
+            trust_env=False,
         )
 
     def close(self) -> None:
