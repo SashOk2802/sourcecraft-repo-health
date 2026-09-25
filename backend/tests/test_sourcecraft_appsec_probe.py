@@ -8,6 +8,7 @@ from unittest.mock import Mock
 
 from backend.app.integrations.sourcecraft_appsec_probe import (
     APPSEC_ENGINES,
+    APPSEC_SAMPLE_LIMIT,
     AppSecProbeResult,
     SourceCraftAppSecCliProbe,
 )
@@ -150,6 +151,21 @@ class SourceCraftAppSecCliProbeTest(unittest.TestCase):
             AppSecProbeResult("SAST", "error", None, reason="synthetic-secret-marker")
         with self.assertRaisesRegex(ValueError, "unknown severity"):
             AppSecProbeResult("SAST", "available", 1, severities=("synthetic-secret-marker",))
+
+    def test_result_rejects_invalid_sample_count_and_severity_shape(self) -> None:
+        for count in (True, 1.5, "1"):
+            with self.subTest(count=count), self.assertRaises(TypeError):
+                AppSecProbeResult("SAST", "available", count)
+        with self.assertRaises(ValueError):
+            AppSecProbeResult("SAST", "available", APPSEC_SAMPLE_LIMIT + 1)
+        with self.assertRaises(TypeError):
+            AppSecProbeResult("SAST", "available", 1, severities=["HIGH"])
+        with self.assertRaises(TypeError):
+            AppSecProbeResult("SAST", "available", 1, severities=(1,))
+        with self.assertRaises(ValueError):
+            AppSecProbeResult("SAST", "available", 1, severities=("HIGH", "HIGH"))
+        with self.assertRaises(ValueError):
+            AppSecProbeResult("SAST", "available", 1, severities=("HIGH", "LOW"))
 
 
 def _runner(
