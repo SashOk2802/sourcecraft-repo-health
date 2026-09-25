@@ -71,6 +71,7 @@ export function mockMyRepositories(now = Date.now()): MyRepository[] | null {
           description: repository.description,
           language: repository.language,
           visibility: repository.visibility,
+          isEmpty: false,
         },
         lastAnalysis,
         activeAnalysisId: active?.id ?? null,

@@ -54,6 +54,7 @@ describe("toMyRepositories", () => {
           description: null,
           language: "Go",
           visibility: "public",
+          isEmpty: false,
         },
         lastAnalysis: {
           id: "analysis-1",
@@ -65,6 +66,34 @@ describe("toMyRepositories", () => {
         activeAnalysisId: null,
       },
     ]);
+  });
+
+  it("разбирает ответ из PR backend #55: repositories, url, isEmpty", () => {
+    // Пример из docs/api-contract.md ветки codex/restore-public-repository-api.
+    const { items } = toMyRepositories({
+      repositories: [
+        {
+          id: "repo-42",
+          organizationSlug: "team",
+          repositorySlug: "platform-api",
+          name: "team/platform-api",
+          url: "https://sourcecraft.dev/team/platform-api",
+          language: "Python",
+          isEmpty: false,
+        },
+        { id: "repo-43", organizationSlug: "team", repositorySlug: "draft", name: "team/draft", url: null, isEmpty: true },
+      ],
+    });
+    expect(items.map((item) => item.repository.id)).toEqual(["repo-42", "repo-43"]);
+    expect(items[0].repository).toMatchObject({
+      organizationSlug: "team",
+      repositorySlug: "platform-api",
+      url: "https://sourcecraft.dev/team/platform-api",
+      isEmpty: false,
+    });
+    // Пустой репозиторий: анализировать нечего, кабинет не предлагает запуск.
+    expect(items[1].repository.isEmpty).toBe(true);
+    expect(items[1].lastAnalysis).toBeNull();
   });
 
   it("понимает организацию объектом, slug и массив без обёртки", () => {

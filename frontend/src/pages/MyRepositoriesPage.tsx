@@ -295,7 +295,7 @@ function RepositoryRow({ item, starting, onStart }: RepositoryRowProps) {
           </Text>
         ) : lastAnalysis === null ? (
           <Text variant="body-1" color="secondary">
-            ещё не проверяли
+            {repository.isEmpty ? "пустой — нечего проверять" : "ещё не проверяли"}
           </Text>
         ) : lastAnalysis.status === "failed" || lastAnalysis.status === "cancelled" ? (
           <Text variant="body-1" color="danger">
@@ -337,7 +337,15 @@ function RepositoryRow({ item, starting, onStart }: RepositoryRowProps) {
                   Отчёт
                 </GravityLink>
               )}
-              <Button view={hasReport ? "outlined" : "action"} size="m" loading={starting} onClick={onStart}>
+              {/* В пустом репозитории нет ни одного коммита: SourceCraft не отдаст ветку, анализ не запустится. */}
+              <Button
+                view={hasReport ? "outlined" : "action"}
+                size="m"
+                loading={starting}
+                disabled={repository.isEmpty}
+                title={repository.isEmpty ? "В репозитории ещё нет коммитов" : undefined}
+                onClick={onStart}
+              >
                 {lastAnalysis === null ? "Проверить" : "Проверить снова"}
               </Button>
             </>
