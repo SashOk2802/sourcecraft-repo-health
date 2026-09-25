@@ -90,6 +90,29 @@ class FileAnalysisTest(unittest.TestCase):
         self.assertEqual((docs.status, docs.score), (DataStatus.MEASURED, 50.0))
         self.assertEqual((health.status, health.score), (DataStatus.MEASURED, 94.0))
 
+    def test_resource_limit_returns_insufficient_sample_instead_of_partial_score(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for index in range(3):
+                (root / f"file_{index}.py").write_text("# TODO\n", encoding="utf-8")
+            repository = LocalGitRepository(sourcecraft_clone_url("team", "service"))
+            repository.temp_dir = directory
+            facts = code_health.collect(repository, max_files=2)
+
+        self.assertTrue(facts.truncated)
+        self.assertEqual(facts.total_files, 2)
+        result = code_health.evaluate(self.context, facts)
+        self.assertEqual(result.status, DataStatus.INSUFFICIENT_SAMPLE)
+        self.assertIsNone(result.score)
+        self.assertEqual(result.reason, "code_health_scan_limit_exceeded")
+
+    def test_resource_limits_must_be_positive(self) -> None:
+        repository = LocalGitRepository(sourcecraft_clone_url("team", "service"))
+        with self.assertRaises(ValueError):
+            code_health.collect(repository, max_files=0)
+        with self.assertRaises(ValueError):
+            code_health.collect(repository, max_total_bytes=0)
+
     def test_empty_source_tree_is_unavailable(self) -> None:
         result = code_health.evaluate(self.context, code_health.CodeHealthFacts(0, 0, 0, 0, 0))
         self.assertEqual(result.status, DataStatus.UNAVAILABLE)
