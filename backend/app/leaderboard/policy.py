@@ -133,7 +133,9 @@ def build_leaderboard(
     )
 
     full_rows = _rank_full_candidates(version_candidates)
-    visible_full_rows = tuple(row for row in full_rows if _matches(row.candidate, effective_filters))
+    visible_full_rows = tuple(
+        row for row in full_rows if _matches(row.candidate, effective_filters)
+    )
     ordered_full_rows = _sort_rows(visible_full_rows, sort)
 
     preliminary_rows = tuple(
@@ -203,9 +205,8 @@ def _sort_rows(
 
 
 def _matches(candidate: LeaderboardCandidate, filters: LeaderboardFilters) -> bool:
-    if (
-        filters.language is not None
-        and (candidate.language is None or candidate.language.casefold() != filters.language.casefold())
+    if filters.language is not None and (
+        candidate.language is None or candidate.language.casefold() != filters.language.casefold()
     ):
         return False
     return filters.search is None or filters.search.casefold() in candidate.name.casefold()
