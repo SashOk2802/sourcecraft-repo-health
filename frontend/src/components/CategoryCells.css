@@ -1,0 +1,32 @@
+.category-cells {
+  display: inline-flex;
+  gap: 3px;
+  vertical-align: middle;
+}
+
+.category-cells__cell {
+  width: 10px;
+  height: 20px;
+  border-radius: 2px;
+  background: var(--rh-band-high);
+}
+
+.category-cells__cell_band_mid {
+  background: var(--rh-band-mid);
+}
+
+.category-cells__cell_band_low {
+  background: var(--rh-band-low);
+}
+
+.category-cells__cell_status_unavailable,
+.category-cells__cell_status_insufficient_sample,
+.category-cells__cell_status_error {
+  background: var(--rh-hatch);
+  box-shadow: inset 0 0 0 1px var(--g-color-line-generic);
+}
+
+.category-cells__cell_status_not_applicable {
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--g-color-line-generic);
+}

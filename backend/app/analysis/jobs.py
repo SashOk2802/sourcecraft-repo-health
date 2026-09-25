@@ -81,7 +81,7 @@ class AnalysisJob:
     ) -> AnalysisJob:
         """Создаёт задание, ожидающее обработчик.
 
-        owner_subject — несекретный отпечаток инициатора. Сырой Bearer сюда не кладётся.
+        owner_subject — subject сессии инициатора. Сырой Bearer сюда не кладётся.
         """
 
         _require_owner_subject(owner_subject)

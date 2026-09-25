@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import os
 import unittest
 from datetime import UTC, datetime, timedelta
@@ -26,9 +25,9 @@ from backend.app.launch import (
     AnalysisLaunchError,
     SourceCraftRepositoryContextResolver,
     _request_token,
+    bind_request_token,
     current_request_token,
     open_request_sourcecraft_client,
-    principal_from_authorization,
 )
 from backend.app.main import app, create_app, create_sourcecraft_app
 from backend.app.scoring.engine import CATEGORY_WEIGHTS
@@ -39,6 +38,8 @@ SECRET_EMAIL = "secret-author@example.com"
 SERVICE_TOKEN = "service-secret"
 USER_TOKEN = "user-pat"
 OTHER_TOKEN = "other-pat"
+OWNER_ID = "user-owner"
+OTHER_ID = "user-other"
 REPOSITORY_ID = "repo-42"
 REPOSITORY_BY_ID = f"/repos/id:{REPOSITORY_ID}"
 BRANCHES_BY_ID = f"{REPOSITORY_BY_ID}/branches"
@@ -48,13 +49,23 @@ UNREACHABLE_DATABASE = "postgresql+asyncpg://127.0.0.1:1/unused"
 
 def bound_principal(token: str = USER_TOKEN) -> AnalysisPrincipal:
     _request_token.set(token)
-    digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
-    return AnalysisPrincipal(f"token:{digest}")
+    return AnalysisPrincipal(_user_id(token))
+
+
+async def session_principal(request: Request) -> AnalysisPrincipal:
+    header = request.headers.get("authorization")
+    if header is None:
+        raise PermissionError("authentication required")
+    scheme, separator, credential = header.partition(" ")
+    if separator != " " or scheme.lower() != "bearer":
+        raise PermissionError("authentication required")
+    return AnalysisPrincipal(_user_id(credential))
 
 
 def isolated_sourcecraft_app(**kwargs: object):
     """Хранилища в памяти: CI задаёт DATABASE_URL, и тест не должен открывать PostgreSQL."""
 
+    kwargs.setdefault("principal_provider", session_principal)
     return create_sourcecraft_app(
         analysis_store=InMemoryAnalysisStore(),
         job_store=InMemoryAnalysisJobStore(),
@@ -205,9 +216,10 @@ class SourceCraftResolverTest(unittest.IsolatedAsyncioTestCase):
         client = ScriptedClient([repository_payload(repository_id="other-repo")])
         resolver = SourceCraftRepositoryContextResolver(lambda: client, clock=lambda: ANALYZED_AT)
 
-        with self.assertRaises(LookupError):
+        with self.assertRaises(AnalysisLaunchError) as raised:
             await resolver.resolve(REPOSITORY_ID, bound_principal())
 
+        self.assertEqual(raised.exception.status_code, 502)
         self.assertTrue(client.closed)
 
     async def test_rejected_token_is_unauthorized_and_closes_client(self) -> None:
@@ -277,16 +289,34 @@ class SourceCraftResolverTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(client.calls, [REPOSITORY_BY_ID, BRANCHES_BY_ID])
         self.assertTrue(client.closed)
 
-    async def test_mismatched_principal_does_not_call_sourcecraft(self) -> None:
-        client = ScriptedClient([repository_payload()])
+    async def test_session_subject_is_not_compared_with_the_token(self) -> None:
+        client = ScriptedClient(
+            [
+                repository_payload(is_empty=True),
+            ]
+        )
         _request_token.set(USER_TOKEN)
         resolver = SourceCraftRepositoryContextResolver(lambda: client, clock=lambda: ANALYZED_AT)
 
-        with self.assertRaises(PermissionError):
-            await resolver.resolve(REPOSITORY_ID, AnalysisPrincipal("token:someone-else"))
+        context = await resolver.resolve(REPOSITORY_ID, AnalysisPrincipal(OWNER_ID))
 
-        self.assertEqual(client.calls, [])
-        self.assertFalse(client.closed)
+        self.assertEqual(context.repository.id, REPOSITORY_ID)
+        self.assertEqual(client.calls, [REPOSITORY_BY_ID])
+        self.assertTrue(client.closed)
+
+    async def test_default_branch_is_found_after_five_pages(self) -> None:
+        pages: list[object] = [
+            {"branches": [branch(f"other-{index}", "b" * 40)], "next_page_token": f"page-{index}"}
+            for index in range(5)
+        ]
+        pages.append({"branches": [branch("main", COMMIT_SHA)], "next_page_token": ""})
+        client = ScriptedClient([repository_payload(), *pages])
+        resolver = SourceCraftRepositoryContextResolver(lambda: client, clock=lambda: ANALYZED_AT)
+
+        context = await resolver.resolve(REPOSITORY_ID, bound_principal())
+
+        self.assertEqual(context.commit_sha, COMMIT_SHA)
+        self.assertEqual(client.calls.count(BRANCHES_BY_ID), 6)
 
     async def test_opener_without_bound_token_does_not_call_sourcecraft(self) -> None:
         resolver = SourceCraftRepositoryContextResolver(
@@ -309,7 +339,7 @@ class SourceCraftResolverTest(unittest.IsolatedAsyncioTestCase):
             _request_token.set(None)
         self.assertTrue(pool.is_closed)
 
-    async def test_principal_stores_digest_instead_of_token(self) -> None:
+    def test_bound_token_is_not_copied_into_a_subject(self) -> None:
         request = Request(
             {
                 "type": "http",
@@ -317,18 +347,16 @@ class SourceCraftResolverTest(unittest.IsolatedAsyncioTestCase):
             }
         )
 
-        principal = await principal_from_authorization(request)
+        bind_request_token(request)
 
-        digest = hashlib.sha256(USER_TOKEN.encode("utf-8")).hexdigest()
-        self.assertEqual(principal.subject, f"token:{digest}")
-        self.assertNotIn(USER_TOKEN, principal.subject)
         self.assertEqual(current_request_token(), USER_TOKEN)
+        self.assertNotIn(USER_TOKEN, OWNER_ID)
 
     async def test_missing_bearer_is_rejected(self) -> None:
         request = Request({"type": "http", "headers": []})
 
         with self.assertRaises(PermissionError):
-            await principal_from_authorization(request)
+            bind_request_token(request)
 
 
 class ProjectLifeHttpLaunchTest(unittest.IsolatedAsyncioTestCase):
@@ -374,7 +402,7 @@ class ProjectLifeHttpLaunchTest(unittest.IsolatedAsyncioTestCase):
                 )
                 self.assert_launch(created, completed, report, authorizations, USER_TOKEN)
                 stored = await application.state.analysis_job_store.get("analysis-http-1")
-                self.assertEqual(stored.owner_subject, _token_subject(USER_TOKEN))
+                self.assertEqual(stored.owner_subject, OWNER_ID)
                 self.assertNotIn(USER_TOKEN, stored.owner_subject)
 
                 authorizations.clear()
@@ -483,24 +511,27 @@ class ProjectLifeHttpLaunchTest(unittest.IsolatedAsyncioTestCase):
                         path,
                         headers={"Authorization": f"Bearer {OTHER_TOKEN}"},
                     )
-                    self.assertEqual(response.status_code, 403)
-                    self.assertEqual(response.json(), {"detail": "Analysis access denied."})
+                    self.assertEqual(response.status_code, 404)
+                    self.assertEqual(response.json(), {"detail": "Analysis not found."})
                     self.assertNotIn("platform", response.text)
                     self.assertNotIn(COMMIT_SHA, response.text)
 
         self.assertEqual(created.status_code, 202)
         stored = await application.state.analysis_job_store.get("analysis-private")
-        self.assertEqual(stored.owner_subject, _token_subject(USER_TOKEN))
+        self.assertEqual(stored.owner_subject, OWNER_ID)
         self.assertNotIn(USER_TOKEN, stored.owner_subject or "")
 
-    async def test_process_app_requires_bearer(self) -> None:
+    async def test_process_app_does_not_analyze_without_a_session(self) -> None:
         self.assertIsNotNone(app.state.analysis_dispatcher)
-        self.assertIsNotNone(app.state.principal_provider)
 
         async with api_client(app) as client:
             response = await client.post(f"/api/v1/repositories/{REPOSITORY_ID}/analyses")
 
-        self.assertEqual(response.status_code, 401)
+        if app.state.principal_provider is None:
+            self.assertEqual(response.status_code, 503)
+        else:
+            self.assertEqual(response.status_code, 401)
+        self.assertNotIn(REPOSITORY_ID, response.text)
 
     async def test_sourcecraft_denial_does_not_start_analysis(self) -> None:
         authorizations: list[str] = []
@@ -666,9 +697,12 @@ def api_client(application: httpx.ASGITransport | object) -> httpx.AsyncClient:
     )
 
 
-def _token_subject(token: str) -> str:
-    digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
-    return f"token:{digest}"
+def _user_id(token: str) -> str:
+    if token == USER_TOKEN:
+        return OWNER_ID
+    if token == OTHER_TOKEN:
+        return OTHER_ID
+    raise PermissionError("authentication required")
 
 
 async def _wait_for_terminal_status(

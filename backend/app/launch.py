@@ -1,21 +1,18 @@
 """Сборка запуска: кто спрашивает, какой репозиторий и каким токеном.
 
-AnalysisPrincipal и AnalysisContext секретов не хранят. Токен SourceCraft живёт
-только в contextvar задачи запроса. Диспетчер копирует контекст в фоновую
-задачу, а asyncio.to_thread копирует его в поток collect. Resolver пускает
-запрос дальше только если отпечаток этого токена совпадает с principal.
+AnalysisPrincipal и AnalysisContext секретов не хранят. Владелец задания — subject
+сессии Яндекс ID. Токен SourceCraft живёт только в contextvar задачи запроса и
+нужен, чтобы прочитать репозиторий. Диспетчер копирует контекст в фоновую задачу,
+а asyncio.to_thread копирует его в поток collect.
 
 Токен — это Bearer, который прислал сам вызывающий. Переменная окружения
 процесса здесь не читается: иначе приватный репозиторий открылся бы сервисным
-токеном от имени любого клиента. Это не сессия Yandex ID. Когда она появится,
-principal provider нужно заменить, не подставляя сервисный токен.
+токеном от имени любого клиента.
 """
 
 from __future__ import annotations
 
 import asyncio
-import hashlib
-import hmac
 from collections.abc import Callable
 from contextvars import ContextVar
 from datetime import UTC, datetime, timedelta
@@ -39,7 +36,6 @@ from backend.app.integrations.sourcecraft import (
 # Контрольный период методик Activity и Issues: 180 дней до момента анализа.
 ANALYSIS_WINDOW = timedelta(days=180)
 _BRANCH_PAGE_SIZE = 100
-_MAX_BRANCH_PAGES = 5
 
 _request_token: ContextVar[str | None] = ContextVar("sourcecraft_request_token", default=None)
 
@@ -96,12 +92,10 @@ def build_request_opener(
 open_request_sourcecraft_client = build_request_opener()
 
 
-async def principal_from_authorization(request: Request) -> AnalysisPrincipal:
-    """Принимает Bearer вызывающего и оставляет в principal только отпечаток токена."""
+def bind_request_token(request: Request) -> None:
+    """Кладёт Bearer SourceCraft в contextvar. В principal и в отчёт он не входит."""
 
-    token = _bearer_token(request)
-    _request_token.set(token)
-    return AnalysisPrincipal(_token_subject(token))
+    _request_token.set(_bearer_token(request))
 
 
 class SourceCraftRepositoryContextResolver:
@@ -188,11 +182,6 @@ def _bearer_token(request: Request) -> str:
     return token
 
 
-def _token_subject(token: str) -> str:
-    digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
-    return f"token:{digest}"
-
-
 def _repository_by_id_path(repository_id: str) -> str:
     if not repository_id.strip():
         raise LookupError("repository id must not be empty")
@@ -204,7 +193,7 @@ def _repository_ref(
     payload: dict[object, object],
 ) -> tuple[RepositoryRef, str, bool]:
     if payload.get("id") != repository_id:
-        raise LookupError("repository id does not match the SourceCraft response")
+        raise RepositorySnapshotError("repository id does not match the SourceCraft response")
     organization = payload.get("organization")
     org_slug = organization.get("slug") if isinstance(organization, dict) else None
     repo_slug = payload.get("slug")
@@ -241,7 +230,8 @@ def _commit_sha(
         raise RepositorySnapshotError("SourceCraft repository has no default branch")
 
     params: dict[str, str | int] = {"page_size": _BRANCH_PAGE_SIZE}
-    for _page in range(_MAX_BRANCH_PAGES):
+    seen_page_tokens: set[str] = set()
+    while True:
         payload = _read_object(client, f"{repository_path}/branches", params=params)
         branches = payload.get("branches")
         if not isinstance(branches, list):
@@ -251,18 +241,21 @@ def _commit_sha(
             if digest is not None:
                 return digest
         next_token = payload.get("next_page_token") or ""
-        if not isinstance(next_token, str) or not next_token:
+        if not isinstance(next_token, str) or not next_token or next_token in seen_page_tokens:
             break
+        seen_page_tokens.add(next_token)
         params["page_token"] = next_token
     raise RepositorySnapshotError("default branch commit is unavailable")
 
 
 def _require_bound_principal(principal: AnalysisPrincipal) -> None:
-    """Сверяет отпечаток токена запроса с principal до любого вызова SourceCraft."""
+    """Не ходит в SourceCraft, пока у запроса нет своего Bearer.
 
-    token = current_request_token()
-    if not hmac.compare_digest(_token_subject(token), principal.subject):
-        raise PermissionError("request token does not match principal")
+    principal — subject сессии. Он не сравнивается с токеном и в клиент не попадает.
+    """
+
+    del principal
+    current_request_token()
 
 
 def _read_object(

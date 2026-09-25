@@ -32,11 +32,11 @@ SourceCraft. Реальные slug, идентификаторы и время �
 | Источник | Нужные данные | Наблюдавшийся способ | Пагинация | Статус данных | Готовность анализатора | Доказательство и следующий шаг |
 | --- | --- | --- | --- | --- | --- | --- |
 | Список репозиториев | ID, имя, приватность, ветка по умолчанию, язык, число веток | `src api orgs/{organization_slug}/repos` с доступом к приватному репозиторию | не проверено | measured | insufficient_sample | Fixture `repositories_page.json` сохраняет форму ответа. Пустой токен следующей страницы не доказывает обход второй страницы; не проверены также пустой ответ и ошибка. |
-| CI runs | Номер запуска, статус, тип события, время, workflow | `src api -X GET repos/{organization_slug}/{repository_slug}/cicd/runs -f page_size=1 --paginate` с доступом к приватному репозиторию | проверено на двух реальных страницах | measured | insufficient_sample | Fixture `ci_runs.json` сохраняет форму ответа. Не проверены пустой список и ошибка конкретного endpoint. |
-| CI config | Наличие конфигурации и путь | Проверочная ветка, файл `.sourcecraft/ci.yaml` | не применимо | measured | insufficient_sample | Конфигурация была прочитана только в проверочной ветке; fixture и обработка ошибки ещё не добавлены. |
-| SAST | ID finding, severity, статус, false positive, время, безопасное доказательство | `src appsec defect list -R {organization_slug}/{repository_slug} --type SAST`; ответ `null` | не проверено | unavailable | unavailable | Fixture `appsec_defects_null.json` и тест подтверждают преобразование `null` в `unavailable`. Для findings нужен подключённый AppSec-аддон и успешное сканирование. |
-| SCA | Зависимость, vulnerability, severity, статус | `src appsec defect list -R {organization_slug}/{repository_slug} --type SCA`; ответ `null` | не проверено | unavailable | unavailable | Не выводить нулевое число уязвимостей: нужны подключённый источник SCA и успешное сканирование. |
-| Secret scanning | Тип секрета, статус, время, безопасное доказательство | `src appsec defect list -R {organization_slug}/{repository_slug} --type SECRETS`; ответ `null` | не проверено | unavailable | unavailable | Никогда не сохранять само значение секрета или фрагмент кода с ним. Нужен доступный результат secret-scanning. |
+| CI runs | Номер запуска, статус, тип события, время, workflow | `src api -X GET repos/{organization_slug}/{repository_slug}/cicd/runs -f page_size=1 --paginate` с доступом к приватному репозиторию | проверено: три страницы с данными и отдельная пустая завершающая страница | measured | insufficient_sample | Получены ручные и автоматический `push`-запуск; все завершились успешно. API `id` был пустым, поэтому адаптер использует `slug` только внутри фактов и не раскрывает его. Автоматических запусков пока меньше пяти — Score честно не рассчитывается. |
+| CI config | Наличие конфигурации и путь | Файл `.sourcecraft/ci.yaml` в основной ветке тестового репозитория | не применимо | measured | insufficient_sample | Конфигурация уже запустила один автоматический `push` workflow. Для устойчивой оценки нужны ещё автоматические запуски и проверка ошибочного выполнения. |
+| SAST | Доступность, число элементов в выборке до 100, уровни критичности; сырые finding'и не сохраняются | `src appsec defect list --repo {organization_slug}/{repository_slug} --type SAST --limit 100 --json` через локально авторизованный CLI | не проверено: запрос ограничен 100 элементами, полнота результата и постраничный обход не подтверждены | measured | insufficient_sample | После подключения AppSec и контролируемого запуска получен непустой ответ. Fixture `appsec_sast_summary.json` сохраняет только безопасную агрегированную сводку; числовой score не рассчитывается. |
+| SCA | Зависимость, vulnerability, severity, статус | `src appsec defect list --repo {organization_slug}/{repository_slug} --type SCA --limit 100 --json`; ответ `null` | не проверено | unavailable | unavailable | Не выводить нулевое число уязвимостей: нужен доступный результат SCA-сканирования. |
+| Secret scanning | Тип секрета, статус, время, безопасное доказательство | `src appsec defect list --repo {organization_slug}/{repository_slug} --type SECRETS --limit 100 --json`; ответ `null` | не проверено | unavailable | unavailable | Никогда не сохранять само значение секрета или фрагмент кода с ним. Нужен доступный результат secret-scanning. |
 
 ## Единые состояния данных
 
@@ -61,14 +61,21 @@ SourceCraft. Реальные slug, идентификаторы и время �
   запусков CI;
 - `backend/tests/fixtures/sourcecraft/appsec_defects_null.json` — ответ
   `null` для отсутствующих AppSec-результатов.
+- `backend/tests/fixtures/sourcecraft/appsec_sast_summary.json` — безопасная
+  сводка наблюдавшегося непустого SAST-ответа: доступность, число элементов в
+  ограниченной выборке и уровни критичности. В ней нет имени репозитория,
+  идентификаторов finding'ов, путей, текста правил, фрагментов кода и секретов.
 
 Тест `backend/tests/test_sourcecraft_fixtures.py` проверяет, что эти файлы
-остаются корректным JSON, а `null` AppSec преобразуется в `unavailable`.
+остаются корректным JSON, `null` AppSec преобразуется в `unavailable`, а SAST
+fixture содержит только разрешённые агрегированные поля.
 
 ## Журнал проверок
 
 | Источник | Результат | Проверил |
 | --- | --- | --- |
 | Список репозиториев | Получен один приватный репозиторий; `next_page_token` пуст. Пагинация не проверена. | Артём Е. |
-| CI runs | Получены два последовательных ручных успешных запуска; при `page_size=1` API прошёл две страницы. | Артём Е. |
-| AppSec defects | Команды для SAST, SCA и SECRETS вернули `null`: статус источников — `unavailable`, а не ноль findings. | Артём Е. |
+| CI runs | Получены три успешных запуска: ручные и один автоматический `push`. При `page_size=1` API прошёл три страницы с данными и отдельную пустую завершающую страницу; реальные slug и время не сохранены. | Артём Е. |
+| CI config | Конфигурация из `.sourcecraft/ci.yaml` принята в основную ветку тестового репозитория; безопасный smoke push успешно запустил workflow. | Артём Е. |
+| SAST | После подключения AppSec и контролируемого запуска получен непустой ответ. В безопасную сводку вошли только доступность, число элементов в выборке и уровни критичности; это не итоговое число уязвимостей и не Security Score. | Артём Е. |
+| SCA и Secret scanning | Команды вернули `null`: статус источников — `unavailable`, а не ноль findings. | Артём Е. |

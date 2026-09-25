@@ -55,11 +55,11 @@ deadline для единовременного drain ownerless-заданий п
 `POST /api/v1/repositories/{repository_id}/analyses` принимает запрос только
 при настроенной аутентификации. HTTP-слой получает проверенный
 `AnalysisPrincipal` и передаёт его в dispatcher; в principal нет токенов и иных
-секретов, только отпечаток Bearer. Resolver обязан проверить этим principal
-доступ к репозиторию до создания задания. Если отпечаток токена не совпал с
-`principal.subject` или SourceCraft ответил 403, endpoint отвечает `403`. Отклонённый
-токен — `401`, ограничение частоты — `429`, непригодный снимок — `502`,
-недоступный SourceCraft — `503`.
+секретов: subject сессии Яндекс ID. Resolver до чтения репозитория требует
+Bearer SourceCraft в этом запросе и не сверяет его с subject. Отказ SourceCraft
+403 — `403`. Нет сессии или Bearer — `401`, ограничение частоты — `429`,
+непригодный снимок, включая чужой id репозитория, — `502`, недоступный
+SourceCraft — `503`.
 
 `GET /api/v1/analyses/{analysis_id}` даёт frontend возможность опрашивать
 queued, running и terminal-состояния.
@@ -77,9 +77,9 @@ FastAPI. Он получает авторизованный контекст р�
 те же хранилища, `InProcessAnalysisDispatcher`, resolver и principal provider.
 Жизненный цикл FastAPI сам вызывает `dispatcher.start()` и `dispatcher.close()`.
 
-Principal строится из `Authorization: Bearer`. В нём только отпечаток токена,
-не сам токен и не сессия Yandex ID. `SourceCraftRepositoryContextResolver`
-сверяет этот отпечаток с токеном запроса, затем читает `GET /repos/id:{repository_id}`
+Principal — это `user.id` сессии Яндекс ID. `Authorization: Bearer` несёт только
+токен SourceCraft и в subject не копируется. `SourceCraftRepositoryContextResolver`
+проверяет, что Bearer привязан к запросу, затем читает `GET /repos/id:{repository_id}`
 и commit ветки по умолчанию. Период анализа — 180 дней. Сервисный токен
 процесса для этого пути не используется.
 

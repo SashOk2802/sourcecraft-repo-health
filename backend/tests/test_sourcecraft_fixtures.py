@@ -9,6 +9,7 @@ from typing import Any
 
 from backend.app.analyzers.security import appsec_payload_status
 from backend.app.contracts import DataStatus
+from backend.app.integrations.sourcecraft_appsec_probe import AppSecProbeResult
 
 FIXTURES_DIRECTORY = Path(__file__).parent / "fixtures" / "sourcecraft"
 
@@ -43,6 +44,44 @@ class SourceCraftFixtureTest(unittest.TestCase):
 
         self.assertIsNone(payload)
         self.assertEqual(appsec_payload_status(payload), DataStatus.UNAVAILABLE)
+
+    def test_appsec_sast_summary_fixture_contains_only_safe_aggregate(self) -> None:
+        payload = load_fixture("appsec_sast_summary.json")
+
+        self.assertEqual(
+            set(payload),
+            {"engine", "availability", "finding_count", "severities", "reason"},
+        )
+        self.assertEqual(payload["engine"], "SAST")
+        self.assertEqual(payload["availability"], "available")
+        self.assertEqual(payload["finding_count"], 23)
+        self.assertEqual(payload["severities"], ["HIGH", "LOW", "MEDIUM"])
+        self.assertIsNone(payload["reason"])
+        self.assertEqual(appsec_payload_status(payload), DataStatus.MEASURED)
+
+        result = AppSecProbeResult(
+            engine=payload["engine"],
+            availability=payload["availability"],
+            finding_count=payload["finding_count"],
+            severities=tuple(payload["severities"]),
+            reason=payload["reason"],
+        )
+        self.assertEqual(result.as_dict(), payload)
+
+        serialized = repr(payload)
+        for forbidden_field in (
+            "repository",
+            "slug",
+            "path",
+            "file",
+            "snippet",
+            "description",
+            "message",
+            "secret",
+            "timestamp",
+        ):
+            with self.subTest(forbidden_field=forbidden_field):
+                self.assertNotIn(forbidden_field, serialized)
 
     def test_empty_appsec_findings_remain_measured(self) -> None:
         self.assertEqual(appsec_payload_status([]), DataStatus.MEASURED)

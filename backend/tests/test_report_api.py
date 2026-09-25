@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import hashlib
 import unittest
 from datetime import UTC, datetime
 
 import httpx
+from fastapi import Request
 
 from backend.app.analysis import (
     AnalysisJob,
@@ -14,12 +14,14 @@ from backend.app.analysis import (
     InMemoryAnalysisStore,
     run_analysis,
 )
+from backend.app.analysis.dispatch import AnalysisPrincipal
 from backend.app.contracts import AnalysisContext, CategoryResult, DataStatus, RepositoryRef
-from backend.app.launch import principal_from_authorization
 from backend.app.main import create_app
 
 OWNER_TOKEN = "report-owner-token"
 OTHER_TOKEN = "report-other-token"
+OWNER_ID = "user-owner"
+OTHER_ID = "user-other"
 PRIVATE_MARKERS = ("platform-api", "abc123", "team")
 
 
@@ -42,7 +44,7 @@ class ReportApiTest(unittest.IsolatedAsyncioTestCase):
                 analysis_id="analysis-42",
                 repository_id="repo-42",
                 created_at=timestamp,
-                owner_subject=_subject(OWNER_TOKEN),
+                owner_subject=OWNER_ID,
             )
         )
         await self.job_store.mark_running("analysis-42", timestamp)
@@ -55,7 +57,7 @@ class ReportApiTest(unittest.IsolatedAsyncioTestCase):
         self.app = create_app(
             analysis_store=self.store,
             job_store=self.job_store,
-            principal_provider=principal_from_authorization,
+            principal_provider=_session_principal,
         )
 
     async def test_returns_status_for_saved_analysis(self) -> None:
@@ -172,8 +174,8 @@ class ReportApiTest(unittest.IsolatedAsyncioTestCase):
                         path,
                         headers={"Authorization": f"Bearer {OTHER_TOKEN}"},
                     )
-                    self.assertEqual(response.status_code, 403)
-                    self.assertEqual(response.json(), {"detail": "Analysis access denied."})
+                    self.assertEqual(response.status_code, 404)
+                    self.assertEqual(response.json(), {"detail": "Analysis not found."})
                     self._assert_hides_private_report(response)
 
     def _assert_hides_private_report(self, response: httpx.Response) -> None:
@@ -183,9 +185,14 @@ class ReportApiTest(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn(OWNER_TOKEN, rendered)
 
 
-def _subject(token: str) -> str:
-    digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
-    return f"token:{digest}"
+async def _session_principal(request: Request) -> AnalysisPrincipal:
+    header = request.headers.get("authorization") or ""
+    token = header.removeprefix("Bearer ").strip()
+    if token == OWNER_TOKEN:
+        return AnalysisPrincipal(OWNER_ID)
+    if token == OTHER_TOKEN:
+        return AnalysisPrincipal(OTHER_ID)
+    raise PermissionError("authentication required")
 
 
 def registration(category: str, score: float) -> AnalyzerRegistration:

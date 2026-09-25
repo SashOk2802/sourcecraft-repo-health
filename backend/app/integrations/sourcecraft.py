@@ -133,6 +133,59 @@ class SourceCraftClient:
             raise SourceCraftResponseError("SourceCraft JSON must be an object, array or null")
         return payload
 
+    def get_paginated_objects(
+        self,
+        path: str,
+        *,
+        items_field: str,
+        params: Mapping[str, str | int] | None = None,
+        page_size: int = 100,
+        max_pages: int = 100,
+    ) -> list[dict[str, Any]]:
+        """Загружает страницы списка SourceCraft, следуя `next_page_token`.
+
+        Ограничение на число страниц и проверка повторного токена не позволяют
+        некорректному ответу платформы запустить бесконечный цикл запросов.
+        """
+
+        if not items_field:
+            raise ValueError("items_field must not be empty")
+        if page_size < 1:
+            raise ValueError("page_size must be positive")
+        if max_pages < 1:
+            raise ValueError("max_pages must be positive")
+
+        request_params = dict(params or {})
+        request_params["page_size"] = page_size
+        request_params.pop("page_token", None)
+        collected: list[dict[str, Any]] = []
+        seen_tokens: set[str] = set()
+
+        for _ in range(max_pages):
+            payload = self.get_json(path, params=request_params)
+            if not isinstance(payload, dict):
+                raise SourceCraftResponseError("SourceCraft paginated response must be an object")
+
+            items = payload.get(items_field)
+            if not isinstance(items, list) or not all(isinstance(item, dict) for item in items):
+                raise SourceCraftResponseError(
+                    f"SourceCraft paginated response must contain an array of objects in {items_field}"
+                )
+            collected.extend(items)
+
+            next_page_token = payload.get("next_page_token")
+            if next_page_token in (None, ""):
+                return collected
+            if not isinstance(next_page_token, str):
+                raise SourceCraftResponseError("SourceCraft next_page_token must be a string")
+            if next_page_token in seen_tokens:
+                raise SourceCraftResponseError("SourceCraft returned a repeated next_page_token")
+
+            seen_tokens.add(next_page_token)
+            request_params["page_token"] = next_page_token
+
+        raise SourceCraftResponseError("SourceCraft pagination exceeded the configured page limit")
+
     @staticmethod
     def _raise_for_status(response: httpx.Response) -> None:
         if response.is_redirect:

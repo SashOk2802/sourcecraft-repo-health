@@ -51,6 +51,8 @@ compose.yaml         единый локальный запуск
 - [Контракт API frontend ↔ backend](docs/api-contract.md)
 - [CI и тесты](docs/ci-testing-guide.md)
 - [Миграции PostgreSQL](docs/database-migrations.md)
+- [Политика регулярного пересчёта](docs/scheduling-policy.md)
+- [Правила публичного рейтинга](docs/leaderboard-policy.md)
 
 ## Работа в команде
 

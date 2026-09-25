@@ -10,7 +10,7 @@ from datetime import datetime
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, RedirectResponse, Response
 
 from backend.app.analysis import (
     AnalysisDispatcher,
@@ -29,14 +29,21 @@ from backend.app.analysis import (
 from backend.app.analysis.dispatch import AnalysisPrincipal
 from backend.app.analyzers.registration import project_life_analyzer_provider
 from backend.app.contracts import AnalysisContext
+from backend.app.identity import (
+    YandexAuthenticationError,
+    YandexAuthService,
+    YandexProviderError,
+    create_yandex_auth_service_from_environment,
+)
 from backend.app.integrations.sourcecraft import SourceCraftClient
 from backend.app.launch import (
     AnalysisLaunchError,
     SourceCraftRepositoryContextResolver,
+    bind_request_token,
     build_request_opener,
     clear_request_token,
-    principal_from_authorization,
 )
+from backend.app.scoring.methodology import build_methodology_payload
 
 PrincipalProvider = Callable[[Request], Awaitable[AnalysisPrincipal]]
 
@@ -47,6 +54,8 @@ def create_app(
     job_store: AnalysisJobStore | None = None,
     analysis_dispatcher: AnalysisDispatcher | None = None,
     principal_provider: PrincipalProvider | None = None,
+    yandex_auth_service: YandexAuthService | None = None,
+    bind_sourcecraft_token: bool = False,
 ) -> FastAPI:
     """Создаёт HTTP-приложение с хранилищами и необязательным worker анализа."""
 
@@ -57,19 +66,37 @@ def create_app(
         else _default_analysis_job_store()
     )
 
+    effective_principal_provider = principal_provider or _yandex_principal_provider(
+        yandex_auth_service,
+    )
+
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-        await store.start()
-        await jobs.start()
-        if analysis_dispatcher is not None:
-            await analysis_dispatcher.start()
+        store_started = False
+        jobs_started = False
+        auth_started = False
+        dispatcher_started = False
         try:
+            await store.start()
+            store_started = True
+            await jobs.start()
+            jobs_started = True
+            if yandex_auth_service is not None:
+                await yandex_auth_service.start()
+                auth_started = True
+            if analysis_dispatcher is not None:
+                await analysis_dispatcher.start()
+                dispatcher_started = True
             yield
         finally:
-            if analysis_dispatcher is not None:
+            if dispatcher_started:
                 await analysis_dispatcher.close()
-            await jobs.close()
-            await store.close()
+            if auth_started:
+                await yandex_auth_service.close()
+            if jobs_started:
+                await jobs.close()
+            if store_started:
+                await store.close()
 
     app = FastAPI(
         title="SourceCraft Repo Health",
@@ -80,7 +107,8 @@ def create_app(
     app.state.analysis_store = store
     app.state.analysis_job_store = jobs
     app.state.analysis_dispatcher = analysis_dispatcher
-    app.state.principal_provider = principal_provider
+    app.state.principal_provider = effective_principal_provider
+    app.state.yandex_auth_service = yandex_auth_service
 
     @app.get("/health", tags=["system"])
     async def health() -> dict[str, str]:
@@ -93,6 +121,81 @@ def create_app(
         """Возвращает endpoint с префиксом API для proxy frontend."""
 
         return {"status": "ok"}
+
+    @app.get("/api/v1/methodology", tags=["methodology"])
+    async def get_methodology() -> dict[str, object]:
+        """Возвращает публичное описание правил текущей версии Score."""
+
+        return build_methodology_payload()
+
+    @app.get("/api/v1/auth/yandex/start", tags=["authentication"])
+    async def start_yandex_login() -> RedirectResponse:
+        """Начинает Authorization Code + PKCE поток Яндекс ID."""
+
+        auth = _require_yandex_auth(yandex_auth_service)
+        return RedirectResponse(await auth.begin(), status_code=307)
+
+    @app.get("/api/v1/auth/yandex/callback", tags=["authentication"])
+    async def finish_yandex_login(
+        code: str | None = None,
+        state: str | None = None,
+        error: str | None = None,
+    ) -> Response:
+        """Завершает вход и выдаёт браузеру непрозрачную серверную сессию."""
+
+        auth = _require_yandex_auth(yandex_auth_service)
+        if error is not None or code is None or state is None:
+            await auth.cancel(state)
+            raise HTTPException(status_code=401, detail="Yandex authentication was not completed.")
+
+        try:
+            session_token, _ = await auth.complete(code, state)
+        except YandexAuthenticationError as auth_error:
+            raise HTTPException(
+                status_code=401,
+                detail="Yandex authentication was not completed.",
+            ) from auth_error
+        except YandexProviderError as provider_error:
+            raise HTTPException(
+                status_code=502,
+                detail="Yandex authentication provider is unavailable.",
+            ) from provider_error
+
+        response = RedirectResponse(auth.settings.success_redirect_path, status_code=303)
+        response.set_cookie(
+            key=auth.settings.cookie_name,
+            value=session_token,
+            max_age=int(auth.settings.session_ttl.total_seconds()),
+            httponly=True,
+            secure=auth.settings.cookie_secure,
+            samesite="lax",
+            path="/",
+        )
+        return response
+
+    @app.get("/api/v1/me", tags=["authentication"])
+    async def get_current_user(request: Request) -> dict[str, str]:
+        """Возвращает минимальный профиль текущей серверной сессии."""
+
+        auth = _require_yandex_auth(yandex_auth_service)
+        user = await _require_yandex_user(auth, request)
+        return {"id": user.id, "login": user.login}
+
+    @app.post("/api/v1/auth/logout", tags=["authentication"], status_code=204)
+    async def logout(request: Request) -> Response:
+        """Отзывает сессию на сервере и удаляет cookie у браузера."""
+
+        auth = _require_yandex_auth(yandex_auth_service)
+        await auth.logout(request.cookies.get(auth.settings.cookie_name))
+        response = Response(status_code=204)
+        response.delete_cookie(
+            key=auth.settings.cookie_name,
+            httponly=True,
+            secure=auth.settings.cookie_secure,
+            samesite="lax",
+            path="/",
+        )
+        return response
 
     @app.post(
         "/api/v1/repositories/{repository_id}/analyses",
@@ -112,21 +215,22 @@ def create_app(
                 status_code=503,
                 detail="Analysis dispatch is not configured.",
             )
-        if principal_provider is None:
+        if effective_principal_provider is None:
             raise HTTPException(
                 status_code=503,
                 detail="Analysis authentication is not configured.",
             )
 
         try:
-            principal = await principal_provider(request)
-        except (PermissionError, ValueError) as error:
-            raise HTTPException(
-                status_code=401,
-                detail="Authentication required.",
-            ) from error
-
-        try:
+            if bind_sourcecraft_token:
+                bind_request_token(request)
+            try:
+                principal = await effective_principal_provider(request)
+            except (PermissionError, ValueError) as error:
+                raise HTTPException(
+                    status_code=401,
+                    detail="Authentication required.",
+                ) from error
             try:
                 job = await analysis_dispatcher.submit(repository_id, principal)
             except LookupError as error:
@@ -142,8 +246,9 @@ def create_app(
             except ValueError as error:
                 raise HTTPException(status_code=422, detail="Invalid analysis request.") from error
             return _analysis_job_status_payload(job, snapshot=None)
+        except (PermissionError, ValueError) as error:
+            raise HTTPException(status_code=401, detail="Authentication required.") from error
         finally:
-            # Копия токена уже в фоновой задаче. На задаче запроса он больше не нужен.
             clear_request_token()
 
     @app.get("/api/v1/analyses/{analysis_id}", tags=["analyses"])
@@ -151,7 +256,7 @@ def create_app(
         """Возвращает состояние анализа только его владельцу."""
 
         normalized_id = _normalize_analysis_id(analysis_id)
-        job = await _authorized_job(request, jobs, principal_provider, normalized_id)
+        job = await _authorized_job(request, jobs, effective_principal_provider, normalized_id)
         snapshot = await store.get(normalized_id)
         return _analysis_job_status_payload(job, snapshot)
 
@@ -160,7 +265,7 @@ def create_app(
         """Возвращает JSON-отчёт только владельцу анализа."""
 
         normalized_id = _normalize_analysis_id(analysis_id)
-        await _authorized_job(request, jobs, principal_provider, normalized_id)
+        await _authorized_job(request, jobs, effective_principal_provider, normalized_id)
         snapshot = await _require_snapshot(store, normalized_id)
         return snapshot.report
 
@@ -173,7 +278,7 @@ def create_app(
         """Возвращает Markdown-отчёт только владельцу анализа."""
 
         normalized_id = _normalize_analysis_id(analysis_id)
-        await _authorized_job(request, jobs, principal_provider, normalized_id)
+        await _authorized_job(request, jobs, effective_principal_provider, normalized_id)
         snapshot = await _require_snapshot(store, normalized_id)
         return PlainTextResponse(snapshot.markdown, media_type="text/markdown")
 
@@ -187,11 +292,13 @@ def create_sourcecraft_app(
     http_client_factory: Callable[[], httpx.Client] | None = None,
     clock: Callable[[], datetime] | None = None,
     analysis_id_factory: Callable[[], str] | None = None,
+    principal_provider: PrincipalProvider | None = None,
+    yandex_auth_service: YandexAuthService | None = None,
 ) -> FastAPI:
-    """Собирает рабочее приложение: диспетчер, resolver и principal из Bearer.
+    """Собирает диспетчер SourceCraft. Владелец запуска — principal сессии.
 
-    `create_app()` без этих аргументов по-прежнему отвечает 503. Токен в сборку
-    не передаётся: его приносит заголовок Authorization конкретного запроса.
+    Bearer нужен только как токен SourceCraft и в subject не копируется.
+    `create_app()` без этих аргументов по-прежнему отвечает 503.
     """
 
     store = analysis_store or _default_analysis_store()
@@ -203,7 +310,6 @@ def create_sourcecraft_app(
     open_bound_client = build_request_opener(http_client_factory)
 
     def open_client(context: AnalysisContext) -> SourceCraftClient:
-        # Контекст запуска токена не содержит. Клиент открывается в потоке collect.
         del context
         return open_bound_client()
 
@@ -219,8 +325,39 @@ def create_sourcecraft_app(
         analysis_store=store,
         job_store=jobs,
         analysis_dispatcher=dispatcher,
-        principal_provider=principal_from_authorization,
+        principal_provider=principal_provider,
+        yandex_auth_service=yandex_auth_service,
+        bind_sourcecraft_token=True,
     )
+
+
+def _require_yandex_auth(auth: YandexAuthService | None) -> YandexAuthService:
+    if auth is None:
+        raise HTTPException(status_code=503, detail="Yandex authentication is not configured.")
+    return auth
+
+
+async def _require_yandex_user(
+    auth: YandexAuthService,
+    request: Request,
+):
+    try:
+        return await auth.require_user(request.cookies.get(auth.settings.cookie_name))
+    except PermissionError as error:
+        raise HTTPException(status_code=401, detail="Authentication required.") from error
+
+
+def _yandex_principal_provider(
+    auth: YandexAuthService | None,
+) -> PrincipalProvider | None:
+    if auth is None:
+        return None
+
+    async def provide(request: Request) -> AnalysisPrincipal:
+        user = await auth.require_user(request.cookies.get(auth.settings.cookie_name))
+        return AnalysisPrincipal(user.id)
+
+    return provide
 
 
 def _default_analysis_store() -> AnalysisStore:
@@ -243,7 +380,11 @@ async def _authorized_job(
     principal_provider: PrincipalProvider | None,
     analysis_id: str,
 ) -> AnalysisJob:
-    """Сверяет Bearer с несекретным subject задания. Без токена — 401, чужой — 403."""
+    """Сверяет subject сессии с владельцем задания.
+
+    Нет сессии — 401. Нет задания, пустой владелец и чужой subject отвечают
+    одним 404, чтобы id анализа не подтверждался.
+    """
 
     if principal_provider is None:
         raise HTTPException(
@@ -251,12 +392,9 @@ async def _authorized_job(
             detail="Analysis authentication is not configured.",
         )
     try:
-        try:
-            principal = await principal_provider(request)
-        except (PermissionError, ValueError) as error:
-            raise HTTPException(status_code=401, detail="Authentication required.") from error
-    finally:
-        clear_request_token()
+        principal = await principal_provider(request)
+    except (PermissionError, ValueError) as error:
+        raise HTTPException(status_code=401, detail="Authentication required.") from error
 
     job = await jobs.get(analysis_id)
     if job is None or not job.owner_subject:
@@ -265,7 +403,7 @@ async def _authorized_job(
         job.owner_subject.encode("utf-8"),
         principal.subject.encode("utf-8"),
     ):
-        raise HTTPException(status_code=403, detail="Analysis access denied.")
+        raise HTTPException(status_code=404, detail="Analysis not found.")
     return job
 
 
@@ -347,4 +485,8 @@ def _format_timestamp(value: datetime | None) -> str | None:
     return value.isoformat().replace("+00:00", "Z")
 
 
-app = create_sourcecraft_app()
+app = create_sourcecraft_app(
+    yandex_auth_service=create_yandex_auth_service_from_environment(
+        os.getenv("DATABASE_URL"),
+    ),
+)
