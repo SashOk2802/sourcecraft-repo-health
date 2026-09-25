@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Collection
 from dataclasses import asdict, dataclass, is_dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from threading import RLock
 from typing import TYPE_CHECKING, Protocol
@@ -26,6 +27,14 @@ class AnalysisSnapshot:
     markdown: str
 
 
+@dataclass(frozen=True, slots=True)
+class StoredAnalysisSnapshot:
+    """Снимок вместе с идентификатором, необходимым для перехода к отчёту."""
+
+    analysis_id: str
+    snapshot: AnalysisSnapshot
+
+
 class AnalysisStore(Protocol):
     """Получение и сохранение снимков анализов по их стабильному идентификатору."""
 
@@ -40,6 +49,12 @@ class AnalysisStore(Protocol):
 
     async def save(self, analysis_id: str, execution: AnalysisExecution) -> None:
         """Сохраняет новый неизменяемый снимок завершённого анализа."""
+
+    async def list_latest_for_repositories(
+        self,
+        repository_ids: Collection[str],
+    ) -> tuple[StoredAnalysisSnapshot, ...]:
+        """Возвращает последний снимок каждой пары «репозиторий + методика»."""
 
 
 class InMemoryAnalysisStore:
@@ -68,6 +83,22 @@ class InMemoryAnalysisStore:
             if normalized_id in self._snapshots:
                 raise ValueError("analysis_id already exists")
             self._snapshots[normalized_id] = snapshot
+
+    async def list_latest_for_repositories(
+        self,
+        repository_ids: Collection[str],
+    ) -> tuple[StoredAnalysisSnapshot, ...]:
+        identifiers = _normalize_repository_ids(repository_ids)
+        if not identifiers:
+            return ()
+
+        with self._lock:
+            snapshots = tuple(
+                StoredAnalysisSnapshot(analysis_id, _copy_snapshot(snapshot))
+                for analysis_id, snapshot in self._snapshots.items()
+                if _snapshot_repository_id(snapshot) in identifiers
+            )
+        return _latest_snapshots(snapshots)
 
 
 class PostgresAnalysisStore:
@@ -133,6 +164,34 @@ class PostgresAnalysisStore:
             )
         except asyncpg.UniqueViolationError as error:
             raise ValueError("analysis_id already exists") from error
+
+    async def list_latest_for_repositories(
+        self,
+        repository_ids: Collection[str],
+    ) -> tuple[StoredAnalysisSnapshot, ...]:
+        identifiers = _normalize_repository_ids(repository_ids)
+        if not identifiers:
+            return ()
+
+        rows = await self._require_pool().fetch(
+            """
+            SELECT analysis_id, report, markdown
+            FROM analysis_snapshots
+            WHERE report #>> '{repository,id}' = ANY($1::text[])
+            """,
+            list(identifiers),
+        )
+        snapshots = tuple(
+            StoredAnalysisSnapshot(
+                analysis_id=str(row["analysis_id"]),
+                snapshot=AnalysisSnapshot(
+                    report=_json_object(row["report"]),
+                    markdown=str(row["markdown"]),
+                ),
+            )
+            for row in rows
+        )
+        return _latest_snapshots(snapshots)
 
     @property
     def database_url(self) -> str:
@@ -230,6 +289,64 @@ class PostgresAnalysisStore:
         if self._pool is None:
             raise RuntimeError("Analysis store is not started.")
         return self._pool
+
+
+def _normalize_repository_ids(repository_ids: Collection[str]) -> frozenset[str]:
+    if not isinstance(repository_ids, Collection):
+        raise TypeError("repository_ids must be a collection of strings")
+    if len(repository_ids) > 10_000:
+        raise ValueError("repository_ids must contain at most 10000 values")
+
+    normalized: set[str] = set()
+    for repository_id in repository_ids:
+        if not isinstance(repository_id, str) or not repository_id.strip():
+            raise ValueError("repository_ids must contain nonblank strings")
+        normalized.add(repository_id.strip())
+    return frozenset(normalized)
+
+
+def _latest_snapshots(
+    snapshots: Collection[StoredAnalysisSnapshot],
+) -> tuple[StoredAnalysisSnapshot, ...]:
+    latest: dict[tuple[str, str], StoredAnalysisSnapshot] = {}
+    for stored_snapshot in snapshots:
+        key = (
+            _snapshot_repository_id(stored_snapshot.snapshot),
+            _snapshot_methodology_version(stored_snapshot.snapshot),
+        )
+        previous = latest.get(key)
+        if previous is None or _snapshot_order_key(stored_snapshot) > _snapshot_order_key(previous):
+            latest[key] = stored_snapshot
+    return tuple(latest[key] for key in sorted(latest))
+
+
+def _snapshot_repository_id(snapshot: AnalysisSnapshot) -> str:
+    return _snapshot_string(snapshot, "repository", "id")
+
+
+def _snapshot_methodology_version(snapshot: AnalysisSnapshot) -> str:
+    return _snapshot_string(snapshot, "analysis", "methodologyVersion")
+
+
+def _snapshot_order_key(stored_snapshot: StoredAnalysisSnapshot) -> tuple[datetime, str]:
+    timestamp = _snapshot_string(stored_snapshot.snapshot, "analysis", "analyzedAt")
+    try:
+        parsed = datetime.fromisoformat(timestamp)
+    except ValueError as error:
+        raise ValueError("stored snapshot analyzedAt must be an ISO timestamp") from error
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError("stored snapshot analyzedAt must include a timezone")
+    return parsed.astimezone(UTC), stored_snapshot.analysis_id
+
+
+def _snapshot_string(snapshot: AnalysisSnapshot, section: str, field: str) -> str:
+    container = snapshot.report.get(section)
+    if not isinstance(container, dict):
+        raise TypeError("stored snapshot report section must be an object")
+    value = container.get(field)
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError("stored snapshot report is invalid")
+    return value.strip()
 
 
 def _build_snapshot(execution: AnalysisExecution, analysis_id: str) -> AnalysisSnapshot:
