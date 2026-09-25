@@ -2,7 +2,6 @@ import { Alert, Button, Label, Link as GravityLink, Text, TextInput } from "@gra
 import { useState } from "react";
 
 import {
-  connectDemoSourceCraft,
   connectSourceCraft,
   disconnectSourceCraft,
   fetchSourceCraftConnection,
@@ -39,11 +38,12 @@ export function MyRepositoriesPage() {
             Мои репозитории
           </Text>
           <Text variant="body-2" color="secondary" className="page__lead">
-            Репозитории SourceCraft, к которым у вас есть доступ. Отчёты по закрытым видите только вы.
+            Репозитории SourceCraft, которые можно проверить: выберите нужный и запустите анализ.
           </Text>
           {demo && (
             <DemoNote className="my-repos__demo">
-              Демо-кабинет: вход и репозитории показаны на примере, настоящий токен SourceCraft не нужен.
+              Демо-кабинет: вход и репозитории показаны на примере. Когда на сервере настроен вход через Яндекс ID,
+              здесь настоящие репозитории SourceCraft.
             </DemoNote>
           )}
         </div>
@@ -53,7 +53,7 @@ export function MyRepositoriesPage() {
       {auth.status === "guest" && (
         <SignInInvite unavailable={auth.mode === "offline"} onSignIn={() => auth.signIn(paths.myRepositories())} />
       )}
-      {auth.status === "signedIn" && <ConnectedArea demo={demo} />}
+      {auth.status === "signedIn" && <ConnectedArea />}
     </div>
   );
 }
@@ -65,13 +65,12 @@ function SignInInvite({ unavailable, onSignIn }: { unavailable: boolean; onSignI
         Войдите через Яндекс ID
       </Text>
       <Text variant="body-2" color="secondary">
-        Яндекс ID подтверждает, кто вы. Чтобы мы увидели ваши репозитории, после входа нужно будет подключить
-        SourceCraft личным токеном.
+        Яндекс ID подтверждает, кто вы. После входа появится список репозиториев SourceCraft, которые можно
+        проверить.
       </Text>
       <ol className="my-repos__steps">
         <li>Войдите через Яндекс ID.</li>
-        <li>Подключите SourceCraft: токен уйдёт на сервер один раз и в браузер не вернётся.</li>
-        <li>Выберите репозиторий — открытый или закрытый — и запустите проверку.</li>
+        <li>Выберите репозиторий из списка и запустите проверку.</li>
         <li>Через пару минут получите оценку, объяснение и список действий.</li>
       </ol>
       <div className="my-repos__invite-actions">
@@ -88,38 +87,28 @@ function SignInInvite({ unavailable, onSignIn }: { unavailable: boolean; onSignI
   );
 }
 
-function ConnectedArea({ demo }: { demo: boolean }) {
+/*
+ * Сначала — список: на первом этапе это публичные репозитории из каталога сервиса, и подключать
+ * для них ничего не нужно. Подключение SourceCraft по токену откроет закрытые репозитории; его
+ * предлагаем, только если backend его поддерживает, и список им не загораживаем.
+ */
+function ConnectedArea() {
   const [state, reload] = useAsync(fetchSourceCraftConnection, []);
-  const connection = dataOf(state);
-
-  if (!connection) {
-    // Вход уже работает, а подключения SourceCraft к кабинету у backend ещё нет.
-    if (state.status === "error" && isRouteMissing(state.error)) {
-      return <CabinetPending />;
-    }
-    return state.status === "error" ? (
-      <ErrorNote title="Не удалось проверить подключение к SourceCraft" error={state.error} onRetry={reload} />
-    ) : (
-      <LoadingNote>Проверяем подключение к SourceCraft</LoadingNote>
-    );
-  }
-
-  if (!connection.connected) {
-    return <ConnectForm demo={demo} onConnected={reload} />;
-  }
+  const connection = dataOf(state) ?? null;
 
   return (
     <>
-      <ConnectionBar connection={connection} onDisconnected={reload} />
-      <RepositoryList />
+      {connection?.connected && <ConnectionBar connection={connection} onDisconnected={reload} />}
+      {connection && !connection.connected && <ConnectForm onConnected={reload} />}
+      <RepositoryList key={connection?.connected ? "with-connection" : "catalog"} />
     </>
   );
 }
 
 /**
- * Вход через Яндекс ID уже работает, а список репозиториев и подключение SourceCraft
- * к кабинету — ещё нет. Вместо ошибки — честное объяснение и то, что можно сделать уже сейчас:
- * backend проверяет публичные репозитории из своего каталога по идентификатору SourceCraft.
+ * Вход через Яндекс ID уже работает, а списка репозиториев у backend ещё нет. Вместо ошибки —
+ * честное объяснение и то, что можно сделать уже сейчас: backend проверяет публичные
+ * репозитории из своего каталога по идентификатору SourceCraft.
  */
 function CabinetPending() {
   const [repositoryId, setRepositoryId] = useState("");
@@ -132,9 +121,8 @@ function CabinetPending() {
         Вход выполнен, список репозиториев скоро появится
       </Text>
       <Text variant="body-2" color="secondary">
-        Вы вошли через Яндекс ID. Список ваших репозиториев SourceCraft и проверка закрытых появятся, когда сервис
-        подключит SourceCraft к кабинету. Уже сейчас можно проверить публичный репозиторий из каталога сервиса — по
-        его идентификатору в SourceCraft.
+        Вы вошли через Яндекс ID, а список репозиториев сервер пока не отдаёт. Пока его нет, публичный репозиторий из
+        каталога сервиса можно проверить по его идентификатору в SourceCraft.
       </Text>
 
       <form
@@ -179,7 +167,7 @@ function isRouteMissing(error: Error): boolean {
   return error instanceof ApiError && error.routeMissing;
 }
 
-function ConnectForm({ demo, onConnected }: { demo: boolean; onConnected: () => void }) {
+function ConnectForm({ onConnected }: { onConnected: () => void }) {
   const [token, setToken] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -188,8 +176,7 @@ function ConnectForm({ demo, onConnected }: { demo: boolean; onConnected: () => 
     setBusy(true);
     setError(null);
     try {
-      // В демо токен не спрашиваем: на стенде никто не должен вводить настоящий.
-      await (demo ? connectDemoSourceCraft() : connectSourceCraft(token));
+      await connectSourceCraft(token);
       setToken("");
       onConnected();
     } catch (reason) {
@@ -202,12 +189,12 @@ function ConnectForm({ demo, onConnected }: { demo: boolean; onConnected: () => 
   return (
     <section className="card my-repos__connect">
       <Text variant="subheader-2" as="h2">
-        Подключите SourceCraft
+        Закрытые репозитории — через подключение SourceCraft
       </Text>
       <Text variant="body-2" color="secondary">
-        Вход через Яндекс ID не даёт нам доступ к вашим репозиториям. Нужен личный токен SourceCraft: создайте его в
-        настройках профиля SourceCraft и вставьте сюда. Токен уходит на наш сервер один раз, хранится зашифрованно
-        и обратно в браузер не возвращается.
+        Открытые репозитории ниже проверяются и так. Чтобы проверить закрытые, нужен личный токен SourceCraft: вход
+        через Яндекс ID доступа к ним не даёт. Создайте токен в настройках профиля SourceCraft и вставьте сюда — он
+        уходит на наш сервер один раз, хранится зашифрованно и обратно в браузер не возвращается.
       </Text>
 
       <form
@@ -221,20 +208,14 @@ function ConnectForm({ demo, onConnected }: { demo: boolean; onConnected: () => 
           type="password"
           value={token}
           onUpdate={setToken}
-          placeholder={demo ? "В демо токен не нужен" : "Токен SourceCraft"}
+          placeholder="Токен SourceCraft"
           size="l"
           autoComplete="off"
           className="my-repos__token-input"
-          disabled={busy || demo}
+          disabled={busy}
         />
-        <Button
-          view="action"
-          size="l"
-          type="submit"
-          disabled={!demo && token.trim().length === 0}
-          loading={busy}
-        >
-          {demo ? "Подключить демо" : "Подключить"}
+        <Button view="action" size="l" type="submit" disabled={token.trim().length === 0} loading={busy}>
+          Подключить
         </Button>
       </form>
 
@@ -310,7 +291,8 @@ function RepositoryList() {
   if (data.items.length === 0) {
     return (
       <Text variant="body-2" color="secondary">
-        В SourceCraft пока нет репозиториев, к которым у вас есть доступ. Когда появятся, они будут здесь.
+        Пока нет репозиториев, которые можно проверить. Когда появятся, они будут здесь, а готовые отчёты по
+        открытым проектам уже есть в <Link to={paths.leaderboard()}>рейтинге</Link>.
       </Text>
     );
   }
