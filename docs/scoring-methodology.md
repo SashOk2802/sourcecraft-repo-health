@@ -393,7 +393,6 @@ findings, полноты выборки и политики обработки �
 
 ### 4.3. Code health — плотность технического долга
 
-<!-- PENDING_APPROVAL: awaiting methodology owner sign-off -->
 | Константа | Значение |
 | --- | ---: |
 | Штраф за один FIXME | 5 баллов |
@@ -408,7 +407,6 @@ score   = max(0, 100 - penalty)
 expected_score_delta = score_после_устранения - score_до
 ```
 
-<!-- PENDING_APPROVAL: awaiting methodology owner sign-off -->
 Правило малых репозиториев (семантика плотности, ревью V.1): штраф растёт как
 `1 / total_files`, поэтому одинокий FIXME обнуляет категорию при
 `total_files <= 5` (penalty ≥ 100), одинокий TODO — при `total_files = 1`.
@@ -419,6 +417,12 @@ expected_score_delta = score_после_устранения - score_до
 P1/P2 закрепляет тест `test_code_health_fixme_critical_count_boundary`
 (единичный FIXME — P2, от `FIXME_CRITICAL_COUNT` включительно — P1). Тесты
 доказывают стабильность поведения, а не корректность самих чисел.
+
+**Решение владельца методики (ревью V.1 + V.2, согласовано):** правило малых
+репозиториев утверждено — категория обнуляется при одиночном FIXME и
+`total_files <= 5` (одинокий TODO — при `total_files = 1`); граница эскалации
+`FIXME_CRITICAL_COUNT = 2` утверждена — единичный FIXME даёт P2, от двух
+включительно — P1. Маркеры `PENDING_APPROVAL` сняты, новые пороги не вводятся.
 
 ## 5. Как менять методику
 
