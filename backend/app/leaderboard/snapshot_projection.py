@@ -89,7 +89,7 @@ class LeaderboardSnapshotProjection:
     is_preliminary: bool
     candidate: LeaderboardCandidate | None
     analyzed_at: datetime
-    coverage: float
+    coverage: float | None
     score_limited: bool
     categories: tuple[LeaderboardCategoryBrief, ...]
 
@@ -152,7 +152,7 @@ def project_public_snapshot(
             else None
         ),
         analyzed_at=_required_timestamp(analysis, "analyzedAt"),
-        coverage=_required_coverage(analysis),
+        coverage=_optional_coverage(analysis),
         score_limited=analysis.get("scoreLimit") is not None,
         categories=_category_briefs(report),
     )
@@ -200,10 +200,12 @@ def _category_briefs(report: dict[str, object]) -> tuple[LeaderboardCategoryBrie
     return tuple(result)
 
 
-def _required_coverage(analysis: dict[str, object]) -> float:
+def _optional_coverage(analysis: dict[str, object]) -> float | None:
     coverage = analysis.get("coverage")
+    if coverage is None:
+        return None
     if isinstance(coverage, bool) or not isinstance(coverage, int | float):
-        raise TypeError("stored snapshot coverage must be a number")
+        raise TypeError("stored snapshot coverage must be a number or null")
     numeric_coverage = float(coverage)
     if not isfinite(numeric_coverage) or not 0 <= numeric_coverage <= 1:
         raise ValueError("stored snapshot coverage must be between 0 and 1")

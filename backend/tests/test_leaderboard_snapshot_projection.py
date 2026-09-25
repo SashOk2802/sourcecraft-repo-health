@@ -10,6 +10,7 @@ from backend.app.analysis.runner import AnalyzerRegistration
 from backend.app.contracts import AnalysisContext, CategoryResult, DataStatus, RepositoryRef
 from backend.app.leaderboard import PublicRepositoryMetadata, project_public_snapshot
 from backend.app.reporting import build_report_payload
+from backend.app.scoring.methodology import CATEGORY_WEIGHTS
 
 
 class LeaderboardSnapshotProjectionTest(unittest.TestCase):
@@ -115,6 +116,30 @@ class LeaderboardSnapshotProjectionTest(unittest.TestCase):
         assert entry is not None
         self.assertIsNone(entry.score)
         self.assertTrue(entry.is_preliminary)
+        self.assertIsNone(entry.candidate)
+
+    def test_keeps_not_applicable_report_without_coverage_in_preliminary_block(self) -> None:
+        analyzers = tuple(
+            AnalyzerRegistration(
+                category,
+                lambda _, category=category: CategoryResult(
+                    category=category,
+                    status=DataStatus.NOT_APPLICABLE,
+                    score=None,
+                    summary="Категория неприменима.",
+                ),
+            )
+            for category in CATEGORY_WEIGHTS
+        )
+        snapshot = self._stored_snapshot(analyzers=analyzers, analysis_id="analysis-na")
+
+        entry = project_public_snapshot(self.metadata, snapshot)
+
+        self.assertIsNotNone(entry)
+        assert entry is not None
+        self.assertIsNone(entry.score)
+        self.assertIsNone(entry.coverage)
+        self.assertFalse(entry.is_preliminary)
         self.assertIsNone(entry.candidate)
 
     def test_marks_score_limit_from_stored_report(self) -> None:
