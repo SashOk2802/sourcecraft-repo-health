@@ -221,6 +221,135 @@ class FileAnalyzersTest(unittest.TestCase):
             self.assertEqual(result.status, DataStatus.ERROR)
             self.assertIsNone(result.score)
 
+    def test_code_health_counts_markers_in_comments_only(self) -> None:
+        """TODO/FIXME считаются только в комментариях; строки и большие файлы — нет.
+
+        Метки внутри строковых литералов ложными не считаются (перенесено из
+        codex/rebuild-file-analysis): строка ``"TODO FIXME"`` и ``"TODO"`` не дают
+        счётчиков. Файлы больше лимита пропускаются как «большие», каталог
+        vendor исключён.
+        """
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            (root / "app.py").write_text(
+                'label = "TODO FIXME"\n# TODO: write tests\n',
+                encoding="utf-8",
+            )
+            (root / "web.js").write_text(
+                'const label = "TODO"; // FIXME: replace\n',
+                encoding="utf-8",
+            )
+            (root / "vendor").mkdir()
+            (root / "vendor" / "ignored.py").write_text("# FIXME\n", encoding="utf-8")
+            (root / "large.py").write_bytes(b"# TODO\n" + b"x" * (1024 * 1024))
+
+            repository = LocalGitRepository("https://sourcecraft.dev/team/platform-api.git")
+            repository.temp_dir = temporary_directory
+            facts = code_health.collect(repository)
+
+        self.assertEqual(
+            (
+                facts["total_files"],
+                facts["todo_count"],
+                facts["fixme_count"],
+                facts["skipped_large_files"],
+            ),
+            (2, 1, 1, 1),
+        )
+
+    def test_code_health_ignores_javascript_regex_but_keeps_real_comments(self) -> None:
+        """TODO/FIXME внутри JS-регулярных выражений не считаются (V.3).
+
+        Контекстный tokenizer отличает regex-литерал от деления: после обычной
+        ``)``, ``}`` объекта и вызова свойства ``/`` — это деление; после
+        ``if (...)`` и ``export default`` — может начинаться regex. Считаются
+        только метки в настоящих комментариях (перенесено из
+        codex/rebuild-file-analysis).
+        """
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            (root / "regex.js").write_text(
+                "const re = /[//] TODO/; // FIXME: real comment\n"
+                "const block = /[/*] FIXME/;\n"
+                "function build() { return /[//] TODO/; }\n"
+                "if (ok) /[//] TODO/.test(value);\n"
+                "if ((ok && check())) {} /[//] TODO/.test(value);\n"
+                "export default /[//] TODO/;\n"
+                "const grouped = (left + right) / divisor; // TODO: grouped division\n"
+                "const objectRatio = {value: 2} / divisor; // TODO: object division\n"
+                "const propertyRatio = obj.if(value) / divisor; // TODO: property call\n"
+                "const ratio = left / right; // TODO: real comment\n",
+                encoding="utf-8",
+            )
+
+            repository = LocalGitRepository("https://sourcecraft.dev/team/platform-api.git")
+            repository.temp_dir = temporary_directory
+            facts = code_health.collect(repository)
+
+        self.assertEqual(facts["total_files"], 1)
+        self.assertEqual(facts["todo_count"], 4)
+        self.assertEqual(facts["fixme_count"], 1)
+        self.assertEqual(facts["files_with_debt"], 1)
+
+    def test_code_health_resource_limit_returns_insufficient_sample(self) -> None:
+        """Превышение бюджета файлов даёт insufficient_sample, а не низкий балл.
+
+        При ``max_files=2`` третий файл-кандидат останавливает сканирование:
+        категория получает INSUFFICIENT_SAMPLE с пустым score, чтобы частичный
+        обход не превратился в заниженную оценку (codex/rebuild-file-analysis).
+        """
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            for index in range(3):
+                (root / f"file_{index}.py").write_text("# TODO\n", encoding="utf-8")
+
+            repository = LocalGitRepository("https://sourcecraft.dev/team/platform-api.git")
+            repository.temp_dir = temporary_directory
+            facts = code_health.collect(repository, max_files=2)
+
+        self.assertTrue(facts["truncated"])
+        self.assertEqual(facts["total_files"], 2)
+        result = code_health.evaluate(analysis_context(), facts)
+        self.assertEqual(result.status, DataStatus.INSUFFICIENT_SAMPLE)
+        self.assertIsNone(result.score)
+        self.assertEqual(result.reason, "code_health_scan_limit_exceeded")
+
+    def test_code_health_binary_files_consume_byte_budget_before_read(self) -> None:
+        """Бюджет байт учитывает файлы до их чтения; бинарные файлы его тратят."""
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            (root / "first.py").write_bytes(b"\x00binary")
+            (root / "second.js").write_bytes(b"\x00binary")
+
+            repository = LocalGitRepository("https://sourcecraft.dev/team/platform-api.git")
+            repository.temp_dir = temporary_directory
+            with patch.object(
+                repository,
+                "read_file_safe",
+                wraps=repository.read_file_safe,
+            ) as read_file:
+                facts = code_health.collect(repository, max_total_bytes=7)
+
+        self.assertTrue(facts["truncated"])
+        self.assertEqual(facts["total_files"], 0)
+        self.assertEqual(read_file.call_count, 1)
+
+    def test_code_health_resource_limits_must_be_valid(self) -> None:
+        """Невалидные бюджеты сканирования отклоняются (TypeError/ValueError)."""
+        repository = LocalGitRepository("https://sourcecraft.dev/team/platform-api.git")
+        for limit_name in ("max_files", "max_total_bytes"):
+            with (
+                self.subTest(limit_name=limit_name, value=0),
+                self.assertRaises(ValueError),
+            ):
+                code_health.collect(repository, **{limit_name: 0})
+            for value in (True, 1.0, float("inf"), float("nan"), "100"):
+                with (
+                    self.subTest(limit_name=limit_name, value=value),
+                    self.assertRaises(TypeError),
+                ):
+                    code_health.collect(repository, **{limit_name: value})
+
 
 def analysis_context() -> AnalysisContext:
     now = datetime(2026, 9, 25, 12, tzinfo=UTC)
