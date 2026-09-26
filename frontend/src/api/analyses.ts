@@ -94,6 +94,10 @@ export async function startAnalysis(repositoryId: string): Promise<StartedAnalys
 export function describeStartError(error: Error): string {
   if (error instanceof ApiError) {
     if (error.status === 401) return "Сессия закончилась — войдите через Яндекс ID ещё раз.";
+    // Защита от подделки запросов (docs/csrf-protection.md): POST пришёл не с адреса сервиса.
+    if (error.status === 403 && /cross-site/i.test(error.message)) {
+      return "Сервер отклонил запрос с этого адреса. Откройте сервис по его основному адресу и попробуйте снова.";
+    }
     if (error.status === 403) {
       return "Сейчас можно проверить только публичный репозиторий: закрытые и внутренние откроются, когда SourceCraft подключат к кабинету.";
     }

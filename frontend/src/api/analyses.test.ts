@@ -10,6 +10,13 @@ describe("describeStartError", () => {
     expect(describeStartError(new ApiError(503, "Analysis dispatch is not configured."))).toContain("не настроен");
   });
 
+  it("403 от защиты CSRF не выдаёт за закрытый репозиторий", () => {
+    // Так backend (PR #52) отвечает на POST с чужого адреса.
+    const rejected = describeStartError(new ApiError(403, "Cross-site request rejected."));
+    expect(rejected).toContain("основному адресу");
+    expect(rejected).not.toContain("публичный");
+  });
+
   it("429 и 502 — ограничения и ответы SourceCraft, а не наша ошибка", () => {
     // docs/api-contract.md после #20: 429 — лимит частоты SourceCraft, 502 — непригодный ответ SourceCraft.
     expect(describeStartError(new ApiError(429, "Too Many Requests"))).toContain("Попробуйте через минуту");
