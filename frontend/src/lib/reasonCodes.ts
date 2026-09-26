@@ -20,6 +20,9 @@ const reasonTexts: Record<string, string> = {
   sourcecraft_appsec_unavailable: APPSEC_UNAVAILABLE,
   appsec_source_error: `SourceCraft не ответил на запрос результатов сканирования. ${RETRY}`,
   security_scoring_not_configured: "Результаты сканирования есть, но правила оценки безопасности ещё не утверждены.",
+  // Security Score v1 (backend PR #60): оценку ставим только по полным результатам всех трёх сканеров.
+  appsec_coverage_not_confirmed:
+    "Сканеры вернули не полные результаты, а по части находок оценку безопасности не ставим — это не значит, что уязвимостей нет.",
   // CI/CD — docs/scoring-methodology.md, раздел 4.1.
   cicd_runs_unavailable: "SourceCraft не отдал историю прогонов CI — повторим при следующем анализе.",
   cicd_runs_truncated: "История прогонов прочитана не полностью, а по её части оценку не ставим.",

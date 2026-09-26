@@ -14,6 +14,13 @@ export interface MethodologyPayload {
   version: string;
   categories: Array<{ code: string; label: string; weight: number }>;
   scoreLimits?: Array<{ code: string; maximumScore: number; summary?: string }>;
+  /** Формула Security Score — появится с расчётом по полным данным AppSec (backend PR #60). */
+  security?: {
+    summary?: string;
+    formula?: string;
+    eligibility?: string;
+    severityPenalties?: Array<{ severity: string; penaltyPerFinding: number; maximumFindings: number }>;
+  };
 }
 
 export interface Methodology {
@@ -47,18 +54,56 @@ export interface MethodologyCategory {
 const CRITICAL_LIMIT_CODE = "security-open-critical";
 
 export function toMethodology(payload: MethodologyPayload): Methodology {
+  const securityRules = securityExplanation(payload.security);
   return {
     version: payload.version,
-    categories: payload.categories.map((category) => ({
-      code: category.code,
-      label: category.label,
-      weight: category.weight,
-      // Незнакомую категорию не описываем за backend: остаются название и вес.
-      measures: categoryExplanations[category.code]?.measures ?? "",
-      caveat: categoryExplanations[category.code]?.caveat ?? "",
-    })),
+    categories: payload.categories.map((category) => {
+      // Если backend прислал формулу Security Score, объяснение строится из неё, а не из текста «оценку не ставим».
+      const explanation =
+        category.code === "security" && securityRules ? securityRules : categoryExplanations[category.code];
+      return {
+        code: category.code,
+        label: category.label,
+        weight: category.weight,
+        // Незнакомую категорию не описываем за backend: остаются название и вес.
+        measures: explanation?.measures ?? "",
+        caveat: explanation?.caveat ?? "",
+      };
+    }),
     criticalScoreLimit: payload.scoreLimits?.find((limit) => limit.code === CRITICAL_LIMIT_CODE)?.maximumScore ?? null,
     schedule: { ...schedulePolicy },
+  };
+}
+
+const severityNames: Record<string, string> = {
+  CRITICAL: "критичная",
+  HIGH: "высокая",
+  MEDIUM: "средняя",
+  LOW: "низкая",
+};
+
+/**
+ * Security Score v1 (backend PR #60): штраф за каждую открытую находку по критичности, с
+ * потолком числа учитываемых находок. null — backend формулу не прислал, категория пока без оценки.
+ */
+function securityExplanation(security: MethodologyPayload["security"]): { measures: string; caveat: string } | null {
+  const penalties = (security?.severityPenalties ?? []).filter(
+    (rule) => rule.penaltyPerFinding > 0 && severityNames[rule.severity.toUpperCase()] !== undefined,
+  );
+  if (penalties.length === 0) {
+    return null;
+  }
+  const rules = penalties
+    .map(
+      (rule) =>
+        `${severityNames[rule.severity.toUpperCase()]} — ${rule.penaltyPerFinding} (учитываем до ${rule.maximumFindings})`,
+    )
+    .join(", ");
+  return {
+    measures: `Открытые находки SAST, SCA и secret scanning в SourceCraft. За каждую снимаем баллы по критичности: ${rules}.`,
+    caveat: [security?.eligibility?.trim(), "Если скана не было, это «нет данных», а не «уязвимостей нет»."]
+      .filter(Boolean)
+      .join(" "),
   };
 }
 

@@ -21,6 +21,7 @@ describe("describeReason", () => {
       "cicd_too_few_outcome_runs",
       "code_health_scan_limit_exceeded",
       "code_files_unavailable",
+      "appsec_coverage_not_confirmed",
     ];
     for (const code of codes) {
       expect(isKnownReason(code)).toBe(true);
