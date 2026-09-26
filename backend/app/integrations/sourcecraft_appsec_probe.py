@@ -12,10 +12,11 @@ import json
 import re
 import subprocess
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Literal
 
 _SOURCECRAFT_SLUG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+_COMMIT_SHA = re.compile(r"^[0-9a-f]{40}$")
 APPSEC_ENGINES = ("SAST", "SCA", "SECRETS")
 APPSEC_SAMPLE_LIMIT = 100
 AppSecAvailability = Literal["available", "unavailable", "error"]
@@ -85,6 +86,9 @@ class AppSecProbeResult:
     reason: str | None = None
     finding_groups: tuple[AppSecFindingGroup, ...] | None = None
     completeness: AppSecCompleteness | None = None
+    # Нужен только безопасному snapshot bridge, чтобы связать сводку с commit,
+    # который вернул SourceCraft. В отчёт и payload Security не попадает.
+    scan_commit_sha: str | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         if self.engine not in APPSEC_ENGINES:
@@ -97,6 +101,8 @@ class AppSecProbeResult:
             raise TypeError("finding_count must be an integer or None")
         if self.finding_count is not None and self.finding_count < 0:
             raise ValueError("finding_count must not be negative")
+        if self.scan_commit_sha is not None and not _COMMIT_SHA.fullmatch(self.scan_commit_sha):
+            raise ValueError("AppSec scan commit SHA must be 40 lowercase hexadecimal characters")
         if not isinstance(self.severities, tuple):
             raise TypeError("severities must be a tuple")
         if not all(isinstance(severity, str) for severity in self.severities):
@@ -257,6 +263,7 @@ def _parse_result(engine: str, stdout: str) -> AppSecProbeResult:
         # У CLI пока нет подтверждённого постраничного контракта. Даже ответ
         # меньше limit нельзя выдавать за полный scan без отдельной проверки.
         completeness="unknown",
+        scan_commit_sha=_extract_scan_commit(payload),
     )
 
 
@@ -289,6 +296,29 @@ def _normalize_status(value: object) -> str | None:
         return None
     normalized = value.strip().upper()
     return normalized if normalized in APPSEC_STATUSES else None
+
+
+def _extract_scan_commit(findings: list[dict[str, Any]]) -> str | None:
+    """Возвращает commit SourceCraft, только если он указан у каждой группы.
+
+    CLI показывает группы последнего scan. Нельзя привязывать результат к
+    произвольному commit из аргумента exporter'а: все элементы должны сообщать
+    один и тот же корректный ``latestCommit``. Пустой/неизвестный ответ остаётся
+    непригодным для commit-bound snapshot.
+    """
+
+    if not findings:
+        return None
+    commits: set[str] = set()
+    for finding in findings:
+        value = finding.get("latestCommit")
+        if not isinstance(value, str):
+            return None
+        normalized = value.strip().lower()
+        if not _COMMIT_SHA.fullmatch(normalized):
+            return None
+        commits.add(normalized)
+    return next(iter(commits)) if len(commits) == 1 else None
 
 
 def _error_result(engine: str, reason: str) -> AppSecProbeResult:

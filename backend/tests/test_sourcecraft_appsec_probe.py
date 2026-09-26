@@ -177,6 +177,26 @@ class SourceCraftAppSecCliProbeTest(unittest.TestCase):
         self.assertNotIn("private-severity-marker", repr(result.as_dict()))
         self.assertNotIn("private-status-marker", repr(result.as_dict()))
 
+    def test_scan_commit_is_kept_only_when_every_group_confirms_the_same_commit(self) -> None:
+        commit_sha = "a" * 40
+        cases = (
+            (
+                '[{"latestCommit":"' + commit_sha + '"},{"latestCommit":"' + commit_sha + '"}]',
+                commit_sha,
+            ),
+            ('[{"latestCommit":"' + commit_sha + '"},{}]', None),
+            ('[{"latestCommit":"' + commit_sha + '"},{"latestCommit":"' + "b" * 40 + '"}]', None),
+        )
+        for stdout, expected_commit in cases:
+            with self.subTest(expected_commit=expected_commit):
+                result = SourceCraftAppSecCliProbe(runner=_runner(stdout=stdout)).probe(
+                    "example-org/example-repo", "SAST"
+                )
+
+                self.assertEqual(result.scan_commit_sha, expected_commit)
+                self.assertNotIn("latestCommit", result.as_dict())
+                self.assertNotIn(commit_sha, repr(result))
+
     def test_result_rejects_non_safe_reason_and_unknown_severity(self) -> None:
         with self.assertRaisesRegex(ValueError, "known safe reason"):
             AppSecProbeResult("SAST", "error", None, reason="synthetic-secret-marker")

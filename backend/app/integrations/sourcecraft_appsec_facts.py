@@ -40,6 +40,19 @@ def collect_security_facts(
     except Exception:  # noqa: BLE001 — текст ошибки зонда может содержать private data.
         return build_facts(None, source_error=_PROBE_FAILURE)
 
+    return build_security_facts_from_results(results)
+
+
+def build_security_facts_from_results(
+    results: tuple[object, ...],
+) -> SecurityFacts:
+    """Строит ``SecurityFacts`` из уже безопасных результатов трёх движков.
+
+    Этим швом пользуются и CLI-зонд, и безопасный файловый bridge. Он принимает
+    только ``AppSecProbeResult``: сырые ответы SourceCraft не могут случайно
+    попасть в анализатор через альтернативный источник данных.
+    """
+
     if not _has_complete_engine_set(results):
         return build_facts(None, source_error=_MAPPING_FAILURE)
 

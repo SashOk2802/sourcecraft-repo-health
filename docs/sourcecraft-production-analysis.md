@@ -21,9 +21,30 @@ private/internal репозиторию не расширяет права HTTP-
 репозитория.
 
 В одном запуске provider регистрирует Activity, Issues, CI/CD, Documentation,
-Code health и Security. CI/CD использует REST API. Security пока возвращает
-`unavailable`: имеющийся AppSec CLI использует локальную сессию разработчика и
-не запускается внутри веб-сервера.
+Code health и Security. CI/CD использует REST API. Security не запускает
+локальный SourceCraft CLI в web-worker: IAM-сессия пользователя и raw findings
+не должны попадать в контейнер приложения.
+
+Для демонстрации реальных AppSec-данных предусмотрен необязательный безопасный
+snapshot bridge. Локальный exporter, запущенный после `src auth login`, оставляет
+в отдельном каталоге только группы `severity/status/count`. Backend читает этот
+каталог через read-only mount, если задан абсолютный
+`SOURCECRAFT_APPSEC_SNAPSHOT_DIR`; `SOURCECRAFT_APPSEC_SNAPSHOT_MAX_AGE_SECONDS`
+ограничивает срок свежести (по умолчанию 3600 секунд). Exporter сам получает
+repository id через SourceCraft API и принимает commit только когда каждый
+доступный AppSec scan сообщил одинаковый `latestCommit`; оба значения не
+принимаются оператором вручную. Snapshot обязан совпасть по SHA-256 отпечатку
+repository id и по commit SHA задания. Неверный, старый, слишком большой файл
+или symlink не используется; корневой каталог и файл не могут быть symlink'ами.
+Без свежего snapshot'а Security возвращает `unavailable`.
+
+CLI пока подтверждает только ограниченную выборку последнего скана, а не
+постраничный полный набор. Поэтому exporter сохраняет `completeness=unknown`:
+реальный результат виден в отчёте как `insufficient_sample`, но не получает
+придуманный Security Score. Полный Score станет возможен только после
+подтверждения постраничного AppSec API или другого полного контракта источника.
+Пошаговая команда exporter'а и compose mount описаны в
+[документе Security-анализатора](security-analyzer.md).
 
 Git-клон используется только Documentation и Code health. Он создаётся во
 временной папке, после запуска удаляется, а токен передаётся в заголовке git,

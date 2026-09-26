@@ -82,14 +82,58 @@ SecurityScore = max(0, 100 - penalty)
 запуск; сырые факты не кэшируются внутри анализатора. Исключение поставщика
 превращается в безопасную фиксированную ошибку без текста исключения в логе.
 
-Production web-worker пока не запускает локальный `src` CLI и честно возвращает
-`unavailable`. Следующая интеграционная задача — подтверждённый постраничный
-AppSec-поставщик с минимальными правами и привязкой scan к анализируемому
-commit. Только он сможет передать `completeness = complete`.
+Production web-worker никогда не запускает локальный `src` CLI с IAM-сессией
+пользователя. Вместо этого есть безопасный **snapshot bridge**:
+
+1. На машине, где пользователь уже выполнил `src auth login`, запускается
+   exporter. Он вызывает SourceCraft CLI, отбрасывает raw findings и атомарно
+   записывает только разрешённые агрегаты в отдельный каталог:
+
+   ```bash
+   python scripts/export_sourcecraft_appsec_snapshot.py OWNER/REPOSITORY \
+     --output-dir /absolute/path/to/appsec-snapshots \
+     --src-bin /absolute/path/to/src
+   ```
+
+   Идентификатор репозитория не вводится вручную: exporter читает его через
+   `src api` для того же `OWNER/REPOSITORY`. Commit также не передаётся
+   аргументом: SourceCraft обязан сообщить одинаковый корректный
+   `latestCommit` для каждого доступного AppSec-скана. Если commit отсутствует
+   или значения расходятся, exporter ничего не записывает. Поэтому нельзя
+   случайно связать сводку одного scan'а с другим репозиторием или коммитом.
+
+2. Этот каталог монтируется в `backend` только для чтения. Внутри контейнера
+   задаются `SOURCECRAFT_APPSEC_SNAPSHOT_DIR=/run/sourcecraft-appsec` и
+   `SOURCECRAFT_APPSEC_SNAPSHOT_MAX_AGE_SECONDS=3600` (или меньший допустимый
+   интервал). Пример для локального `compose.override.yaml`:
+
+   ```yaml
+   services:
+     backend:
+       volumes:
+         - /absolute/path/to/appsec-snapshots:/run/sourcecraft-appsec:ro
+   ```
+
+Snapshot привязан SHA-256 отпечатком к `repository.id`, к конкретному commit и
+временем создания. Файл старше заданного интервала, от другого repository/commit,
+symlink, слишком большой или с неизвестной схемой не используется. Корневой
+каталог exporter'а нельзя делать group/world-writable, а worker не следует
+symlink'ам ни каталога, ни файла. Отсутствующий или устаревший snapshot — это
+`unavailable`, испорченный — безопасная ошибка без вывода содержимого.
+
+Так в демонстрации используются реальные данные SourceCraft, но ни токен, ни
+локальная IAM-сессия, ни сырые findings не входят в контейнер приложения. Текущий
+CLI всё ещё не подтверждает постраничный обход: его exporter передаёт
+`completeness = unknown`, поэтому такая реальная сводка остаётся
+`insufficient_sample` и не получает ложный числовой Score. Будущий
+подтверждённый постраничный API-поставщик сможет записать тот же контракт с
+`completeness = complete` и включить Security Score без изменений анализатора.
 
 ## Проверки
 
 Тесты покрывают: отсутствие данных, неполную выборку, пустой полный scan,
 confirmed critical и глобальный cap, untriaged critical, false positive,
-ограничение повторяющихся severity, рекомендации, отсутствие утечек и
-прохождение результата через JSON/Markdown-отчёт.
+ограничение повторяющихся severity, рекомендации, отсутствие утечек,
+snapshot с привязкой к commit/свежести, вывод repository id и commit из
+SourceCraft, запрет symlink/слишком больших файлов и прохождение результата
+через JSON/Markdown-отчёт.

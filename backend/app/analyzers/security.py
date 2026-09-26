@@ -75,6 +75,7 @@ class SecurityFacts:
 
 
 SecurityFactsProvider = Callable[[RepositoryRef], SecurityFacts]
+SecurityContextFactsProvider = Callable[[AnalysisContext], SecurityFacts]
 
 
 def appsec_payload_status(payload: dict[str, Any] | list[Any] | None) -> DataStatus:
@@ -176,18 +177,38 @@ def make_analyzer(
     """
 
     def analyze(context: AnalysisContext) -> CategoryResult:
-        try:
-            facts = facts_provider(context.repository)
-            if not isinstance(facts, SecurityFacts):
-                raise TypeError("AppSec provider must return SecurityFacts")
-        except Exception:  # noqa: BLE001 — граница поставщика, сырые исключения не должны утекать.
-            # Не логируем исключение/traceback: в них могут быть ответ AppSec и токен.
-            # BaseException (остановка процесса и отмена) сюда не попадает.
-            logger.warning("Не удалось получить корректные данные AppSec.")
-            facts = build_facts(None, source_error="appsec_provider_failed")
-        return evaluate(facts)
+        return _evaluate_provider(lambda: facts_provider(context.repository))
 
     return analyze
+
+
+def make_context_analyzer(
+    facts_provider: SecurityContextFactsProvider,
+) -> Callable[[AnalysisContext], CategoryResult]:
+    """Создаёт анализатор, когда источнику нужен commit текущего запуска.
+
+    Используется bridge'ем обезличенных AppSec-сводок: файл обязан относиться
+    именно к анализируемому commit, поэтому одного ``RepositoryRef`` недостаточно.
+    Ошибки получают ту же безопасную границу, что и обычный поставщик.
+    """
+
+    def analyze(context: AnalysisContext) -> CategoryResult:
+        return _evaluate_provider(lambda: facts_provider(context))
+
+    return analyze
+
+
+def _evaluate_provider(load_facts: Callable[[], SecurityFacts]) -> CategoryResult:
+    try:
+        facts = load_facts()
+        if not isinstance(facts, SecurityFacts):
+            raise TypeError("AppSec provider must return SecurityFacts")
+    except Exception:  # noqa: BLE001 — граница поставщика, сырые исключения не должны утекать.
+        # Не логируем исключение/traceback: в них могут быть ответ AppSec и токен.
+        # BaseException (остановка процесса и отмена) сюда не попадает.
+        logger.warning("Не удалось получить корректные данные AppSec.")
+        facts = build_facts(None, source_error="appsec_provider_failed")
+    return evaluate(facts)
 
 
 def _validate_payload(payload: object) -> None:
