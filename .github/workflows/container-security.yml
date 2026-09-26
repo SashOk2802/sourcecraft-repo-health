@@ -14,7 +14,7 @@ permissions:
 jobs:
   scan:
     name: Scan ${{ matrix.name }} image
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, repo-health]
     timeout-minutes: 20
     strategy:
       # Оба образа должны быть проверены, даже если первый скан нашёл проблему.
