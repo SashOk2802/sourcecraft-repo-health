@@ -4,7 +4,9 @@ import tempfile
 import unittest
 from datetime import UTC, datetime
 from pathlib import Path
+from unittest.mock import patch
 
+from backend.app.analysis.providers import repo_content_analyzer_provider
 from backend.app.analyzers import code_health, documentation
 from backend.app.contracts import (
     AnalysisContext,
@@ -13,7 +15,7 @@ from backend.app.contracts import (
     RecommendationPriority,
     RepositoryRef,
 )
-from backend.app.integrations.git_repository import LocalGitRepository
+from backend.app.integrations.git_repository import GitCloneError, LocalGitRepository
 
 
 class FileAnalyzersTest(unittest.TestCase):
@@ -127,6 +129,97 @@ class FileAnalyzersTest(unittest.TestCase):
         above_threshold = recommendation_for(code_health.FIXME_CRITICAL_COUNT + 1)
         self.assertEqual(above_threshold.priority, RecommendationPriority.P1)
         self.assertIn("опасный", above_threshold.rationale)
+
+    def test_documentation_bad_set_missing_readme_and_license_scores_low(self) -> None:
+        """Плохой набор документации (нет README и лицензии) даёт низкий балл.
+
+        Контрольный сценарий напротив успешного прогона: отсутствие README
+        (−35, P1) и LICENSE (−15, P2) снижают оценку до 50 из 100. Штраф за
+        отсутствие инструкций запуска при отсутствующем README не применяется
+        (одна причина — нет README — даёт одну рекомендацию).
+        """
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            (root / "CONTRIBUTING.md").write_text("# Правила\n", encoding="utf-8")
+            (root / "CODEOWNERS").write_text("* @team\n", encoding="utf-8")
+
+            repository = LocalGitRepository("https://sourcecraft.dev/team/platform-api.git")
+            repository.temp_dir = temporary_directory
+            context = analysis_context()
+
+            result = documentation.evaluate(
+                context,
+                documentation.collect(repository),
+            )
+
+        self.assertEqual(result.status, DataStatus.MEASURED)
+        self.assertEqual(result.score, 50.0)
+        self.assertEqual(
+            {recommendation.code for recommendation in result.recommendations},
+            {"doc_missing_has_readme", "doc_missing_has_license"},
+        )
+        self.assertEqual(
+            next(
+                recommendation.priority
+                for recommendation in result.recommendations
+                if recommendation.code == "doc_missing_has_readme"
+            ),
+            RecommendationPriority.P1,
+        )
+
+    def test_code_health_not_applicable_without_code_files(self) -> None:
+        """Нет файлов кода → категория not_applicable, а не 0 баллов.
+
+        Репозиторий только с документацией и текстом не содержит
+        поддерживаемых файлов кода: total_files = 0, категория исключается и
+        из Score, и из знаменателя Coverage (методика §1.4) — score равен None.
+        """
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            (root / "README.md").write_text("# Demo\n", encoding="utf-8")
+            (root / "notes.txt").write_text("plain text\n", encoding="utf-8")
+
+            repository = LocalGitRepository("https://sourcecraft.dev/team/platform-api.git")
+            repository.temp_dir = temporary_directory
+            context = analysis_context()
+
+            facts = code_health.collect(repository)
+            result = code_health.evaluate(context, facts)
+
+        self.assertEqual(facts["total_files"], 0)
+        self.assertEqual(result.status, DataStatus.NOT_APPLICABLE)
+        self.assertIsNone(result.score)
+        self.assertEqual(result.recommendations, ())
+
+    def test_clone_error_maps_to_error_with_null_score(self) -> None:
+        """Ошибка клона даёт status=ERROR и score=None, а не низкий балл.
+
+        Недоступный репозиторий не должен оцениваться как «очень плохая
+        документация» или «очень грязный код»: недоступность данных отделена
+        от измеренных фактов (I.6) — категория получает ERROR и пустой score.
+        """
+        context = analysis_context()
+
+        for module in (documentation, code_health):
+            result = module.evaluate(context, {"error": "git clone failed"})
+            self.assertEqual(result.status, DataStatus.ERROR)
+            self.assertIsNone(result.score)
+
+        providers_by_category = {
+            registration.category: registration.evaluate
+            for registration in repo_content_analyzer_provider(context)
+        }
+        with patch.object(
+            LocalGitRepository,
+            "clone",
+            side_effect=GitCloneError("failed to clone repository"),
+        ):
+            documentation_result = providers_by_category["documentation"](context)
+            code_health_result = providers_by_category["code_health"](context)
+
+        for result in (documentation_result, code_health_result):
+            self.assertEqual(result.status, DataStatus.ERROR)
+            self.assertIsNone(result.score)
 
 
 def analysis_context() -> AnalysisContext:
