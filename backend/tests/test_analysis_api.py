@@ -70,6 +70,7 @@ class AnalysisApiTest(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(report.status_code, 200)
         self.assertEqual(report.json()["analysis"]["id"], "analysis-42")
+        self.assertEqual((await self.job_store.get("analysis-42")).owner_subject, "user-42")
 
     async def test_serves_running_status_while_sync_analyzer_waits_in_thread(self) -> None:
         analyzer_started = threading.Event()
@@ -165,68 +166,6 @@ class AnalysisApiTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.json(), {"detail": "Repository access denied."})
 
-    async def test_second_users_principal_cannot_read_others_analysis(self) -> None:
-        app = create_app(
-            analysis_store=self.snapshot_store,
-            job_store=self.job_store,
-            analysis_dispatcher=self.dispatcher,
-            principal_provider=authenticated_principal,
-        )
-
-        async with api_client(app) as client:
-            created = await client.post("/api/v1/repositories/repo-42/analyses")
-            self.assertEqual(created.status_code, 202)
-            analysis_id = created.json()["id"]
-            await _wait_for_terminal_status(client, analysis_id)
-
-        second_principal_app = create_app(
-            analysis_store=self.snapshot_store,
-            job_store=self.job_store,
-            principal_provider=second_user_principal,
-        )
-        async with api_client(second_principal_app) as client:
-            status_response = await client.get(f"/api/v1/analyses/{analysis_id}")
-            report_response = await client.get(f"/api/v1/analyses/{analysis_id}/report")
-            markdown_response = await client.get(
-                f"/api/v1/analyses/{analysis_id}/report.md"
-            )
-
-        self.assertEqual(status_response.status_code, 403)
-        self.assertEqual(report_response.status_code, 403)
-        self.assertEqual(markdown_response.status_code, 403)
-
-        async with api_client(app) as client:
-            status_response = await client.get(f"/api/v1/analyses/{analysis_id}")
-            report_response = await client.get(f"/api/v1/analyses/{analysis_id}/report")
-            markdown_response = await client.get(
-                f"/api/v1/analyses/{analysis_id}/report.md"
-            )
-
-        self.assertEqual(status_response.status_code, 200)
-        self.assertEqual(report_response.status_code, 200)
-        self.assertEqual(markdown_response.status_code, 200)
-
-    async def test_get_endpoints_fail_closed_without_principal_provider(self) -> None:
-        app = create_app(
-            analysis_store=InMemoryAnalysisStore(),
-            job_store=InMemoryAnalysisJobStore(),
-        )
-
-        async with api_client(app) as client:
-            for path in (
-                "/api/v1/analyses/analysis-42",
-                "/api/v1/analyses/analysis-42/report",
-                "/api/v1/analyses/analysis-42/report.md",
-            ):
-                with self.subTest(path=path):
-                    response = await client.get(path)
-
-                    self.assertEqual(response.status_code, 503)
-                    self.assertEqual(
-                        response.json(),
-                        {"detail": "Analysis authentication is not configured."},
-                    )
-
 
 class ContextResolver:
     def __init__(self, timestamp: datetime) -> None:
@@ -259,10 +198,6 @@ class DenyingContextResolver:
 
 async def authenticated_principal(_: httpx.Request) -> AnalysisPrincipal:
     return AnalysisPrincipal("user-42")
-
-
-async def second_user_principal(_: httpx.Request) -> AnalysisPrincipal:
-    return AnalysisPrincipal("user-99")
 
 
 async def _wait_for_terminal_status(

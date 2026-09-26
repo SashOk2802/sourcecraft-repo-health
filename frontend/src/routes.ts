@@ -2,9 +2,8 @@
 
 export type Route =
   | { page: "leaderboard" }
-  | { page: "report"; organizationSlug: string; repositorySlug: string }
-  | { page: "myRepositories" }
   | { page: "analysis"; analysisId: string }
+  | { page: "myRepositories" }
   | { page: "methodology" }
   | { page: "notFound" };
 
@@ -12,10 +11,9 @@ export type PageName = Route["page"];
 
 export const paths = {
   leaderboard: (): string => "/",
-  report: (organizationSlug: string, repositorySlug: string): string =>
-    `/repositories/${encodeURIComponent(organizationSlug)}/${encodeURIComponent(repositorySlug)}`,
-  myRepositories: (): string => "/me/repositories",
+  /** Отчёт привязан к снимку анализа, поэтому адрес строится по его идентификатору. */
   analysis: (analysisId: string): string => `/analyses/${encodeURIComponent(analysisId)}`,
+  myRepositories: (): string => "/me/repositories",
   methodology: (): string => "/methodology",
 };
 
@@ -26,16 +24,13 @@ export function matchRoute(pathname: string): Route {
     return { page: "leaderboard" };
   }
 
-  const [first, second, third] = parts;
+  const [first, second] = parts;
 
-  if (first === "repositories" && parts.length === 3) {
-    return { page: "report", organizationSlug: second, repositorySlug: third };
+  if (first === "analyses" && parts.length === 2) {
+    return { page: "analysis", analysisId: second };
   }
   if (first === "me" && second === "repositories" && parts.length === 2) {
     return { page: "myRepositories" };
-  }
-  if (first === "analyses" && parts.length === 2) {
-    return { page: "analysis", analysisId: second };
   }
   if (first === "methodology" && parts.length === 1) {
     return { page: "methodology" };

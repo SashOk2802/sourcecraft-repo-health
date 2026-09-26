@@ -1,0 +1,274 @@
+.category-radar {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+}
+
+/*
+ * Небольшой объём: сцена с перспективой, фигура поворачивается за курсором.
+ * Углы приходят из usePointerTilt, по умолчанию нулевые.
+ */
+.category-radar__stage {
+  width: 100%;
+  perspective: 900px;
+}
+
+.category-radar__chart {
+  width: 100%;
+  max-width: 560px;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+  transform: rotateX(var(--rh-tilt-x, 0deg)) rotateY(var(--rh-tilt-y, 0deg));
+  transform-style: preserve-3d;
+  transition: transform 240ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.category-radar__ring {
+  fill: none;
+  stroke: var(--g-color-line-generic);
+  stroke-width: 1;
+}
+
+/* Дорожка до подписи: одинаковая у всех лучей, поэтому подписи стоят по кругу. */
+.category-radar__track {
+  stroke: var(--g-color-line-generic-solid);
+  stroke-width: 1;
+  opacity: 0.45;
+}
+
+/* Сам луч: его длина и есть вес категории. */
+.category-radar__arm {
+  stroke: var(--rh-accent);
+  stroke-opacity: 0.35;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.category-radar__arm_empty {
+  stroke: var(--g-color-text-hint);
+  stroke-dasharray: 7 6;
+}
+
+/* Не применимо: бледный сплошной луч без кружка — данных здесь и не ждём. */
+.category-radar__arm_na {
+  stroke: var(--g-color-text-hint);
+  stroke-opacity: 0.3;
+}
+
+.category-radar__shape {
+  fill: url(#rh-radar-fill);
+}
+
+.category-radar__edge {
+  stroke: var(--rh-accent);
+  stroke-width: 2.6;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+/* Разрыв контура там, где категорию не измеряли. */
+.category-radar__edge_gap {
+  stroke: var(--g-color-text-hint);
+  stroke-width: 2;
+  stroke-dasharray: 6 5;
+}
+
+/* Вершина — цвета своей полосы оценки, с белой обводкой, чтобы читалась на заливке. */
+.category-radar__dot {
+  stroke: var(--rh-surface);
+  stroke-width: 2.5;
+  transition: r 160ms ease-out;
+}
+
+.category-radar__dot_band_high {
+  fill: var(--rh-band-high);
+}
+
+.category-radar__dot_band_mid {
+  fill: var(--rh-band-mid);
+}
+
+.category-radar__dot_band_low {
+  fill: var(--rh-band-low);
+}
+
+.category-radar__stage:hover .category-radar__dot {
+  r: 6.5;
+}
+
+.category-radar__dot_empty {
+  fill: var(--g-color-base-background);
+  stroke: var(--g-color-text-hint);
+  stroke-width: 2;
+  stroke-dasharray: 4 3;
+}
+
+.category-radar__stage:hover .category-radar__dot_empty {
+  r: 6;
+}
+
+.category-radar__label {
+  fill: var(--g-color-text-primary);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.category-radar__label_empty {
+  fill: var(--g-color-text-secondary);
+}
+
+.category-radar__sub {
+  fill: var(--g-color-text-hint);
+  font-size: 12.5px;
+}
+
+.category-radar__legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 20px;
+  list-style: none;
+}
+
+.category-radar__legend li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.category-radar__key {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.category-radar__key_shape {
+  background: var(--rh-accent);
+}
+
+.category-radar__key_ring {
+  background: var(--g-color-line-generic-solid);
+}
+
+.category-radar__key_empty {
+  border: 2px dashed var(--g-color-text-hint);
+}
+
+.category-radar__key_na {
+  height: 2px;
+  border-radius: 1px;
+  background: var(--g-color-text-hint);
+  opacity: 0.5;
+}
+
+/* Сборка фигуры: кольца, потом лучи, потом контур, вершины и подписи. */
+@media (prefers-reduced-motion: no-preference) {
+  .category-radar__ring,
+  .category-radar__track {
+    animation: rh-fade-in 420ms ease-out backwards;
+    animation-delay: calc(var(--rh-step, 0) * 40ms);
+  }
+
+  .category-radar__arm {
+    stroke-dasharray: 200;
+    animation: rh-draw 520ms ease-out backwards;
+    animation-delay: calc(140ms + var(--rh-step, 0) * 55ms);
+  }
+
+  .category-radar__arm_empty {
+    stroke-dasharray: 7 6;
+    animation-name: rh-fade-in;
+  }
+
+  .category-radar__shape {
+    transform-origin: center;
+    animation: rh-grow 620ms cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
+    animation-delay: 420ms;
+  }
+
+  .category-radar__edge {
+    stroke-dasharray: 600;
+    animation: rh-draw-long 700ms ease-out backwards;
+    animation-delay: calc(460ms + var(--rh-step, 0) * 70ms);
+  }
+
+  .category-radar__edge_gap {
+    stroke-dasharray: 6 5;
+    animation-name: rh-fade-in;
+  }
+
+  .category-radar__dot {
+    transform-origin: center;
+    transform-box: fill-box;
+    animation: rh-pop 380ms cubic-bezier(0.34, 1.4, 0.64, 1) backwards;
+    animation-delay: calc(640ms + var(--rh-step, 0) * 60ms);
+  }
+
+  .category-radar__caption {
+    animation: rh-rise 460ms ease-out backwards;
+    animation-delay: calc(260ms + var(--rh-step, 0) * 55ms);
+  }
+}
+
+@keyframes rh-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes rh-draw {
+  from {
+    stroke-dashoffset: 200;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes rh-draw-long {
+  from {
+    stroke-dashoffset: 600;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes rh-grow {
+  from {
+    opacity: 0;
+    transform: scale(0.82);
+  }
+}
+
+@keyframes rh-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.1);
+  }
+}
+
+@keyframes rh-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@media (max-width: 900px) {
+  .category-radar__label {
+    font-size: 13px;
+  }
+
+  .category-radar__sub {
+    font-size: 11px;
+  }
+}
+
+/* На печати всё уже на месте: никакого движения и наклона. */
+@media print {
+  .category-radar__chart {
+    transform: none;
+  }
+}

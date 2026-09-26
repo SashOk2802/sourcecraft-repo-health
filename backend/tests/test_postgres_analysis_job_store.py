@@ -54,8 +54,8 @@ class PostgresAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
         job = AnalysisJob.queued(
             analysis_id=self.analysis_id,
             repository_id="repo-42",
-            owner_subject="user-42",
             created_at=self.created_at,
+            owner_subject="user-42",
         )
 
         await self.job_store.create(job)
@@ -77,8 +77,8 @@ class PostgresAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
         job = AnalysisJob.queued(
             analysis_id=self.analysis_id,
             repository_id="repo-42",
-            owner_subject="user-42",
             created_at=self.created_at,
+            owner_subject="user-42",
         )
         execution = run_analysis(_context(self.created_at), (activity_registration(),))
 
@@ -102,8 +102,8 @@ class PostgresAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
         job = AnalysisJob.queued(
             analysis_id=self.analysis_id,
             repository_id="repo-42",
-            owner_subject="user-42",
             created_at=self.created_at,
+            owner_subject="user-42",
         )
         execution = run_analysis(_context(self.created_at), (activity_registration(),))
 
@@ -112,11 +112,7 @@ class PostgresAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
             self.analysis_id,
             self.created_at + timedelta(seconds=1),
         )
-        await self.snapshot_store.save(
-            self.analysis_id,
-            execution,
-            owner_subject="user-42",
-        )
+        await self.snapshot_store.save(self.analysis_id, execution)
 
         with self.assertRaisesRegex(ValueError, "analysis_id already exists"):
             await self.snapshot_store.save_and_finish(
@@ -140,8 +136,8 @@ class PostgresAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
         job = AnalysisJob.queued(
             analysis_id=self.analysis_id,
             repository_id="repo-42",
-            owner_subject="user-42",
             created_at=self.created_at,
+            owner_subject="user-42",
             worker_id=first_worker,
         )
         await self.job_store.heartbeat_worker(
@@ -178,8 +174,8 @@ class PostgresAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
         job = AnalysisJob.queued(
             analysis_id=self.analysis_id,
             repository_id="repo-42",
-            owner_subject="user-42",
             created_at=self.created_at,
+            owner_subject="user-42",
         )
         await self.job_store.create(job)
         await self.job_store.mark_running(

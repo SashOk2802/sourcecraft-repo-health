@@ -28,6 +28,7 @@ from backend.app.analysis.store import (
     AnalysisStore,
     InMemoryAnalysisStore,
     PostgresAnalysisStore,
+    StoredAnalysisSnapshot,
     normalize_analysis_id,
 )
 
@@ -52,6 +53,7 @@ __all__ = [
     "PostgresAnalysisJobStore",
     "PostgresAnalysisStore",
     "RepositoryContextResolver",
+    "StoredAnalysisSnapshot",
     "normalize_analysis_id",
     "run_analysis",
 ]

@@ -62,6 +62,30 @@ python scripts/probe_sourcecraft_appsec.py owner/repository --src-bin /path/to/s
 При включении сканирования сначала нужно подтвердить форму непустого ответа и
 только затем проектировать постраничный production-поставщик и методику score.
 
+## Адаптация CLI-сводки к SecurityFacts
+
+Модуль `backend/app/integrations/sourcecraft_appsec_facts.py` связывает
+безопасный CLI-зонд с `security.make_analyzer`. Он принимает ровно по одной
+сводке `SAST`, `SCA` и `SECRETS` и детерминированно упорядочивает их.
+Дубликат, пропущенный движок или неверный тип результата становятся
+фиксированной ошибкой маппинга без содержимого ответа.
+
+| Сводки движков | SecurityFacts | Итог анализатора |
+| --- | --- | --- |
+| Хотя бы один `available` | безопасный агрегат трёх движков | `insufficient_sample`, без score |
+| Все три `unavailable` | `payload=None` | `unavailable`, не ноль findings |
+| Нет `available`, есть `error` | безопасный `source_error` | `error`, без score |
+| Неполный или дублированный набор | ошибка маппинга | `error`, без score |
+
+`finding_count` ограничен диапазоном `0..100`. Это размер CLI-выборки,
+а не утверждение о полном числе дефектов. Встроенная справка установленного
+CLI `0.0.103` показывает `--limit`, но не отдельный флаг пагинации для
+`appsec defect list`. Поэтому полнота ответа остаётся непроверенной.
+
+Этот адаптер сам по себе не делает локальную IAM-сессию production-авторизацией
+и не подключается к web-сервису автоматически. Для production по-прежнему нужны
+минимальные права, явная конфигурация и проверенная полнота выборки.
+
 ## Защита данных
 
 В `CategoryResult`, JSON и Markdown попадают только фиксированные статусы, причины
@@ -79,7 +103,7 @@ python scripts/probe_sourcecraft_appsec.py owner/repository --src-bin /path/to/s
 ## Воспроизводимая проверка
 
 ```sh
-python -m pytest backend/tests/test_security_analyzer.py backend/tests/test_security_reporting.py backend/tests/test_sourcecraft_fixtures.py backend/tests/test_sourcecraft_appsec_probe.py -q
+python -m pytest backend/tests/test_security_analyzer.py backend/tests/test_security_reporting.py backend/tests/test_sourcecraft_fixtures.py backend/tests/test_sourcecraft_appsec_probe.py backend/tests/test_sourcecraft_appsec_facts.py -q
 ```
 
 Проверяются валидация входов, отсутствие выдуманных баллов, ошибки поставщика,

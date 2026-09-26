@@ -46,9 +46,9 @@ class AnalysisJob:
 
     analysis_id: str
     repository_id: str
-    owner_subject: str
     status: AnalysisJobStatus
     created_at: datetime
+    owner_subject: str | None = None
     started_at: datetime | None = None
     finished_at: datetime | None = None
     error_code: str | None = None
@@ -62,8 +62,8 @@ class AnalysisJob:
             raise ValueError("analysis_id must not contain surrounding whitespace")
         if not self.repository_id.strip():
             raise ValueError("repository_id must not be empty")
-        if not self.owner_subject.strip():
-            raise ValueError("owner_subject must not be empty")
+        if self.owner_subject is not None:
+            _require_owner_subject(self.owner_subject)
         if self.worker_id is not None and not self.worker_id.strip():
             raise ValueError("worker_id must not be empty")
         _require_timezone(self.created_at, "created_at")
@@ -75,18 +75,22 @@ class AnalysisJob:
         *,
         analysis_id: str,
         repository_id: str,
-        owner_subject: str,
         created_at: datetime,
+        owner_subject: str,
         worker_id: str | None = None,
     ) -> AnalysisJob:
-        """Создаёт задание, ожидающее обработчик."""
+        """Создаёт задание, ожидающее обработчик.
 
+        owner_subject — subject сессии инициатора. Сырой Bearer сюда не кладётся.
+        """
+
+        _require_owner_subject(owner_subject)
         return cls(
             analysis_id=normalize_analysis_id(analysis_id),
             repository_id=repository_id.strip(),
-            owner_subject=owner_subject.strip(),
             status=AnalysisJobStatus.QUEUED,
             created_at=created_at,
+            owner_subject=owner_subject,
             worker_id=worker_id.strip() if worker_id is not None else None,
         )
 
@@ -155,7 +159,7 @@ class AnalysisJobStore(Protocol):
         """Освобождает внешние ресурсы."""
 
     async def create(self, job: AnalysisJob) -> AnalysisJob:
-        """Сохраняет новое задание в состоянии queued вместе с владельцем."""
+        """Сохраняет новое задание в состоянии queued."""
 
     async def get(self, analysis_id: str) -> AnalysisJob | None:
         """Возвращает задание по идентификатору."""
@@ -327,7 +331,7 @@ class PostgresAnalysisJobStore:
             self._pool = None
 
     async def create(self, job: AnalysisJob) -> AnalysisJob:
-        """Сохраняет новое задание в состоянии queued вместе с владельцем."""
+        """Сохраняет новое задание в состоянии queued."""
 
         if job.status is not AnalysisJobStatus.QUEUED:
             raise AnalysisJobTransitionError("new jobs must be queued")
@@ -535,8 +539,8 @@ class PostgresAnalysisJobStore:
                         )
                     )
                 RETURNING
-                    analysis_id, repository_id, owner_subject, status, created_at,
-                    started_at, finished_at, error_code, error_summary, worker_id
+                analysis_id, repository_id, owner_subject, status, created_at,
+                started_at, finished_at, error_code, error_summary, worker_id
                 """,
                 updated.analysis_id,
                 updated.status.value,
@@ -563,6 +567,15 @@ class PostgresAnalysisJobStore:
         if self._pool is None:
             raise RuntimeError("Analysis job store is not started.")
         return self._pool
+
+
+def _require_owner_subject(owner_subject: str) -> None:
+    if (
+        not isinstance(owner_subject, str)
+        or not owner_subject
+        or owner_subject != owner_subject.strip()
+    ):
+        raise ValueError("owner_subject must not be empty")
 
 
 def _require_job_owner(job: AnalysisJob, worker_id: str | None) -> None:
@@ -612,9 +625,9 @@ def _job_from_row(row: asyncpg.Record) -> AnalysisJob:
     return AnalysisJob(
         analysis_id=str(row["analysis_id"]),
         repository_id=str(row["repository_id"]),
-        owner_subject=str(row["owner_subject"]),
         status=AnalysisJobStatus(str(row["status"])),
         created_at=row["created_at"],
+        owner_subject=row["owner_subject"],
         started_at=row["started_at"],
         finished_at=row["finished_at"],
         error_code=row["error_code"],

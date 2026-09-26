@@ -91,8 +91,8 @@ class AnalysisExecutionService:
         job = AnalysisJob.queued(
             analysis_id=analysis_id,
             repository_id=context.repository.id,
-            owner_subject=owner_subject,
             created_at=self._clock(),
+            owner_subject=owner_subject,
             worker_id=worker_id,
         )
         return await self._job_store.create(job)
@@ -150,11 +150,7 @@ class AnalysisExecutionService:
                     worker_id=worker_id,
                 )
 
-            await self._snapshot_store.save(
-                job.analysis_id,
-                execution,
-                owner_subject=job.owner_subject,
-            )
+            await self._snapshot_store.save(job.analysis_id, execution)
             return await self._job_store.finish(
                 job.analysis_id,
                 status=status,

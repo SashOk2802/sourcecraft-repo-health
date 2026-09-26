@@ -13,10 +13,13 @@ from pathlib import Path
 from unittest.mock import Mock
 
 import httpx
+from fastapi import Request
 
 from backend.app.analysis import (
+    AnalysisJob,
     AnalysisPrincipal,
     AnalyzerRegistration,
+    InMemoryAnalysisJobStore,
     InMemoryAnalysisStore,
     run_analysis,
 )
@@ -85,16 +88,22 @@ class SecurityReportingTest(unittest.IsolatedAsyncioTestCase):
             ),
         )
         store = InMemoryAnalysisStore()
+        job_store = InMemoryAnalysisJobStore()
+        await job_store.create(
+            AnalysisJob.queued(
+                analysis_id="security-test",
+                repository_id=_context().repository.id,
+                created_at=_context().analyzed_at,
+                owner_subject="security-report-owner",
+            )
+        )
         app = create_app(
             analysis_store=store,
-            principal_provider=authenticated_principal,
+            job_store=job_store,
+            principal_provider=_security_report_principal,
         )
         async with app.router.lifespan_context(app):
-            await store.save(
-                "security-test",
-                execution,
-                owner_subject="user-42",
-            )
+            await store.save("security-test", execution)
             async with httpx.AsyncClient(
                 transport=httpx.ASGITransport(app=app), base_url="http://testserver"
             ) as client:
@@ -128,10 +137,6 @@ class SecurityReportingTest(unittest.IsolatedAsyncioTestCase):
             self.assertNotIn(marker, markdown)
 
 
-async def authenticated_principal(_: httpx.Request) -> AnalysisPrincipal:
-    return AnalysisPrincipal("user-42")
-
-
 def _context() -> AnalysisContext:
     timestamp = datetime(2026, 1, 1, tzinfo=UTC)
     return AnalysisContext(
@@ -141,3 +146,9 @@ def _context() -> AnalysisContext:
         period_start=timestamp,
         period_end=timestamp,
     )
+
+
+async def _security_report_principal(_: Request) -> AnalysisPrincipal:
+    """Представляет владельца сохранённого отчёта без токена в тесте."""
+
+    return AnalysisPrincipal("security-report-owner")

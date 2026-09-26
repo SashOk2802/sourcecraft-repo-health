@@ -14,10 +14,12 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from backend.app.analysis.runner import AnalyzerRegistration
-from backend.app.analyzers import activity, code_health, documentation, issues
+from backend.app.analyzers import activity, cicd, code_health, documentation, issues, security
 from backend.app.contracts import AnalysisContext, CategoryResult, DataStatus
 from backend.app.integrations.git_repository import GitCloneError, LocalGitRepository
 from backend.app.integrations.sourcecraft import SourceCraftClient, SourceCraftClientError
+from backend.app.integrations.sourcecraft_cicd import SourceCraftCicdClient
+from backend.app.integrations.sourcecraft_cicd_facts import make_cicd_facts_provider
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +87,56 @@ def repo_content_analyzer_provider(context: AnalysisContext) -> Iterable[Analyze
             "code_health",
             _workspace_evaluator("code_health", code_health, workspace),
         ),
+    )
+
+
+def sourcecraft_analyzer_provider(context: AnalysisContext) -> Iterable[AnalyzerRegistration]:
+    """Регистрирует все шесть категорий для одного production-запуска.
+
+    CI/CD использует подтверждённый REST-адаптер. Security также регистрируется,
+    но до серверного AppSec API возвращает честный статус unavailable: имеющийся
+    CLI-probe опирается на локальную пользовательскую сессию и не должен
+    выполняться внутри web-worker.
+    """
+    token = read_sourcecraft_token()
+    return (
+        *project_life_analyzer_provider(context),
+        AnalyzerRegistration("cicd", _cicd_evaluator(token)),
+        *repo_content_analyzer_provider(context),
+        AnalyzerRegistration("security", _security_evaluator()),
+    )
+
+
+def _cicd_evaluator(token: str):
+    """Возвращает CI/CD evaluator с отдельным закрываемым REST-клиентом."""
+
+    def evaluate(ctx: AnalysisContext) -> CategoryResult:
+        try:
+            client = SourceCraftClient(token)
+        except ValueError:
+            return _sourcecraft_configuration_error("cicd")
+        try:
+            facts_provider = make_cicd_facts_provider(SourceCraftCicdClient(client))
+            return cicd.make_analyzer(facts_provider)(ctx)
+        finally:
+            client.close()
+
+    return evaluate
+
+
+def _security_evaluator():
+    """Регистрирует Security без запуска локального SourceCraft CLI в сервере."""
+
+    return security.make_analyzer(lambda _: security.build_facts(None))
+
+
+def _sourcecraft_configuration_error(category_code: str) -> CategoryResult:
+    return CategoryResult(
+        category=category_code,
+        status=DataStatus.ERROR,
+        score=None,
+        summary="Не удалось получить данные из SourceCraft.",
+        reason=_TOKEN_MISSING_REASON,
     )
 
 
