@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import type { Evidence } from "../../api/common";
 import type { CategoryMetric, ReportCategory } from "../../api/report";
 import {
   biggestLosses,
@@ -266,6 +267,65 @@ describe("метрики документации и Code health", () => {
   it("незнакомый has_* с другим значением считает обычной метрикой", () => {
     expect(isPresenceMetric({ ...hasReadme, code: "has_something", value: 1 })).toBe(false);
     expect(isPresenceMetric({ ...hasReadme, value: "да" })).toBe(false);
+  });
+});
+
+// Так backend/app/analyzers/security.py (PR #60) отдаёт измеренную безопасность: три метрики и один общий факт.
+const appsecFact: Evidence = {
+  source: "sourcecraft-appsec",
+  reference: "appsec-defects",
+  summary: "Получены полные обезличенные результаты SAST, SCA и secret scanning.",
+  url: null,
+};
+const appsecCoverage: CategoryMetric = {
+  code: "appsec_data_coverage",
+  value: "complete",
+  normalizedScore: null,
+  summary: appsecFact.summary,
+  evidence: [appsecFact],
+};
+const appsecOpen: CategoryMetric = {
+  code: "appsec_open_findings",
+  value: 3,
+  normalizedScore: 85,
+  summary: "Открытые findings учитываются по severity и статусу SourceCraft.",
+  evidence: [appsecFact],
+};
+const appsecCritical: CategoryMetric = {
+  code: "appsec_confirmed_open_critical_findings",
+  value: 0,
+  normalizedScore: null,
+  summary: "Критичные finding'и с подтверждённым открытым статусом ограничивают итоговый Score.",
+  evidence: [appsecFact],
+};
+
+describe("метрики Security Score v1", () => {
+  const securityMetrics = [appsecCoverage, appsecOpen, appsecCritical];
+
+  it("подписывает своими словами, а не правилом методики", () => {
+    expect(securityMetrics.map(metricLabel)).toEqual([
+      "Результаты SAST, SCA и secret scanning",
+      "Открытые находки сканеров",
+      "Из них подтверждённые критичные",
+    ]);
+  });
+
+  it("справа — число находок, а не повтор оценки категории", () => {
+    expect(metricValueText(appsecCoverage)).toBe("полные");
+    expect(metricValueText({ ...appsecCoverage, value: "partial" })).toBe("—");
+    expect(metricValueText(appsecOpen)).toBe("3");
+    expect(metricValueText(appsecCritical)).toBe("0");
+    // Цвет точки — по оценке: 85 — хорошо; у подтверждённых критичных оценки нет.
+    expect(metricTone(appsecOpen)).toBe("high");
+    expect(metricTone(appsecCritical)).toBe("info");
+  });
+
+  it("общий факт не повторяет под каждой метрикой", () => {
+    for (const metric of securityMetrics) {
+      expect(metricEvidence(metric, securityMetrics)).toEqual([]);
+    }
+    // Без соседей факт остался бы: его текст отличается от summary самой метрики.
+    expect(metricEvidence(appsecOpen)).toHaveLength(1);
   });
 });
 

@@ -96,21 +96,39 @@ export function isPresenceMetric(metric: CategoryMetric): boolean {
   return metric.code in presenceLabels && (metric.value === 0 || metric.value === 1);
 }
 
-/** Подпись метрики: у признака «есть/нет» — своя, у остальных — summary backend. */
+/*
+ * Метрики Security Score v1 (backend PR #60, backend/app/analyzers/security.py). Их summary —
+ * правила методики («Открытые findings учитываются по severity и статусу SourceCraft»), а не
+ * подписи, а normalizedScore открытых находок повторяет оценку всей категории. Поэтому подпись
+ * своя, справа — число находок, а цвет точки остаётся по оценке.
+ */
+const securityLabels: Record<string, string> = {
+  appsec_data_coverage: "Результаты SAST, SCA и secret scanning",
+  appsec_open_findings: "Открытые находки сканеров",
+  appsec_confirmed_open_critical_findings: "Из них подтверждённые критичные",
+};
+
+/** Подпись метрики: у признака «есть/нет» и метрик безопасности — своя, у остальных — summary backend. */
 export function metricLabel(metric: CategoryMetric): string {
-  return isPresenceMetric(metric) ? presenceLabels[metric.code] : metric.summary;
+  if (isPresenceMetric(metric)) {
+    return presenceLabels[metric.code];
+  }
+  return securityLabels[metric.code] ?? metric.summary;
 }
 
 /**
  * Значение справа от метрики: её оценка 0–100; у признака — «есть» или «нет»; у справочной
  * метрики без оценки — само число, если оно есть: так Code health присылает, сколько
- * найдено TODO и FIXME и сколько файлов проверено.
+ * найдено TODO и FIXME и сколько файлов проверено. У находок безопасности — их число.
  */
 export function metricValueText(metric: CategoryMetric): string {
   if (isPresenceMetric(metric)) {
     return metric.value === 1 ? "есть" : "нет";
   }
-  if (metric.normalizedScore !== null) {
+  if (metric.code === "appsec_data_coverage") {
+    return metric.value === "complete" ? "полные" : "—";
+  }
+  if (metric.normalizedScore !== null && !(metric.code in securityLabels)) {
     return formatScore(metric.normalizedScore);
   }
   if (typeof metric.value === "number" && Number.isFinite(metric.value)) {
@@ -150,10 +168,14 @@ export function evidenceSummaryText(item: Evidence): string {
   return marker && item.reference === `${marker[3]}:${marker[2]}` ? marker[1] : item.summary;
 }
 
-/** Факты метрики без повтора её же текста: у служебных фактов описание совпадает с метрикой. */
-export function metricEvidence(metric: CategoryMetric): Evidence[] {
-  const summary = metric.summary.trim();
-  return metric.evidence.filter((item) => item.url !== null || item.summary.trim() !== summary);
+/**
+ * Факты метрики без повтора текста — её собственного или соседних метрик той же категории:
+ * у служебных фактов описание совпадает с метрикой, а Security кладёт один и тот же факт
+ * «Получены полные… результаты» во все свои метрики. Факты со ссылкой остаются всегда.
+ */
+export function metricEvidence(metric: CategoryMetric, siblings: CategoryMetric[] = []): Evidence[] {
+  const repeated = new Set([metric, ...siblings].map((item) => item.summary.trim()));
+  return metric.evidence.filter((item) => item.url !== null || !repeated.has(item.summary.trim()));
 }
 
 /**

@@ -61,7 +61,7 @@ export function ScoreCard({ report }: { report: RepositoryReport }) {
             {/* Пока оценки нет, метка «предварительная» только путает: предварять нечего. */}
             {analysis.isPreliminary && score !== null && (
               <PreliminaryLabel
-                hint={`Есть данные по ${scoreDetails.measuredWeight}% из ${scoreDetails.applicableWeight}% веса методики`}
+                hint={`Есть данные по ${formatPoints(scoreDetails.measuredWeight)}% из ${formatPoints(scoreDetails.applicableWeight)}% веса методики`}
               />
             )}
             {analysis.scoreLimit && <ScoreLimitLabel value={analysis.scoreLimit.value} />}
@@ -73,7 +73,8 @@ export function ScoreCard({ report }: { report: RepositoryReport }) {
               className="score-card__limit"
               theme="danger"
               view="outlined"
-              title={`Оценка ограничена: ${analysis.scoreLimit.uncappedScore} → ${analysis.scoreLimit.value}`}
+              // Backend присылает Score без ограничения как есть: 68.76923076923077.
+              title={`Оценка ограничена: ${formatPoints(analysis.scoreLimit.uncappedScore)} → ${formatPoints(analysis.scoreLimit.value)}`}
               message={analysis.scoreLimit.summary}
             />
           )}
