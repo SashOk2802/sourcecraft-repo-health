@@ -7,5 +7,7 @@
     "LOW",
     "MEDIUM"
   ],
-  "reason": null
+  "reason": null,
+  "finding_groups": null,
+  "completeness": "unknown"
 }
