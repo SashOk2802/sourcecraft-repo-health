@@ -38,13 +38,29 @@ class GitOperationError(GitCloneError):
 
 @dataclass(frozen=True, slots=True)
 class CommitFact:
-    """Факт о коммите для метрик активности: авторская дата (UTC).
+    """Факт о коммите для метрик активности: committer-дата (UTC).
 
     Минимальный контракт для расчёта частоты коммитов и активных недель
     (категория Activity); при необходимости расширяется автором/сообщением.
     """
 
-    authored_at: datetime
+    committed_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class HistoryResult:
+    """Результат чтения истории коммитов и явный флаг полноты выборки.
+
+    ``truncated`` повторяет паттерн бюджетов сканирования кода
+    (code_health): если выборка упёрлась в лимит ``max_commits``, потребитель
+    может честно сообщить о неполноте данных вместо тихого обрезания.
+    Сейчас метод ещё не подключён ни к одной категории (Activity в v1 ходит
+    только в REST API SourceCraft), поэтому downstream-обработка флага
+    появится вместе с первым потребителем.
+    """
+
+    commits: tuple[CommitFact, ...] = ()
+    truncated: bool = False
 
 
 def _redact(value: str, *, repo_url: str | None, token: str | None) -> str:
@@ -204,14 +220,26 @@ class LocalGitRepository:
         since: datetime | None = None,
         until: datetime | None = None,
         max_commits: int = DEFAULT_MAX_HISTORY_COMMITS,
-    ) -> tuple[CommitFact, ...]:
-        """Возвращает историю коммитов текущей ссылки (авторские даты в UTC).
+    ) -> HistoryResult:
+        """Возвращает историю коммитов текущей ссылки (committer-даты в UTC).
+
+        Формат ``--format=%ct`` согласован с фильтрами ``--since``/``--until``:
+        git фильтрует оба по дате коммита (committer date), поэтому возвращаемые
+        временные метки обязаны приходиться на ту же ось времени. Авторская дата
+        (``%at``) может лежать вне окна при committer-дате внутри него (и наоборот)
+        — такие коммиты классифицировались бы неверно для «активных недель».
 
         Строка истории — первая родительская линия (``--first-parent``): для
         частоты коммитов и активных недель учитывается основная линия ветки,
         а не каждая внутренняя правка влитых PR. Ограничение ``max_commits``
         защищает от длинной истории; окно ``since``/``until`` фильтруется
         самим git.
+
+        Если выборка достигла лимита ``max_commits``, в результате выставляется
+        ``truncated=True`` (паттерн budgets сканирования кода): потребитель
+        может честно перевести категорию в ``insufficient_sample``, а не молча
+        работать с обрезанной историей. Метод пока не подключён ни к одной
+        категории — обработка флага появится вместе с первым потребителем.
 
         Клон по умолчанию shallow (``--depth 1``), поэтому при необходимости
         история догружается от origin: с ``since`` — границей по дате
@@ -223,7 +251,7 @@ class LocalGitRepository:
             raise GitCloneError("Рабочая область git-репозитория не подготовлена.")
         _validate_history_limit(max_commits)
 
-        arguments = ["-C", self.temp_dir, "log", "--first-parent", "--format=%at"]
+        arguments = ["-C", self.temp_dir, "log", "--first-parent", "--format=%ct"]
         if since is not None:
             arguments += ["--since", since.isoformat()]
         if until is not None:
@@ -241,7 +269,8 @@ class LocalGitRepository:
             raise GitOperationError(
                 "Не удалось прочитать историю коммитов: git-команда завершилась ошибкой."
             ) from error
-        return _parse_author_timestamps(output)
+        commits = _parse_commit_timestamps(output)
+        return HistoryResult(commits=commits, truncated=len(commits) >= max_commits)
 
     def _ensure_history_depth(self, since: datetime | None) -> None:
         """Догружает историю от origin, если клон был сделан shallow."""
@@ -296,8 +325,8 @@ def _force_remove_readonly(func: object, path: str, exc_info: object) -> None:
         func(path)
 
 
-def _parse_author_timestamps(output: str) -> tuple[CommitFact, ...]:
-    """Превращает строки ``git log --format=%at`` в факты коммитов (UTC)."""
+def _parse_commit_timestamps(output: str) -> tuple[CommitFact, ...]:
+    """Превращает строки ``git log --format=%ct`` в факты коммитов (UTC)."""
     facts: list[CommitFact] = []
     for line in output.splitlines():
         line = line.strip()
@@ -307,7 +336,7 @@ def _parse_author_timestamps(output: str) -> tuple[CommitFact, ...]:
             timestamp = int(line)
         except ValueError:
             continue
-        facts.append(CommitFact(authored_at=datetime.fromtimestamp(timestamp, tz=UTC)))
+        facts.append(CommitFact(committed_at=datetime.fromtimestamp(timestamp, tz=UTC)))
     return tuple(facts)
 
 

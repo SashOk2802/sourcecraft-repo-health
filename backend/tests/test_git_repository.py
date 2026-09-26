@@ -2,11 +2,13 @@
 
 import os
 import subprocess
+from datetime import UTC, datetime
 from unittest.mock import patch
 
 import pytest
 
 from backend.app.integrations.git_repository import (
+    DEFAULT_MAX_HISTORY_COMMITS,
     GitCloneError,
     LocalGitRepository,
 )
@@ -220,3 +222,95 @@ def test_repeated_clone_replaces_previous_temp_dir():
         assert os.path.isdir(second)
         assert first != second
         assert not os.path.exists(first), "старый клон должен быть убран до нового"
+
+
+# --- GH: commit_history: согласованность дат и явная обрезка -----------------
+
+
+def test_commit_history_uses_committer_dates_matching_since_until(tmp_path):
+    """История возвращает committer-дату (%ct) — ту же ось, что фильтр (GH.1).
+
+    ``--since``/``--until`` фильтруют по committer date, а ``%at`` (author date)
+    возвращал бы другую ось времени. Для коммита с авторской датой вне окна и
+    committer-датой внутри (классическое расхождение осей) возвращённый факт
+    обязан нести ``committed_at`` внутри окна — ту дату, по которой git реально
+    отфильтровал выборку, а не авторскую.
+    """
+    since = datetime(2026, 9, 1, 12, 0, tzinfo=UTC)
+    until = datetime(2026, 9, 30, 12, 0, tzinfo=UTC)
+    committed_inside = int(datetime(2026, 9, 15, 9, 30, tzinfo=UTC).timestamp())
+    authored_outside = datetime(2026, 8, 20, 9, 30, tzinfo=UTC)  # вне окна
+
+    def fake_run(arguments: list[str], **kwargs):
+        return subprocess.CompletedProcess(
+            arguments, 0, stdout=f"{committed_inside}\n", stderr=""
+        )
+
+    repo = LocalGitRepository(repo_url="https://example/repo.git")
+    repo.temp_dir = str(tmp_path)
+    with patch(
+        "backend.app.integrations.git_repository.subprocess.run", side_effect=fake_run
+    ) as mock_run:
+        result = repo.commit_history(since=since, until=until)
+
+    log_call = next(
+        call.args[0] for call in mock_run.call_args_list if "log" in call.args[0]
+    )
+    assert "--format=%ct" in log_call
+    assert log_call[log_call.index("--since") + 1] == since.isoformat()
+    assert log_call[log_call.index("--until") + 1] == until.isoformat()
+
+    assert len(result.commits) == 1
+    fact = result.commits[0]
+    assert since <= fact.committed_at <= until
+    assert fact.committed_at != authored_outside  # совпадает с committer, а не author
+
+
+def test_commit_history_flags_truncation_at_limit(tmp_path):
+    """Выборка, достигшая лимита -n, помечается truncated=True (GH.2).
+
+    История из ≥ max_commits коммитов раньше обрезалась молча: без флага
+    потребитель не мог честно перевести категорию в insufficient_sample.
+    Достижение лимита теперь явно видно в результате.
+    """
+    limit = DEFAULT_MAX_HISTORY_COMMITS
+    base = int(datetime(2026, 9, 1, tzinfo=UTC).timestamp())
+    payload = "\n".join(str(base + i) for i in range(limit))
+
+    def fake_run(arguments: list[str], **kwargs):
+        return subprocess.CompletedProcess(arguments, 0, stdout=payload + "\n", stderr="")
+
+    repo = LocalGitRepository(repo_url="https://example/repo.git")
+    repo.temp_dir = str(tmp_path)
+    with patch(
+        "backend.app.integrations.git_repository.subprocess.run", side_effect=fake_run
+    ) as mock_run:
+        result = repo.commit_history()
+
+    log_call = next(
+        call.args[0] for call in mock_run.call_args_list if "log" in call.args[0]
+    )
+    assert log_call[log_call.index("-n") + 1] == str(limit)
+    assert result.truncated is True
+    assert len(result.commits) == limit
+
+
+def test_commit_history_not_truncated_below_limit(tmp_path):
+    """История короче лимита — truncated=False (GH.2)."""
+    base = int(datetime(2026, 9, 1, tzinfo=UTC).timestamp())
+
+    def fake_run(arguments: list[str], **kwargs):
+        return subprocess.CompletedProcess(
+            arguments, 0, stdout=f"{base}\n{base + 3600}\n", stderr=""
+        )
+
+    repo = LocalGitRepository(repo_url="https://example/repo.git")
+    repo.temp_dir = str(tmp_path)
+    with patch(
+        "backend.app.integrations.git_repository.subprocess.run", side_effect=fake_run
+    ):
+        result = repo.commit_history(max_commits=DEFAULT_MAX_HISTORY_COMMITS)
+
+    assert result.truncated is False
+    assert len(result.commits) == 2
+    assert result.commits[0].committed_at == datetime.fromtimestamp(base, tz=UTC)
