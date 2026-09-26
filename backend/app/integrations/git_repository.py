@@ -13,10 +13,16 @@ import shutil
 import stat
 import subprocess
 import tempfile
+from dataclasses import dataclass
+from datetime import UTC, datetime
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_GIT_TIMEOUT_SECONDS = 60.0
+
+# Максимум коммитов, возвращаемых commit_history за один вызов (защита от
+# чрезмерного потребления памяти/сети на репозиториях с длинной историей).
+DEFAULT_MAX_HISTORY_COMMITS = 10_000
 
 
 class GitCloneError(RuntimeError):
@@ -28,6 +34,17 @@ class GitCloneError(RuntimeError):
 
 class GitOperationError(GitCloneError):
     """Неуспешный exit-код git-команды внутри подготовленной рабочей области."""
+
+
+@dataclass(frozen=True, slots=True)
+class CommitFact:
+    """Факт о коммите для метрик активности: авторская дата (UTC).
+
+    Минимальный контракт для расчёта частоты коммитов и активных недель
+    (категория Activity); при необходимости расширяется автором/сообщением.
+    """
+
+    authored_at: datetime
 
 
 def _redact(value: str, *, repo_url: str | None, token: str | None) -> str:
@@ -181,6 +198,65 @@ class LocalGitRepository:
         except OSError:
             return None
 
+    def commit_history(
+        self,
+        *,
+        since: datetime | None = None,
+        until: datetime | None = None,
+        max_commits: int = DEFAULT_MAX_HISTORY_COMMITS,
+    ) -> tuple[CommitFact, ...]:
+        """Возвращает историю коммитов текущей ссылки (авторские даты в UTC).
+
+        Строка истории — первая родительская линия (``--first-parent``): для
+        частоты коммитов и активных недель учитывается основная линия ветки,
+        а не каждая внутренняя правка влитых PR. Ограничение ``max_commits``
+        защищает от длинной истории; окно ``since``/``until`` фильтруется
+        самим git.
+
+        Клон по умолчанию shallow (``--depth 1``), поэтому при необходимости
+        история догружается от origin: с ``since`` — границей по дате
+        (``fetch --shallow-since``), без него — полностью (``fetch --unshallow``).
+        Ошибки git оборачиваются в :class:`GitOperationError` (наследник
+        :class:`GitCloneError`), URL и токен в текст не попадают.
+        """
+        if self.temp_dir is None:
+            raise GitCloneError("Рабочая область git-репозитория не подготовлена.")
+        _validate_history_limit(max_commits)
+
+        arguments = ["-C", self.temp_dir, "log", "--first-parent", "--format=%at"]
+        if since is not None:
+            arguments += ["--since", since.isoformat()]
+        if until is not None:
+            arguments += ["--until", until.isoformat()]
+        arguments += ["-n", str(max_commits)]
+
+        try:
+            self._ensure_history_depth(since)
+            output = self._run_git(arguments).stdout
+        except subprocess.TimeoutExpired as error:
+            raise GitOperationError(
+                "Чтение истории коммитов превысило допустимое время ожидания."
+            ) from error
+        except subprocess.CalledProcessError as error:
+            raise GitOperationError(
+                "Не удалось прочитать историю коммитов: git-команда завершилась ошибкой."
+            ) from error
+        return _parse_author_timestamps(output)
+
+    def _ensure_history_depth(self, since: datetime | None) -> None:
+        """Догружает историю от origin, если клон был сделан shallow."""
+        if self.temp_dir is None:
+            return
+        shallow_marker = os.path.join(self.temp_dir, ".git", "shallow")
+        if not os.path.exists(shallow_marker):
+            return
+        if since is not None:
+            self._run_git(
+                ["-C", self.temp_dir, "fetch", "--shallow-since", since.isoformat(), "origin"]
+            )
+        else:
+            self._run_git(["-C", self.temp_dir, "fetch", "--unshallow", "origin"])
+
     def _resolve_within_temp(self, relative_path: str) -> str | None:
         """Возвращает realpath внутри temp_dir либо ``None`` при попытке выхода."""
         if not self.temp_dir:
@@ -218,3 +294,25 @@ def _force_remove_readonly(func: object, path: str, exc_info: object) -> None:
         pass
     if callable(func):
         func(path)
+
+
+def _parse_author_timestamps(output: str) -> tuple[CommitFact, ...]:
+    """Превращает строки ``git log --format=%at`` в факты коммитов (UTC)."""
+    facts: list[CommitFact] = []
+    for line in output.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            timestamp = int(line)
+        except ValueError:
+            continue
+        facts.append(CommitFact(authored_at=datetime.fromtimestamp(timestamp, tz=UTC)))
+    return tuple(facts)
+
+
+def _validate_history_limit(value: object) -> None:
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise TypeError("max_commits must be an integer")
+    if value < 1:
+        raise ValueError("max_commits must be positive")
