@@ -52,7 +52,7 @@ services:
       sh -lc "python -m unittest discover -s backend/tests -v &&
       ruff check backend --ignore EXE002"
     volumes:
-      - ./backend:/app/backend
+      - ./backend:/app/backend:ro
       - ./frontend:/app/frontend:ro
       - ./scripts:/app/scripts:ro
       - ./.github:/app/.github:ro
