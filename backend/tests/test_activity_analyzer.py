@@ -696,6 +696,34 @@ class ActivityCollectTest(unittest.TestCase):
         self.assertGreater(capped.value, ACTIVE_WEEKS_CAP)
         self.assertEqual(capped.normalized_score, 100.0)
 
+    def test_active_weeks_weight_changes_the_category_score(self) -> None:
+        """Вес 25 входит в сумму, когда история прочитана, и выпадает вместе с ней."""
+
+        def facts(history: CommitHistoryFacts | None = None) -> ActivityFacts:
+            return build_facts(
+                last_updated=ANALYZED_AT - timedelta(days=1),
+                contributor_items=[raw_contributor("a")],
+                commit_history=history,
+            )
+
+        eight_weeks = CommitHistoryFacts(
+            collected=True,
+            committed_at=tuple(
+                ANALYZED_AT - timedelta(days=7 * index) for index in range(1, ACTIVE_WEEKS_CAP + 1)
+            ),
+        )
+        without = evaluate(facts(), context())
+        full = evaluate(facts(eight_weeks), context())
+        quiet = evaluate(facts(CommitHistoryFacts(collected=True, committed_at=())), context())
+
+        # Давность 1 день — 100. Один участник — 100/3. MR и релизов нет.
+        # Без недель: (40*100 + 15*100/3) / 55. Восемь недель: то же плюс 25*100, делить на 80.
+        self.assertAlmostEqual(without.score, 4500 / 55)
+        self.assertAlmostEqual(full.score, 87.5)
+        self.assertAlmostEqual(quiet.score, 56.25)
+        self.assertGreater(full.score or 0, without.score or 0)
+        self.assertLess(quiet.score or 0, without.score or 0)
+
     def test_missing_or_broken_history_does_not_change_api_score(self) -> None:
         api_facts = build_facts(
             last_updated=ANALYZED_AT - timedelta(days=1),
