@@ -542,8 +542,9 @@ expected_score_delta = score_после_устранения - score_до
 `FIXME_CRITICAL_COUNT = 2` утверждена — единичный FIXME даёт P2, от двух
 включительно — P1. Маркеры `PENDING_APPROVAL` сняты, новые пороги не вводятся.
 
-Сырые счётчики (`total_analyzed_files`, `todo_count`, `fixme_count`) —
-информационные метрики без `normalized_score`.
+Сырые счётчики (`total_analyzed_files`, `todo_count`, `fixme_count`) и доля
+файлов с техническим долгом (`code_health.debt_file_ratio`) — информационные
+метрики без `normalized_score`.
 
 ## 8. Как менять методику
 

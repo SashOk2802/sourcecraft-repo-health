@@ -56,7 +56,7 @@ class FileAnalyzersTest(unittest.TestCase):
         self.assertLess(code_health_result.score, 100)
         self.assertEqual(
             {metric.code for metric in code_health_result.metrics},
-            {"total_analyzed_files", "todo_count", "fixme_count"},
+            {"total_analyzed_files", "todo_count", "fixme_count", "code_health.debt_file_ratio"},
         )
 
     def test_code_health_small_repo_single_marker_density_semantics(self) -> None:

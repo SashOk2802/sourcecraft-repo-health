@@ -290,6 +290,14 @@ def evaluate(context: AnalysisContext, raw_data: dict) -> CategoryResult:
             normalized_score=None,
             summary="Количество критических меток FIXME в комментариях кода",
         ),
+        # Доля файлов с долгом: информационная метрика (как total_analyzed_files),
+        # а не вход формулы — нормализация отсутствует намеренно (A.1).
+        MetricResult(
+            code="code_health.debt_file_ratio",
+            value=files_with_debt / total_files,
+            normalized_score=None,
+            summary="Доля файлов с техническим долгом (files_with_debt / total_files)",
+        ),
     )
 
     recommendations = []

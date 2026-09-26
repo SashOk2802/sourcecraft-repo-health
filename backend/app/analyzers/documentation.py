@@ -136,14 +136,6 @@ def evaluate(context: AnalysisContext, raw_data: dict) -> CategoryResult:
             reason=raw_data["error"],
         )
 
-    evidence = (
-        Evidence(
-            source="repository_structure",
-            reference=context.commit_sha,
-            summary="Проверка файлов регламентов и инструкций в корне репозитория.",
-        ),
-    )
-
     metrics: list[MetricResult] = []
     recommendations: list[Recommendation] = []
     score = 100.0
@@ -174,6 +166,25 @@ def evaluate(context: AnalysisContext, raw_data: dict) -> CategoryResult:
         )
 
         if not has_file:
+            # Evidence называет конкретный недостающий файл (A.2): рекомендация
+            # по README ссылается на README.md, по инструкциям — тоже на README.md,
+            # где раздел должен находиться.
+            if key == "has_shortcuts":
+                evidence = (
+                    Evidence(
+                        source="repository_structure",
+                        reference="README.md",
+                        summary="Инструкции запуска и тестов отсутствуют в README.md.",
+                    ),
+                )
+            else:
+                evidence = (
+                    Evidence(
+                        source="repository_structure",
+                        reference=label,
+                        summary=f"{label} отсутствует в корне репозитория.",
+                    ),
+                )
             score -= penalty
             recommendations.append(
                 Recommendation(

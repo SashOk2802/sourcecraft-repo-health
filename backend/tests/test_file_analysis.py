@@ -347,9 +347,26 @@ def test_code_health_evaluate_measured(mock_context):
     assert result.category == "code_health"
     assert result.status == DataStatus.MEASURED
     assert result.score == 90.0
-    assert len(result.metrics) == 3
+    assert len(result.metrics) == 4
     assert len(result.recommendations) == 1
     assert result.recommendations[0].code == "code_health_resolve_fixme"
+
+
+def test_code_health_debt_file_ratio_metric(mock_context):
+    """Доля файлов с долгом видна в CategoryResult.metrics (A.1).
+
+    files_with_debt/total_files попадает в отчёт как информационная метрика
+    без normalized_score, а не остаётся внутренним фактом collect().
+    """
+    raw_data = {"total_files": 10, "todo_count": 2, "fixme_count": 1, "files_with_debt": 3}
+
+    result = ch_evaluate(mock_context, raw_data)
+
+    ratio_metric = next(
+        metric for metric in result.metrics if metric.code == "code_health.debt_file_ratio"
+    )
+    assert ratio_metric.value == pytest.approx(0.3)
+    assert ratio_metric.normalized_score is None
 
 
 def test_code_health_evaluate_no_supported_files_is_not_applicable(mock_context):
@@ -674,3 +691,41 @@ def test_documentation_evaluate_no_readme_single_recommendation(mock_context):
     codes = [recommendation.code for recommendation in result.recommendations]
     assert codes == ["doc_missing_has_readme"]
     assert result.score == 65.0
+
+
+def test_documentation_missing_readme_evidence_names_the_file(mock_context):
+    """Evidence по отсутствующему README называет конкретный файл (A.2)."""
+    raw_data = {
+        "has_readme": False,
+        "has_shortcuts": False,
+        "has_contributing": True,
+        "has_license": True,
+        "has_codeowners": True,
+    }
+
+    result = doc_evaluate(mock_context, raw_data)
+
+    readme = next(r for r in result.recommendations if r.code == "doc_missing_has_readme")
+    assert readme.evidence
+    assert readme.evidence[0].reference == "README.md"
+    assert "README.md" in readme.evidence[0].summary
+
+
+def test_documentation_missing_shortcuts_evidence_names_readme(mock_context):
+    """Evidence по отсутствующим инструкциям ссылается на README.md (A.2)."""
+    raw_data = {
+        "has_readme": True,
+        "has_shortcuts": False,
+        "has_contributing": True,
+        "has_license": True,
+        "has_codeowners": True,
+    }
+
+    result = doc_evaluate(mock_context, raw_data)
+
+    shortcuts = next(
+        r for r in result.recommendations if r.code == "doc_missing_has_shortcuts"
+    )
+    assert shortcuts.evidence
+    assert shortcuts.evidence[0].reference == "README.md"
+    assert "README.md" in shortcuts.evidence[0].summary
