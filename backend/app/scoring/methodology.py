@@ -8,6 +8,21 @@ from types import MappingProxyType
 from backend.app.contracts import DataStatus
 
 METHODOLOGY_VERSION = "v1"
+SECURITY_OPEN_CRITICAL_METRIC = "appsec_confirmed_open_critical_findings"
+SECURITY_OPEN_CRITICAL_LIMIT_CODE = "security-open-critical"
+SECURITY_OPEN_CRITICAL_LIMIT = 60.0
+SECURITY_OPEN_CRITICAL_LIMIT_SUMMARY = (
+    "Подтверждённая открытая критическая AppSec-уязвимость ограничивает Score."
+)
+SECURITY_ACTIVE_STATUSES = frozenset({"OPEN", "TRIAGED_TP"})
+SECURITY_CONFIRMED_OPEN_STATUSES = frozenset({"TRIAGED_TP"})
+SECURITY_SEVERITY_RULES = (
+    ("CRITICAL", 60, 2),
+    ("HIGH", 15, 3),
+    ("MEDIUM", 5, 4),
+    ("LOW", 1, 10),
+    ("INFO", 0, 0),
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,11 +83,33 @@ def build_methodology_payload() -> dict[str, object]:
         ],
         "scoreLimits": [
             {
-                "code": "security-open-critical",
-                "maximumScore": 60,
-                "summary": (
-                    "Подтверждённая открытая критическая AppSec-уязвимость ограничивает Score."
-                ),
+                "code": SECURITY_OPEN_CRITICAL_LIMIT_CODE,
+                "maximumScore": SECURITY_OPEN_CRITICAL_LIMIT,
+                "summary": SECURITY_OPEN_CRITICAL_LIMIT_SUMMARY,
             }
         ],
+        "security": {
+            "code": "appsec_severity_status_v1",
+            "formula": (
+                "100 - min(100, sum(penaltyPerFinding * min(openFindings, maximumFindings)))"
+            ),
+            "summary": (
+                "Security Score учитывает только открытые findings из полных "
+                "обезличенных результатов SAST, SCA и secret scanning."
+            ),
+            "activeStatuses": sorted(SECURITY_ACTIVE_STATUSES),
+            "confirmedOpenCriticalStatuses": sorted(SECURITY_CONFIRMED_OPEN_STATUSES),
+            "severityPenalties": [
+                {
+                    "severity": severity,
+                    "penaltyPerFinding": penalty,
+                    "maximumFindings": maximum_findings,
+                }
+                for severity, penalty, maximum_findings in SECURITY_SEVERITY_RULES
+            ],
+            "eligibility": (
+                "Все три движка должны вернуть полный результат с известными severity и status; "
+                "иначе категория имеет статус insufficient_sample и не участвует в Score."
+            ),
+        },
     }

@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import Mock
 
+from backend.app.analysis.runner import AnalyzerRegistration, run_analysis
 from backend.app.analyzers.security import (
     CATEGORY_CODE,
     SecurityFacts,
@@ -17,7 +18,7 @@ from backend.app.analyzers.security import (
     evaluate,
     make_analyzer,
 )
-from backend.app.contracts import AnalysisContext, DataStatus, RepositoryRef
+from backend.app.contracts import AnalysisContext, CategoryResult, DataStatus, RepositoryRef
 
 
 class SecurityAnalyzerTest(unittest.TestCase):
@@ -32,19 +33,19 @@ class SecurityAnalyzerTest(unittest.TestCase):
         self.assertEqual(result.metrics[0].evidence[0].source, "sourcecraft-appsec")
         self.assertNotIn("findings", result.metrics[0].evidence[0].summary)
 
-    def test_received_payload_is_insufficient_until_scoring_methodology_exists(self) -> None:
+    def test_payload_without_confirmed_coverage_does_not_get_a_score(self) -> None:
         for payload in ([], {}, {"defects": []}, [{"severity": "critical"}]):
             with self.subTest(payload=payload):
                 result = evaluate(build_facts(payload))
 
                 self.assertEqual(result.status, DataStatus.INSUFFICIENT_SAMPLE)
                 self.assertIsNone(result.score)
-                self.assertEqual(result.reason, "security_scoring_not_configured")
+                self.assertEqual(result.reason, "appsec_coverage_not_confirmed")
                 self.assertEqual(result.metrics[0].value, "received")
                 self.assertIsNone(result.metrics[0].normalized_score)
                 self.assertEqual(result.recommendations, ())
 
-    def test_observed_sast_summary_does_not_become_a_security_score(self) -> None:
+    def test_observed_limited_sast_summary_does_not_become_a_security_score(self) -> None:
         summary_path = Path(__file__).parent / "fixtures/sourcecraft/appsec_sast_summary.json"
         payload = json.loads(summary_path.read_text(encoding="utf-8"))
 
@@ -52,12 +53,111 @@ class SecurityAnalyzerTest(unittest.TestCase):
 
         self.assertEqual(result.status, DataStatus.INSUFFICIENT_SAMPLE)
         self.assertIsNone(result.score)
-        self.assertEqual(result.reason, "security_scoring_not_configured")
+        self.assertEqual(result.reason, "appsec_coverage_not_confirmed")
         self.assertEqual(result.metrics[0].value, "received")
         self.assertNotIn("23", repr(result))
         self.assertNotIn("HIGH", repr(result))
         self.assertNotIn("LOW", repr(result))
         self.assertNotIn("MEDIUM", repr(result))
+
+    def test_complete_appsec_payload_without_open_findings_scores_100(self) -> None:
+        result = evaluate(build_facts(_complete_payload()))
+
+        self.assertEqual(result.status, DataStatus.MEASURED)
+        self.assertEqual(result.score, 100)
+        self.assertEqual(result.reason, "security_score_v1")
+        self.assertEqual(result.metrics[0].code, "appsec_data_coverage")
+        self.assertEqual(result.metrics[0].value, "complete")
+        self.assertEqual(result.metrics[1].code, "appsec_open_findings")
+        self.assertEqual(result.metrics[1].value, 0)
+        self.assertEqual(result.recommendations, ())
+
+    def test_confirmed_open_critical_reduces_security_and_caps_overall_score(self) -> None:
+        security_result = evaluate(
+            build_facts(
+                _complete_payload(
+                    {"severity": "CRITICAL", "status": "TRIAGED_TP", "count": 1},
+                )
+            )
+        )
+        execution = _execution_with_security(security_result)
+
+        self.assertEqual(security_result.score, 40)
+        self.assertEqual(
+            next(
+                metric.value
+                for metric in security_result.metrics
+                if metric.code == "appsec_confirmed_open_critical_findings"
+            ),
+            1,
+        )
+        self.assertEqual(execution.score_summary.uncapped_score, 77.5)
+        self.assertEqual(execution.score_summary.score, 60)
+        self.assertEqual(execution.score_summary.score_limit.code, "security-open-critical")
+        self.assertEqual(security_result.recommendations[0].priority.value, "p0")
+
+    def test_untriaged_open_critical_does_not_apply_global_cap(self) -> None:
+        security_result = evaluate(
+            build_facts(
+                _complete_payload(
+                    {"severity": "CRITICAL", "status": "OPEN", "count": 1},
+                )
+            )
+        )
+        execution = _execution_with_security(security_result)
+
+        self.assertEqual(security_result.score, 40)
+        self.assertEqual(execution.score_summary.uncapped_score, 77.5)
+        self.assertEqual(execution.score_summary.score, 77.5)
+        self.assertIsNone(execution.score_summary.score_limit)
+
+    def test_resolved_findings_do_not_reduce_security_score(self) -> None:
+        result = evaluate(
+            build_facts(
+                _complete_payload(
+                    {"severity": "CRITICAL", "status": "RESOLVED_FP", "count": 1},
+                    {"severity": "HIGH", "status": "RESOLVED_TOLERABLE", "count": 3},
+                )
+            )
+        )
+
+        self.assertEqual(result.status, DataStatus.MEASURED)
+        self.assertEqual(result.score, 100)
+        self.assertEqual(result.recommendations, ())
+
+    def test_open_findings_are_bounded_by_severity_in_formula(self) -> None:
+        result = evaluate(
+            build_facts(
+                _complete_payload(
+                    {"severity": "HIGH", "status": "OPEN", "count": 5},
+                    {"severity": "MEDIUM", "status": "OPEN", "count": 5},
+                    {"severity": "LOW", "status": "OPEN", "count": 20},
+                )
+            )
+        )
+
+        # 100 - 15*min(5, 3) - 5*min(5, 4) - min(20, 10) = 25.
+        self.assertEqual(result.score, 25)
+        self.assertEqual(
+            [item.code for item in result.recommendations],
+            ["appsec-open-high", "appsec-open-medium", "appsec-open-low"],
+        )
+
+    def test_unknown_group_value_does_not_get_score_or_leak_into_result(self) -> None:
+        payload = _complete_payload(
+            {"severity": "HIGH", "status": "OPEN", "count": 1},
+        )
+        engines = payload["engines"]
+        assert isinstance(engines, list)
+        groups = engines[0]["finding_groups"]
+        assert isinstance(groups, list)
+        groups[0]["status"] = "synthetic-unknown-status-marker"
+
+        result = evaluate(build_facts(payload))
+
+        self.assertEqual(result.status, DataStatus.INSUFFICIENT_SAMPLE)
+        self.assertIsNone(result.score)
+        self.assertNotIn("synthetic-unknown-status-marker", repr(result))
 
     def test_source_error_is_not_disguised_as_unavailable(self) -> None:
         source_error = "SourceCraft timed out with token-that-must-not-be-reported"
@@ -194,3 +294,48 @@ def _context() -> AnalysisContext:
         period_start=analyzed_at - timedelta(days=90),
         period_end=analyzed_at,
     )
+
+
+def _execution_with_security(security_result):
+    return run_analysis(
+        _context(),
+        (
+            AnalyzerRegistration("security", lambda _: security_result),
+            *(
+                AnalyzerRegistration(
+                    category,
+                    lambda _, category=category: CategoryResult(
+                        category,
+                        DataStatus.MEASURED,
+                        90,
+                        f"{category} measured",
+                    ),
+                )
+                for category in ("cicd", "documentation", "activity", "issues", "code_health")
+            ),
+        ),
+    )
+
+
+def _complete_payload(*sast_groups: dict[str, object]) -> dict[str, object]:
+    """Создаёт синтетический, но безопасный контракт полного AppSec-скана."""
+
+    return {
+        "engines": [
+            _complete_engine("SAST", list(sast_groups)),
+            _complete_engine("SCA", []),
+            _complete_engine("SECRETS", []),
+        ]
+    }
+
+
+def _complete_engine(engine: str, groups: list[dict[str, object]]) -> dict[str, object]:
+    return {
+        "engine": engine,
+        "availability": "available",
+        "finding_count": sum(group["count"] for group in groups),
+        "severities": sorted({group["severity"] for group in groups}),
+        "reason": None,
+        "finding_groups": groups,
+        "completeness": "complete",
+    }

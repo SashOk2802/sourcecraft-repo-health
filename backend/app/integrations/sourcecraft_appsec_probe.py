@@ -21,10 +21,10 @@ APPSEC_SAMPLE_LIMIT = 100
 AppSecAvailability = Literal["available", "unavailable", "error"]
 AppSecCompleteness = Literal["unknown", "complete"]
 CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
-_KNOWN_SEVERITIES = frozenset({"INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"})
+APPSEC_SEVERITIES = frozenset({"INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"})
 # Это только уже наблюдавшиеся в SourceCraft безопасные статусы. Неизвестная
 # строка никогда не попадает в сводку: она превращается в ``None`` в группе.
-_KNOWN_STATUSES = frozenset({"OPEN", "TRIAGED_TP", "RESOLVED_FP", "RESOLVED_TOLERABLE"})
+APPSEC_STATUSES = frozenset({"OPEN", "TRIAGED_TP", "RESOLVED_FP", "RESOLVED_TOLERABLE"})
 _SAFE_REASONS = frozenset(
     {
         "sourcecraft_appsec_unavailable",
@@ -50,9 +50,9 @@ class AppSecFindingGroup:
     count: int
 
     def __post_init__(self) -> None:
-        if self.severity is not None and self.severity not in _KNOWN_SEVERITIES:
+        if self.severity is not None and self.severity not in APPSEC_SEVERITIES:
             raise ValueError("AppSec finding group contains an unknown severity")
-        if self.status is not None and self.status not in _KNOWN_STATUSES:
+        if self.status is not None and self.status not in APPSEC_STATUSES:
             raise ValueError("AppSec finding group contains an unknown status")
         if not isinstance(self.count, int) or isinstance(self.count, bool):
             raise TypeError("AppSec finding group count must be an integer")
@@ -95,8 +95,8 @@ class AppSecProbeResult:
             not isinstance(self.finding_count, int) or isinstance(self.finding_count, bool)
         ):
             raise TypeError("finding_count must be an integer or None")
-        if self.finding_count is not None and not 0 <= self.finding_count <= APPSEC_SAMPLE_LIMIT:
-            raise ValueError("finding_count must fit the configured AppSec sample limit")
+        if self.finding_count is not None and self.finding_count < 0:
+            raise ValueError("finding_count must not be negative")
         if not isinstance(self.severities, tuple):
             raise TypeError("severities must be a tuple")
         if not all(isinstance(severity, str) for severity in self.severities):
@@ -109,6 +109,12 @@ class AppSecProbeResult:
             raise ValueError("unavailable or error AppSec result cannot have finding_count")
         if self.availability == "available" and self.completeness not in {"unknown", "complete"}:
             raise ValueError("available AppSec result must declare completeness")
+        if (
+            self.completeness == "unknown"
+            and self.finding_count is not None
+            and self.finding_count > APPSEC_SAMPLE_LIMIT
+        ):
+            raise ValueError("unknown AppSec sample cannot exceed the configured sample limit")
         if self.completeness == "complete" and self.finding_groups is None:
             raise ValueError("complete AppSec result must provide safe finding groups")
         if self.availability != "available" and self.completeness is not None:
@@ -119,7 +125,7 @@ class AppSecProbeResult:
             raise ValueError("available AppSec result cannot have a reason")
         if self.availability != "available" and self.reason not in _SAFE_REASONS:
             raise ValueError("AppSec result must use a known safe reason")
-        if any(severity not in _KNOWN_SEVERITIES for severity in self.severities):
+        if any(severity not in APPSEC_SEVERITIES for severity in self.severities):
             raise ValueError("AppSec result contains an unknown severity")
         if self.finding_count is not None and len(self.severities) > self.finding_count:
             raise ValueError("AppSec result cannot have more severities than findings")
@@ -275,14 +281,14 @@ def _normalize_severity(value: object) -> str | None:
     if not isinstance(value, str):
         return None
     normalized = value.strip().upper()
-    return normalized if normalized in _KNOWN_SEVERITIES else None
+    return normalized if normalized in APPSEC_SEVERITIES else None
 
 
 def _normalize_status(value: object) -> str | None:
     if not isinstance(value, str):
         return None
     normalized = value.strip().upper()
-    return normalized if normalized in _KNOWN_STATUSES else None
+    return normalized if normalized in APPSEC_STATUSES else None
 
 
 def _error_result(engine: str, reason: str) -> AppSecProbeResult:

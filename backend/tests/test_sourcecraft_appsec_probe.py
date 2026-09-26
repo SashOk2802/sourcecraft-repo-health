@@ -208,6 +208,18 @@ class SourceCraftAppSecCliProbeTest(unittest.TestCase):
                 "SAST", "available", 1, severities=("HIGH", "LOW"), completeness="unknown"
             )
 
+    def test_complete_safe_result_can_exceed_cli_sample_limit(self) -> None:
+        result = AppSecProbeResult(
+            "SAST",
+            "available",
+            APPSEC_SAMPLE_LIMIT + 1,
+            severities=("HIGH",),
+            finding_groups=(AppSecFindingGroup("HIGH", "OPEN", APPSEC_SAMPLE_LIMIT + 1),),
+            completeness="complete",
+        )
+
+        self.assertEqual(result.finding_count, APPSEC_SAMPLE_LIMIT + 1)
+
     def test_result_requires_completeness_and_consistent_safe_groups(self) -> None:
         with self.assertRaisesRegex(ValueError, "declare completeness"):
             AppSecProbeResult("SAST", "available", 0)
