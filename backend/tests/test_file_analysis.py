@@ -14,6 +14,9 @@ from backend.app.analyzers.code_health import (
 from backend.app.analyzers.code_health import (
     evaluate as ch_evaluate,
 )
+from backend.app.analyzers.code_health import (
+    marker_age_status as ch_marker_age_status,
+)
 from backend.app.analyzers.documentation import (
     collect as doc_collect,
 )
@@ -367,6 +370,22 @@ def test_code_health_debt_file_ratio_metric(mock_context):
     )
     assert ratio_metric.value == pytest.approx(0.3)
     assert ratio_metric.normalized_score is None
+
+
+def test_code_health_marker_age_is_insufficient_sample_not_fabricated():
+    """Возраст маркеров на shallow-клоне — insufficient_sample, не фиктивная дата (B.1).
+
+    Клон всегда --depth 1 (см. LocalGitRepository.clone), поэтому возраст
+    TODO/FIXME честно недоступен: никакого числового значения, никакого нуля —
+    только явный статус по паттерну code_health_scan_limit_exceeded.
+    """
+    result = ch_marker_age_status()
+
+    assert result.status == DataStatus.INSUFFICIENT_SAMPLE
+    assert result.score is None
+    assert result.reason == "code_health_marker_age_insufficient_history"
+    assert "недоступен" in result.summary
+    assert not any(getattr(result, field, None) for field in ("value", "marker_age"))
 
 
 def test_code_health_evaluate_no_supported_files_is_not_applicable(mock_context):

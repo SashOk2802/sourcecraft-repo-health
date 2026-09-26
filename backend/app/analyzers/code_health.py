@@ -347,6 +347,30 @@ def evaluate(context: AnalysisContext, raw_data: dict) -> CategoryResult:
     )
 
 
+# Возраст TODO/FIXME в v1 не вычисляется: клон всегда shallow (--depth 1),
+# истории для blame нет (см. LocalGitRepository.clone). Любой запрос возраста
+# обязан вернуть этот явный недостаток данных, а не выдуманную дату (B.1).
+MARKER_AGE_REASON = "code_health_marker_age_insufficient_history"
+
+
+def marker_age_status() -> CategoryResult:
+    """Возвращает статус возраста маркеров для shallow-клона.
+
+    Повторяет паттерн ``code_health_scan_limit_exceeded``: тот же статус
+    ``DataStatus.INSUFFICIENT_SAMPLE`` и ``score=None`` — без изобретения нового
+    статуса. Возраст не вычисляется, не оценивается и не заменяется нулём:
+    единственный честный ответ на запрос возраста — эта недостаточность
+    выборки. Контракт закреплён тестом: числового возраста не существует.
+    """
+    return CategoryResult(
+        category="code_health",
+        status=DataStatus.INSUFFICIENT_SAMPLE,
+        score=None,
+        summary="Возраст TODO/FIXME недоступен: клон shallow, истории для blame нет.",
+        reason=MARKER_AGE_REASON,
+    )
+
+
 def _density_penalty(fixmes: int, todos: int, total_files: int) -> float:
     """Штраф в баллах: взвешенные маркеры, нормированные на число файлов."""
     weighted = fixmes * FIXME_PENALTY_PER_MARKER + todos * TODO_PENALTY_PER_MARKER
