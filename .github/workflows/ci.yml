@@ -10,7 +10,7 @@ permissions:
 jobs:
   backend:
     name: Backend
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, repo-health]
     services:
       postgres:
         image: postgres:16-alpine
@@ -46,7 +46,7 @@ jobs:
 
   frontend:
     name: Frontend
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, repo-health]
     defaults:
       run:
         working-directory: frontend
@@ -70,7 +70,7 @@ jobs:
 
   compose:
     name: Docker Compose config
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, repo-health]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
