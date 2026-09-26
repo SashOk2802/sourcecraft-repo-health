@@ -169,6 +169,81 @@ def test_code_health_all_malformed_files_yields_not_applicable(tmp_path, mock_co
     assert result.score is None
 
 
+def test_code_health_rust_raw_string_marker_is_not_a_comment(tmp_path):
+    """// TODO внутри Rust raw-строки r#"..."# — не комментарий (NICE.1).
+
+    Generic C-style сканер раньше «выходил» из литерала на внутренней кавычке,
+    после чего // внутри hashed raw-строки читался как настоящий комментарий
+    (false positive).
+    """
+    (tmp_path / "raw.rs").write_text(
+        'let s = r#"label "quoted // TODO: inside raw string"#;\n'
+        "// FIXME: real comment\n",
+        encoding="utf-8",
+    )
+
+    facts = ch_collect(make_real_repo(tmp_path))
+
+    assert facts["total_files"] == 1
+    assert facts["todo_count"] == 0  # маркер внутри raw-строки не считается
+    assert facts["fixme_count"] == 1
+    assert [occurrence["path"] for occurrence in facts["occurrences"]] == ["raw.rs"]
+    assert facts["occurrences"][0]["line"] == 2
+
+
+def test_code_health_typescript_template_interpolation_comment_found(tmp_path):
+    """// FIXME внутри ${...} template literal находится (NICE.1).
+
+    Весь backtick-литерал раньше пропускался как одна «строка», поэтому
+    настоящий комментарий внутри интерполяции терялся (false negative);
+    текст самого шаблона комментарием по-прежнему не считается.
+    """
+    (tmp_path / "view.ts").write_text(
+        "const label = `prefix ${value // FIXME: interpolated comment\n"
+        "} suffix`;\n"
+        "const other = `plain // TODO: not a comment`;\n",
+        encoding="utf-8",
+    )
+
+    facts = ch_collect(make_real_repo(tmp_path))
+
+    assert facts["total_files"] == 1
+    assert facts["fixme_count"] == 1
+    assert facts["todo_count"] == 0  # TODO в тексте шаблона — не комментарий
+    assert [occurrence["path"] for occurrence in facts["occurrences"]] == ["view.ts"]
+    assert facts["occurrences"][0]["line"] == 1
+
+
+def test_code_health_javascript_regex_markers_are_not_comments(tmp_path):
+    """// TODO внутри JS regex-литералов — не комментарий (порт из codex/rebuild-file-analysis).
+
+    Токенизатор учитывает контекст: regex после управляющих скобок и после
+    ``export default`` не путается с делением, а настоящие комментарии при этом
+    считаются. Фикстура перенесена из ветки codex/rebuild-file-analysis
+    (единственная часть той ветки, которой не было в main-тестах).
+    """
+    (tmp_path / "regex.js").write_text(
+        "const re = /[//] TODO/; // FIXME: real comment\n"
+        "const block = /[/*] FIXME/;\n"
+        "function build() { return /[//] TODO/; }\n"
+        "if (ok) /[//] TODO/.test(value);\n"
+        "if ((ok && check())) {} /[//] TODO/.test(value);\n"
+        "export default /[//] TODO/;\n"
+        "const grouped = (left + right) / divisor; // TODO: grouped division\n"
+        "const objectRatio = {value: 2} / divisor; // TODO: object division\n"
+        "const propertyRatio = obj.if(value) / divisor; // TODO: property call\n"
+        "const ratio = left / right; // TODO: real comment\n",
+        encoding="utf-8",
+    )
+
+    facts = ch_collect(make_real_repo(tmp_path))
+
+    assert facts["total_files"] == 1
+    assert facts["todo_count"] == 4  # только настоящие комментарии после деления
+    assert facts["fixme_count"] == 1
+    assert facts["files_with_debt"] == 1
+
+
 def test_code_health_collect_token_error_file_is_excluded_not_silently_empty(tmp_path):
     """Файл с незакрытой строкой исключается, а не считается «чистым» (CH.2).
 
@@ -283,6 +358,47 @@ def test_code_health_evaluate_no_supported_files_is_not_applicable(mock_context)
     result = ch_evaluate(mock_context, raw_data)
 
     assert result.status == DataStatus.NOT_APPLICABLE
+    assert result.score is None
+
+
+def test_code_health_zero_supported_extensions_is_not_applicable(tmp_path, mock_context):
+    """Репозиторий без единого файла кода: not_applicable, не unavailable/error (TEST.1).
+
+    End-to-end проверка ветки «ноль поддерживаемых расширений»: в клоне только
+    README.md и styles.css, collect() находит ноль файлов кода, и evaluate()
+    проходит существующую ветку total_files == 0 → NOT_APPLICABLE (4.1).
+    """
+    (tmp_path / "README.md").write_text("# Demo\n", encoding="utf-8")
+    (tmp_path / "styles.css").write_text("body { color: red; }\n", encoding="utf-8")
+
+    facts = ch_collect(make_real_repo(tmp_path))
+    result = ch_evaluate(mock_context, facts)
+
+    assert facts["total_files"] == 0
+    assert facts["todo_count"] == 0
+    assert facts["fixme_count"] == 0
+    assert result.status == DataStatus.NOT_APPLICABLE
+    assert result.score is None
+
+
+def test_code_health_evaluate_clone_error_is_error_not_low_score(mock_context):
+    """Ошибка git-слоя: ERROR и score=None, а не низкий числовой балл (TEST.2).
+
+    Провайдер передаёт evaluate() словарь с ключом "error" (см.
+    providers._workspace_evaluator, перехват GitCloneError); контракт категории —
+    ERROR и null вместо вычитания штрафов из нулевого total_files.
+    """
+    result = ch_evaluate(mock_context, {"error": "не удалось получить содержимое репозитория"})
+
+    assert result.status == DataStatus.ERROR
+    assert result.score is None
+
+
+def test_documentation_evaluate_clone_error_is_error_not_low_score(mock_context):
+    """Ошибка git-слоя у Documentation: ERROR и score=None (TEST.2)."""
+    result = doc_evaluate(mock_context, {"error": "не удалось получить содержимое репозитория"})
+
+    assert result.status == DataStatus.ERROR
     assert result.score is None
 
 

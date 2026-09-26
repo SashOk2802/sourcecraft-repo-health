@@ -397,7 +397,11 @@ def _comment_spans(content: str, extension: str) -> list[tuple[str, int]] | None
             ]
         except (tokenize.TokenError, SyntaxError):
             return None
-    return _c_style_comments(content, javascript=extension in {".js", ".ts", ".jsx", ".tsx"})
+    return _c_style_comments(
+        content,
+        javascript=extension in {".js", ".ts", ".jsx", ".tsx"},
+        rust=extension == ".rs",
+    )
 
 
 def _marker_occurrences(
@@ -415,9 +419,14 @@ def _marker_occurrences(
 
 
 def _c_style_comments(
-    content: str, *, javascript: bool = False
+    content: str, *, javascript: bool = False, rust: bool = False
 ) -> list[tuple[str, int]]:
-    """C-style комментарии как (текст, стартовая строка), без строк и regex-литералов."""
+    """C-style комментарии как (текст, стартовая строка), без строк и regex-литералов.
+
+    Для Rust дополнительно пропускаются raw-строки ``r"..."``, ``r#"..."#`` и
+    ``r##"..."##``: иначе ``// TODO`` внутри такого литерала читался бы как
+    настоящий комментарий (false positive, NICE.1).
+    """
 
     if javascript:
         return _javascript_comments(content)
@@ -435,6 +444,9 @@ def _c_style_comments(
             text = content[index + 2 :] if end == -1 else content[index + 2 : end]
             comments.append((text, content.count("\n", 0, index) + 1))
             index = len(content) if end == -1 else end + 2
+        elif rust and content[index] == "r":
+            raw_end = _skip_rust_raw_string(content, index)
+            index = raw_end if raw_end > index else index + 1
         elif content[index] in "\"'`":
             quote = content[index]
             index += 1
@@ -488,7 +500,15 @@ def _javascript_comments(content: str) -> list[tuple[str, int]]:
             continue
 
         character = content[index]
-        if character in "\"'`":
+        if character == "`":
+            # Template literal: текст между бэктиками — не комментарий, но
+            # интерполяции ${...} — это код, где реальные // /* */ комментарии
+            # обязаны находиться (false negative до фикса, NICE.1).
+            index = _skip_template_literal(content, index, comments)
+            expects_expression = False
+            last_token = "literal"
+            continue
+        if character in "\"'":
             index = _skip_quoted_literal(content, index)
             expects_expression = False
             last_token = "literal"
@@ -592,6 +612,78 @@ def _skip_quoted_literal(content: str, quote_index: int) -> int:
             return index + 1
         else:
             index += 1
+    return index
+
+
+def _skip_rust_raw_string(content: str, index: int) -> int:
+    """Пропускает Rust raw-строку от позиции ``r``: r"…" / r#"…"# / r##"…"##.
+
+    Возвращает позицию после закрывающего ``"#*`` либо ``index``, если это не
+    raw-строка (обычный идентификатор, начинающийся с ``r``).
+    """
+    position = index + 1
+    hashes = 0
+    while position < len(content) and content[position] == "#":
+        hashes += 1
+        position += 1
+    if position >= len(content) or content[position] != '"':
+        return index
+    delimiter = '"' + "#" * hashes
+    end = content.find(delimiter, position + 1)
+    if end == -1:
+        return len(content)
+    return end + len(delimiter)
+
+
+def _skip_template_literal(
+    content: str, backtick_index: int, comments: list[tuple[str, int]]
+) -> int:
+    """Сканирует template literal; интерполяции ``${...}`` обрабатываются как код."""
+    index = backtick_index + 1
+    while index < len(content):
+        character = content[index]
+        if character == "\\":
+            index += 2
+            continue
+        if character == "`":
+            return index + 1
+        if character == "$" and content.startswith("${", index):
+            index = _scan_interpolation(content, index + 2, comments)
+            continue
+        index += 1
+    return index
+
+
+def _scan_interpolation(
+    content: str, start: int, comments: list[tuple[str, int]]
+) -> int:
+    """Проходит ``${...}`` как код, извлекая комментарии; возвращает после ``}``."""
+    index = start
+    depth = 1
+    while index < len(content) and depth > 0:
+        if content.startswith("//", index):
+            end = content.find("\n", index)
+            text = content[index + 2 :] if end == -1 else content[index + 2 : end]
+            comments.append((text, content.count("\n", 0, index) + 1))
+            index = len(content) if end == -1 else end + 1
+            continue
+        if content.startswith("/*", index):
+            end = content.find("*/", index + 2)
+            text = content[index + 2 :] if end == -1 else content[index + 2 : end]
+            comments.append((text, content.count("\n", 0, index) + 1))
+            index = len(content) if end == -1 else end + 2
+            continue
+        character = content[index]
+        if character in "\"'`":
+            index = _skip_quoted_literal(content, index)
+            continue
+        if character == "{":
+            depth += 1
+        elif character == "}":
+            depth -= 1
+            if depth == 0:
+                return index + 1
+        index += 1
     return index
 
 
