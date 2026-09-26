@@ -13,7 +13,7 @@
 
 Оба порога реализованы в [`backend/app/analyzers/code_health.py`](../backend/app/analyzers/code_health.py)
 (`_density_penalty()`, `FIXME_CRITICAL_COUNT = 2`) и описаны в
-[`docs/scoring-methodology.md`](../docs/scoring-methodology.md) §4.3 («Правило
+[`docs/scoring-methodology.md`](../docs/scoring-methodology.md) §7.2 («Правило
 малых репозиториев» и «Порог „критичного FIXME“»). Записи были помечены
 `PENDING_APPROVAL`; маркеры сняты после согласования (решение ниже).
 
@@ -42,7 +42,7 @@ score = 0. Это следствие нормировки на число фай
 единичный FIXME — **P2**?
 
 Текущее поведение: `FIXME_CRITICAL_COUNT = 2` в `code_health.py`;
-задокументировано в `scoring-methodology.md` §4.3 и зафиксировано регрессионным
+задокументировано в `scoring-methodology.md` §7.2 и зафиксировано регрессионным
 тестом `test_code_health_fixme_critical_count_boundary` (P2 при одном FIXME,
 P1 от двух включительно). Альтернатива: одиночный FIXME тоже трактуется как
 критический (P1), либо порог выше 2.
@@ -56,7 +56,7 @@ P1 от двух включительно). Альтернатива: одино
    остаётся точной границей: единичный FIXME — P2, от двух включительно — P1.
 
 Маркеры `PENDING_APPROVAL` в `scoring-methodology.md` сняты, решение
-зафиксировано в §4.3.
+зафиксировано в §7.2.
 
 ## Формат ответа
 

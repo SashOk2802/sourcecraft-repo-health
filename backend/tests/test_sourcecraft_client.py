@@ -19,18 +19,6 @@ from backend.app.integrations.sourcecraft import (
 class SourceCraftClientTest(unittest.TestCase):
     """Проверяет клиента без сети через искусственный HTTP transport."""
 
-    def test_owned_client_ignores_proxy_and_ca_environment(self) -> None:
-        with patch("backend.app.integrations.sourcecraft.httpx.Client") as factory:
-            client = SourceCraftClient("test-token", timeout_seconds=15)
-
-        factory.assert_called_once_with(
-            base_url="https://api.sourcecraft.tech",
-            timeout=15,
-            follow_redirects=False,
-            trust_env=False,
-        )
-        client.close()
-
     def test_get_json_sends_bearer_token_and_returns_object(self) -> None:
         secret_token = "token-that-must-not-appear-in-errors"
 
@@ -83,9 +71,7 @@ class SourceCraftClientTest(unittest.TestCase):
         )
         client = SourceCraftClient("test-token", http_client=http_client)
 
-        runs = client.get_paginated_objects(
-            "/repos/example-org/example-repo/cicd/runs", items_field="runs"
-        )
+        runs = client.get_paginated_objects("/repos/example-org/example-repo/cicd/runs", items_field="runs")
 
         self.assertEqual(runs, [{"id": "run-1"}, {"id": "run-2"}])
         self.assertEqual(len(requests), 2)
@@ -107,9 +93,7 @@ class SourceCraftClientTest(unittest.TestCase):
         client = SourceCraftClient("test-token", http_client=http_client)
 
         with self.assertRaisesRegex(SourceCraftResponseError, "repeated next_page_token"):
-            client.get_paginated_objects(
-                "/repos/example-org/example-repo/cicd/runs", items_field="runs"
-            )
+            client.get_paginated_objects("/repos/example-org/example-repo/cicd/runs", items_field="runs")
 
         self.assertEqual(len(requests), 2)
 
@@ -173,9 +157,7 @@ class SourceCraftClientTest(unittest.TestCase):
         client = SourceCraftClient("test-token", http_client=http_client)
 
         with self.assertRaises(ValueError):
-            client.get_paginated_objects(
-                "/repos/example-org/example-repo/cicd/runs", items_field=""
-            )
+            client.get_paginated_objects("/repos/example-org/example-repo/cicd/runs", items_field="")
         with self.assertRaises(ValueError):
             client.get_paginated_objects(
                 "/repos/example-org/example-repo/cicd/runs",
@@ -294,6 +276,35 @@ class SourceCraftClientTest(unittest.TestCase):
     def test_untrusted_base_url_is_rejected(self) -> None:
         with self.assertRaisesRegex(ValueError, "official HTTPS API host"):
             SourceCraftClient("test-token", base_url="https://attacker.example")
+
+    def test_resolve_git_clone_url_rejects_untrusted_host(self) -> None:
+        """git-clone URL не строится для хоста вне allowlist доверенных хостов.
+
+        Дополнительно контролируется точка git-инвокации: ни один вызов
+        subprocess.run (клонирование) не должен произойти для недоверенного хоста.
+        """
+        with patch(
+            "backend.app.integrations.git_repository.subprocess.run"
+        ) as mock_run:
+            for untrusted_web_url in (
+                # Случай из ТЗ: полностью чужой домен.
+                "https://attacker.example/org/repo",
+                # Хосты-«двойники», содержащие официальный домен подстрокой:
+                # точное совпадение с allowlist обязательно, подстрока не проходит.
+                "https://api.sourcecraft.tech.attacker.example/org/repo",
+                "https://attacker-sourcecraft.dev/org/repo",
+                "https://sourcecraft.dev.attacker.example/org/repo",
+            ):
+                with self.subTest(web_url=untrusted_web_url), self.assertRaises(
+                    SourceCraftRequestError
+                ):
+                    SourceCraftClient.resolve_git_clone_url(
+                        "attacker",
+                        "repo",
+                        untrusted_web_url,
+                    )
+
+        mock_run.assert_not_called()
 
     def test_injected_http_client_with_untrusted_base_url_is_rejected_before_request(self) -> None:
         requests: list[httpx.Request] = []

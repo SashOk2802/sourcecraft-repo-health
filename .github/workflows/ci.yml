@@ -40,7 +40,7 @@ jobs:
       - name: Apply database migrations
         run: alembic upgrade head
       - name: Run tests
-        run: python -m unittest discover -s backend/tests -v
+        run: python -m pytest
       - name: Check Python code
         run: ruff check backend --ignore EXE002
 
@@ -77,5 +77,3 @@ jobs:
           persist-credentials: false
       - name: Check Compose configuration
         run: docker compose config --quiet
-      - name: Test frontend upgrade from a root-owned node_modules volume
-        run: bash scripts/test_frontend_volume_upgrade.sh

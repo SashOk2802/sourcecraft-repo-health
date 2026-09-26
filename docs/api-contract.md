@@ -14,77 +14,6 @@
 
 Первый путь используют Docker healthcheck и инфраструктура. Второй — frontend через proxy.
 
-## Методика Score
-
-### GET /api/v1/methodology
-
-Возвращает публичное описание текущей версии методики для страницы «Как считаем». Ответ
-строится из тех же констант, что использует расчёт Score, поэтому веса и названия
-категорий не дублируются на frontend.
-
-~~~json
-{
-  "version": "v1",
-  "scoreRange": { "minimum": 0, "maximum": 100 },
-  "categories": [
-    { "code": "security", "label": "Безопасность", "weight": 25 }
-  ],
-  "aggregation": {
-    "code": "weighted_average_of_measured_categories",
-    "formula": "sum(categoryScore * weight) / sum(weight)",
-    "coverageFormula": "measuredWeight / applicableWeight"
-  },
-  "dataStatuses": [
-    {
-      "code": "unavailable",
-      "summary": "Источник не предоставил данные; это не нулевая оценка."
-    }
-  ],
-  "scoreLimits": [
-    { "code": "security-open-critical", "maximumScore": 60 }
-  ]
-}
-~~~
-
-`Coverage` показывает полноту измеренного веса, но не уменьшает итоговый Score.
-Если Coverage меньше 1, оценка помечается как предварительная.
-
-## Вход через Яндекс ID
-
-Яндекс ID подтверждает личность пользователя в нашем сервисе. Он **не** даёт доступ к репозиториям SourceCraft: этот доступ будет оформляться отдельным подключением и проверяться resolver перед запуском анализа.
-
-### GET /api/v1/auth/yandex/start
-
-Начинает Authorization Code flow с PKCE. При настроенных `YANDEX_CLIENT_ID` и `YANDEX_REDIRECT_URI` отвечает `307` и перенаправляет браузер на официальный URL Яндекс ID. Параметры `state` и `code_verifier` одноразовые; `state` хранится сервером только в виде SHA-256-хеша не более 10 минут.
-
-### GET /api/v1/auth/yandex/callback
-
-Принимает от Яндекс ID `code` и `state`, обменивает code на сервере, получает только `id` и `login`, затем отвечает `303` на `/me/repositories`. Браузер получает cookie `repo_health_session` с флагами `HttpOnly`, `SameSite=Lax`, `Path=/`; OAuth-токен не записывается в cookie, ответ API или базу данных.
-
-| Статус | Причина |
-| --- | --- |
-| 401 | Пользователь отменил вход, state истёк или уже был использован |
-| 502 | Яндекс ID не ответил либо вернул некорректный ответ |
-| 503 | Вход не настроен в окружении |
-
-### GET /api/v1/me
-
-Возвращает минимальный профиль текущей сессии:
-
-~~~json
-{ "id": "user-…", "login": "alex" }
-~~~
-
-Без действующей сессии возвращает `401`. Если Яндекс ID не сконфигурирован, возвращает `503`.
-
-### POST /api/v1/auth/logout
-
-Отзывает серверную сессию и удаляет cookie. Возвращает `204` даже если cookie уже отсутствует.
-
-### Конфигурация
-
-Для включения входа нужны обе переменные: `YANDEX_CLIENT_ID` и `YANDEX_REDIRECT_URI`. Последний адрес должен в точности совпадать с redirect URI в настройках приложения Яндекс ID; для локального Docker это обычно `http://localhost:5173/api/v1/auth/yandex/callback`. `YANDEX_CLIENT_SECRET` добавляют, только если он выдан типу OAuth-клиента. В production `YANDEX_SESSION_COOKIE_SECURE=true`; для локального HTTP Docker compose устанавливает `false`. Значения с секретами хранят только в `.env` или секретах среды развёртывания.
-
 ## Запуск и состояние анализа
 
 ### POST /api/v1/repositories/{repository_id}/analyses
@@ -112,14 +41,12 @@
 | Статус | Причина |
 | --- | --- |
 | 401 | Запрос не содержит проверенную пользовательскую идентичность |
-| 403 | Запрошен private/internal репозиторий либо у пользователя нет доступа к репозиторию |
+| 403 | У пользователя нет доступа к репозиторию |
 | 404 | Репозиторий не найден |
 | 422 | Передан некорректный ID репозитория |
-| 503 | Не настроен dispatcher, аутентификация либо недоступен каталог SourceCraft |
+| 503 | Не настроен SourceCraft-dispatcher или слой аутентификации |
 
-HTTP-слой передаёт в dispatcher только проверенный `AnalysisPrincipal` без токенов и секретов. При заданных `SOURCECRAFT_TOKEN` и `SOURCECRAFT_PUBLIC_ORGANIZATIONS` стандартное приложение создаёт production dispatcher: resolver ищет репозиторий в перечисленных организациях и разрешает только `visibility: public`. Даже если сервисный токен технически видит private/internal репозиторий, такой запрос завершается `403`; Яндекс ID сам по себе не расширяет права SourceCraft.
-
-Без полной пары переменных dispatcher не создаётся и endpoint отвечает `503`. Это безопасный переходный режим до отдельного пользовательского подключения SourceCraft, которое потребуется для «Моих репозиториев» и private/internal анализа. Конфигурация, ограничения и состав категорий описаны в [документе production-анализатора](sourcecraft-production-analysis.md). Для тестов и локальной интеграции `create_app` принимает готовые dispatcher и principal provider.
+HTTP-слой передаёт в dispatcher только проверенный `AnalysisPrincipal` без токенов и секретов. Resolver обязан проверять этим principal доступ к каждому репозиторию; отказ возвращается как `403`. До подключения аутентификации и реального SourceCraft-resolver стандартное приложение корректно отвечает `503`, а не анализирует репозитории сервисным токеном от имени любого клиента. Для тестов и локальной интеграции `create_app` принимает готовые dispatcher и principal provider.
 
 ### GET /api/v1/analyses/{analysis_id}
 

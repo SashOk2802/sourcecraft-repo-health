@@ -27,7 +27,7 @@ CODEOWNERS_PATHS = ("CODEOWNERS", ".github/CODEOWNERS", "docs/CODEOWNERS")
 LICENSE_PATHS = ("LICENSE", "LICENSE.md", "LICENSE.txt", "COPYING", "LICENCE")
 
 # Штрафы за отсутствие регламентов (источник правды для «Как считаем» —
-# docs/scoring-methodology.md §5; здесь значения должны совпадать).
+# docs/scoring-methodology.md §7.1; здесь значения должны совпадать).
 PENALTY_README = 35.0
 PENALTY_CONTRIBUTING = 20.0
 PENALTY_LICENSE = 15.0
@@ -122,9 +122,7 @@ def _has_run_instructions(readme_content: str) -> bool:
         return False
     if _SECTION_HEADING.search(readme_content):
         return True
-    return any(
-        _COMMAND_IN_BLOCK.search(block) for block in _FENCED_CODE_BLOCK.findall(readme_content)
-    )
+    return any(_COMMAND_IN_BLOCK.search(block) for block in _FENCED_CODE_BLOCK.findall(readme_content))
 
 
 def evaluate(context: AnalysisContext, raw_data: dict) -> CategoryResult:
@@ -151,41 +149,11 @@ def evaluate(context: AnalysisContext, raw_data: dict) -> CategoryResult:
     score = 100.0
 
     checks = [
-        (
-            "has_readme",
-            "README.md",
-            PENALTY_README,
-            "Добавьте README.md с описанием архитектуры и назначения проекта.",
-            RecommendationPriority.P1,
-        ),
-        (
-            "has_contributing",
-            "CONTRIBUTING.md",
-            PENALTY_CONTRIBUTING,
-            "Создайте CONTRIBUTING.md для фиксации правил ведения веток и код-ревью.",
-            RecommendationPriority.P2,
-        ),
-        (
-            "has_license",
-            "LICENSE",
-            PENALTY_LICENSE,
-            "Добавьте файл LICENSE или COPYING для соблюдения юридической чистоты.",
-            RecommendationPriority.P2,
-        ),
-        (
-            "has_codeowners",
-            "CODEOWNERS",
-            PENALTY_CODEOWNERS,
-            "Настройте файл CODEOWNERS для автоматического назначения ревьюеров в PR.",
-            RecommendationPriority.P3,
-        ),
-        (
-            "has_shortcuts",
-            "Инструкции запуска",
-            PENALTY_INSTRUCTIONS,
-            "Добавьте в README.md разделы с командами быстрого запуска проекта и тестов.",
-            RecommendationPriority.P2,
-        ),
+        ("has_readme", "README.md", PENALTY_README, "Добавьте README.md с описанием архитектуры и назначения проекта.", RecommendationPriority.P1),
+        ("has_contributing", "CONTRIBUTING.md", PENALTY_CONTRIBUTING, "Создайте CONTRIBUTING.md для фиксации правил ведения веток и код-ревью.", RecommendationPriority.P2),
+        ("has_license", "LICENSE", PENALTY_LICENSE, "Добавьте файл LICENSE или COPYING для соблюдения юридической чистоты.", RecommendationPriority.P2),
+        ("has_codeowners", "CODEOWNERS", PENALTY_CODEOWNERS, "Настройте файл CODEOWNERS для автоматического назначения ревьюеров в PR.", RecommendationPriority.P3),
+        ("has_shortcuts", "Инструкции запуска", PENALTY_INSTRUCTIONS, "Добавьте в README.md разделы с командами быстрого запуска проекта и тестов.", RecommendationPriority.P2),
     ]
 
     for key, label, penalty, rec_msg, priority in checks:

@@ -45,15 +45,13 @@ compose.yaml         единый локальный запуск
 
 - [Архитектура](docs/architecture-proposal.md)
 - [Методика Score v1](docs/scoring-methodology.md)
+- [Согласование порогов Code health](docs/methodology-owner-approval.md)
 - [Распределение ролей backend-команды](docs/backend-team-roles.md)
 - [Docker: запуск и правила](docs/docker-development.md)
 - [Frontend: граница ответственности](docs/frontend-workspace.md)
 - [Контракт API frontend ↔ backend](docs/api-contract.md)
 - [CI и тесты](docs/ci-testing-guide.md)
 - [Миграции PostgreSQL](docs/database-migrations.md)
-- [Политика регулярного пересчёта](docs/scheduling-policy.md)
-- [Правила публичного рейтинга](docs/leaderboard-policy.md)
-- [Production-анализ SourceCraft](docs/sourcecraft-production-analysis.md)
 
 ## Работа в команде
 

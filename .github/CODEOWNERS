@@ -9,7 +9,8 @@
 /backend/app/analyzers/documentation.py    @A1ienberg
 /backend/app/analyzers/code_health.py      @A1ienberg
 /backend/app/integrations/git_repository.py @A1ienberg
-/backend/tests/test_file_analyzers.py      @A1ienberg
+/backend/tests/test_file_analysis.py       @A1ienberg
+/backend/tests/test_git_repository.py      @A1ienberg
 /docs/methodology-owner-approval.md        @A1ienberg
 /docs/pr-description.md                    @A1ienberg
 

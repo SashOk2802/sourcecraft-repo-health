@@ -37,7 +37,7 @@ class PostgresAnalysisStoreTest(unittest.IsolatedAsyncioTestCase):
         await self.store.close()
 
     async def test_persists_and_reads_a_snapshot(self) -> None:
-        await self.store.save(self.analysis_id, self.execution)
+        await self.store.save(self.analysis_id, self.execution, owner_subject="user-42")
 
         snapshot = await self.store.get(self.analysis_id)
 

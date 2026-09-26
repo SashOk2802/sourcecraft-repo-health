@@ -5,7 +5,12 @@ from datetime import UTC, datetime
 
 import httpx
 
-from backend.app.analysis import AnalyzerRegistration, InMemoryAnalysisStore, run_analysis
+from backend.app.analysis import (
+    AnalysisPrincipal,
+    AnalyzerRegistration,
+    InMemoryAnalysisStore,
+    run_analysis,
+)
 from backend.app.contracts import AnalysisContext, CategoryResult, DataStatus, RepositoryRef
 from backend.app.main import create_app
 
@@ -22,8 +27,11 @@ class ReportApiTest(unittest.IsolatedAsyncioTestCase):
         )
         self.execution = run_analysis(context, (registration("activity", 80),))
         self.store = InMemoryAnalysisStore()
-        await self.store.save("analysis-42", self.execution)
-        self.app = create_app(analysis_store=self.store)
+        await self.store.save("analysis-42", self.execution, owner_subject="user-42")
+        self.app = create_app(
+            analysis_store=self.store,
+            principal_provider=authenticated_principal,
+        )
 
     async def test_returns_status_for_saved_analysis(self) -> None:
         async with api_client(self.app) as client:
@@ -103,6 +111,10 @@ class ReportApiTest(unittest.IsolatedAsyncioTestCase):
 
                     self.assertEqual(response.status_code, 404)
                     self.assertEqual(response.json(), {"detail": "Analysis not found."})
+
+
+async def authenticated_principal(_: httpx.Request) -> AnalysisPrincipal:
+    return AnalysisPrincipal("user-42")
 
 
 def registration(category: str, score: float) -> AnalyzerRegistration:

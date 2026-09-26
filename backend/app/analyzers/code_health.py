@@ -77,6 +77,10 @@ TODO_RECOMMENDATION_THRESHOLD = 15
 # и P1 допустимы от этого числа маркеров.
 FIXME_CRITICAL_COUNT = 2
 
+# Верхняя граница evidence-записей по отдельным вхождениям маркеров: отчёт не
+# должен раздуваться тысячами строк для репозиториев с огромным техдолгом.
+MAX_EVIDENCE_ENTRIES = 20
+
 # Бюджеты ресурсов сканирования (перенесены из codex/rebuild-file-analysis):
 # лимит числа файлов-кандидатов и лимит суммарных прочитанных байт. Превышение
 # бюджета означает insufficient_sample, а не частичный (заниженный) балл.
@@ -139,6 +143,7 @@ def collect(
         "files_with_debt": 0,
         "skipped_large_files": 0,
         "truncated": False,
+        "occurrences": [],
     }
 
     candidate_files = 0
@@ -176,7 +181,16 @@ def collect(
             if content is None or "\x00" in content:
                 continue
 
-            comments = _comments_only(content, extension)
+            spans = _comment_spans(content, extension)
+            if spans is None:
+                # Файл не удалось разобрать целиком: незакрытая строка —
+                # TokenError, битые отступы — IndentationError/TabError (оба —
+                # подклассы SyntaxError). Такой файл исключается из скана, а не
+                # считается «чистым»: он не даёт ни total_files, ни маркеров
+                # (CH.1, CH.2).
+                continue
+
+            comments = "\n".join(text for text, _ in spans)
             todos = len(TODO_PATTERN.findall(comments))
             fixmes = len(FIXME_PATTERN.findall(comments))
 
@@ -187,6 +201,12 @@ def collect(
             facts["todo_count"] += todos
             facts["fixme_count"] += fixmes
             facts["files_with_debt"] += 1
+            facts["occurrences"].extend(
+                _marker_occurrences(relative_path, spans, TODO_PATTERN, "TODO")
+            )
+            facts["occurrences"].extend(
+                _marker_occurrences(relative_path, spans, FIXME_PATTERN, "FIXME")
+            )
 
         if facts["truncated"]:
             break
@@ -240,12 +260,14 @@ def evaluate(context: AnalysisContext, raw_data: dict) -> CategoryResult:
 
     score = float(_score_for(fixmes, todos, total_files))
 
-    evidence = (
+    files_with_debt = raw_data.get("files_with_debt", 0)
+    occurrence_evidence = _build_occurrence_evidence(raw_data.get("occurrences", []))
+    category_evidence = (
         Evidence(
             source="git_repository",
             reference=context.commit_sha,
             summary=f"Найдено {todos} TODO и {fixmes} FIXME в комментариях "
-            f"{raw_data.get('files_with_debt', 0)} файлов.",
+            f"{files_with_debt} {_file_count_word(files_with_debt)}.",
         ),
     )
 
@@ -289,7 +311,7 @@ def evaluate(context: AnalysisContext, raw_data: dict) -> CategoryResult:
                 action="Устраните или закройте критические метки FIXME, перенеся их в таск-трекер.",
                 rationale=rationale,
                 expected_score_delta=float(max(0.0, delta_after - delta_before)),
-                evidence=evidence,
+                evidence=occurrence_evidence or category_evidence,
             )
         )
     if todos > TODO_RECOMMENDATION_THRESHOLD:
@@ -303,7 +325,7 @@ def evaluate(context: AnalysisContext, raw_data: dict) -> CategoryResult:
                 action="Проведите ревизию кода и очистите его от неактуальных временных меток.",
                 rationale="Слишком большое количество TODO замыливает глаз разработчикам.",
                 expected_score_delta=float(max(0.0, delta_after - delta_before)),
-                evidence=evidence,
+                evidence=occurrence_evidence or category_evidence,
             )
         )
 
@@ -327,6 +349,28 @@ def _score_for(fixmes: int, todos: int, total_files: int) -> float:
     return max(0.0, 100.0 - _density_penalty(fixmes, todos, total_files))
 
 
+def _build_occurrence_evidence(occurrences: list[dict]) -> tuple[Evidence, ...]:
+    """Превращает собранные вхождения маркеров в evidence с путём и строкой."""
+    entries = []
+    for occurrence in occurrences[:MAX_EVIDENCE_ENTRIES]:
+        entries.append(
+            Evidence(
+                source="git_repository",
+                reference=f"{occurrence['path']}:{occurrence['line']}",
+                summary=f"{occurrence['kind']} на строке {occurrence['line']} "
+                f"в файле {occurrence['path']}.",
+            )
+        )
+    return tuple(entries)
+
+
+def _file_count_word(count: int) -> str:
+    """Склонение «файл» в предложном падеже после числа: 1 файле, 2+ файлах."""
+    if count % 10 == 1 and count % 100 != 11:
+        return "файле"
+    return "файлах"
+
+
 def _validate_resource_limit(value: object, name: str) -> None:
     if not isinstance(value, int) or isinstance(value, bool):
         raise TypeError(f"{name} must be an integer")
@@ -334,38 +378,62 @@ def _validate_resource_limit(value: object, name: str) -> None:
         raise ValueError(f"{name} must be positive")
 
 
-def _comments_only(content: str, extension: str) -> str:
-    """Возвращает только комментарии файла; строки и regex-литералы исключаются."""
+def _comment_spans(content: str, extension: str) -> list[tuple[str, int]] | None:
+    """Комментарии файла как пары (текст, номер строки начала в исходнике).
+
+    Для Python-файлов комментарии берутся из токенизатора, поэтому метки внутри
+    строковых литералов ложными не считаются. ``None`` возвращается, если файл
+    не удалось разобрать целиком: незакрытая строка — ``tokenize.TokenError``,
+    битые отступы — ``IndentationError``/``TabError`` (оба — подклассы
+    ``SyntaxError``, одного перехвата достаточно). Такой файл пропускается
+    сканом целиком (CH.1, CH.2).
+    """
     if extension == ".py":
         try:
-            return "\n".join(
-                token.string
+            return [
+                (token.string, token.start[0])
                 for token in tokenize.generate_tokens(io.StringIO(content).readline)
                 if token.type == tokenize.COMMENT
-            )
-        except tokenize.TokenError:
-            return ""
-    return "\n".join(
-        _c_style_comments(content, javascript=extension in {".js", ".ts", ".jsx", ".tsx"})
-    )
+            ]
+        except (tokenize.TokenError, SyntaxError):
+            return None
+    return _c_style_comments(content, javascript=extension in {".js", ".ts", ".jsx", ".tsx"})
 
 
-def _c_style_comments(content: str, *, javascript: bool = False) -> list[str]:
-    """Извлекает C-style комментарии, не путая их со строками и regex-литералами."""
+def _marker_occurrences(
+    relative_path: str,
+    spans: list[tuple[str, int]],
+    pattern: re.Pattern[str],
+    kind: str,
+) -> list[dict]:
+    """Вхождения маркера в комментариях: kind, путь и строка (для evidence)."""
+    occurrences: list[dict] = []
+    for text, line in spans:
+        for _ in pattern.finditer(text):
+            occurrences.append({"kind": kind, "path": relative_path, "line": line})
+    return occurrences
+
+
+def _c_style_comments(
+    content: str, *, javascript: bool = False
+) -> list[tuple[str, int]]:
+    """C-style комментарии как (текст, стартовая строка), без строк и regex-литералов."""
 
     if javascript:
         return _javascript_comments(content)
 
-    comments: list[str] = []
+    comments: list[tuple[str, int]] = []
     index = 0
     while index < len(content):
         if content.startswith("//", index):
             end = content.find("\n", index)
-            comments.append(content[index + 2 :] if end == -1 else content[index + 2 : end])
+            text = content[index + 2 :] if end == -1 else content[index + 2 : end]
+            comments.append((text, content.count("\n", 0, index) + 1))
             index = len(content) if end == -1 else end + 1
         elif content.startswith("/*", index):
             end = content.find("*/", index + 2)
-            comments.append(content[index + 2 :] if end == -1 else content[index + 2 : end])
+            text = content[index + 2 :] if end == -1 else content[index + 2 : end]
+            comments.append((text, content.count("\n", 0, index) + 1))
             index = len(content) if end == -1 else end + 2
         elif content[index] in "\"'`":
             quote = content[index]
@@ -383,17 +451,18 @@ def _c_style_comments(content: str, *, javascript: bool = False) -> list[str]:
     return comments
 
 
-def _javascript_comments(content: str) -> list[str]:
+def _javascript_comments(content: str) -> list[tuple[str, int]]:
     """Контекстный tokenizer для JS/TS-комментариев и regex-литералов.
 
-    ``/`` после обычной ``)`` означает деление, а после закрытия условия
-    ``if (...)`` может начинаться regex-выражение. Стек скобок сохраняет этот
-    контекст и для вложенных выражений. Отдельно отслеживается начало
-    ESM-декларации: в ``export default <expression>`` после ``default`` также
-    может начинаться regex-литерал.
+    Возвращает комментарии как (текст, стартовая строка). ``/`` после обычной
+    ``)`` означает деление, а после закрытия условия ``if (...)`` может
+    начинаться regex-выражение. Стек скобок сохраняет этот контекст и для
+    вложенных выражений. Отдельно отслеживается начало ESM-декларации: в
+    ``export default <expression>`` после ``default`` также может начинаться
+    regex-литерал.
     """
 
-    comments: list[str] = []
+    comments: list[tuple[str, int]] = []
     paren_context: list[bool] = []
     brace_context: list[bool] = []
     index = 0
@@ -407,12 +476,14 @@ def _javascript_comments(content: str) -> list[str]:
             continue
         if content.startswith("//", index):
             end = content.find("\n", index)
-            comments.append(content[index + 2 :] if end == -1 else content[index + 2 : end])
+            text = content[index + 2 :] if end == -1 else content[index + 2 : end]
+            comments.append((text, content.count("\n", 0, index) + 1))
             index = len(content) if end == -1 else end + 1
             continue
         if content.startswith("/*", index):
             end = content.find("*/", index + 2)
-            comments.append(content[index + 2 :] if end == -1 else content[index + 2 : end])
+            text = content[index + 2 :] if end == -1 else content[index + 2 : end]
+            comments.append((text, content.count("\n", 0, index) + 1))
             index = len(content) if end == -1 else end + 2
             continue
 

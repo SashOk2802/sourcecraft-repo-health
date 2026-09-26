@@ -23,12 +23,6 @@ services:
       APP_ENV: development
       DATABASE_URL: postgresql+asyncpg://repo_health:repo_health@postgres:5432/repo_health
       REDIS_URL: redis://redis:6379/0
-      YANDEX_CLIENT_ID: ${YANDEX_CLIENT_ID:-}
-      YANDEX_REDIRECT_URI: ${YANDEX_REDIRECT_URI:-}
-      YANDEX_CLIENT_SECRET: ${YANDEX_CLIENT_SECRET:-}
-      YANDEX_SESSION_COOKIE_SECURE: ${YANDEX_SESSION_COOKIE_SECURE:-false}
-      SOURCECRAFT_TOKEN: ${SOURCECRAFT_TOKEN:-}
-      SOURCECRAFT_PUBLIC_ORGANIZATIONS: ${SOURCECRAFT_PUBLIC_ORGANIZATIONS:-}
     ports: ["8000:8000"]
     volumes: ["./backend:/app/backend"]
     depends_on:

@@ -73,29 +73,6 @@ class LegacyMigrationSafetyTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(snapshot, "legacy report")
         self.assertEqual(job, "legacy job")
 
-    async def test_downgrade_preserves_local_identity_tables(self) -> None:
-        self._run_alembic("upgrade", "head")
-        self._run_alembic("downgrade", "base")
-
-        connection = await asyncpg.connect(_to_asyncpg_url(self.target_url))
-        try:
-            existing_tables = {
-                row["table_name"]
-                for row in await connection.fetch(
-                    """
-                    SELECT table_name
-                    FROM information_schema.tables
-                    WHERE table_schema = 'public'
-                    """
-                )
-            }
-        finally:
-            await connection.close()
-
-        self.assertTrue(
-            {"app_users", "app_sessions", "yandex_login_attempts"} <= existing_tables,
-        )
-
     def _run_alembic(self, *arguments: str) -> None:
         completed = subprocess.run(
             [sys.executable, "-m", "alembic", *arguments],

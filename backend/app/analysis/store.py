@@ -24,6 +24,11 @@ class AnalysisSnapshot:
 
     report: dict[str, object]
     markdown: str
+    owner_subject: str
+
+    def __post_init__(self) -> None:
+        if not self.owner_subject.strip():
+            raise ValueError("owner_subject must not be empty")
 
 
 class AnalysisStore(Protocol):
@@ -38,8 +43,14 @@ class AnalysisStore(Protocol):
     async def get(self, analysis_id: str) -> AnalysisSnapshot | None:
         """Возвращает готовый снимок анализа или None, если его нет."""
 
-    async def save(self, analysis_id: str, execution: AnalysisExecution) -> None:
-        """Сохраняет новый неизменяемый снимок завершённого анализа."""
+    async def save(
+        self,
+        analysis_id: str,
+        execution: AnalysisExecution,
+        *,
+        owner_subject: str,
+    ) -> None:
+        """Сохраняет снимок завершённого анализа и его владельца."""
 
 
 class InMemoryAnalysisStore:
@@ -60,9 +71,15 @@ class InMemoryAnalysisStore:
             snapshot = self._snapshots.get(normalize_analysis_id(analysis_id))
             return _copy_snapshot(snapshot) if snapshot is not None else None
 
-    async def save(self, analysis_id: str, execution: AnalysisExecution) -> None:
+    async def save(
+        self,
+        analysis_id: str,
+        execution: AnalysisExecution,
+        *,
+        owner_subject: str,
+    ) -> None:
         normalized_id = normalize_analysis_id(analysis_id)
-        snapshot = _build_snapshot(execution, normalized_id)
+        snapshot = _build_snapshot(execution, normalized_id, owner_subject)
 
         with self._lock:
             if normalized_id in self._snapshots:
@@ -98,7 +115,7 @@ class PostgresAnalysisStore:
         normalized_id = normalize_analysis_id(analysis_id)
         row = await self._require_pool().fetchrow(
             """
-            SELECT report, markdown
+            SELECT report, markdown, owner_subject
             FROM analysis_snapshots
             WHERE analysis_id = $1
             """,
@@ -110,26 +127,36 @@ class PostgresAnalysisStore:
         return AnalysisSnapshot(
             report=_json_object(row["report"]),
             markdown=str(row["markdown"]),
+            owner_subject=str(row["owner_subject"]),
         )
 
-    async def save(self, analysis_id: str, execution: AnalysisExecution) -> None:
+    async def save(
+        self,
+        analysis_id: str,
+        execution: AnalysisExecution,
+        *,
+        owner_subject: str,
+    ) -> None:
         """Сохраняет исходный результат runner и готовые представления одного запуска."""
 
         normalized_id = normalize_analysis_id(analysis_id)
-        snapshot = _build_snapshot(execution, normalized_id)
+        snapshot = _build_snapshot(execution, normalized_id, owner_subject)
         payload = json.dumps(_to_json_value(execution), ensure_ascii=False, separators=(",", ":"))
         report = json.dumps(snapshot.report, ensure_ascii=False, separators=(",", ":"))
 
         try:
             await self._require_pool().execute(
                 """
-                INSERT INTO analysis_snapshots (analysis_id, payload, report, markdown)
-                VALUES ($1, $2::jsonb, $3::jsonb, $4)
+                INSERT INTO analysis_snapshots (
+                    analysis_id, payload, report, markdown, owner_subject
+                )
+                VALUES ($1, $2::jsonb, $3::jsonb, $4, $5)
                 """,
                 normalized_id,
                 payload,
                 report,
                 snapshot.markdown,
+                owner_subject.strip(),
             )
         except asyncpg.UniqueViolationError as error:
             raise ValueError("analysis_id already exists") from error
@@ -159,9 +186,7 @@ class PostgresAnalysisStore:
         )
 
         normalized_id = normalize_analysis_id(analysis_id)
-        snapshot = _build_snapshot(execution, normalized_id)
         payload = json.dumps(_to_json_value(execution), ensure_ascii=False, separators=(",", ":"))
-        report = json.dumps(snapshot.report, ensure_ascii=False, separators=(",", ":"))
 
         try:
             async with (
@@ -171,7 +196,7 @@ class PostgresAnalysisStore:
                 current_row = await connection.fetchrow(
                     """
                     SELECT
-                        analysis_id, repository_id, status, created_at,
+                        analysis_id, repository_id, owner_subject, status, created_at,
                         started_at, finished_at, error_code, error_summary, worker_id
                     FROM analysis_jobs
                     WHERE analysis_id = $1
@@ -189,15 +214,20 @@ class PostgresAnalysisStore:
                     status=status,
                     finished_at=finished_at,
                 )
+                snapshot = _build_snapshot(execution, normalized_id, current.owner_subject)
+                report = json.dumps(snapshot.report, ensure_ascii=False, separators=(",", ":"))
                 await connection.execute(
                     """
-                    INSERT INTO analysis_snapshots (analysis_id, payload, report, markdown)
-                    VALUES ($1, $2::jsonb, $3::jsonb, $4)
+                    INSERT INTO analysis_snapshots (
+                        analysis_id, payload, report, markdown, owner_subject
+                    )
+                    VALUES ($1, $2::jsonb, $3::jsonb, $4, $5)
                     """,
                     normalized_id,
                     payload,
                     report,
                     snapshot.markdown,
+                    current.owner_subject,
                 )
                 updated_row = await connection.fetchrow(
                     """
@@ -206,7 +236,7 @@ class PostgresAnalysisStore:
                     WHERE analysis_id = $1 AND status = $6
                         AND worker_id IS NOT DISTINCT FROM $7
                     RETURNING
-                        analysis_id, repository_id, status, created_at,
+                        analysis_id, repository_id, owner_subject, status, created_at,
                         started_at, finished_at, error_code, error_summary, worker_id
                     """,
                     updated.analysis_id,
@@ -232,10 +262,15 @@ class PostgresAnalysisStore:
         return self._pool
 
 
-def _build_snapshot(execution: AnalysisExecution, analysis_id: str) -> AnalysisSnapshot:
+def _build_snapshot(
+    execution: AnalysisExecution,
+    analysis_id: str,
+    owner_subject: str,
+) -> AnalysisSnapshot:
     return AnalysisSnapshot(
         report=build_report_payload(execution, analysis_id=analysis_id),
         markdown=render_markdown_report(execution, analysis_id=analysis_id),
+        owner_subject=owner_subject.strip(),
     )
 
 
@@ -243,6 +278,7 @@ def _copy_snapshot(snapshot: AnalysisSnapshot) -> AnalysisSnapshot:
     return AnalysisSnapshot(
         report=_json_object(json.dumps(snapshot.report, ensure_ascii=False)),
         markdown=snapshot.markdown,
+        owner_subject=snapshot.owner_subject,
     )
 
 

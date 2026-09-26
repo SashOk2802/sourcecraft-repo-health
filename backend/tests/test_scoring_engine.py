@@ -52,6 +52,27 @@ class ScoringEngineTest(unittest.TestCase):
         self.assertAlmostEqual(contribution(summary, "cicd").effective_weight, 26.666666666666668)
         self.assertAlmostEqual(contribution(summary, "cicd").points, 15.466666666666667)
 
+    def test_code_health_not_applicable_is_excluded_from_score_and_coverage(self) -> None:
+        """Ноль поддерживаемых файлов (code_health NOT_APPLICABLE) не делает Score
+        предварительным: категория выпадает и из Score, и из покрытия (4.1)."""
+        summary = calculate_score(
+            (
+                category("security", 100),
+                category("cicd", 100),
+                category("documentation", 100),
+                category("activity", 100),
+                category("issues", 100),
+                category("code_health", None, DataStatus.NOT_APPLICABLE),
+            )
+        )
+
+        self.assertEqual(summary.score, 100)
+        self.assertEqual(summary.coverage, 1)
+        self.assertEqual(summary.measured_weight, 95)
+        self.assertEqual(summary.applicable_weight, 95)
+        self.assertFalse(summary.is_preliminary)
+        self.assertIsNone(contribution(summary, "code_health").effective_weight)
+
     def test_not_applicable_category_is_excluded_from_coverage_denominator(self) -> None:
         summary = calculate_score(
             (

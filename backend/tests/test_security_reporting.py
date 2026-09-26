@@ -14,7 +14,12 @@ from unittest.mock import Mock
 
 import httpx
 
-from backend.app.analysis import AnalyzerRegistration, InMemoryAnalysisStore, run_analysis
+from backend.app.analysis import (
+    AnalysisPrincipal,
+    AnalyzerRegistration,
+    InMemoryAnalysisStore,
+    run_analysis,
+)
 from backend.app.analyzers.security import build_facts, make_analyzer
 from backend.app.contracts import AnalysisContext, CategoryResult, DataStatus, RepositoryRef
 from backend.app.main import create_app
@@ -80,9 +85,16 @@ class SecurityReportingTest(unittest.IsolatedAsyncioTestCase):
             ),
         )
         store = InMemoryAnalysisStore()
-        app = create_app(analysis_store=store)
+        app = create_app(
+            analysis_store=store,
+            principal_provider=authenticated_principal,
+        )
         async with app.router.lifespan_context(app):
-            await store.save("security-test", execution)
+            await store.save(
+                "security-test",
+                execution,
+                owner_subject="user-42",
+            )
             async with httpx.AsyncClient(
                 transport=httpx.ASGITransport(app=app), base_url="http://testserver"
             ) as client:
@@ -114,6 +126,10 @@ class SecurityReportingTest(unittest.IsolatedAsyncioTestCase):
         for marker in ("synthetic-token-marker", "synthetic-finding-marker"):
             self.assertNotIn(marker, json.dumps(report))
             self.assertNotIn(marker, markdown)
+
+
+async def authenticated_principal(_: httpx.Request) -> AnalysisPrincipal:
+    return AnalysisPrincipal("user-42")
 
 
 def _context() -> AnalysisContext:

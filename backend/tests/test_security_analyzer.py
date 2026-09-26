@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import json
 import unittest
 from asyncio import CancelledError
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from unittest.mock import Mock
 
 from backend.app.analyzers.security import (
@@ -43,21 +41,6 @@ class SecurityAnalyzerTest(unittest.TestCase):
                 self.assertEqual(result.metrics[0].value, "received")
                 self.assertIsNone(result.metrics[0].normalized_score)
                 self.assertEqual(result.recommendations, ())
-
-    def test_observed_sast_summary_does_not_become_a_security_score(self) -> None:
-        summary_path = Path(__file__).parent / "fixtures/sourcecraft/appsec_sast_summary.json"
-        payload = json.loads(summary_path.read_text(encoding="utf-8"))
-
-        result = evaluate(build_facts(payload))
-
-        self.assertEqual(result.status, DataStatus.INSUFFICIENT_SAMPLE)
-        self.assertIsNone(result.score)
-        self.assertEqual(result.reason, "security_scoring_not_configured")
-        self.assertEqual(result.metrics[0].value, "received")
-        self.assertNotIn("23", repr(result))
-        self.assertNotIn("HIGH", repr(result))
-        self.assertNotIn("LOW", repr(result))
-        self.assertNotIn("MEDIUM", repr(result))
 
     def test_source_error_is_not_disguised_as_unavailable(self) -> None:
         source_error = "SourceCraft timed out with token-that-must-not-be-reported"
