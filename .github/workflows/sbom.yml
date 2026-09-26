@@ -13,7 +13,7 @@ permissions:
 jobs:
   python-sbom:
     name: Python runtime SBOM
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, repo-health]
     env:
       PIP_DISABLE_PIP_VERSION_CHECK: "1"
       PIP_NO_CACHE_DIR: "1"
@@ -56,7 +56,7 @@ jobs:
 
   frontend-sbom:
     name: Frontend runtime SBOM
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, repo-health]
     defaults:
       run:
         working-directory: frontend
