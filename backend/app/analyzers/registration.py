@@ -17,6 +17,7 @@ from functools import partial
 from backend.app.analysis.dispatch import AnalyzerProvider
 from backend.app.analysis.runner import AnalyzerRegistration
 from backend.app.analyzers.activity import CATEGORY_CODE as ACTIVITY_CODE
+from backend.app.analyzers.activity import CommitHistoryFacts, collect_commit_history
 from backend.app.analyzers.activity import collect as collect_activity
 from backend.app.analyzers.activity import evaluate as evaluate_activity
 from backend.app.analyzers.issues import CATEGORY_CODE as ISSUES_CODE
@@ -30,9 +31,13 @@ from backend.app.integrations.sourcecraft import SourceCraftClient
 # SourceCraftClient.close() отпускает пул только если создал его сам. Фабрика,
 # которая передаёт свой httpx.Client, должна закрывать этот пул сама.
 ClientFactory = Callable[[AnalysisContext], SourceCraftClient]
+HistoryReader = Callable[[SourceCraftClient, AnalysisContext], CommitHistoryFacts]
 
 
-def project_life_analyzer_provider(open_client: ClientFactory) -> AnalyzerProvider:
+def project_life_analyzer_provider(
+    open_client: ClientFactory,
+    read_commit_history: HistoryReader | None = None,
+) -> AnalyzerProvider:
     """Регистрации Activity и Issues для InProcessAnalysisDispatcher.
 
     Бюджет страниц остаётся DEFAULT_MAX_PAGES анализаторов, пока запуск не
@@ -40,23 +45,33 @@ def project_life_analyzer_provider(open_client: ClientFactory) -> AnalyzerProvid
     помечает их как analyzer_not_configured.
     """
 
+    reader = read_commit_history or collect_commit_history
+
     def provide(context: AnalysisContext) -> tuple[AnalyzerRegistration, ...]:
         # Здесь контекст не нужен: фабрика получит его в evaluate, уже в потоке collect.
         # Токена в AnalysisContext нет, выбирать токен пользователя на этом шве нельзя.
         del context
         return (
-            AnalyzerRegistration(ACTIVITY_CODE, partial(_run_activity, open_client)),
+            AnalyzerRegistration(ACTIVITY_CODE, partial(_run_activity, open_client, reader)),
             AnalyzerRegistration(ISSUES_CODE, partial(_run_issues, open_client)),
         )
 
     return provide
 
 
-def _run_activity(open_client: ClientFactory, context: AnalysisContext) -> CategoryResult:
+def _run_activity(
+    open_client: ClientFactory,
+    read_commit_history: HistoryReader,
+    context: AnalysisContext,
+) -> CategoryResult:
     """Открывает клиент на время сбора Activity и закрывает его до возврата."""
     client = open_client(context)
     try:
-        return evaluate_activity(collect_activity(client, context.repository), context)
+        history = read_commit_history(client, context)
+        return evaluate_activity(
+            collect_activity(client, context.repository, commit_history=history),
+            context,
+        )
     finally:
         client.close()
 

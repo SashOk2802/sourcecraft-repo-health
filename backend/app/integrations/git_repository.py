@@ -13,6 +13,10 @@ import shutil
 import stat
 import subprocess
 import tempfile
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from urllib.parse import urlsplit
 
 logger = logging.getLogger(__name__)
 
@@ -207,6 +211,163 @@ class LocalGitRepository:
                 shutil.rmtree(temp_dir, onerror=_force_remove_readonly)
         except OSError:
             logger.warning("Не удалось удалить временную директорию git-клона.", exc_info=True)
+
+
+@dataclass(frozen=True, slots=True)
+class CommitTimestampPage:
+    """Метки времени коммитов за окно и признак, что выборка оборвана бюджетом."""
+
+    committed_at: tuple[datetime, ...]
+    truncated: bool
+
+
+def read_commit_timestamps(
+    repo_url: str,
+    *,
+    since: datetime,
+    until: datetime,
+    auth_token: str | None = None,
+    max_commits: int = 20_000,
+    timeout_seconds: float = 90.0,
+) -> CommitTimestampPage:
+    """Читает даты коммитов ветки по умолчанию, не скачивая содержимое файлов.
+
+    Клон отдельный и поверхностный по дате: рабочая копия документации
+    остаётся ``--depth 1``. ``--filter=blob:none`` и ``--no-checkout`` не
+    материализуют файлы. При обрыве бюджета или ошибке git вызывающий код
+    обязан не подменять это нулём баллов категории.
+    """
+
+    if since.tzinfo is None or until.tzinfo is None:
+        raise ValueError("since and until must be timezone-aware")
+    if until < since:
+        raise ValueError("until must not be earlier than since")
+    if max_commits < 1:
+        raise ValueError("max_commits must be at least 1")
+    if timeout_seconds <= 0:
+        raise ValueError("timeout_seconds must be positive")
+
+    since_utc = since.astimezone(UTC)
+    # git --until исключает саму границу, поэтому окно анализа закрывается секундой позже.
+    until_utc = until.astimezone(UTC) + timedelta(seconds=1)
+    since_text = since_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+    until_text = until_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+    clone_url = _history_clone_url(repo_url)
+    temp_dir = tempfile.mkdtemp(prefix="repo-health-history-")
+    try:
+        _run_history_git(
+            [
+                "clone",
+                "--filter=blob:none",
+                f"--shallow-since={since_text}",
+                "--single-branch",
+                "--no-tags",
+                "--no-checkout",
+                clone_url,
+                temp_dir,
+            ],
+            auth_token=auth_token,
+            repo_url=clone_url,
+            timeout_seconds=timeout_seconds,
+        )
+        completed = _run_history_git(
+            [
+                "-C",
+                temp_dir,
+                "log",
+                f"--since={since_text}",
+                f"--until={until_text}",
+                f"--max-count={max_commits + 1}",
+                "--pretty=format:%cI",
+            ],
+            auth_token=None,
+            repo_url=clone_url,
+            timeout_seconds=timeout_seconds,
+        )
+    except subprocess.TimeoutExpired as error:
+        raise GitCloneError(
+            "Чтение истории коммитов превысило допустимое время ожидания."
+        ) from error
+    except subprocess.CalledProcessError as error:
+        raise GitCloneError("Не удалось прочитать историю коммитов.") from error
+    finally:
+        _remove_history_dir(temp_dir)
+
+    lines = [line.strip() for line in completed.stdout.splitlines() if line.strip()]
+    truncated = len(lines) > max_commits
+    if truncated:
+        lines = lines[:max_commits]
+    committed_at = tuple(
+        moment
+        for moment in (_parse_git_timestamp(line) for line in lines)
+        if moment is not None
+    )
+    return CommitTimestampPage(committed_at=committed_at, truncated=truncated)
+
+
+def _history_clone_url(repo_url: str) -> str:
+    """Локальный путь превращает в file://, иначе git игнорирует --shallow-since."""
+
+    if urlsplit(repo_url).scheme:
+        return repo_url
+    return Path(repo_url).resolve().as_uri()
+
+
+def _parse_git_timestamp(value: str) -> datetime | None:
+    text = value.strip()
+    if text.endswith(("Z", "z")):
+        text = f"{text[:-1]}+00:00"
+    try:
+        moment = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if moment.tzinfo is None:
+        return moment.replace(tzinfo=UTC)
+    return moment.astimezone(UTC)
+
+
+def _run_history_git(
+    arguments: list[str],
+    *,
+    auth_token: str | None,
+    repo_url: str,
+    timeout_seconds: float,
+) -> subprocess.CompletedProcess[str]:
+    command = ["git"]
+    if auth_token:
+        command += ["-c", f"http.extraheader=AUTHORIZATION: Bearer {auth_token}"]
+    command += arguments
+    env = os.environ.copy()
+    env["GIT_TERMINAL_PROMPT"] = "0"
+
+    try:
+        return subprocess.run(
+            command,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds,
+            env=env,
+        )
+    except subprocess.TimeoutExpired:
+        raise
+    except subprocess.CalledProcessError as error:
+        diagnostic = _redact(error.stderr or "", repo_url=repo_url, token=auth_token)
+        logger.debug(
+            "git %s failed (exit %s): %s",
+            arguments[0],
+            error.returncode,
+            diagnostic,
+        )
+        raise
+
+
+def _remove_history_dir(temp_dir: str) -> None:
+    try:
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir, onerror=_force_remove_readonly)
+    except OSError:
+        logger.warning("Не удалось удалить временную директорию истории коммитов.", exc_info=True)
 
 
 def _force_remove_readonly(func: object, path: str, exc_info: object) -> None:

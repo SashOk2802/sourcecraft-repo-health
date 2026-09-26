@@ -15,6 +15,7 @@ from fastapi import Request
 
 from backend.app.analysis import InMemoryAnalysisJobStore, InMemoryAnalysisStore
 from backend.app.analysis.dispatch import AnalysisPrincipal
+from backend.app.analyzers.activity import CommitHistoryFacts
 from backend.app.identity import InMemoryYandexAuthStore, YandexAuthService, YandexAuthSettings
 from backend.app.integrations.sourcecraft import (
     SourceCraftAuthenticationError,
@@ -64,10 +65,18 @@ async def session_principal(request: Request) -> AnalysisPrincipal:
     return AnalysisPrincipal(_user_id(credential))
 
 
+def no_commit_history(client: object, analysis: object) -> CommitHistoryFacts:
+    """HTTP-тесты не клонируют git: история просто не запрашивалась."""
+
+    del client, analysis
+    return CommitHistoryFacts()
+
+
 def isolated_sourcecraft_app(**kwargs: object):
     """Хранилища в памяти: CI задаёт DATABASE_URL, и тест не должен открывать PostgreSQL."""
 
     kwargs.setdefault("principal_provider", session_principal)
+    kwargs.setdefault("read_commit_history", no_commit_history)
     return create_sourcecraft_app(
         analysis_store=InMemoryAnalysisStore(),
         job_store=InMemoryAnalysisJobStore(),
@@ -766,6 +775,7 @@ class ProjectLifeHttpLaunchTest(unittest.IsolatedAsyncioTestCase):
             clock=lambda: ANALYZED_AT,
             analysis_id_factory=lambda: "analysis-cookie",
             yandex_auth_service=auth,
+            read_commit_history=no_commit_history,
         )
         owner_cookie_header = {"Cookie": f"repo_health_session={owner_cookie}"}
         other_with_same_token = {

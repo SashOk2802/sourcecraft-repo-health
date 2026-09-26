@@ -185,6 +185,11 @@ class IssuesEvaluateTest(unittest.TestCase):
         backlog = next(metric for metric in result.metrics if metric.code == "backlog_trend")
         self.assertEqual(backlog.value, 0.0)
         self.assertIn("отменено 8", backlog.summary)
+        self.assertEqual(len(backlog.evidence), 5)
+        self.assertTrue(all(item.url and item.url.endswith(item.reference) for item in backlog.evidence))
+        growing = next(item for item in result.recommendations if item.code == "issues-backlog-growing")
+        self.assertEqual(growing.evidence, backlog.evidence)
+        self.assertGreater(growing.expected_score_delta or 0, 0)
 
     def test_resolution_time_ignores_issues_closed_before_the_period(self) -> None:
         # Быстрые закрытия годичной давности не должны улучшать сегодняшнюю оценку.
@@ -424,6 +429,28 @@ class IssuesCollectTest(unittest.TestCase):
 
         self.assertEqual({issue.slug for issue in facts.open_issues}, {"1", "2"})
         self.assertEqual(facts.closed_issues, ())
+
+    def test_collect_rejects_a_repeated_page_token(self) -> None:
+        calls = {"open": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            status_filter = request.url.params.get("filter")
+            if status_filter == "status=open":
+                calls["open"] += 1
+                return httpx.Response(
+                    200,
+                    json={
+                        "issues": [open_issue("1", created_days_ago=10, updated_days_ago=2)],
+                        "next_page_token": "same",
+                    },
+                )
+            return httpx.Response(200, json={"issues": [], "next_page_token": ""})
+
+        facts = collect(make_client(handler), REPOSITORY)
+
+        self.assertIn("repeated", facts.open_error or "")
+        self.assertEqual(facts.open_issues, ())
+        self.assertEqual(calls["open"], 2)
 
     def test_collect_marks_truncation_when_the_page_budget_runs_out(self) -> None:
         def handler(request: httpx.Request) -> httpx.Response:

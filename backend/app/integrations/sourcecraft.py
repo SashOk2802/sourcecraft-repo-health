@@ -99,6 +99,15 @@ class SourceCraftClient:
         if self._owns_http_client:
             self._http_client.close()
 
+    def git_bearer_token(self) -> str:
+        """Возвращает Bearer-токен для git http.extraheader.
+
+        Тот же секрет, что уже есть у клиента API. Его нельзя писать в логи,
+        URL и тексты ошибок.
+        """
+
+        return self._token
+
     def __enter__(self) -> Self:
         return self
 

@@ -228,14 +228,16 @@ def _fetch_pages(
 ) -> tuple[list[Any], bool]:
     """Обходит страницы списка задач и сообщает, была ли выборка оборвана.
 
-    Пагинация живёт здесь временно: когда SourceCraftClient получит собственный
-    метод обхода страниц, эта функция должна исчезнуть.
+    Общий ``get_paginated_objects`` при исчерпании страниц бросает ошибку.
+    Для Issues обрыв бюджета — признак неполной выборки, а не нулевая оценка.
+    Повтор того же ``next_page_token`` — ошибка источника.
     """
     if max_pages < 1:
         raise ValueError("max_pages must be at least 1")
 
     params: dict[str, str | int] = {"page_size": PAGE_SIZE, "filter": f"status={status}"}
     items: list[Any] = []
+    seen_tokens: set[str] = set()
 
     for page in range(1, max_pages + 1):
         payload = client.get_json(path, params=params)
@@ -246,9 +248,14 @@ def _fetch_pages(
         next_token = payload.get("next_page_token") or ""
         if not next_token:
             return items, False
+        if not isinstance(next_token, str):
+            raise SourceCraftClientError("SourceCraft next_page_token must be a string")
         if page == max_pages:
             return items, True
-        params["page_token"] = str(next_token)
+        if next_token in seen_tokens:
+            raise SourceCraftClientError("SourceCraft returned a repeated next_page_token")
+        seen_tokens.add(next_token)
+        params["page_token"] = next_token
 
     return items, True
 
@@ -470,11 +477,23 @@ def _backlog_metric(
     if cancelled:
         summary += f", отменено {len(cancelled)} (в решённые не входят)"
 
+    unresolved = [issue for issue in created if not issue.is_resolved]
+    evidence = tuple(
+        Evidence(
+            source=EVIDENCE_SOURCE,
+            reference=issue.slug,
+            summary=f"«{issue.title}» создана {issue.created_at.date().isoformat()} и не решена",
+            url=_issue_url(context.repository, issue.slug),
+        )
+        for issue in sorted(unresolved, key=lambda issue: issue.created_at)[:5]
+    )
+
     metric = MetricResult(
         code="backlog_trend",
         value=round(ratio, 4),
         normalized_score=score,
         summary=summary,
+        evidence=evidence,
     )
     return metric, score
 
@@ -528,6 +547,44 @@ def _resolution_time_metric(
     return metric, score
 
 
+def _score_delta(metrics: Sequence[MetricResult], code: str, new_score: float) -> float:
+    """На сколько пунктов вырастет категория, если одна метрика станет ``new_score``."""
+
+    pairs = [
+        (metric.code, float(metric.normalized_score))
+        for metric in metrics
+        if metric.normalized_score is not None
+    ]
+    if not pairs or all(metric_code != code for metric_code, _ in pairs):
+        return 0.0
+
+    def combined(items: list[tuple[str, float]]) -> float:
+        total_weight = sum(METRIC_WEIGHTS[metric_code] for metric_code, _ in items)
+        return sum(METRIC_WEIGHTS[metric_code] * value for metric_code, value in items) / total_weight
+
+    before = combined(pairs)
+    after = combined(
+        [(metric_code, new_score if metric_code == code else value) for metric_code, value in pairs]
+    )
+    return max(0.0, after - before)
+
+
+def _stale_score_after_triage(
+    facts: IssuesFacts,
+    context: AnalysisContext,
+    listed_slugs: set[str],
+) -> float:
+    """Оценка доли брошенных задач после обновления перечисленных в рекомендации."""
+
+    remaining = [
+        issue
+        for issue in facts.open_issues
+        if issue.slug not in listed_slugs and _age_in_days(context, issue.updated_at) > STALE_AFTER_DAYS
+    ]
+    ratio = len(remaining) / len(facts.open_issues)
+    return _linear_score(ratio, best=STALE_RATIO_BEST, worst=STALE_RATIO_WORST)
+
+
 def _build_recommendations(
     facts: IssuesFacts,
     context: AnalysisContext,
@@ -552,7 +609,19 @@ def _build_recommendations(
                     "Задачи без движения показывают, что обращения пользователей "
                     "остаются без ответа, и снижают доверие к проекту."
                 ),
-                expected_effect="Сокращение доли брошенных задач повысит оценку категории Issues.",
+                expected_effect=(
+                    "Обновление перечисленных брошенных задач уменьшает их долю "
+                    "и пересчитывает метрику."
+                ),
+                expected_score_delta=_score_delta(
+                    metrics,
+                    "stale_open_ratio",
+                    _stale_score_after_triage(
+                        facts,
+                        context,
+                        {item.reference for item in stale.evidence},
+                    ),
+                ),
                 evidence=stale.evidence,
             )
         )
@@ -566,7 +635,9 @@ def _build_recommendations(
                 problem=f"Очередь задач растёт: {backlog.summary}.",
                 action="Планируйте разбор задач регулярно, а не по остаточному принципу.",
                 rationale="Когда задачи создаются быстрее, чем решаются, очередь копится.",
-                expected_effect="Выравнивание темпа разбора улучшит динамику категории Issues.",
+                expected_effect="Если за период решено не меньше задач, чем создано, метрика бэклога становится 100.",
+                expected_score_delta=_score_delta(metrics, "backlog_trend", 100.0),
+                evidence=backlog.evidence,
             )
         )
 

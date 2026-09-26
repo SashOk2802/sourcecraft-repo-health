@@ -28,7 +28,7 @@ from backend.app.analysis import (
 )
 from backend.app.analysis.dispatch import AnalysisPrincipal
 from backend.app.analysis.providers import sourcecraft_analyzer_provider
-from backend.app.analyzers.registration import project_life_analyzer_provider
+from backend.app.analyzers.registration import HistoryReader, project_life_analyzer_provider
 from backend.app.contracts import AnalysisContext
 from backend.app.identity import (
     YandexAuthenticationError,
@@ -310,6 +310,7 @@ def create_sourcecraft_app(
     analysis_id_factory: Callable[[], str] | None = None,
     principal_provider: PrincipalProvider | None = None,
     yandex_auth_service: YandexAuthService | None = None,
+    read_commit_history: HistoryReader | None = None,
 ) -> FastAPI:
     """Явный пользовательский запуск Activity и Issues токеном вызывающего.
 
@@ -335,7 +336,7 @@ def create_sourcecraft_app(
     dispatcher = InProcessAnalysisDispatcher(
         execution_service=execution_service,
         context_resolver=context_resolver,
-        analyzer_provider=project_life_analyzer_provider(open_client),
+        analyzer_provider=project_life_analyzer_provider(open_client, read_commit_history),
         analysis_id_factory=analysis_id_factory,
     )
     return create_app(

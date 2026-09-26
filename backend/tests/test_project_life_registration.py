@@ -9,6 +9,7 @@ import httpx
 
 from backend.app.analysis.runner import run_analysis
 from backend.app.analyzers.activity import CATEGORY_CODE as ACTIVITY_CODE
+from backend.app.analyzers.activity import CommitHistoryFacts
 from backend.app.analyzers.issues import CATEGORY_CODE as ISSUES_CODE
 from backend.app.analyzers.registration import project_life_analyzer_provider
 from backend.app.contracts import AnalysisContext, CategoryResult, DataStatus, RepositoryRef
@@ -113,6 +114,17 @@ def issue(slug: str, *, created_days_ago: int, updated_days_ago: int, status_typ
     return payload
 
 
+def no_commit_history(client: SourceCraftClient, analysis: AnalysisContext) -> CommitHistoryFacts:
+    """Тесты API не клонируют git: история просто не запрашивалась."""
+
+    del client, analysis
+    return CommitHistoryFacts()
+
+
+def life_registrations(opener: RecordingOpener, read_commit_history=no_commit_history):
+    return project_life_analyzer_provider(opener, read_commit_history)
+
+
 def live_payload(path: str, status_filter: str | None) -> dict:
     """Ответы, по которым видны все четыре метрики Activity и медиана Issues."""
     if path == f"{REPOSITORY_PATH}/issues":
@@ -172,7 +184,7 @@ class ProjectLifeRegistrationTest(unittest.TestCase):
         """Регистрации собираются без сети; клиент открывается и закрывается внутри evaluate."""
         opener = RecordingOpener(lambda request: httpx.Response(500))
         analysis = context()
-        registrations = project_life_analyzer_provider(opener)(analysis)
+        registrations = life_registrations(opener)(analysis)
 
         self.assertEqual(
             tuple(item.category for item in registrations),
@@ -209,7 +221,7 @@ class ProjectLifeRegistrationTest(unittest.TestCase):
         opener = RecordingOpener(handler)
         analysis = context()
         try:
-            execution = run_analysis(analysis, project_life_analyzer_provider(opener)(analysis))
+            execution = run_analysis(analysis, life_registrations(opener)(analysis))
             self.assert_clients_closed_by_evaluate(opener)
             self.assert_factory_received_analysis(opener, analysis)
         finally:
@@ -252,6 +264,40 @@ class ProjectLifeRegistrationTest(unittest.TestCase):
             ],
         )
 
+    def test_commit_history_reader_adds_active_weeks_without_extra_http(self) -> None:
+        """История коммитов приходит извне и не порождает ещё один HTTP-клиент."""
+        seen: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen.append(request.url.path)
+            return httpx.Response(
+                200,
+                json=live_payload(request.url.path, request.url.params.get("filter")),
+            )
+
+        def reader(client: SourceCraftClient, analysis: AnalysisContext) -> CommitHistoryFacts:
+            del client
+            self.assertEqual(analysis.commit_sha, "0" * 40)
+            return CommitHistoryFacts(
+                collected=True,
+                committed_at=(ANALYZED_AT - timedelta(days=3),),
+            )
+
+        opener = RecordingOpener(handler)
+        try:
+            execution = run_analysis(
+                context(),
+                life_registrations(opener, reader)(context()),
+            )
+        finally:
+            opener.close_leftovers()
+
+        activity = category(execution, ACTIVITY_CODE)
+        weeks = next(metric for metric in activity.metrics if metric.code == "active_weeks_in_period")
+        self.assertEqual(weeks.value, 1)
+        self.assertEqual(len(opener.clients), 2)
+        self.assertTrue(all(not path.endswith(".git") for path in seen))
+
     def test_issues_outage_keeps_activity_measured(self) -> None:
         """500 только на задачах не обнуляет Activity."""
         execution = self._run(fail_prefix=f"{REPOSITORY_PATH}/issues")
@@ -287,7 +333,7 @@ class ProjectLifeRegistrationTest(unittest.TestCase):
         opener = RecordingOpener(handler)
         analysis = context()
         try:
-            execution = run_analysis(analysis, project_life_analyzer_provider(opener)(analysis))
+            execution = run_analysis(analysis, life_registrations(opener)(analysis))
             self.assert_clients_closed_by_evaluate(opener)
             self.assert_factory_received_analysis(opener, analysis)
         finally:

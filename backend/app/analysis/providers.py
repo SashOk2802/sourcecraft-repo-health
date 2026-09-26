@@ -159,7 +159,11 @@ def _client_evaluator(
                 reason=_TOKEN_MISSING_REASON,
             )
         try:
-            facts = module.collect(client, ctx.repository)  # type: ignore[attr-defined]
+            collect_kwargs = {}
+            if module is activity:
+                # История коммитов не должна ронять API-метрики: сбой остаётся фактом.
+                collect_kwargs["commit_history"] = activity.collect_commit_history(client, ctx)
+            facts = module.collect(client, ctx.repository, **collect_kwargs)  # type: ignore[attr-defined]
             return module.evaluate(facts, ctx)  # type: ignore[attr-defined]
         except SourceCraftClientError as error:
             # Интеграционные ошибки отделены от внутренних багов (I.6);

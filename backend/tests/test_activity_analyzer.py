@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 import httpx
 
 from backend.app.analyzers.activity import (
+    ACTIVE_WEEKS_CAP,
     MERGED_MR_CAP,
     PAGE_SIZE,
     RECENCY_BEST_DAYS,
@@ -13,8 +14,10 @@ from backend.app.analyzers.activity import (
     RECENCY_WORST_DAYS,
     RELEASE_CAP,
     ActivityFacts,
+    CommitHistoryFacts,
     build_facts,
     collect,
+    collect_commit_history,
     evaluate,
 )
 from backend.app.contracts import AnalysisContext, DataStatus, RecommendationPriority, RepositoryRef
@@ -199,6 +202,7 @@ class ActivityEvaluateTest(unittest.TestCase):
             ["activity-stale-repository"],
         )
         self.assertEqual(result.recommendations[0].priority, RecommendationPriority.P1)
+        self.assertGreater(result.recommendations[0].expected_score_delta or 0, 0)
 
     def test_recency_recommendation_starts_after_ninety_days(self) -> None:
         at_threshold = evaluate(
@@ -286,6 +290,12 @@ class ActivityEvaluateTest(unittest.TestCase):
             [(item.code, item.priority) for item in result.recommendations],
             [("activity-no-recent-release", RecommendationPriority.P3)],
         )
+        evidence = result.recommendations[0].evidence
+        self.assertEqual(
+            [item.url for item in evidence],
+            ["https://sourcecraft.dev/team/platform/releases/v1.0"],
+        )
+        self.assertGreater(result.recommendations[0].expected_score_delta or 0, 0)
 
     def test_p3_release_watch_is_suppressed_when_p1_exists(self) -> None:
         facts = build_facts(
@@ -644,6 +654,161 @@ class ActivityCollectTest(unittest.TestCase):
         collect(make_client(handler), repository)
 
         self.assertTrue(any("org%20name" in path and "repo%2Fname" in path for path in seen))
+
+    def test_active_weeks_cap_and_same_week_commits(self) -> None:
+        same_week = CommitHistoryFacts(
+            collected=True,
+            committed_at=(
+                ANALYZED_AT - timedelta(days=10),
+                ANALYZED_AT - timedelta(days=9),
+            ),
+        )
+        many_weeks = CommitHistoryFacts(
+            collected=True,
+            committed_at=tuple(
+                ANALYZED_AT - timedelta(days=7 * index) for index in range(1, ACTIVE_WEEKS_CAP + 3)
+            ),
+        )
+        facts = build_facts(
+            last_updated=ANALYZED_AT - timedelta(days=1),
+            contributor_items=[raw_contributor("a")],
+            commit_history=same_week,
+        )
+        crowded = build_facts(
+            last_updated=ANALYZED_AT - timedelta(days=1),
+            contributor_items=[raw_contributor("a")],
+            commit_history=many_weeks,
+        )
+
+        one_week = next(
+            metric
+            for metric in evaluate(facts, context()).metrics
+            if metric.code == "active_weeks_in_period"
+        )
+        capped = next(
+            metric
+            for metric in evaluate(crowded, context()).metrics
+            if metric.code == "active_weeks_in_period"
+        )
+
+        self.assertEqual(one_week.value, 1)
+        self.assertAlmostEqual(one_week.normalized_score, 100.0 / ACTIVE_WEEKS_CAP)
+        self.assertGreater(capped.value, ACTIVE_WEEKS_CAP)
+        self.assertEqual(capped.normalized_score, 100.0)
+
+    def test_missing_or_broken_history_does_not_change_api_score(self) -> None:
+        api_facts = build_facts(
+            last_updated=ANALYZED_AT - timedelta(days=1),
+            contributor_items=[raw_contributor("a")],
+            pull_items=[raw_pull("1", created_days_ago=4, updated_days_ago=2)],
+        )
+        broken = build_facts(
+            last_updated=ANALYZED_AT - timedelta(days=1),
+            contributor_items=[raw_contributor("a")],
+            pull_items=[raw_pull("1", created_days_ago=4, updated_days_ago=2)],
+            commit_history=CommitHistoryFacts(collected=True, error="Не удалось прочитать историю коммитов."),
+        )
+        truncated = build_facts(
+            last_updated=ANALYZED_AT - timedelta(days=1),
+            contributor_items=[raw_contributor("a")],
+            pull_items=[raw_pull("1", created_days_ago=4, updated_days_ago=2)],
+            commit_history=CommitHistoryFacts(
+                collected=True,
+                committed_at=(ANALYZED_AT - timedelta(days=2),),
+                truncated=True,
+            ),
+        )
+
+        baseline = evaluate(api_facts, context())
+        without_history = evaluate(broken, context())
+        partial_history = evaluate(truncated, context())
+
+        self.assertEqual(baseline.score, without_history.score)
+        self.assertEqual(baseline.score, partial_history.score)
+        self.assertNotIn(
+            "active_weeks_in_period",
+            {metric.code for metric in without_history.metrics},
+        )
+        self.assertIn("история коммитов недоступна", without_history.summary)
+        self.assertIn("история коммитов прочитана не полностью", partial_history.summary)
+
+    def test_zero_commits_raise_p2_until_repository_is_already_stale(self) -> None:
+        quiet = build_facts(
+            last_updated=ANALYZED_AT - timedelta(days=2),
+            contributor_items=[raw_contributor("a")],
+            commit_history=CommitHistoryFacts(collected=True, committed_at=()),
+        )
+        stale = build_facts(
+            last_updated=ANALYZED_AT - timedelta(days=int(RECENCY_WORST_DAYS) + 5),
+            contributor_items=[raw_contributor("a")],
+            commit_history=CommitHistoryFacts(collected=True, committed_at=()),
+        )
+
+        quiet_result = evaluate(quiet, context())
+        stale_result = evaluate(stale, context())
+        weeks = next(
+            metric
+            for metric in quiet_result.metrics
+            if metric.code == "active_weeks_in_period"
+        )
+
+        self.assertEqual(weeks.value, 0)
+        self.assertEqual(weeks.normalized_score, 0.0)
+        self.assertIn(
+            "activity-no-commits-in-period",
+            [item.code for item in quiet_result.recommendations],
+        )
+        self.assertEqual(
+            [item.code for item in stale_result.recommendations],
+            ["activity-stale-repository"],
+        )
+
+    def test_stale_repository_delta_reaches_best_recency(self) -> None:
+        facts = build_facts(last_updated=ANALYZED_AT - timedelta(days=400))
+
+        result = evaluate(facts, context())
+
+        self.assertEqual(result.score, 0.0)
+        self.assertEqual(result.recommendations[0].expected_score_delta, 100.0)
+
+    def test_collect_rejects_a_repeated_page_token(self) -> None:
+        calls = {"pulls": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.path == REPO_PATH:
+                return httpx.Response(200, json={"last_updated": moment(1), "is_empty": False})
+            if request.url.path.endswith("/pulls"):
+                calls["pulls"] += 1
+            return httpx.Response(
+                200,
+                json={
+                    "pull_requests": [raw_pull("1", created_days_ago=3, updated_days_ago=1)],
+                    "contributors": [raw_contributor("a")],
+                    "releases": [],
+                    "next_page_token": "same",
+                },
+            )
+
+        facts = collect(make_client(handler), REPOSITORY)
+
+        self.assertIn("repeated", facts.pulls_error or "")
+        self.assertEqual(facts.pulls, ())
+        self.assertEqual(calls["pulls"], 2)
+        self.assertIs(evaluate(facts, context()).status, DataStatus.MEASURED)
+
+    def test_bad_clone_url_stays_inside_commit_history(self) -> None:
+        repository = RepositoryRef(
+            id="r",
+            organization_slug="team",
+            repository_slug="platform",
+            web_url="http://evil.example/team/platform",
+        )
+
+        history = collect_commit_history(make_client(lambda request: httpx.Response(500)), context(repository))
+
+        self.assertTrue(history.collected)
+        self.assertIsNotNone(history.error)
+        self.assertNotIn("test-token", history.error or "")
 
     def test_collect_keeps_repository_when_pulls_fail(self) -> None:
         def handler(request: httpx.Request) -> httpx.Response:
