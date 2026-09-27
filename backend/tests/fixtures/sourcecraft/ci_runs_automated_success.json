@@ -1,0 +1,42 @@
+[
+  {
+    "id": "run-id-redacted-1",
+    "slug": "automated-run-redacted-1",
+    "dates": {"created_at": "2026-01-03T00:00:00Z", "started_at": "2026-01-03T00:00:01Z", "finished_at": "2026-01-03T00:00:02Z", "updated_at": "2026-01-03T00:00:03Z"},
+    "status": "success",
+    "workflows": [{"slug": "automated-workflow-redacted"}],
+    "event_type": "push"
+  },
+  {
+    "id": "run-id-redacted-2",
+    "slug": "automated-run-redacted-2",
+    "dates": {"created_at": "2026-01-04T00:00:00Z", "started_at": "2026-01-04T00:00:01Z", "finished_at": "2026-01-04T00:00:02Z", "updated_at": "2026-01-04T00:00:03Z"},
+    "status": "success",
+    "workflows": [{"slug": "automated-workflow-redacted"}],
+    "event_type": "push"
+  },
+  {
+    "id": "run-id-redacted-3",
+    "slug": "automated-run-redacted-3",
+    "dates": {"created_at": "2026-01-05T00:00:00Z", "started_at": "2026-01-05T00:00:01Z", "finished_at": "2026-01-05T00:00:02Z", "updated_at": "2026-01-05T00:00:03Z"},
+    "status": "success",
+    "workflows": [{"slug": "automated-workflow-redacted"}],
+    "event_type": "push"
+  },
+  {
+    "id": "run-id-redacted-4",
+    "slug": "automated-run-redacted-4",
+    "dates": {"created_at": "2026-01-06T00:00:00Z", "started_at": "2026-01-06T00:00:01Z", "finished_at": "2026-01-06T00:00:02Z", "updated_at": "2026-01-06T00:00:03Z"},
+    "status": "success",
+    "workflows": [{"slug": "automated-workflow-redacted"}],
+    "event_type": "push"
+  },
+  {
+    "id": "run-id-redacted-5",
+    "slug": "automated-run-redacted-5",
+    "dates": {"created_at": "2026-01-07T00:00:00Z", "started_at": "2026-01-07T00:00:01Z", "finished_at": "2026-01-07T00:00:02Z", "updated_at": "2026-01-07T00:00:03Z"},
+    "status": "success",
+    "workflows": [{"slug": "automated-workflow-redacted"}],
+    "event_type": "push"
+  }
+]

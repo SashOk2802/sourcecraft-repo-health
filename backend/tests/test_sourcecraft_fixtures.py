@@ -39,6 +39,27 @@ class SourceCraftFixtureTest(unittest.TestCase):
         self.assertEqual(payload[0]["event_type"], "manual")
         self.assertIn("workflows", payload[0])
 
+    def test_ci_failure_fixture_preserves_observed_failed_status(self) -> None:
+        payload = load_fixture("ci_runs_failure.json")
+        serialized = json.dumps(payload, ensure_ascii=False)
+
+        self.assertIsInstance(payload, list)
+        self.assertEqual(payload[0]["status"], "failed")
+        self.assertEqual(payload[0]["event_type"], "manual")
+        self.assertEqual(payload[0]["workflows"][0]["status"], "failed")
+        self.assertNotIn("sourcecraft-health-repo-demo", serialized)
+        self.assertNotIn("ci/sourcecraft-failure-evidence", serialized)
+
+    def test_automated_ci_success_fixture_has_the_minimum_scoreable_sample(self) -> None:
+        payload = load_fixture("ci_runs_automated_success.json")
+        serialized = json.dumps(payload, ensure_ascii=False)
+
+        self.assertEqual(len(payload), 5)
+        self.assertTrue(all(run["status"] == "success" for run in payload))
+        self.assertTrue(all(run["event_type"] == "push" for run in payload))
+        self.assertNotIn("sourcecraft-health-repo-demo", serialized)
+        self.assertNotIn("ci/sourcecraft-smoke", serialized)
+
     def test_appsec_null_fixture_becomes_unavailable(self) -> None:
         payload = load_fixture("appsec_defects_null.json")
 
