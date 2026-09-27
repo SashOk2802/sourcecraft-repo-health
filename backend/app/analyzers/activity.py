@@ -558,14 +558,18 @@ def _active_weeks_metric(
     if not history.collected or history.error is not None or history.truncated:
         return None
 
-    weeks = {
-        (iso.year, iso.week)
-        for moment in history.committed_at
-        if _in_period(moment, context)
-        for iso in (moment.astimezone(UTC).isocalendar(),)
-    }
+    weeks: set[tuple[int, int]] = set()
+    for moment in history.committed_at:
+        if _in_period(moment, context):
+            iso_week = moment.astimezone(UTC).isocalendar()
+            weeks.add((iso_week.year, iso_week.week))
+
     count = len(weeks)
-    score = _linear_score(float(min(count, ACTIVE_WEEKS_CAP)), best=float(ACTIVE_WEEKS_CAP), worst=0.0)
+    score = _linear_score(
+        float(min(count, ACTIVE_WEEKS_CAP)),
+        best=float(ACTIVE_WEEKS_CAP),
+        worst=0.0,
+    )
     summary = f"за период коммиты были в {count} неделях"
     if count > ACTIVE_WEEKS_CAP:
         summary += f" (в оценке учитываются первые {ACTIVE_WEEKS_CAP})"
