@@ -2,7 +2,13 @@ name: CI
 
 on:
   push:
+    branches:
+      - main
   pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -10,7 +16,7 @@ permissions:
 jobs:
   backend:
     name: Backend
-    runs-on: [self-hosted, linux, x64, repo-health]
+    runs-on: ubuntu-latest
     services:
       postgres:
         image: postgres:16-alpine
@@ -46,7 +52,7 @@ jobs:
 
   frontend:
     name: Frontend
-    runs-on: [self-hosted, linux, x64, repo-health]
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: frontend
@@ -70,7 +76,7 @@ jobs:
 
   compose:
     name: Docker Compose config
-    runs-on: [self-hosted, linux, x64, repo-health]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
