@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { fetchSession, signOut, yandexSignInUrl, type CurrentUser, type Session } from "../api/me";
 import { mockSession } from "../api/mocks/session";
 import { navigate } from "../router";
+import { paths } from "../routes";
 
 export interface AuthState {
   /** unknown — ещё не спросили backend. */
@@ -10,8 +11,8 @@ export interface AuthState {
   /** Кто обслуживает вход: backend, демо-кабинет или никто (вход недоступен). */
   mode: Session["mode"] | null;
   user: CurrentUser | null;
-  /** Уводит на вход через Яндекс ID и после входа возвращает на returnTo. */
-  signIn: (returnTo: string) => void;
+  /** Уводит на вход через Яндекс ID; backend после него открывает «Мои репозитории». */
+  signIn: () => void;
   signOut: () => Promise<void>;
 }
 
@@ -34,15 +35,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       status: session === null ? "unknown" : session.user ? "signedIn" : "guest",
       mode: session?.mode ?? null,
       user: session?.user ?? null,
-      signIn: (returnTo) => {
+      signIn: () => {
         if (session?.mode === "demo") {
           mockSession.signIn();
           loadSession();
-          navigate(returnTo);
+          navigate(paths.myRepositories());
           return;
         }
         if (session?.mode === "live") {
-          window.location.assign(yandexSignInUrl(returnTo));
+          window.location.assign(yandexSignInUrl());
         }
       },
       signOut: async () => {

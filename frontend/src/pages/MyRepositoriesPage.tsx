@@ -51,7 +51,7 @@ export function MyRepositoriesPage() {
 
       {auth.status === "unknown" && <LoadingNote>Проверяем вход</LoadingNote>}
       {auth.status === "guest" && (
-        <SignInInvite unavailable={auth.mode === "offline"} onSignIn={() => auth.signIn(paths.myRepositories())} />
+        <SignInInvite unavailable={auth.mode === "offline"} onSignIn={auth.signIn} />
       )}
       {auth.status === "signedIn" && <ConnectedArea />}
     </div>

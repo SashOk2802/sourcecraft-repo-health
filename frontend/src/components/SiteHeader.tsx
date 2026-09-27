@@ -1,5 +1,6 @@
 import { Pulse } from "@gravity-ui/icons";
 import { Button, Icon, Text } from "@gravity-ui/uikit";
+import { useState } from "react";
 
 import { signInUnavailableHint, useAuth } from "../auth/AuthContext";
 import { cn } from "../lib/classNames";
@@ -62,6 +63,17 @@ export function SiteHeader({ route }: { route: Route }) {
 
 function UserArea() {
   const auth = useAuth();
+  const [signOutFailed, setSignOutFailed] = useState(false);
+
+  async function handleSignOut(): Promise<void> {
+    setSignOutFailed(false);
+    try {
+      await auth.signOut();
+    } catch {
+      // Сессию в интерфейсе не меняем: пользователь может повторить выход.
+      setSignOutFailed(true);
+    }
+  }
 
   if (auth.status === "unknown") {
     return null;
@@ -74,9 +86,14 @@ function UserArea() {
           {auth.user.displayName}
         </Text>
         {auth.mode === "demo" && <DemoMark />}
-        <Button view="flat" size="m" onClick={() => void auth.signOut()}>
+        <Button view="flat" size="m" onClick={() => void handleSignOut()}>
           Выйти
         </Button>
+        {signOutFailed && (
+          <Text variant="caption-2" color="danger" role="status">
+            Не удалось выйти. Попробуйте ещё раз.
+          </Text>
+        )}
       </>
     );
   }
@@ -97,7 +114,7 @@ function UserArea() {
 
   return (
     <span className="site-header__signin">
-      <Button view="outlined" size="m" onClick={() => auth.signIn(paths.myRepositories())}>
+      <Button view="outlined" size="m" onClick={auth.signIn}>
         Войти<span className="site-header__signin-long"> через Яндекс ID</span>
       </Button>
       {auth.mode === "demo" && <DemoMark />}

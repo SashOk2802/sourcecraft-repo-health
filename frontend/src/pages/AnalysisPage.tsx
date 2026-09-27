@@ -226,7 +226,7 @@ function NoReportNote({ signInRequired }: { signInRequired: boolean }) {
             size="l"
             disabled={auth.mode === "offline"}
             title={auth.mode === "offline" ? signInUnavailableHint : undefined}
-            onClick={() => auth.signIn(window.location.pathname)}
+            onClick={auth.signIn}
           >
             Войти через Яндекс ID
           </Button>

@@ -8,15 +8,15 @@ import { mockSession } from "./mocks/session";
 /*
  * Пользователь — docs/api-contract.md, «Вход через Яндекс ID»: GET /api/v1/me отдаёт
  * { id, login }, без сессии — 401, если вход не настроен — 503. Вход выполняет backend:
- * интерфейс только уводит на /api/v1/auth/yandex/start, после входа backend сам возвращает
- * на /me/repositories. Токенов интерфейс не видит.
+ * интерфейс только уводит на /api/v1/auth/yandex/start, после входа backend возвращает
+ * в /me/repositories. Токенов интерфейс не видит.
  * Пока вход у backend не настроен или маршрута нет, в режиме auto работает демо-кабинет:
  * вход, список репозиториев и анализ показаны на вымышленных репозиториях.
  *
  * GET /api/v1/me/repositories — репозитории, которые можно проверить. На первом этапе backend
  * отдаёт публичные репозитории из организаций SOURCECRAFT_PUBLIC_ORGANIZATIONS: стабильный id,
- * название, организацию, webUrl, ветку по умолчанию и последний анализ, если он был. Id из
- * списка уходит в POST /api/v1/repositories/{id}/analyses — сам пользователь его не видит.
+ * название, организацию, webUrl и ветку по умолчанию. Id из списка уходит в
+ * POST /api/v1/repositories/{id}/analyses — сам пользователь его не видит.
  */
 
 export interface CurrentUser {
@@ -115,7 +115,7 @@ export async function fetchMyRepositories(): Promise<MyRepositoriesResponse> {
 }
 
 /*
- * Endpoint ещё в работе, поэтому ответ разбирается терпимо: список в items, repositories
+ * Ответ дополнительно разбирается в будущих совместимых формах: список в items, repositories
  * или сразу массивом; запись плоская или с вложенным repository; организация строкой,
  * объектом или organizationSlug; slug или repositorySlug. Запись без id пропускаем:
  * анализ запускается только по id из каталога, а не по названию.
@@ -198,9 +198,9 @@ function toMyRepository(row: MyRepositoryPayload): MyRepository {
   };
 }
 
-/** Адрес входа: backend уводит на Яндекс ID и после входа возвращает на returnTo. */
-export function yandexSignInUrl(returnTo: string): string {
-  return `/api/v1/auth/yandex/start?returnTo=${encodeURIComponent(returnTo)}`;
+/** Адрес входа: backend уводит на Яндекс ID и после входа возвращает в кабинет. */
+export function yandexSignInUrl(): string {
+  return "/api/v1/auth/yandex/start";
 }
 
 export async function signOut(): Promise<void> {
