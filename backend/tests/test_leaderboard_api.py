@@ -108,7 +108,7 @@ class LeaderboardApiTest(unittest.IsolatedAsyncioTestCase):
                 "languages": [{"name": "Python", "count": 1}, {"name": "Rust", "count": 1}],
                 "updatedAt": "2026-09-25T12:00:00Z",
                 "pendingCount": 1,
-                "methodologyVersion": "v1",
+                "methodologyVersion": "v2",
             },
         )
 
