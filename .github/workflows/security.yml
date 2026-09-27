@@ -3,9 +3,15 @@ name: Security checks
 on:
   pull_request:
   push:
+    branches:
+      - main
   workflow_dispatch:
 
 # Сканеру достаточно читать код. Права на PR-комментарии и запись отсутствуют.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   pull-requests: read
@@ -13,7 +19,7 @@ permissions:
 jobs:
   secret-scan:
     name: Secret scan
-    runs-on: [self-hosted, linux, x64, repo-health]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -30,7 +36,7 @@ jobs:
 
   python-sast:
     name: Python SAST
-    runs-on: [self-hosted, linux, x64, repo-health]
+    runs-on: ubuntu-latest
     env:
       PIP_DISABLE_PIP_VERSION_CHECK: "1"
       PIP_NO_CACHE_DIR: "1"
@@ -55,7 +61,7 @@ jobs:
 
   python-dependency-audit:
     name: Python dependency audit
-    runs-on: [self-hosted, linux, x64, repo-health]
+    runs-on: ubuntu-latest
     env:
       PIP_DISABLE_PIP_VERSION_CHECK: "1"
       PIP_NO_CACHE_DIR: "1"
@@ -76,7 +82,7 @@ jobs:
 
   frontend-dependency-audit:
     name: Frontend dependency audit
-    runs-on: [self-hosted, linux, x64, repo-health]
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: frontend
