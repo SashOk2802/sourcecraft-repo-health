@@ -7,30 +7,18 @@
 технического долга и рекомендации. Методика зафиксирована в
 [`docs/scoring-methodology.md`](scoring-methodology.md) §4.3.
 
-### Правило малых репозиториев (ревью V.1)
+### Пол знаменателя плотности
 
-Поведение **задокументировано** в `docs/scoring-methodology.md` §4.3
-(«Правило малых репозиториев») и **покрыто регрессионным тестом**
-`test_code_health_small_repo_single_marker_density_semantics` в
-`backend/tests/test_file_analyzers.py`: штраф растёт как `1 / total_files`,
-поэтому одинокий FIXME обнуляет категорию при `total_files <= 5`
-(penalty ≥ 100), одинокий TODO — при `total_files = 1`. Интерпретация —
-«концентрированный долг в маленьком репо хуже», а не дефект нормировки.
+Знаменатель — `max(total_files, 10)` (`DENSITY_MIN_FILES`). Один FIXME даёт
+50 баллов и в репозитории из одного файла, и из десяти; на 100 файлах score
+равен 95. Решение записано в
+[`docs/methodology-owner-approval.md`](methodology-owner-approval.md) и
+покрыто `test_code_health_small_repo_single_marker_density_semantics`.
 
-Тест и документация доказывают **стабильность и воспроизводимость** поведения,
-но не корректность самого порога: значение `total_files <= 5` помечено
-`PENDING_APPROVAL` в §4.3 и **ожидает согласования владельцем методики**
-(см. [`docs/methodology-owner-approval.md`](methodology-owner-approval.md)).
+### Порог «критичного FIXME» (P1)
 
-### Порог «критичного FIXME» (P1) (ревью V.2)
-
-Поведение `FIXME_CRITICAL_COUNT = 2` (`backend/app/analyzers/code_health.py`)
-задокументировано в `docs/scoring-methodology.md` §4.3 и **покрыто регрессионным
-тестом** `test_code_health_fixme_critical_count_boundary` в
-`backend/tests/test_file_analyzers.py`: единичный FIXME — P2, от двух
-(граница константы включительно) — P1. Уровень уверенности тот же, что и для
-правила малых репозиториев: значение порога тоже помечено `PENDING_APPROVAL`
-и ожидает решения владельца методики.
+`FIXME_CRITICAL_COUNT = 2` остаётся: один FIXME — P2, с двух включительно —
+P1. Это проверяет `test_code_health_fixme_critical_count_boundary`.
 
 ## Контракт и зависимости
 

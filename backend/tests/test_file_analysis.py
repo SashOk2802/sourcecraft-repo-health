@@ -418,16 +418,17 @@ class DocumentationCollectionTest(unittest.TestCase):
 
 
 class MethodologyAlignmentTest(unittest.TestCase):
-    def test_documented_penalties_match_code_and_stay_unapproved(self) -> None:
+    def test_documented_penalties_match_the_signed_code_health_rule(self) -> None:
         root = Path(__file__).resolve().parents[2]
         methodology = (root / "docs/scoring-methodology.md").read_text(encoding="utf-8")
         approval = (root / "docs/methodology-owner-approval.md").read_text(encoding="utf-8")
 
         self.assertIn("### 4.4. Documentation", methodology)
         self.assertIn("### 4.1. CI/CD", methodology)
-        self.assertIn("PENDING_APPROVAL", methodology)
-        self.assertIn("PENDING_APPROVAL", approval)
-        self.assertNotIn("**APPROVED**", approval)
+        self.assertNotIn("PENDING_APPROVAL", methodology)
+        self.assertNotIn("PENDING_APPROVAL", approval)
+        self.assertIn("**утверждено**", approval)
+        self.assertIn("denominator = max(total_files, 10)", methodology)
         self.assertEqual(documentation.PENALTY_README, 35)
         self.assertEqual(documentation.PENALTY_CONTRIBUTING, 20)
         self.assertEqual(documentation.PENALTY_LICENSE, 15)
@@ -437,6 +438,7 @@ class MethodologyAlignmentTest(unittest.TestCase):
         self.assertEqual(code_health.FIXME_PENALTY_PER_MARKER, 5)
         self.assertEqual(code_health.TODO_PENALTY_PER_MARKER, 1)
         self.assertEqual(code_health.FIXME_CRITICAL_COUNT, 2)
+        self.assertEqual(code_health.DENSITY_MIN_FILES, 10)
 
 
 class LocalCloneScenarioTest(unittest.TestCase):
@@ -486,7 +488,7 @@ class LocalCloneScenarioTest(unittest.TestCase):
         self.assertEqual(documented.status, DataStatus.MEASURED)
         self.assertEqual(documented.score, 15)
         self.assertEqual(health.status, DataStatus.MEASURED)
-        self.assertEqual(health.score, 0)
+        self.assertEqual(health.score, 50)
         self.assertEqual(health.recommendations[0].priority, RecommendationPriority.P2)
 
     def test_missing_remote_is_an_error_without_a_score(self) -> None:

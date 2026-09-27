@@ -67,6 +67,10 @@ EXCLUDED_DIRECTORIES = {
 FIXME_PENALTY_PER_MARKER = 5.0
 TODO_PENALTY_PER_MARKER = 1.0
 DENSITY_SCALE_TO_POINTS = 100.0
+# Пол знаменателя: репозиторий меньше этого размера считается как репозиторий
+# из DENSITY_MIN_FILES файлов. Иначе один FIXME обнуляет категорию при
+# total_files <= 5, хотя ТЗ считает TODO/FIXME слабым сигналом.
+DENSITY_MIN_FILES = 10
 
 # Максимум байт, читаемых из одного файла репозитория: файлы больше лимита
 # пропускаются как «большие» (безопасное чтение через read_file_safe).
@@ -400,9 +404,14 @@ MARKER_AGE_SUMMARY = "Возраст TODO/FIXME недоступен: клон s
 
 
 def _density_penalty(fixmes: int, todos: int, total_files: int) -> float:
-    """Штраф в баллах: взвешенные маркеры, нормированные на число файлов."""
+    """Штраф в баллах: взвешенные маркеры, нормированные на число файлов.
+
+    Знаменатель не опускается ниже ``DENSITY_MIN_FILES``: маленький репозиторий
+    не штрафуется сильнее, чем репозиторий этого размера.
+    """
     weighted = fixmes * FIXME_PENALTY_PER_MARKER + todos * TODO_PENALTY_PER_MARKER
-    return weighted / total_files * DENSITY_SCALE_TO_POINTS
+    denominator = max(total_files, DENSITY_MIN_FILES)
+    return weighted / denominator * DENSITY_SCALE_TO_POINTS
 
 
 def _score_for(fixmes: int, todos: int, total_files: int) -> float:

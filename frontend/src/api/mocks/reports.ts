@@ -169,7 +169,7 @@ function detailsFor(repository: MockRepository): ReportDetails {
               metric("median_days_to_close", 21, 92, "Обычно задачу решают за 21 день — это медиана по задачам, решённым за полгода.", []),
             ],
           },
-          // backend/app/analyzers/code_health.py: 100 − (5 × 7 FIXME + 40 TODO) ÷ 250 файлов × 100 = 70.
+          // backend/app/analyzers/code_health.py: 100 − (5 × 7 FIXME + 40 TODO) / max(250, 10) × 100 = 70.
           code_health: {
             summary: "Оценка чистоты кода: 70.0/100. Обнаружено TODO: 40, FIXME: 7.",
             metrics: codeHealthMetrics(250, 40, 7),
@@ -608,7 +608,7 @@ function documentationRecommendation(
 
 /*
  * Code health — как backend/app/analyzers/code_health.py: справочные числа без оценки,
- * а оценка категории — 100 минус (5 × FIXME + TODO) на файл кода × 100.
+ * а оценка категории — 100 минус (5 × FIXME + TODO) / max(файлы, 10) × 100.
  */
 function codeHealthMetrics(files: number, todos: number, fixmes: number): CategoryMetric[] {
   return [

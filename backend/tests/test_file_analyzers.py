@@ -66,38 +66,36 @@ class FileAnalyzersTest(unittest.TestCase):
         )
 
     def test_code_health_small_repo_single_marker_density_semantics(self) -> None:
-        """Одинокий FIXME в репозитории из 1–5 файлов обнуляет категорию (V.1).
+        """Один FIXME не обнуляет категорию: знаменатель не меньше 10 файлов.
 
-        Плотность — задокументированная семантика формулы (методика §4.3, ревью
-        V.1): штраф растёт как 1/total_files, поэтому один FIXME даёт penalty
-        >= 100 при total_files <= 5 и score 0. Тест фиксирует кривую 1/3/6/100
-        файлов; корректность порога ожидает согласования владельцем методики
-        (PENDING_APPROVAL в §4.3) и этим тестом не доказывается.
+        penalty = (fixmes * 5 + todos) / max(total_files, DENSITY_MIN_FILES) * 100.
+        Ниже пола score одинаковый. Выше пола он снова растёт с числом файлов.
+        Два FIXME по-прежнему могут дать 0.
         """
+        self.assertEqual(code_health.DENSITY_MIN_FILES, 10)
         context = analysis_context()
 
-        def score_for(total_files: int) -> float:
+        def score_for(total_files: int, *, fixme_count: int = 1, todo_count: int = 0) -> float:
             result = code_health.evaluate(
                 context,
                 {
                     "total_files": total_files,
-                    "todo_count": 0,
-                    "fixme_count": 1,
+                    "todo_count": todo_count,
+                    "fixme_count": fixme_count,
                     "files_with_debt": 1,
                 },
             )
             assert result.score is not None
             return result.score
 
-        # penalty = (1*5)/1*100 = 500 → score 0
-        self.assertEqual(score_for(1), 0.0)
-        # penalty = (1*5)/3*100 ≈ 166.67 → score 0
-        self.assertEqual(score_for(3), 0.0)
-        # Градиент непрерывен: за пределами «обнуляющего» диапазона score > 0.
-        self.assertAlmostEqual(score_for(6), 16.67, places=2)
-        self.assertGreater(score_for(6), score_for(3))
-        # В обычном по размеру репо одинокий FIXME категорию не обнуляет.
+        self.assertEqual(score_for(1), 50.0)
+        self.assertEqual(score_for(3), 50.0)
+        self.assertEqual(score_for(6), 50.0)
+        self.assertEqual(score_for(10), 50.0)
         self.assertEqual(score_for(100), 95.0)
+        self.assertGreater(score_for(100), score_for(1))
+        self.assertEqual(score_for(1, todo_count=1, fixme_count=0), 90.0)
+        self.assertEqual(score_for(1, fixme_count=2), 0.0)
 
     def test_code_health_fixme_critical_count_boundary(self) -> None:
         """Граница FIXME_CRITICAL_COUNT = 2 зафиксирована тестом (V.2).
