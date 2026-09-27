@@ -9,6 +9,19 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 class ContainerSecurityTest(unittest.TestCase):
+    def test_base_images_are_pinned_to_immutable_digests(self) -> None:
+        backend_dockerfile = _read("backend/Dockerfile")
+        frontend_dockerfile = _read("frontend/Dockerfile")
+
+        self.assertRegex(
+            _first_instruction(backend_dockerfile),
+            r"^FROM python:3\.12-slim@sha256:[0-9a-f]{64}$",
+        )
+        self.assertRegex(
+            _first_instruction(frontend_dockerfile),
+            r"^FROM node:22-alpine@sha256:[0-9a-f]{64}$",
+        )
+
     def test_backend_container_runs_as_named_non_root_user(self) -> None:
         dockerfile = _read("backend/Dockerfile")
 
@@ -54,3 +67,7 @@ def _read(relative_path: str) -> str:
 def _last_user(dockerfile: str) -> str | None:
     users = [line.split(maxsplit=1)[1].strip() for line in dockerfile.splitlines() if line.startswith("USER ")]
     return users[-1] if users else None
+
+
+def _first_instruction(dockerfile: str) -> str:
+    return next(line for line in dockerfile.splitlines() if line and not line.startswith("#"))
