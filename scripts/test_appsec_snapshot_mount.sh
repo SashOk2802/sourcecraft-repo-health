@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
-# Proves the AppSec hand-off on a real Linux bind mount. The producer is root
-# (a different host identity) and the backend reader is UID/GID 10001. The
-# reader must be able to read the snapshot, but neither filesystem permissions
-# nor the read-only mount may let it alter it.
+# Проверяет AppSec hand-off на настоящем Linux bind mount. Producer запущен от
+# root (это другой host identity), reader backend — UID/GID 10001. Reader обязан
+# прочитать snapshot, но ни права файловой системы, ни read-only mount не должны
+# позволить ему изменить файл.
 set -euo pipefail
 
 image_tag="sourcecraft-appsec-snapshot-mount-test:local"
@@ -17,9 +17,9 @@ trap cleanup EXIT
 
 docker build --file backend/Dockerfile --tag "$image_tag" . >/dev/null
 
-# Root simulates a separate exporter identity. It changes only the group of
-# the private mount directory and makes the final JSON group-readable (0750 /
-# 0640), never group-writable or world-readable.
+# Root имитирует отдельную учётную запись exporter. Он меняет только группу
+# приватного каталога mount и делает финальный JSON читаемым группой (0750 /
+# 0640), но не доступным на запись группе или всем пользователям.
 docker run --rm --user 0:0 \
   --volume "$snapshot_directory:/snapshots" \
   "$image_tag" \
@@ -51,8 +51,8 @@ write_snapshot(
 )
 '
 
-# This is the exact non-root identity from backend/Dockerfile. The bind mount
-# is read-only, so this also proves that backend code cannot modify host data.
+# Это точная непривилегированная учётная запись из backend/Dockerfile. Bind mount
+# read-only, поэтому проверка также доказывает, что backend не меняет данные хоста.
 docker run --rm --user 10001:10001 \
   --read-only \
   --volume "$snapshot_directory:/snapshots:ro" \
