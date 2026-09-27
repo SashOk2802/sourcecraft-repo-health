@@ -129,7 +129,7 @@ class SourceCraftPublicRepositoryResolver:
         except SourceCraftClientError as error:
             raise SourceCraftRepositoryUnavailableError(
                 "SourceCraft repository catalog is unavailable",
-                retryable=_is_temporary_sourcecraft_error(error),
+                retryable=is_temporary_sourcecraft_error(error),
             ) from error
         except (LookupError, PermissionError, SourceCraftRepositoryUnavailableError):
             raise
@@ -285,7 +285,7 @@ def create_sourcecraft_public_catalog_settings_from_environment(
     )
 
 
-def _is_temporary_sourcecraft_error(error: SourceCraftClientError) -> bool:
+def is_temporary_sourcecraft_error(error: SourceCraftClientError) -> bool:
     """Отделяет повторяемые проблемы сети и сервиса от постоянных ошибок."""
 
     if isinstance(
