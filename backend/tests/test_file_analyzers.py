@@ -66,10 +66,10 @@ class FileAnalyzersTest(unittest.TestCase):
         )
 
     def test_code_health_small_repo_single_marker_density_semantics(self) -> None:
-        """Один FIXME в маленьком репозитории не обнуляет категорию.
+        """Одинокий FIXME в репозитории из 1–5 файлов обнуляет категорию.
 
-        Формула нормирует плотность технического долга минимум на десять файлов:
-        маркер остаётся заметным сигналом, но не делает оценку неинформативной.
+        Плотность растёт как 1/total_files, поэтому один FIXME даёт penalty
+        >= 100 при total_files <= 5. Это правило уже зафиксировано методикой v1.
         """
         context = analysis_context()
 
@@ -86,12 +86,11 @@ class FileAnalyzersTest(unittest.TestCase):
             assert result.score is not None
             return result.score
 
-        self.assertEqual(score_for(1), 50.0)
-        self.assertEqual(score_for(3), 50.0)
-        self.assertEqual(score_for(6), 50.0)
-        self.assertEqual(score_for(10), 50.0)
+        self.assertEqual(score_for(1), 0.0)
+        self.assertEqual(score_for(3), 0.0)
+        self.assertAlmostEqual(score_for(6), 16.67, places=2)
+        self.assertGreater(score_for(6), score_for(3))
         self.assertEqual(score_for(100), 95.0)
-        self.assertGreater(score_for(100), score_for(1))
 
     def test_code_health_fixme_critical_count_boundary(self) -> None:
         """Граница FIXME_CRITICAL_COUNT = 2 зафиксирована тестом (V.2).
