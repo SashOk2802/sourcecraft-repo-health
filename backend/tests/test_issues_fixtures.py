@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import json
+import tempfile
 import unittest
 from datetime import UTC, datetime
 from pathlib import Path
@@ -27,11 +28,11 @@ def load_envelope(label: str, name: str) -> dict[str, Any]:
     return json.loads((FIXTURES / label / f"{name}.json").read_text(encoding="utf-8"))
 
 
-def issue_fixture_dirs() -> list[Path]:
+def issue_fixture_dirs(fixtures_root: Path = FIXTURES) -> list[Path]:
     """Наборы scripts/fetch_fixtures.py. Другие JSON в fixtures/ сюда не входят."""
     return sorted(
         path
-        for path in FIXTURES.iterdir()
+        for path in fixtures_root.iterdir()
         if path.is_dir() and (path / "issues_open.json").is_file()
     )
 
@@ -51,6 +52,34 @@ def _collect_forbidden_keys(
     elif isinstance(payload, list):
         for index, item in enumerate(payload):
             _collect_forbidden_keys(item, forbidden, f"{prefix}[{index}]", offenders)
+
+
+def fixture_pii_offenders(fixtures_root: Path = FIXTURES) -> list[str]:
+    """Возвращает запрещённые поля только из наборов фикстур категории Issues."""
+    forbidden = {
+        "author",
+        "avatar",
+        "bio",
+        "city",
+        "clone_url",
+        "description",
+        "display_name",
+        "links",
+        "location",
+        "release_notes",
+        "updated_by",
+    }
+    offenders: list[str] = []
+    for directory in issue_fixture_dirs(fixtures_root):
+        for path in directory.glob("*.json"):
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            _collect_forbidden_keys(
+                payload,
+                forbidden,
+                str(path.relative_to(fixtures_root)),
+                offenders,
+            )
+    return offenders
 
 
 def analyze(label: str) -> CategoryResult:
@@ -185,49 +214,26 @@ class IssuesOnRealRepositoriesTest(unittest.TestCase):
         self.assertEqual(len(facts.open_issues), len(open_items) + len(in_progress_items))
 
     def test_fixture_payloads_omit_personal_and_sensitive_fields(self) -> None:
-        forbidden = {
-            "author",
-            "avatar",
-            "bio",
-            "city",
-            "clone_url",
-            "description",
-            "display_name",
-            "links",
-            "location",
-            "release_notes",
-            "updated_by",
-        }
-        offenders: list[str] = []
         directories = issue_fixture_dirs()
         self.assertTrue(directories)
-        for directory in directories:
-            for path in directory.glob("*.json"):
-                payload = json.loads(path.read_text(encoding="utf-8"))
-                _collect_forbidden_keys(
-                    payload,
-                    forbidden,
-                    str(path.relative_to(FIXTURES)),
-                    offenders,
-                )
-        self.assertEqual(offenders, [])
+        self.assertEqual(fixture_pii_offenders(), [])
 
     def test_pii_scan_ignores_unrelated_fixture_trees(self) -> None:
         """Чужие JSON в fixtures/ (на CI это sourcecraft/) не должны валить проверку PII."""
-        alien_dir = FIXTURES / "_unrelated-pii-scan"
-        alien_dir.mkdir(exist_ok=True)
-        alien = alien_dir / "repositories_page.json"
-        alien.write_text(
-            '{"repositories": [{"description": "x", "clone_url": {}, "links": []}]}',
-            encoding="utf-8",
-        )
-        try:
-            self.assertNotIn(alien_dir, issue_fixture_dirs())
-            self.test_fixture_payloads_omit_personal_and_sensitive_fields()
-        finally:
-            alien.unlink(missing_ok=True)
-            if alien_dir.is_dir() and not any(alien_dir.iterdir()):
-                alien_dir.rmdir()
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            fixtures_root = Path(temporary_directory)
+            issue_dir = fixtures_root / "issues"
+            issue_dir.mkdir()
+            (issue_dir / "issues_open.json").write_text('{"items": []}', encoding="utf-8")
+            alien_dir = fixtures_root / "_unrelated-pii-scan"
+            alien_dir.mkdir()
+            (alien_dir / "repositories_page.json").write_text(
+                '{"repositories": [{"description": "x", "clone_url": {}, "links": []}]}',
+                encoding="utf-8",
+            )
+
+            self.assertNotIn(alien_dir, issue_fixture_dirs(fixtures_root))
+            self.assertEqual(fixture_pii_offenders(fixtures_root), [])
 
     def test_contributors_keep_only_identity_fields(self) -> None:
         allowed = {"id", "username"}

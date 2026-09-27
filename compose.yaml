@@ -43,6 +43,21 @@ services:
       retries: 12
       start_period: 10s
 
+  backend-test:
+    profiles: ["test"]
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: >-
+      sh -lc "python -m unittest discover -s backend/tests -v &&
+      ruff check backend --ignore EXE002"
+    volumes:
+      - ./backend:/app/backend:ro
+      - ./frontend:/app/frontend:ro
+      - ./scripts:/app/scripts:ro
+      - ./.github:/app/.github:ro
+      - ./compose.yaml:/app/compose.yaml:ro
+
   postgres:
     image: postgres:16-alpine
     environment:
