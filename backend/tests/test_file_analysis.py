@@ -72,7 +72,7 @@ class CodeHealthCollectionTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "service.cpp").write_text(
-                'const auto text = R"tag(// TODO: literal\\n)tag";\\n// TODO: real\\n',
+                'const auto text = R"tag(// TODO: literal\n)tag";\n// TODO: real\n',
                 encoding="utf-8",
             )
             repository = LocalGitRepository("https://example.invalid/repo.git")
