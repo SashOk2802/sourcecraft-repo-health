@@ -242,9 +242,6 @@ def _preliminary_sort_key(
     )
 
 
-def _likes_for_sort(projection: LeaderboardSnapshotProjection) -> int:
-    return projection.repository.likes or 0
-
 
 def _matches(
     projection: LeaderboardSnapshotProjection,
