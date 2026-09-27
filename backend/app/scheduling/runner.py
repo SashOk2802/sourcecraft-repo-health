@@ -848,6 +848,9 @@ class PublicAnalysisScheduler:
         _require_lease_owner(self._scheduler_id)
         self._task: asyncio.Task[None] | None = None
         self._start_lock = asyncio.Lock()
+        self._catalog_consecutive_failures = 0
+        self._catalog_next_attempt_at: datetime | None = None
+        self._catalog_blocked = False
 
     async def start(self) -> None:
         """Делает один проход сразу, затем запускает редкий фоновый цикл."""
@@ -876,15 +879,38 @@ class PublicAnalysisScheduler:
         """Сверяет каталог, учитывает terminal-запуски и ставит ограниченную пачку."""
 
         now = _as_utc(self._clock(), "clock")
+        if self._catalog_blocked or (
+            self._catalog_next_attempt_at is not None
+            and now < self._catalog_next_attempt_at
+        ):
+            return SchedulerRun()
+
         try:
             repositories = await self._repository_catalog.list_repositories()
-            candidates = tuple(
-                ScheduleCandidate(
-                    repository_id=repository.id,
-                    last_activity_at=repository.last_activity_at,
+        except Exception as error:
+            logger.exception("Не удалось загрузить public-каталог для планировщика.")
+            if _is_temporary_submission_error(error):
+                retry = schedule_temporary_retry(
+                    "public-catalog",
+                    failed_at=now,
+                    consecutive_failures=self._catalog_consecutive_failures + 1,
                 )
-                for repository in repositories
+                self._catalog_consecutive_failures = retry.consecutive_failures
+                self._catalog_next_attempt_at = retry.due_at
+                return SchedulerRun(deferred=1)
+            self._catalog_blocked = True
+            return SchedulerRun(blocked=1)
+
+        self._catalog_consecutive_failures = 0
+        self._catalog_next_attempt_at = None
+        candidates = tuple(
+            ScheduleCandidate(
+                repository_id=repository.id,
+                last_activity_at=repository.last_activity_at,
             )
+            for repository in repositories
+        )
+        try:
             await self._schedule_store.reconcile_catalog(candidates, observed_at=now)
             reconciled, reclaimed = await self._reconcile_terminal_jobs(
                 now=now,
