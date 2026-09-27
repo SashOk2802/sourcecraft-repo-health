@@ -268,6 +268,20 @@ describe("метрики документации и Code health", () => {
     expect(isPresenceMetric({ ...hasReadme, code: "has_something", value: 1 })).toBe(false);
     expect(isPresenceMetric({ ...hasReadme, value: "да" })).toBe(false);
   });
+
+  it("долю файлов с пометками показывает в процентах и без формулы в подписи", () => {
+    // Так её отдаёт backend PR #57: доля от 0 до 1, summary с формулой.
+    const debtShare: CategoryMetric = {
+      code: "code_health.debt_file_ratio",
+      value: 9 / 120,
+      normalizedScore: null,
+      summary: "Доля файлов с техническим долгом (files_with_debt / total_files)",
+      evidence: [],
+    };
+    expect(metricLabel(debtShare)).toBe("Доля файлов с TODO или FIXME");
+    expect(metricValueText(debtShare)).toBe("8%");
+    expect(metricTone(debtShare)).toBe("info");
+  });
 });
 
 // Так backend/app/analyzers/security.py (PR #60) отдаёт измеренную безопасность: три метрики и один общий факт.

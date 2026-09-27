@@ -21,6 +21,7 @@ describe("describeReason", () => {
       "cicd_too_few_outcome_runs",
       "code_health_scan_limit_exceeded",
       "code_files_unavailable",
+      "code_health_marker_age_insufficient_history",
       "appsec_coverage_not_confirmed",
     ];
     for (const code of codes) {

@@ -1,6 +1,6 @@
 import type { Evidence } from "../../api/common";
 import type { CategoryMetric, ReportCategory } from "../../api/report";
-import { formatPoints, formatScore } from "../../lib/format";
+import { formatPoints, formatScore, formatShare } from "../../lib/format";
 import { getScoreBand } from "../../lib/scoreBands";
 
 /*
@@ -108,18 +108,27 @@ const securityLabels: Record<string, string> = {
   appsec_confirmed_open_critical_findings: "Из них подтверждённые критичные",
 };
 
-/** Подпись метрики: у признака «есть/нет» и метрик безопасности — своя, у остальных — summary backend. */
+/*
+ * Доля файлов с пометками (backend PR #57: code_health.debt_file_ratio) — число от 0 до 1
+ * без оценки, а summary backend с формулой в скобках. Подпись своя, значение — в процентах.
+ */
+const shareLabels: Record<string, string> = {
+  "code_health.debt_file_ratio": "Доля файлов с TODO или FIXME",
+};
+
+/** Подпись метрики: у признака «есть/нет», метрик безопасности и долей — своя, у остальных — summary backend. */
 export function metricLabel(metric: CategoryMetric): string {
   if (isPresenceMetric(metric)) {
     return presenceLabels[metric.code];
   }
-  return securityLabels[metric.code] ?? metric.summary;
+  return securityLabels[metric.code] ?? shareLabels[metric.code] ?? metric.summary;
 }
 
 /**
  * Значение справа от метрики: её оценка 0–100; у признака — «есть» или «нет»; у справочной
  * метрики без оценки — само число, если оно есть: так Code health присылает, сколько
- * найдено TODO и FIXME и сколько файлов проверено. У находок безопасности — их число.
+ * найдено TODO и FIXME и сколько файлов проверено. У находок безопасности — их число,
+ * у доли — проценты.
  */
 export function metricValueText(metric: CategoryMetric): string {
   if (isPresenceMetric(metric)) {
@@ -127,6 +136,9 @@ export function metricValueText(metric: CategoryMetric): string {
   }
   if (metric.code === "appsec_data_coverage") {
     return metric.value === "complete" ? "полные" : "—";
+  }
+  if (metric.code in shareLabels && typeof metric.value === "number" && Number.isFinite(metric.value)) {
+    return formatShare(metric.value);
   }
   if (metric.normalizedScore !== null && !(metric.code in securityLabels)) {
     return formatScore(metric.normalizedScore);
