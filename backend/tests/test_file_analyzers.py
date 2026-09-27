@@ -128,6 +128,43 @@ class FileAnalyzersTest(unittest.TestCase):
         self.assertEqual(above_threshold.priority, RecommendationPriority.P1)
         self.assertIn("опасный", above_threshold.rationale)
 
+    def test_file_exists_requires_a_real_file(self) -> None:
+        """Отсутствующий путь внутри клона не считается найденным файлом."""
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            (root / "README.md").write_text("# Demo\n", encoding="utf-8")
+            (root / "docs").mkdir()
+            repository = LocalGitRepository("https://sourcecraft.dev/team/platform-api.git")
+            repository.temp_dir = temporary_directory
+
+            self.assertTrue(repository.file_exists("README.md"))
+            self.assertFalse(repository.file_exists("CONTRIBUTING.md"))
+            self.assertFalse(repository.file_exists("docs"))
+            self.assertFalse(repository.file_exists("../README.md"))
+
+    def test_documentation_missing_readme_is_a_measured_deduction(self) -> None:
+        """Пустой клон — измеренный плохой результат, а не ложные 100 баллов.
+
+        Пропавшие регламенты дают штраф. Отдельной рекомендации за инструкции
+        запуска нет: её причина совпадает с отсутствующим README.
+        """
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            repository = LocalGitRepository("https://sourcecraft.dev/team/platform-api.git")
+            repository.temp_dir = temporary_directory
+            result = documentation.evaluate(
+                analysis_context(),
+                documentation.collect(repository),
+            )
+
+        self.assertEqual(result.status, DataStatus.MEASURED)
+        self.assertEqual(result.score, 15)
+        codes = {item.code for item in result.recommendations}
+        self.assertIn("doc_missing_has_readme", codes)
+        self.assertIn("doc_missing_has_contributing", codes)
+        self.assertIn("doc_missing_has_license", codes)
+        self.assertIn("doc_missing_has_codeowners", codes)
+        self.assertNotIn("doc_missing_has_shortcuts", codes)
+
 
 def analysis_context() -> AnalysisContext:
     now = datetime(2026, 9, 25, 12, tzinfo=UTC)
