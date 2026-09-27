@@ -6,6 +6,11 @@ import httpx
 
 from backend.app.main import create_app
 from backend.app.scoring import CATEGORY_WEIGHTS, METHODOLOGY_VERSION
+from backend.app.scoring.methodology import (
+    SECURITY_ACTIVE_STATUSES,
+    SECURITY_CONFIRMED_OPEN_STATUSES,
+    SECURITY_SEVERITY_RULES,
+)
 
 
 class MethodologyApiTest(unittest.IsolatedAsyncioTestCase):
@@ -44,5 +49,22 @@ class MethodologyApiTest(unittest.IsolatedAsyncioTestCase):
                         "ограничивает Score."
                     ),
                 }
+            ],
+        )
+        self.assertEqual(payload["security"]["code"], "appsec_severity_status_v1")
+        self.assertEqual(payload["security"]["activeStatuses"], sorted(SECURITY_ACTIVE_STATUSES))
+        self.assertEqual(
+            payload["security"]["confirmedOpenCriticalStatuses"],
+            sorted(SECURITY_CONFIRMED_OPEN_STATUSES),
+        )
+        self.assertEqual(
+            payload["security"]["severityPenalties"],
+            [
+                {
+                    "severity": severity,
+                    "penaltyPerFinding": penalty,
+                    "maximumFindings": maximum_findings,
+                }
+                for severity, penalty, maximum_findings in SECURITY_SEVERITY_RULES
             ],
         )
