@@ -138,30 +138,32 @@ class CommitHistoryTest(unittest.TestCase):
         self.assertEqual(page.committed_at, ())
 
     def test_token_is_rejected_for_an_untrusted_git_host_before_git_starts(self) -> None:
-        with patch("backend.app.integrations.git_repository.subprocess.run") as git_run:
-            with self.assertRaises(GitCloneError):
-                read_commit_timestamps(
-                    "https://attacker.example/organization/repository.git",
-                    since=datetime(2026, 8, 1, tzinfo=UTC),
-                    until=datetime(2026, 9, 1, tzinfo=UTC),
-                    revision="a" * 40,
-                    auth_token="secret-token",
-                )
+        with patch(
+            "backend.app.integrations.git_repository.subprocess.run"
+        ) as git_run, self.assertRaises(GitCloneError):
+            read_commit_timestamps(
+                "https://attacker.example/organization/repository.git",
+                since=datetime(2026, 8, 1, tzinfo=UTC),
+                until=datetime(2026, 9, 1, tzinfo=UTC),
+                revision="a" * 40,
+                auth_token="secret-token",
+            )
 
         git_run.assert_not_called()
 
     def test_symbolic_or_partial_revision_is_rejected_before_git_starts(self) -> None:
         for revision in ("main", "a" * 39, "--upload-pack=malicious"):
-            with self.subTest(revision=revision), patch(
-                "backend.app.integrations.git_repository.subprocess.run"
-            ) as git_run:
-                with self.assertRaises(ValueError):
-                    read_commit_timestamps(
-                        "/tmp/repo-health-history",
-                        since=datetime(2026, 8, 1, tzinfo=UTC),
-                        until=datetime(2026, 9, 1, tzinfo=UTC),
-                        revision=revision,
-                    )
+            with (
+                self.subTest(revision=revision),
+                patch("backend.app.integrations.git_repository.subprocess.run") as git_run,
+                self.assertRaises(ValueError),
+            ):
+                read_commit_timestamps(
+                    "/tmp/repo-health-history",
+                    since=datetime(2026, 8, 1, tzinfo=UTC),
+                    until=datetime(2026, 9, 1, tzinfo=UTC),
+                    revision=revision,
+                )
 
             git_run.assert_not_called()
 
