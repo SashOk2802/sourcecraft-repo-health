@@ -393,7 +393,15 @@ def _snapshot_path(directory: Path, repository_id: str) -> Path | None:
         raise SourceCraftAppSecSnapshotError("snapshot directory cannot be inspected") from error
     if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISDIR(metadata.st_mode):
         raise SourceCraftAppSecSnapshotError("snapshot directory must be a real directory")
+    if _is_group_or_world_writable(metadata.st_mode):
+        raise SourceCraftAppSecSnapshotError("snapshot directory must not be group or world writable")
     return directory / snapshot_filename(repository_id)
+
+
+def _is_group_or_world_writable(mode: int) -> bool:
+    """Проверяет, что другой непривилегированный host-процесс не подменит snapshot."""
+
+    return bool(mode & (stat.S_IWGRP | stat.S_IWOTH))
 
 
 def _snapshot_payload(
@@ -440,6 +448,8 @@ def _read_snapshot(path: Path) -> dict[str, Any] | None:
         metadata = os.fstat(input_file.fileno())
         if not stat.S_ISREG(metadata.st_mode):
             raise SourceCraftAppSecSnapshotError("snapshot must be a regular file")
+        if _is_group_or_world_writable(metadata.st_mode):
+            raise SourceCraftAppSecSnapshotError("snapshot must not be group or world writable")
         if metadata.st_size > MAX_SNAPSHOT_BYTES:
             raise SourceCraftAppSecSnapshotError("snapshot exceeds the safe size limit")
         encoded = input_file.read(MAX_SNAPSHOT_BYTES + 1)
