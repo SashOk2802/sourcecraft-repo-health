@@ -14,7 +14,7 @@ export interface MethodologyPayload {
   version: string;
   categories: Array<{ code: string; label: string; weight: number }>;
   scoreLimits?: Array<{ code: string; maximumScore: number; summary?: string }>;
-  /** Формула Security Score — появится с расчётом по полным данным AppSec (backend PR #60). */
+  /** Формула Security Score — docs/scoring-methodology.md, §4.2. */
   security?: {
     summary?: string;
     formula?: string;
@@ -35,7 +35,6 @@ export interface Methodology {
     activeWithinDays: number;
     inactiveHours: number;
     inactiveAfterDays: number;
-    manualCooldownMinutes: number;
   } | null;
 }
 
@@ -58,7 +57,7 @@ export function toMethodology(payload: MethodologyPayload): Methodology {
   return {
     version: payload.version,
     categories: payload.categories.map((category) => {
-      // Если backend прислал формулу Security Score, объяснение строится из неё, а не из текста «оценку не ставим».
+      // Если backend прислал формулу Security Score, штрафы на странице — из неё, а не общими словами.
       const explanation =
         category.code === "security" && securityRules ? securityRules : categoryExplanations[category.code];
       return {
@@ -83,8 +82,10 @@ const severityNames: Record<string, string> = {
 };
 
 /**
- * Security Score v1 (backend PR #60): штраф за каждую открытую находку по критичности, с
- * потолком числа учитываемых находок. null — backend формулу не прислал, категория пока без оценки.
+ * Security Score (docs/scoring-methodology.md, §4.2): штраф за каждую открытую находку по
+ * критичности, с потолком числа учитываемых находок. null — backend формулу не прислал.
+ * Условие допуска (eligibility) backend пишет терминами контракта — «движки», severity,
+ * insufficient_sample, — поэтому оговорка своя, простыми словами, из methodologyTexts.
  */
 function securityExplanation(security: MethodologyPayload["security"]): { measures: string; caveat: string } | null {
   const penalties = (security?.severityPenalties ?? []).filter(
@@ -101,9 +102,7 @@ function securityExplanation(security: MethodologyPayload["security"]): { measur
     .join(", ");
   return {
     measures: `Открытые находки SAST, SCA и secret scanning в SourceCraft. За каждую снимаем баллы по критичности: ${rules}.`,
-    caveat: [security?.eligibility?.trim(), "Если скана не было, это «нет данных», а не «уязвимостей нет»."]
-      .filter(Boolean)
-      .join(" "),
+    caveat: categoryExplanations.security.caveat,
   };
 }
 

@@ -155,7 +155,8 @@ function MethodologyBody({ methodology }: { methodology: Methodology }) {
             </div>
             <Text variant="body-1" color="secondary">
               Ограничение не применяется, если данных AppSec нет, источник недоступен, находка признана ложной или
-              уязвимость уже исправлена.
+              уязвимость уже исправлена. Критичная находка, которую ещё не подтвердили, снижает оценку безопасности,
+              но общий Score не ограничивает.
             </Text>
           </>
         ) : (
@@ -198,28 +199,20 @@ function MethodologyBody({ methodology }: { methodology: Methodology }) {
       </Section>
 
       <Section index={6}>
-        {methodology.schedule ? (
-          <>
-            <Text variant="body-2">
-              Открытые репозитории пересчитываются по расписанию: обычно раз в{" "}
-              {hoursText(methodology.schedule.regularHours)}, активные — с изменениями за последние{" "}
-              {daysText(methodology.schedule.activeWithinDays)} — раз в {hoursText(methodology.schedule.activeHours)},
-              а без изменений больше {daysText(methodology.schedule.inactiveAfterDays)} — раз в{" "}
-              {hoursText(methodology.schedule.inactiveHours)}. Если SourceCraft временно не ответил, повтор идёт
-              раньше: через 15 минут, потом всё реже, но не реже раза в 6 часов.
-            </Text>
-            <Text variant="body-2">
-              Свой репозиторий можно проверить в любой момент в разделе{" "}
-              <Link to={paths.myRepositories()}>«Мои репозитории»</Link> — один и тот же не чаще раза в{" "}
-              {methodology.schedule.manualCooldownMinutes} минут.
-            </Text>
-          </>
-        ) : (
+        {methodology.schedule && (
           <Text variant="body-2">
-            Свой репозиторий можно проверить в любой момент в разделе{" "}
-            <Link to={paths.myRepositories()}>«Мои репозитории»</Link>.
+            Открытые репозитории пересчитываются по расписанию: обычно раз в{" "}
+            {hoursText(methodology.schedule.regularHours)}, активные — с изменениями за последние{" "}
+            {daysText(methodology.schedule.activeWithinDays)} — раз в {hoursText(methodology.schedule.activeHours)},
+            а без изменений больше {daysText(methodology.schedule.inactiveAfterDays)} — раз в{" "}
+            {hoursText(methodology.schedule.inactiveHours)}. Если SourceCraft временно не ответил, повтор идёт
+            раньше: через 15 минут, потом всё реже, но не реже раза в 6 часов.
           </Text>
         )}
+        <Text variant="body-2">
+          Свой репозиторий можно проверить в любой момент в разделе{" "}
+          <Link to={paths.myRepositories()}>«Мои репозитории»</Link>.
+        </Text>
         <Text variant="body-1" color="secondary">
           Время анализа указано в каждом отчёте: он строится на неизменяемом снимке, и ссылка всегда показывает один
           и тот же результат.
@@ -339,12 +332,12 @@ const priorityExamples: Array<{ priority: RecommendationPriority; text: string }
   { priority: "p3", text: "мелочь, которая почти не влияет на оценку" },
 ];
 
-/** «сутки», «3 суток», «6 часов» — для фразы «раз в …». */
 /** «7 дней», «90 дней» — для порогов активности. */
 function daysText(days: number): string {
   return `${days} ${plural(days, "день", "дня", "дней")}`;
 }
 
+/** «сутки», «3 суток», «6 часов» — для фразы «раз в …». */
 function hoursText(hours: number): string {
   if (hours % 24 === 0) {
     const days = hours / 24;

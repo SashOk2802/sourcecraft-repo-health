@@ -20,7 +20,7 @@ const reasonTexts: Record<string, string> = {
   sourcecraft_appsec_unavailable: APPSEC_UNAVAILABLE,
   appsec_source_error: `SourceCraft не ответил на запрос результатов сканирования. ${RETRY}`,
   security_scoring_not_configured: "Результаты сканирования есть, но правила оценки безопасности ещё не утверждены.",
-  // Security Score v1 (backend PR #60): оценку ставим только по полным результатам всех трёх сканеров.
+  // docs/scoring-methodology.md, §4.2: оценку ставим только по полным результатам всех трёх сканеров.
   appsec_coverage_not_confirmed:
     "Сканеры вернули не полные результаты, а по части находок оценку безопасности не ставим — это не значит, что уязвимостей нет.",
   // CI/CD — docs/scoring-methodology.md, раздел 4.1.
@@ -29,12 +29,12 @@ const reasonTexts: Record<string, string> = {
   cicd_no_runs: "Прогонов CI ещё не было. Это не значит, что CI не нужен.",
   cicd_no_automated_runs_in_period: "За полгода не было автоматических прогонов: ручные запуски в оценку не идут.",
   cicd_too_few_outcome_runs: "Для оценки нужно хотя бы 5 завершённых автоматических прогонов.",
-  // Code health — анализ файлов репозитория.
+  // Code health — backend/app/analyzers/code_health.py.
   code_health_scan_limit_exceeded: "Кода оказалось больше, чем проверяем за один анализ, а по части файлов оценку не ставим.",
+  code_health_unreadable_source: "Часть файлов кода не удалось прочитать, а по части кода оценку не ставим.",
   code_files_unavailable: "Файлов кода на поддерживаемых языках не нашлось — оценивать нечего.",
-  // Backend PR #57: для возраста пометок нужна история коммитов, а анализ берёт только последний снимок.
-  code_health_marker_age_insufficient_history:
-    "Возраст пометок не считаем: для этого нужна история коммитов, а анализ берёт только последний снимок кода.",
+  // Activity — история коммитов для недель с коммитами (docs/scoring-methodology.md, §3).
+  commit_history_unavailable: "Историю коммитов прочитать не удалось, поэтому недели с коммитами в этот раз не посчитаны.",
   // Общие причины runner и ядра анализа.
   analyzer_not_configured: "Проверку этой части ещё не подключили — с ней самой всё может быть в порядке.",
   analyzer_execution_failed: `При проверке этой части произошёл сбой. ${RETRY}`,
@@ -107,6 +107,14 @@ export function reasonDetail(summary: string, reason: string | null): string | n
 }
 
 function explainPart(part: string): string {
+  // Activity кладёт в тот же список и коды: «…HTTP 403; commit_history_unavailable».
+  const known = reasonTexts[part];
+  if (known) {
+    return known;
+  }
+  if (MACHINE_CODE.test(part)) {
+    return `Причина: ${part}.`;
+  }
   // Русская фраза уже написана для людей.
   if (/[а-яё]/i.test(part)) {
     return asSentence(part);

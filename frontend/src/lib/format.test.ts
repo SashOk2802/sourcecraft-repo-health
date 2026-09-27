@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  formatBytes,
   formatDate,
   formatDateTime,
   formatDateTimeCompact,
@@ -49,6 +50,12 @@ describe("числа", () => {
     expect(formatScore(73.4)).toBe("73");
     expect(formatScore(75.5)).toBe("76");
     expect(formatShare(0.75)).toBe("75%");
+  });
+
+  it("показывает объём в двоичных единицах", () => {
+    expect(formatBytes(512)).toBe(`512${NBSP}Б`);
+    expect(formatBytes(4608)).toBe(`4,5${NBSP}КБ`);
+    expect(formatBytes(50 * 1024 * 1024)).toBe(`50${NBSP}МБ`);
   });
 });
 
