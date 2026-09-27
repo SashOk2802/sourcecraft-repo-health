@@ -22,11 +22,11 @@ npm run preview  # собранная версия на http://localhost:4173 с
 
 ## Откуда берутся данные
 
-Часть разделов backend ещё не отдаёт. Чтобы стенд не показывал пустых экранов, у интерфейса три режима — переменная `VITE_DATA_SOURCE`:
+Раздел backend может быть недоступен: не настроен на сервере (503), его нет в этой версии или backend не отвечает. Чтобы стенд не показывал пустых экранов, у интерфейса три режима — переменная `VITE_DATA_SOURCE`:
 
 | Режим | Что делает | Когда включается сам |
 | --- | --- | --- |
-| `auto` | Настоящий API. Если раздела у backend нет — FastAPI отвечает 404 «Not Found», 405 или 501, либо backend недоступен, — страница строится на демо-данных и помечена «Демо». Как только backend отдаст раздел, демо пропадёт само, без пересборки | `npm run build` и `npm run dev` рядом с backend (задан `API_PROXY_TARGET`, так делает compose) |
+| `auto` | Настоящий API. Если раздела нет (404 «Not Found», 405, 501), он не настроен (503) или backend не отвечает (502, 504, нет ответа), страница строится на демо-данных и помечена «Демо». Как только backend отдаст раздел, демо пропадёт само, без пересборки | `npm run build` и `npm run dev` рядом с backend (задан `API_PROXY_TARGET`, так делает compose) |
 | `api` | Только настоящий API, ошибки показываются как есть | — |
 | `demo` | Только демо-данные из `src/api/mocks/`, backend не нужен | одиночный `npm run dev` |
 
@@ -65,12 +65,14 @@ $env:VITE_DATA_SOURCE = "api"; npm run dev
 | Ход анализа | `GET /api/v1/analyses/{id}` — `queued`, `running`, `completed`, `partial`, `failed` с `error: {code, summary}` | есть |
 | Запуск анализа | `POST /api/v1/repositories/{id}/analyses` | есть: после входа, по внутреннему id репозитория SourceCraft, только публичные репозитории из `SOURCECRAFT_PUBLIC_ORGANIZATIONS`; без неё и `SOURCECRAFT_TOKEN` — 503 |
 | Методика | `GET /api/v1/methodology` | есть: веса, названия и лимит — с backend, объяснения и политика пересчёта — в `src/lib/methodologyTexts.ts` |
-| Вход | `/api/v1/auth/yandex/start`, `/callback`, `GET /api/v1/me` (`{id, login}`), `POST /api/v1/auth/logout` | есть; без `YANDEX_CLIENT_ID` и `YANDEX_REDIRECT_URI` backend отвечает 503 — тогда работает демо-кабинет |
-| Рейтинг | `GET /api/v1/leaderboard` | нет — демо; места и сортировки по [docs/leaderboard-policy.md](../docs/leaderboard-policy.md) |
-| Мои репозитории | `GET /api/v1/me/repositories` | в работе: публичные репозитории из организаций `SOURCECRAFT_PUBLIC_ORGANIZATIONS`; пока маршрута нет, после настоящего входа кабинет предлагает проверить публичный репозиторий по идентификатору |
+| Вход | `/api/v1/auth/yandex/start`, `/callback`, `GET /api/v1/me` (`{id, login}`), `POST /api/v1/auth/logout` | есть; без `YANDEX_CLIENT_ID` и `YANDEX_REDIRECT_URI` backend отвечает 503 — тогда в режиме `auto` работает демо-кабинет, в режиме `api` вход выключен с пояснением |
+| Рейтинг | `GET /api/v1/leaderboard` | есть (#56); места и сортировки по [docs/leaderboard-policy.md](../docs/leaderboard-policy.md) |
+| Мои репозитории | `GET /api/v1/me/repositories` | есть (#55): публичные репозитории из организаций `SOURCECRAFT_PUBLIC_ORGANIZATIONS`; последнего анализа в ответе пока нет. У backend без этого маршрута кабинет после входа предлагает проверить публичный репозиторий по идентификатору |
 | Подключение SourceCraft | `/api/v1/connections/sourcecraft` | позже, для закрытых репозиториев; пока его нет, интерфейс его не предлагает |
 
 Формат ответов описан в [docs/api-contract.md](../docs/api-contract.md); типы лежат в `src/api/*.ts`.
+
+Открывать сервис нужно по адресу из `YANDEX_REDIRECT_URI`: запуск анализа и выход с другого адреса (например, `127.0.0.1` вместо `localhost`) отклонит защита от подделки запросов ([docs/csrf-protection.md](../docs/csrf-protection.md)) — интерфейс так и скажет.
 
 ## Выкладка на стенд
 
