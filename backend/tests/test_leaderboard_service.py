@@ -138,6 +138,37 @@ class LeaderboardServiceTest(unittest.IsolatedAsyncioTestCase):
             ["preview", "empty"],
         )
 
+    async def test_places_unknown_likes_after_known_zero_in_full_and_preliminary_blocks(self) -> None:
+        repositories = (
+            metadata("full-zero", "Python", likes=0, activity=self.now),
+            metadata("full-unknown", "Python", likes=None, activity=self.now),
+            metadata("preliminary-zero", "Python", likes=0, activity=self.now),
+            metadata("preliminary-unknown", "Python", likes=None, activity=self.now),
+        )
+        store = InMemoryAnalysisStore()
+        service = LeaderboardService(
+            analysis_store=store,
+            repository_catalog=FakePublicRepositoryCatalog(repositories),
+        )
+        await store.save("full-zero", execution("full-zero", self.now, all_scores=90))
+        await store.save("full-unknown", execution("full-unknown", self.now, all_scores=80))
+        await store.save("preliminary-zero", execution("preliminary-zero", self.now, single_score=70))
+        await store.save(
+            "preliminary-unknown",
+            execution("preliminary-unknown", self.now, single_score=60),
+        )
+
+        result = await service.get_page(sort=LeaderboardSort.LIKES)
+
+        self.assertEqual(
+            [row.projection.repository.repository_id for row in result.entries],
+            ["full-zero", "full-unknown"],
+        )
+        self.assertEqual(
+            [row.projection.repository.repository_id for row in result.preliminary_entries],
+            ["preliminary-zero", "preliminary-unknown"],
+        )
+
     async def test_rejects_invalid_page_arguments_and_duplicate_catalog_ids(self) -> None:
         with self.assertRaisesRegex(ValueError, "page must"):
             await self.service.get_page(page=0)
