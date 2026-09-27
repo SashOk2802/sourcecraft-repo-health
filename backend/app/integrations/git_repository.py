@@ -16,7 +16,8 @@ from urllib.parse import urlsplit
 
 logger = logging.getLogger(__name__)
 
-SOURCECRAFT_GIT_HOST = "git.sourcecraft.dev"
+SOURCECRAFT_GIT_HOSTS = frozenset({"api.sourcecraft.tech", "sourcecraft.dev"})
+DEFAULT_SOURCECRAFT_GIT_HOST = "api.sourcecraft.tech"
 DEFAULT_GIT_TIMEOUT_SECONDS = 60.0
 MAX_FILE_BYTES = 512 * 1024
 _SEGMENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
@@ -26,6 +27,15 @@ _REGULAR_GIT_FILE_MODES = frozenset({"100644", "100755"})
 
 class GitCloneError(RuntimeError):
     """Ошибка подготовки рабочего дерева без URL, токена и stderr Git."""
+
+
+def _redact(value: str, *, repo_url: str, token: str | None) -> str:
+    """Удаляет URL и токен из текста до его передачи в API-ответ."""
+
+    redacted = value.replace(repo_url, "<repo>")
+    if token:
+        redacted = redacted.replace(token, "<token>")
+    return redacted
 
 
 def sourcecraft_clone_url(organization_slug: str, repository_slug: str) -> str:
@@ -41,7 +51,10 @@ def sourcecraft_clone_url(organization_slug: str, repository_slug: str) -> str:
     ):
         if not isinstance(value, str) or not _SEGMENT.fullmatch(value):
             raise ValueError(f"SourceCraft {name} must be one URL path segment")
-    return f"https://git@{SOURCECRAFT_GIT_HOST}/{organization_slug}/{repository_slug}.git"
+    return (
+        f"https://{DEFAULT_SOURCECRAFT_GIT_HOST}/"
+        f"{organization_slug}/{repository_slug}.git"
+    )
 
 
 class LocalGitRepository:
@@ -61,6 +74,9 @@ class LocalGitRepository:
         if timeout_seconds <= 0:
             raise ValueError("git timeout must be positive")
         self._repo_url = repo_url
+        clone_host = urlsplit(repo_url).hostname
+        assert clone_host is not None  # Проверено _validate_clone_url выше.
+        self._clone_host = clone_host
         self._ref = ref
         self._auth_token = auth_token or None
         self._timeout_seconds = timeout_seconds
@@ -70,6 +86,11 @@ class LocalGitRepository:
         # все blob'ы репозитория ещё до лимитов анализатора.
         self._treeish: str | None = None
         self._tree_entries: dict[str, int | None] | None = None
+
+    def redact(self, value: str) -> str:
+        """Возвращает безопасный для отчёта текст ошибки Git-операции."""
+
+        return _redact(value, repo_url=self._repo_url, token=self._auth_token)
 
     def clone(self) -> str:
         """Получает только Git-дерево без checkout всех blob'ов.
@@ -260,9 +281,7 @@ class LocalGitRepository:
             # передаётся через окружение и не попадает в URL или argv процесса.
             credentials = b64encode(f"git:{self._auth_token}".encode()).decode("ascii")
             environment["GIT_CONFIG_COUNT"] = "1"
-            environment["GIT_CONFIG_KEY_0"] = (
-                f"http.https://{SOURCECRAFT_GIT_HOST}/.extraHeader"
-            )
+            environment["GIT_CONFIG_KEY_0"] = f"http.https://{self._clone_host}/.extraHeader"
             environment["GIT_CONFIG_VALUE_0"] = f"Authorization: Basic {credentials}"
         return environment
 
@@ -334,9 +353,9 @@ def _validate_clone_url(repo_url: str) -> None:
     )
     if (
         parsed.scheme != "https"
-        or parsed.hostname != SOURCECRAFT_GIT_HOST
+        or parsed.hostname not in SOURCECRAFT_GIT_HOSTS
         or parsed.port not in (None, 443)
-        or parsed.username != "git"
+        or parsed.username not in (None, "git")
         or parsed.password is not None
         or parsed.query
         or parsed.fragment

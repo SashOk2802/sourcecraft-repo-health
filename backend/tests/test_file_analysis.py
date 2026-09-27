@@ -23,16 +23,16 @@ class FileAnalysisTest(unittest.TestCase):
     def test_clone_url_is_built_from_safe_slugs_only(self) -> None:
         self.assertEqual(
             sourcecraft_clone_url("team", "service"),
-            "https://git@git.sourcecraft.dev/team/service.git",
+            "https://api.sourcecraft.tech/team/service.git",
         )
         with self.assertRaises(ValueError):
             sourcecraft_clone_url("team/other", "service")
         with self.assertRaises(ValueError):
             LocalGitRepository("https://attacker.example/team/service.git")
         with self.assertRaises(ValueError):
-            LocalGitRepository("https://git.sourcecraft.dev/team/other/path.git")
+            LocalGitRepository("https://api.sourcecraft.tech/team/other/path.git")
         with self.assertRaises(ValueError):
-            LocalGitRepository("https://git.sourcecraft.dev/team/service.git")
+            LocalGitRepository("https://api.sourcecraft.tech/team/service.git?token=unsafe")
 
     @patch("backend.app.integrations.git_repository.subprocess.run")
     def test_clone_keeps_token_out_of_command_and_error(self, run) -> None:
@@ -48,10 +48,20 @@ class FileAnalysisTest(unittest.TestCase):
         )
         self.assertEqual(
             run.call_args.kwargs["env"]["GIT_CONFIG_KEY_0"],
-            "http.https://git.sourcecraft.dev/.extraHeader",
+            "http.https://api.sourcecraft.tech/.extraHeader",
         )
         self.assertEqual(run.call_args.kwargs["env"]["GIT_TERMINAL_PROMPT"], "0")
         self.assertIn("http.followRedirects=false", run.call_args.args[0])
+
+    def test_redact_hides_clone_url_and_token_from_a_worker_error(self) -> None:
+        url = sourcecraft_clone_url("team", "service")
+        repository = LocalGitRepository(url, auth_token="secret-token")
+
+        safe = repository.redact(f"git failed for {url}: secret-token")
+
+        self.assertNotIn("secret-token", safe)
+        self.assertNotIn("api.sourcecraft.tech/team/service.git", safe)
+        self.assertEqual(safe, "git failed for <repo>: <token>")
 
     def test_collect_ignores_strings_vendor_and_large_files(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -64,7 +74,15 @@ class FileAnalysisTest(unittest.TestCase):
             repository = LocalGitRepository(sourcecraft_clone_url("team", "service"))
             repository.temp_dir = directory
             facts = code_health.collect(repository)
-        self.assertEqual((facts.total_files, facts.todo_count, facts.fixme_count, facts.skipped_large_files), (2, 1, 1, 1))
+        self.assertEqual(
+            (
+                facts["total_files"],
+                facts["todo_count"],
+                facts["fixme_count"],
+                facts["skipped_large_files"],
+            ),
+            (2, 1, 1, 1),
+        )
 
     def test_collect_ignores_javascript_regex_but_keeps_real_comments(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -87,10 +105,10 @@ class FileAnalysisTest(unittest.TestCase):
             repository.temp_dir = directory
             facts = code_health.collect(repository)
 
-        self.assertEqual(facts.total_files, 1)
-        self.assertEqual(facts.todo_count, 4)
-        self.assertEqual(facts.fixme_count, 1)
-        self.assertEqual(facts.files_with_debt, 1)
+        self.assertEqual(facts["total_files"], 1)
+        self.assertEqual(facts["todo_count"], 4)
+        self.assertEqual(facts["fixme_count"], 1)
+        self.assertEqual(facts["files_with_debt"], 1)
 
     @patch("backend.app.integrations.git_repository.subprocess.run")
     def test_clone_uses_blobless_tree_without_checkout(self, run) -> None:
@@ -112,6 +130,32 @@ class FileAnalysisTest(unittest.TestCase):
         self.assertIn("--no-checkout", clone_command)
         self.assertNotIn("checkout", clone_command)
 
+    @patch("backend.app.integrations.git_repository.subprocess.run")
+    def test_clone_fetches_a_requested_commit_without_checkout_or_all_blobs(self, run) -> None:
+        repository = LocalGitRepository(
+            sourcecraft_clone_url("team", "service"),
+            ref="a" * 40,
+        )
+        run.side_effect = (
+            subprocess.CompletedProcess(["git"], 0),
+            subprocess.CompletedProcess(["git"], 0),
+            subprocess.CompletedProcess(["git"], 0, stdout=b"a" * 40 + b"\n"),
+            subprocess.CompletedProcess(["git"], 0, stdout=b""),
+        )
+
+        with tempfile.TemporaryDirectory() as directory, patch(
+            "backend.app.integrations.git_repository.tempfile.mkdtemp",
+            return_value=directory,
+        ):
+            repository.clone()
+
+        commands = [call.args[0] for call in run.call_args_list]
+        self.assertIn("--filter=blob:none", commands[0])
+        self.assertIn("--no-checkout", commands[0])
+        self.assertIn("fetch", commands[1])
+        self.assertIn("--filter=blob:none", commands[1])
+        self.assertFalse(any("checkout" in command for command in commands))
+
     def test_blobless_reader_rejects_large_blob_before_git_can_fetch_it(self) -> None:
         repository = LocalGitRepository(sourcecraft_clone_url("team", "service"))
         repository.temp_dir = "/tmp/repo"
@@ -125,8 +169,20 @@ class FileAnalysisTest(unittest.TestCase):
         run_git.assert_not_called()
 
     def test_evaluate_is_reproducible(self) -> None:
-        docs = documentation.evaluate(self.context, documentation.DocumentationFacts(True, False, False, False, True))
-        health = code_health.evaluate(self.context, code_health.CodeHealthFacts(2, 1, 1, 1, 0))
+        docs = documentation.evaluate(
+            self.context,
+            {
+                "has_readme": True,
+                "has_contributing": False,
+                "has_codeowners": False,
+                "has_license": False,
+                "has_shortcuts": True,
+            },
+        )
+        health = code_health.evaluate(
+            self.context,
+            {"total_files": 100, "todo_count": 1, "fixme_count": 1, "files_with_debt": 1},
+        )
         self.assertEqual((docs.status, docs.score), (DataStatus.MEASURED, 50.0))
         self.assertEqual((health.status, health.score), (DataStatus.MEASURED, 94.0))
 
@@ -139,8 +195,8 @@ class FileAnalysisTest(unittest.TestCase):
             repository.temp_dir = directory
             facts = code_health.collect(repository, max_files=2)
 
-        self.assertTrue(facts.truncated)
-        self.assertEqual(facts.total_files, 2)
+        self.assertTrue(facts["truncated"])
+        self.assertEqual(facts["total_files"], 2)
         result = code_health.evaluate(self.context, facts)
         self.assertEqual(result.status, DataStatus.INSUFFICIENT_SAMPLE)
         self.assertIsNone(result.score)
@@ -156,8 +212,8 @@ class FileAnalysisTest(unittest.TestCase):
             with patch.object(repository, "read_file", wraps=repository.read_file) as read_file:
                 facts = code_health.collect(repository, max_total_bytes=7)
 
-        self.assertTrue(facts.truncated)
-        self.assertEqual(facts.total_files, 0)
+        self.assertTrue(facts["truncated"])
+        self.assertEqual(facts["total_files"], 0)
         self.assertEqual(read_file.call_count, 1)
 
     def test_resource_limits_must_be_positive(self) -> None:
@@ -179,8 +235,8 @@ class FileAnalysisTest(unittest.TestCase):
                     code_health.collect(repository, **{limit_name: value})
 
     def test_empty_source_tree_is_unavailable(self) -> None:
-        result = code_health.evaluate(self.context, code_health.CodeHealthFacts(0, 0, 0, 0, 0))
-        self.assertEqual(result.status, DataStatus.UNAVAILABLE)
+        result = code_health.evaluate(self.context, {"total_files": 0})
+        self.assertEqual(result.status, DataStatus.NOT_APPLICABLE)
 
 
 if __name__ == "__main__":
