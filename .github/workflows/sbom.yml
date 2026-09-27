@@ -7,13 +7,17 @@ on:
       - main
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
 jobs:
   python-sbom:
     name: Python runtime SBOM
-    runs-on: [self-hosted, linux, x64, repo-health]
+    runs-on: ubuntu-latest
     env:
       PIP_DISABLE_PIP_VERSION_CHECK: "1"
       PIP_NO_CACHE_DIR: "1"
@@ -56,7 +60,7 @@ jobs:
 
   frontend-sbom:
     name: Frontend runtime SBOM
-    runs-on: [self-hosted, linux, x64, repo-health]
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: frontend
