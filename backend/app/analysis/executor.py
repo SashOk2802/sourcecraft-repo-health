@@ -97,6 +97,36 @@ class AnalysisExecutionService:
         )
         return await self._job_store.create(job)
 
+    async def create_or_get_job(
+        self,
+        context: AnalysisContext,
+        analysis_id: str,
+        *,
+        owner_subject: str,
+        worker_id: str | None = None,
+    ) -> tuple[AnalysisJob, bool]:
+        """Создаёт job либо безопасно возвращает уже созданный с тем же устойчивым ID."""
+
+        try:
+            return (
+                await self.create_job(
+                    context,
+                    analysis_id,
+                    owner_subject=owner_subject,
+                    worker_id=worker_id,
+                ),
+                True,
+            )
+        except ValueError:
+            existing = await self._job_store.get(analysis_id)
+            if (
+                existing is None
+                or existing.repository_id != context.repository.id
+                or existing.owner_subject != owner_subject
+            ):
+                raise
+            return existing, False
+
     async def execute(
         self,
         *,
