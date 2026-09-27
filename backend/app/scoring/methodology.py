@@ -1,4 +1,8 @@
-"""Публичное описание неизменяемых правил методики Repo Health Score v1."""
+"""Публичное описание неизменяемых правил методики Repo Health Score v2.
+
+v2 добавляет в Activity метрику регулярных недель коммитов. Это изменяет
+формулу категории, поэтому снимки v1 и v2 нельзя сравнивать в одном рейтинге.
+"""
 
 from __future__ import annotations
 
@@ -7,7 +11,7 @@ from types import MappingProxyType
 
 from backend.app.contracts import DataStatus
 
-METHODOLOGY_VERSION = "v1"
+METHODOLOGY_VERSION = "v2"
 SECURITY_OPEN_CRITICAL_METRIC = "appsec_confirmed_open_critical_findings"
 SECURITY_OPEN_CRITICAL_LIMIT_CODE = "security-open-critical"
 SECURITY_OPEN_CRITICAL_LIMIT = 60.0
