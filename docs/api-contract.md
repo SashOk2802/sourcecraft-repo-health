@@ -83,7 +83,7 @@
 
 ~~~json
 {
-  "version": "v1",
+  "version": "v2",
   "scoreRange": { "minimum": 0, "maximum": 100 },
   "categories": [
     { "code": "security", "label": "Безопасность", "weight": 25 }
