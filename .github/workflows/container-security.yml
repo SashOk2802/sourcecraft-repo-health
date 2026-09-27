@@ -8,13 +8,17 @@ on:
   workflow_dispatch:
 
 # Сборка и сканирование образов не требуют записи в репозиторий.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
 jobs:
   scan:
     name: Scan ${{ matrix.name }} image
-    runs-on: [self-hosted, linux, x64, repo-health]
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
       # Оба образа должны быть проверены, даже если первый скан нашёл проблему.
