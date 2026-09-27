@@ -61,6 +61,10 @@ from backend.app.leaderboard import (
     LeaderboardSort,
 )
 from backend.app.leaderboard.sourcecraft_catalog import SourceCraftLeaderboardRepositoryCatalog
+from backend.app.scheduling.runner import (
+    PostgresAnalysisScheduleStore,
+    PublicAnalysisScheduler,
+)
 from backend.app.scoring.methodology import build_methodology_payload
 
 PrincipalProvider = Callable[[Request], Awaitable[AnalysisPrincipal]]
@@ -92,6 +96,7 @@ def create_app(
     repository_catalog: PublicRepositoryCatalog | None = None,
     configure_public_repository_catalog: bool = True,
     leaderboard_service: LeaderboardService | None = None,
+    analysis_scheduler: PublicAnalysisScheduler | None = None,
 ) -> FastAPI:
     """Создаёт HTTP-приложение с хранилищами и необязательным worker анализа."""
 
@@ -117,6 +122,13 @@ def create_app(
                 effective_repository_catalog
             ),
         )
+    effective_analysis_scheduler = analysis_scheduler
+    if effective_analysis_scheduler is None and configure_public_repository_catalog:
+        effective_analysis_scheduler = _create_default_public_analysis_scheduler(
+            dispatcher=effective_analysis_dispatcher,
+            job_store=jobs,
+            repository_catalog=effective_repository_catalog,
+        )
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -124,6 +136,7 @@ def create_app(
         jobs_started = False
         auth_started = False
         dispatcher_started = False
+        scheduler_started = False
         try:
             await store.start()
             store_started = True
@@ -135,8 +148,13 @@ def create_app(
             if effective_analysis_dispatcher is not None:
                 await effective_analysis_dispatcher.start()
                 dispatcher_started = True
+            if effective_analysis_scheduler is not None:
+                await effective_analysis_scheduler.start()
+                scheduler_started = True
             yield
         finally:
+            if scheduler_started:
+                await effective_analysis_scheduler.close()
             if dispatcher_started:
                 await effective_analysis_dispatcher.close()
             if auth_started:
@@ -160,6 +178,7 @@ def create_app(
     app.state.binds_caller_sourcecraft_token = bind_sourcecraft_token
     app.state.public_repository_catalog = effective_repository_catalog
     app.state.leaderboard_service = effective_leaderboard_service
+    app.state.analysis_scheduler = effective_analysis_scheduler
 
     @app.exception_handler(Exception)
     async def unexpected_server_error(request: Request, _: Exception) -> Response:
@@ -655,6 +674,46 @@ def _create_default_public_repository_catalog() -> PublicRepositoryCatalog | Non
     """Создаёт каталог списка только из явно разрешённых public-организаций."""
 
     return create_sourcecraft_public_repository_catalog_from_environment()
+
+
+def _create_default_public_analysis_scheduler(
+    *,
+    dispatcher: AnalysisDispatcher | None,
+    job_store: AnalysisJobStore,
+    repository_catalog: PublicRepositoryCatalog | None,
+) -> PublicAnalysisScheduler | None:
+    """Включает durable-пересчёт только по явной production-конфигурации."""
+
+    if not _public_analysis_scheduler_enabled():
+        return None
+    if dispatcher is None or repository_catalog is None:
+        raise RuntimeError(
+            "PUBLIC_ANALYSIS_SCHEDULER_ENABLED requires public SourceCraft analysis."
+        )
+    database_url = os.getenv("DATABASE_URL")
+    if not database_url:
+        raise RuntimeError(
+            "PUBLIC_ANALYSIS_SCHEDULER_ENABLED requires DATABASE_URL for PostgreSQL."
+        )
+    return PublicAnalysisScheduler(
+        repository_catalog=repository_catalog,
+        dispatcher=dispatcher,
+        job_store=job_store,
+        schedule_store=PostgresAnalysisScheduleStore(database_url),
+    )
+
+
+def _public_analysis_scheduler_enabled() -> bool:
+    """Разбирает opt-in настройку без неявного включения очереди."""
+
+    value = os.getenv("PUBLIC_ANALYSIS_SCHEDULER_ENABLED", "").strip().lower()
+    if value in {"", "0", "false", "no"}:
+        return False
+    if value in {"1", "true", "yes"}:
+        return True
+    raise RuntimeError(
+        "PUBLIC_ANALYSIS_SCHEDULER_ENABLED must be one of 0, 1, false or true."
+    )
 
 
 def _default_analysis_store() -> AnalysisStore:

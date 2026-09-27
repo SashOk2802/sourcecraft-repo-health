@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from backend.app.integrations.sourcecraft import SourceCraftNetworkError
+from backend.app.integrations.sourcecraft import SourceCraftTimeoutError
 from backend.app.integrations.sourcecraft_public_catalog import (
     SourceCraftPublicRepositoryCatalog,
     create_sourcecraft_public_repository_catalog_from_environment,
@@ -62,7 +62,7 @@ class SourceCraftPublicRepositoryCatalogTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_hides_sourcecraft_error_and_closes_client(self) -> None:
         client = CatalogHttpClient(
-            "sourcecraft-secret", {}, error=SourceCraftNetworkError("network")
+            "sourcecraft-secret", {}, error=SourceCraftTimeoutError("timeout")
         )
         catalog = SourceCraftPublicRepositoryCatalog(
             SourceCraftPublicCatalogSettings("sourcecraft-secret", ("team",)),
@@ -76,6 +76,7 @@ class SourceCraftPublicRepositoryCatalogTest(unittest.IsolatedAsyncioTestCase):
             await catalog.list_repositories()
 
         self.assertTrue(client.closed)
+        self.assertTrue(raised.exception.retryable)
         self.assertNotIn("sourcecraft-secret", str(raised.exception))
 
     async def test_rejects_duplicate_public_repository_across_organizations(self) -> None:

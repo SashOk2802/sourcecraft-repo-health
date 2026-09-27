@@ -16,7 +16,11 @@ from backend.app.contracts import AnalysisContext, RepositoryRef
 from backend.app.integrations.sourcecraft import (
     SourceCraftClient,
     SourceCraftClientError,
+    SourceCraftNetworkError,
+    SourceCraftRateLimitError,
     SourceCraftRequestError,
+    SourceCraftResponseError,
+    SourceCraftTimeoutError,
 )
 
 _SOURCECRAFT_SLUG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
@@ -29,6 +33,10 @@ _TOKEN_ENV = "SOURCECRAFT_TOKEN"
 
 class SourceCraftRepositoryUnavailableError(RuntimeError):
     """Каталог SourceCraft недоступен или вернул непригодный для анализа ответ."""
+
+    def __init__(self, message: str, *, retryable: bool = False) -> None:
+        super().__init__(message)
+        self.retryable = retryable
 
 
 class SourceCraftCatalogClient(Protocol):
@@ -120,7 +128,8 @@ class SourceCraftPublicRepositoryResolver:
             commit_sha = self._find_default_branch_head(client, repository)
         except SourceCraftClientError as error:
             raise SourceCraftRepositoryUnavailableError(
-                "SourceCraft repository catalog is unavailable"
+                "SourceCraft repository catalog is unavailable",
+                retryable=is_temporary_sourcecraft_error(error),
             ) from error
         except (LookupError, PermissionError, SourceCraftRepositoryUnavailableError):
             raise
@@ -273,6 +282,19 @@ def create_sourcecraft_public_catalog_settings_from_environment(
     return SourceCraftPublicCatalogSettings(
         token=token,
         organization_slugs=organization_slugs,
+    )
+
+
+def is_temporary_sourcecraft_error(error: SourceCraftClientError) -> bool:
+    """Отделяет повторяемые проблемы сети и сервиса от постоянных ошибок."""
+
+    if isinstance(
+        error,
+        (SourceCraftNetworkError, SourceCraftRateLimitError, SourceCraftTimeoutError),
+    ):
+        return True
+    return isinstance(error, SourceCraftResponseError) and (
+        error.status_code is not None and error.status_code >= 500
     )
 
 

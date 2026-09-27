@@ -51,8 +51,10 @@ class AnalysisDispatcher(Protocol):
         self,
         repository_id: str,
         principal: AnalysisPrincipal,
+        *,
+        analysis_id: str | None = None,
     ) -> AnalysisJob:
-        """Создаёт queued-задание и планирует его выполнение для инициатора."""
+        """Создаёт или возвращает queued-задание с необязательным устойчивым ID."""
 
     async def close(self) -> None:
         """Дожидается уже поставленных запусков перед закрытием приложения."""
@@ -108,8 +110,10 @@ class InProcessAnalysisDispatcher:
         self,
         repository_id: str,
         principal: AnalysisPrincipal,
+        *,
+        analysis_id: str | None = None,
     ) -> AnalysisJob:
-        """Проверяет доступ, сохраняет queued-задание и запускает worker."""
+        """Проверяет доступ, создаёт или возвращает задание и запускает worker."""
 
         await self.start()
         context = await self._context_resolver.resolve(repository_id, principal)
@@ -117,18 +121,19 @@ class InProcessAnalysisDispatcher:
             raise ValueError("resolved context does not match repository_id")
 
         analyzers = tuple(self._analyzer_provider(context))
-        job = await self._execution_service.create_job(
+        job, created = await self._execution_service.create_or_get_job(
             context,
-            self._analysis_id_factory(),
+            analysis_id or self._analysis_id_factory(),
             owner_subject=principal.subject,
             worker_id=self._worker_id,
         )
-        task = asyncio.create_task(
-            self._execute(job.analysis_id, context, analyzers),
-            name=f"analysis-{job.analysis_id}",
-        )
-        self._tasks.add(task)
-        task.add_done_callback(self._tasks.discard)
+        if created:
+            task = asyncio.create_task(
+                self._execute(job.analysis_id, context, analyzers),
+                name=f"analysis-{job.analysis_id}",
+            )
+            self._tasks.add(task)
+            task.add_done_callback(self._tasks.discard)
         return job
 
     async def close(self) -> None:
