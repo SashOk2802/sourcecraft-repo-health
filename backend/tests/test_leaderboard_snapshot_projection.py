@@ -80,7 +80,7 @@ class LeaderboardSnapshotProjectionTest(unittest.TestCase):
         self.assertTrue(entry.is_preliminary)
         self.assertIsNotNone(entry.candidate)
         assert entry.candidate is not None
-        self.assertEqual(entry.candidate.likes, 0)
+        self.assertIsNone(entry.candidate.likes)
         self.assertEqual(entry.coverage, 0.15)
         self.assertFalse(entry.score_limited)
         self.assertEqual(
