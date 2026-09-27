@@ -194,21 +194,18 @@ def collect(
                 facts["incomplete"] = True
                 continue
 
-            spans = _comment_spans(content, extension)
-            if spans is None:
-                # Файл не удалось разобрать целиком: незакрытая строка —
-                # TokenError, битые отступы — IndentationError/TabError (оба —
-                # подклассы SyntaxError). Такой файл исключается из скана, а не
-                # считается «чистым»: он не даёт ни total_files, ни маркеров
-                # (CH.1, CH.2). Неполный разбор не должен выглядеть как
-                # «чистый» файл: весь результат категории станет insufficient_sample.
+            marker_counts = _scan_comment_markers(
+                content,
+                extension,
+                max_evidence=MAX_EVIDENCE_ENTRIES - len(facts["occurrences"]),
+            )
+            if marker_counts is None:
+                # Неполный разбор нельзя считать «чистым»: весь результат
+                # категории станет insufficient_sample.
                 facts["incomplete"] = True
                 continue
 
-            comments = "\n".join(text for text, _ in spans)
-            todos = len(TODO_PATTERN.findall(comments))
-            fixmes = len(FIXME_PATTERN.findall(comments))
-
+            todos, fixmes, occurrences = marker_counts
             facts["total_files"] += 1
             if todos == 0 and fixmes == 0:
                 continue
@@ -217,10 +214,7 @@ def collect(
             facts["fixme_count"] += fixmes
             facts["files_with_debt"] += 1
             facts["occurrences"].extend(
-                _marker_occurrences(relative_path, spans, TODO_PATTERN, "TODO")
-            )
-            facts["occurrences"].extend(
-                _marker_occurrences(relative_path, spans, FIXME_PATTERN, "FIXME")
+                {"path": relative_path, **occurrence} for occurrence in occurrences
             )
 
         if facts["truncated"]:
@@ -455,6 +449,153 @@ def _validate_resource_limit(value: object, name: str) -> None:
         raise TypeError(f"{name} must be an integer")
     if value < 1:
         raise ValueError(f"{name} must be positive")
+
+
+def _scan_comment_markers(
+    content: str,
+    extension: str,
+    *,
+    max_evidence: int,
+) -> tuple[int, int, list[dict[str, int | str]]] | None:
+    """Считает маркеры без накопления всего текста комментариев в памяти.
+
+    Каждый файл ограничен по размеру до вызова этой функции. Здесь дополнительно
+    ограничен результат: хранятся только первые ``max_evidence`` вхождений.
+    Полное число TODO/FIXME считается потоком и не создаёт список совпадений.
+    """
+    if extension == ".py":
+        try:
+            chunks = (
+                (token.string, token.start[0])
+                for token in tokenize.generate_tokens(io.StringIO(content).readline)
+                if token.type == tokenize.COMMENT
+            )
+            return _count_marker_chunks(chunks, max_evidence=max_evidence)
+        except (tokenize.TokenError, SyntaxError):
+            return None
+
+    return _count_marker_chunks(
+        _iter_c_style_comment_chunks(content, rust=extension == ".rs"),
+        max_evidence=max_evidence,
+    )
+
+
+def _count_marker_chunks(
+    chunks,
+    *,
+    max_evidence: int,
+) -> tuple[int, int, list[dict[str, int | str]]]:
+    todos = 0
+    fixmes = 0
+    occurrences: list[dict[str, int | str]] = []
+
+    for text, start_line in chunks:
+        todos += sum(1 for _ in TODO_PATTERN.finditer(text))
+        fixmes += sum(1 for _ in FIXME_PATTERN.finditer(text))
+        _append_marker_evidence(
+            occurrences,
+            text,
+            start_line,
+            TODO_PATTERN,
+            "TODO",
+            max_evidence=max_evidence,
+        )
+        _append_marker_evidence(
+            occurrences,
+            text,
+            start_line,
+            FIXME_PATTERN,
+            "FIXME",
+            max_evidence=max_evidence,
+        )
+
+    return todos, fixmes, occurrences
+
+
+def _append_marker_evidence(
+    occurrences: list[dict[str, int | str]],
+    text: str,
+    start_line: int,
+    pattern: re.Pattern[str],
+    kind: str,
+    *,
+    max_evidence: int,
+) -> None:
+    """Добавляет только нужное число evidence и линейно вычисляет номера строк."""
+    if len(occurrences) >= max_evidence:
+        return
+
+    line = start_line
+    previous_end = 0
+    for match in pattern.finditer(text):
+        line += text.count("\n", previous_end, match.start())
+        occurrences.append({"kind": kind, "line": line})
+        if len(occurrences) >= max_evidence:
+            return
+        previous_end = match.end()
+
+
+def _iter_c_style_comment_chunks(content: str, *, rust: bool):
+    """Поток комментариев C-подобных языков без квадратичного подсчёта строк."""
+    index = 0
+    line = 1
+    length = len(content)
+
+    while index < length:
+        if content.startswith("//", index):
+            end = content.find("\n", index + 2)
+            if end == -1:
+                yield content[index + 2 :], line
+                return
+            yield content[index + 2 : end], line
+            index = end + 1
+            line += 1
+            continue
+
+        if content.startswith("/*", index):
+            end = content.find("*/", index + 2)
+            if end == -1:
+                text = content[index + 2 :]
+                yield text, line
+                return
+            text = content[index + 2 : end]
+            yield text, line
+            line += text.count("\n")
+            index = end + 2
+            continue
+
+        if rust and content[index] == "r":
+            raw_end = _skip_rust_raw_string(content, index)
+            if raw_end > index:
+                line += content.count("\n", index, raw_end)
+                index = raw_end
+                continue
+
+        character = content[index]
+        if character in "\"'`":
+            index, line = _skip_quoted_literal_with_line(content, index, line)
+            continue
+        if character == "\n":
+            line += 1
+        index += 1
+
+
+def _skip_quoted_literal_with_line(content: str, index: int, line: int) -> tuple[int, int]:
+    quote = content[index]
+    index += 1
+    while index < len(content):
+        character = content[index]
+        if character == "\\":
+            if index + 1 < len(content) and content[index + 1] == "\n":
+                line += 1
+            index += 2
+            continue
+        if character == quote:
+            return index + 1, line
+        if character == "\n":
+            line += 1
+        index += 1
+    return index, line
 
 
 def _comment_spans(content: str, extension: str) -> list[tuple[str, int]] | None:
