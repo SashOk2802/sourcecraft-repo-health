@@ -563,7 +563,7 @@ class PostgresAnalysisScheduleStore:
         )
         return tuple(_entry_from_row(row) for row in rows)
 
-    async def record_submission(
+    async def reserve_submission(
         self,
         repository_id: str,
         *,
@@ -578,11 +578,7 @@ class PostgresAnalysisScheduleStore:
         result = await self._require_pool().execute(
             """
             UPDATE analysis_schedules
-            SET
-                in_flight_analysis_id = $3,
-                lease_owner = NULL,
-                lease_expires_at = NULL,
-                updated_at = $4
+            SET in_flight_analysis_id = $3, updated_at = $4
             WHERE repository_id = $1
                 AND in_flight_analysis_id IS NULL
                 AND lease_owner = $2
@@ -594,17 +590,82 @@ class PostgresAnalysisScheduleStore:
         )
         return _was_updated(result)
 
+    async def confirm_submission(
+        self,
+        repository_id: str,
+        *,
+        lease_owner: str,
+        analysis_id: str,
+        updated_at: datetime,
+    ) -> bool:
+        _require_repository_id(repository_id)
+        _require_lease_owner(lease_owner)
+        _require_analysis_id(analysis_id)
+        _require_aware(updated_at, "updated_at")
+        result = await self._require_pool().execute(
+            """
+            UPDATE analysis_schedules
+            SET lease_owner = NULL, lease_expires_at = NULL, updated_at = $4
+            WHERE repository_id = $1
+                AND in_flight_analysis_id = $3
+                AND lease_owner = $2
+            """,
+            repository_id,
+            lease_owner,
+            analysis_id,
+            updated_at,
+        )
+        return _was_updated(result)
+
+    async def claim_expired_reservation(
+        self,
+        repository_id: str,
+        *,
+        analysis_id: str,
+        now: datetime,
+        lease_owner: str,
+        lease_expires_at: datetime,
+    ) -> ScheduleEntry | None:
+        _require_repository_id(repository_id)
+        _require_analysis_id(analysis_id)
+        _require_aware(now, "now")
+        _require_lease_owner(lease_owner)
+        _require_aware(lease_expires_at, "lease_expires_at")
+        if lease_expires_at <= now:
+            raise ValueError("lease_expires_at must be later than now")
+        row = await self._require_pool().fetchrow(
+            """
+            UPDATE analysis_schedules
+            SET lease_owner = $4, lease_expires_at = $5, updated_at = $3
+            WHERE repository_id = $1
+                AND in_flight_analysis_id = $2
+                AND (lease_expires_at IS NULL OR lease_expires_at <= $3)
+            RETURNING
+                repository_id, last_activity_at, next_analysis_at,
+                in_flight_analysis_id, consecutive_failures, active, updated_at,
+                lease_owner, lease_expires_at
+            """,
+            repository_id,
+            analysis_id,
+            now,
+            lease_owner,
+            lease_expires_at,
+        )
+        return _entry_from_row(row) if row is not None else None
+
     async def release_submission(
         self,
         repository_id: str,
         *,
         lease_owner: str,
+        analysis_id: str,
         next_analysis_at: datetime,
         consecutive_failures: int,
         updated_at: datetime,
     ) -> bool:
         _require_repository_id(repository_id)
         _require_lease_owner(lease_owner)
+        _require_analysis_id(analysis_id)
         _require_aware(next_analysis_at, "next_analysis_at")
         _require_failures(consecutive_failures)
         _require_aware(updated_at, "updated_at")
@@ -612,17 +673,19 @@ class PostgresAnalysisScheduleStore:
             """
             UPDATE analysis_schedules
             SET
-                next_analysis_at = $3,
-                consecutive_failures = $4,
+                next_analysis_at = $4,
+                in_flight_analysis_id = NULL,
+                consecutive_failures = $5,
                 lease_owner = NULL,
                 lease_expires_at = NULL,
-                updated_at = $5
+                updated_at = $6
             WHERE repository_id = $1
-                AND in_flight_analysis_id IS NULL
+                AND in_flight_analysis_id = $3
                 AND lease_owner = $2
             """,
             repository_id,
             lease_owner,
+            analysis_id,
             next_analysis_at,
             consecutive_failures,
             updated_at,
