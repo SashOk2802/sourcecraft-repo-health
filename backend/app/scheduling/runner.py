@@ -127,7 +127,7 @@ class AnalysisScheduleStore(Protocol):
     ) -> tuple[ScheduleEntry, ...]:
         """Атомарно закрепляет ограниченное число просроченных записей."""
 
-    async def record_submission(
+    async def reserve_submission(
         self,
         repository_id: str,
         *,
@@ -135,18 +135,40 @@ class AnalysisScheduleStore(Protocol):
         analysis_id: str,
         updated_at: datetime,
     ) -> bool:
-        """Связывает подтверждённую lease с созданным заданием."""
+        """Закрепляет устойчивый analysis ID до обращения к dispatcher."""
+
+    async def confirm_submission(
+        self,
+        repository_id: str,
+        *,
+        lease_owner: str,
+        analysis_id: str,
+        updated_at: datetime,
+    ) -> bool:
+        """Подтверждает созданное задание и освобождает reservation lease."""
+
+    async def claim_expired_reservation(
+        self,
+        repository_id: str,
+        *,
+        analysis_id: str,
+        now: datetime,
+        lease_owner: str,
+        lease_expires_at: datetime,
+    ) -> ScheduleEntry | None:
+        """Передаёт истёкшую reservation следующему экземпляру без смены ID."""
 
     async def release_submission(
         self,
         repository_id: str,
         *,
         lease_owner: str,
+        analysis_id: str,
         next_analysis_at: datetime,
         consecutive_failures: int,
         updated_at: datetime,
     ) -> bool:
-        """Освобождает lease после ошибки постановки и назначает повтор."""
+        """Освобождает reservation после ошибки постановки и назначает повтор."""
 
     async def settle(
         self,
@@ -261,7 +283,7 @@ class InMemoryAnalysisScheduleStore:
             self._entries.update({entry.repository_id: entry for entry in claimed})
             return claimed
 
-    async def record_submission(
+    async def reserve_submission(
         self,
         repository_id: str,
         *,
@@ -284,23 +306,87 @@ class InMemoryAnalysisScheduleStore:
             self._entries[repository_id] = replace(
                 entry,
                 in_flight_analysis_id=analysis_id,
+                updated_at=updated_at,
+            )
+            return True
+
+    async def confirm_submission(
+        self,
+        repository_id: str,
+        *,
+        lease_owner: str,
+        analysis_id: str,
+        updated_at: datetime,
+    ) -> bool:
+        _require_repository_id(repository_id)
+        _require_lease_owner(lease_owner)
+        _require_analysis_id(analysis_id)
+        _require_aware(updated_at, "updated_at")
+        with self._lock:
+            entry = self._entries.get(repository_id)
+            if (
+                entry is None
+                or entry.in_flight_analysis_id != analysis_id
+                or entry.lease_owner != lease_owner
+            ):
+                return False
+            self._entries[repository_id] = replace(
+                entry,
                 lease_owner=None,
                 lease_expires_at=None,
                 updated_at=updated_at,
             )
             return True
 
+    async def claim_expired_reservation(
+        self,
+        repository_id: str,
+        *,
+        analysis_id: str,
+        now: datetime,
+        lease_owner: str,
+        lease_expires_at: datetime,
+    ) -> ScheduleEntry | None:
+        _require_repository_id(repository_id)
+        _require_analysis_id(analysis_id)
+        _require_aware(now, "now")
+        _require_lease_owner(lease_owner)
+        _require_aware(lease_expires_at, "lease_expires_at")
+        if lease_expires_at <= now:
+            raise ValueError("lease_expires_at must be later than now")
+        with self._lock:
+            entry = self._entries.get(repository_id)
+            if (
+                entry is None
+                or entry.in_flight_analysis_id != analysis_id
+                or (
+                    entry.lease_expires_at is not None
+                    and entry.lease_expires_at > now
+                )
+            ):
+                return None
+            updated = replace(
+                entry,
+                lease_owner=lease_owner,
+                lease_expires_at=lease_expires_at,
+                updated_at=now,
+            )
+            self._entries[repository_id] = updated
+            return updated
+
     async def release_submission(
         self,
         repository_id: str,
         *,
         lease_owner: str,
+        analysis_id: str,
         next_analysis_at: datetime,
         consecutive_failures: int,
         updated_at: datetime,
     ) -> bool:
         _require_repository_id(repository_id)
         _require_lease_owner(lease_owner)
+        _require_analysis_id(analysis_id)
         _require_aware(next_analysis_at, "next_analysis_at")
         _require_failures(consecutive_failures)
         _require_aware(updated_at, "updated_at")
@@ -308,13 +394,14 @@ class InMemoryAnalysisScheduleStore:
             entry = self._entries.get(repository_id)
             if (
                 entry is None
-                or entry.in_flight_analysis_id is not None
+                or entry.in_flight_analysis_id != analysis_id
                 or entry.lease_owner != lease_owner
             ):
                 return False
             self._entries[repository_id] = replace(
                 entry,
                 next_analysis_at=next_analysis_at,
+                in_flight_analysis_id=None,
                 consecutive_failures=consecutive_failures,
                 lease_owner=None,
                 lease_expires_at=None,
