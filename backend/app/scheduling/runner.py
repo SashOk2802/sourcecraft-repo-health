@@ -74,7 +74,7 @@ class ScheduleEntry:
         _require_aware(self.next_analysis_at, "next_analysis_at")
         _require_aware(self.updated_at, "updated_at")
         if not isinstance(self.blocked, bool):
-            raise ValueError("blocked must be a boolean")
+            raise TypeError("blocked must be a boolean")
         if (
             isinstance(self.consecutive_failures, bool)
             or not isinstance(self.consecutive_failures, int)
