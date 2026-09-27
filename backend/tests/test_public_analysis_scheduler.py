@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import unittest
 from datetime import UTC, datetime, timedelta
 
@@ -40,18 +41,33 @@ class _Dispatcher:
         self._clock = clock
         self.requests: list[tuple[str, AnalysisPrincipal]] = []
         self.jobs: dict[str, AnalysisJob] = {}
+        self.first_submit_started: asyncio.Event | None = None
+        self.allow_first_submission: asyncio.Event | None = None
 
-    async def submit(self, repository_id: str, principal: AnalysisPrincipal) -> AnalysisJob:
+    async def submit(
+        self,
+        repository_id: str,
+        principal: AnalysisPrincipal,
+        *,
+        analysis_id: str | None = None,
+    ) -> AnalysisJob:
         self.requests.append((repository_id, principal))
-        analysis_id = f"scheduled-{len(self.requests)}"
+        if len(self.requests) == 1 and self.first_submit_started is not None:
+            self.first_submit_started.set()
+            if self.allow_first_submission is not None:
+                await self.allow_first_submission.wait()
+        identifier = analysis_id or f"scheduled-{len(self.requests)}"
+        existing = self.jobs.get(identifier)
+        if existing is not None:
+            return existing
         job = AnalysisJob.queued(
-            analysis_id=analysis_id,
+            analysis_id=identifier,
             repository_id=repository_id,
             created_at=self._clock(),
             owner_subject=principal.subject,
             worker_id="worker-test",
         )
-        self.jobs[analysis_id] = job
+        self.jobs[identifier] = job
         return job
 
 
@@ -71,7 +87,13 @@ class PublicAnalysisSchedulerTest(unittest.IsolatedAsyncioTestCase):
         self.jobs = _JobStore(self.dispatcher)
         self.store = InMemoryAnalysisScheduleStore()
 
-    def _scheduler(self, repositories: tuple[_Repository, ...], *, batch_size: int = 10):
+    def _scheduler(
+        self,
+        repositories: tuple[_Repository, ...],
+        *,
+        batch_size: int = 10,
+        scheduler_id: str = "scheduler-test",
+    ) -> PublicAnalysisScheduler:
         return PublicAnalysisScheduler(
             repository_catalog=_Catalog(repositories),
             dispatcher=self.dispatcher,
@@ -79,7 +101,8 @@ class PublicAnalysisSchedulerTest(unittest.IsolatedAsyncioTestCase):
             schedule_store=self.store,
             clock=self.clock,
             batch_size=batch_size,
-            scheduler_id="scheduler-test",
+            scheduler_id=scheduler_id,
+            analysis_id_factory=lambda: f"scheduled-{len(self.dispatcher.requests) + 1}",
         )
 
     async def test_starts_only_bounded_public_jobs_and_does_not_repeat_in_flight(self) -> None:
@@ -121,6 +144,25 @@ class PublicAnalysisSchedulerTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((result.reconciled, result.submitted), (1, 0))
         self.clock.value = finished_at + timedelta(hours=5)
         self.assertEqual((await scheduler.run_once()).submitted, 0)
+
+    async def test_expired_reservation_reuses_the_same_analysis_id(self) -> None:
+        repositories = (_Repository("repo-a", self.now),)
+        first = self._scheduler(repositories, scheduler_id="scheduler-first")
+        second = self._scheduler(repositories, scheduler_id="scheduler-second")
+        self.dispatcher.first_submit_started = asyncio.Event()
+        self.dispatcher.allow_first_submission = asyncio.Event()
+
+        first_run = asyncio.create_task(first.run_once())
+        await self.dispatcher.first_submit_started.wait()
+        self.clock.value = self.now + timedelta(minutes=6)
+
+        second_result = await second.run_once()
+        self.dispatcher.allow_first_submission.set()
+        first_result = await first_run
+
+        self.assertEqual((first_result.submitted, second_result.submitted), (1, 1))
+        self.assertEqual(set(self.dispatcher.jobs), {"scheduled-1"})
+        self.assertEqual(len(await self.store.list_in_flight()), 1)
 
     async def test_failed_job_uses_retry_delay_before_a_new_submission(self) -> None:
         scheduler = self._scheduler((_Repository("repo-a", self.now),))
@@ -165,9 +207,16 @@ class InMemoryAnalysisScheduleStoreTest(unittest.IsolatedAsyncioTestCase):
             lease_owner="scheduler-b",
             lease_expires_at=now + timedelta(minutes=1),
         )
+        reserved = await store.reserve_submission(
+            "repo-a",
+            lease_owner="scheduler-a",
+            analysis_id="analysis-reserved",
+            updated_at=now,
+        )
         released = await store.release_submission(
             "repo-a",
             lease_owner="scheduler-a",
+            analysis_id="analysis-reserved",
             next_analysis_at=now + timedelta(minutes=15),
             consecutive_failures=1,
             updated_at=now,
@@ -181,5 +230,6 @@ class InMemoryAnalysisScheduleStoreTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(len(first), 1)
         self.assertEqual(second, ())
+        self.assertTrue(reserved)
         self.assertTrue(released)
         self.assertEqual(after_release, ())
