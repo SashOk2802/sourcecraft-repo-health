@@ -150,6 +150,31 @@ class SourceCraftClient:
         slug = quote(repository_slug, safe="")
         return f"https://{host}/{org}/{slug}.git"
 
+    @staticmethod
+    def is_official_git_clone_url(clone_url: str) -> bool:
+        """Проверяет, что адрес git-клона безопасен для Bearer-PAT.
+
+        Метод используется перед тем, как git получит заголовок авторизации.
+        В отличие от URL страницы репозитория, у clone URL запрещены query и
+        fragment: они не нужны git и не должны менять адрес назначения.
+        """
+
+        try:
+            parsed = urlsplit(clone_url)
+            return (
+                parsed.scheme == "https"
+                and parsed.hostname in _SOURCECRAFT_GIT_HOSTS
+                and parsed.port in (None, 443)
+                and parsed.username is None
+                and parsed.password is None
+                and parsed.path.startswith("/")
+                and parsed.path.endswith(".git")
+                and not parsed.query
+                and not parsed.fragment
+            )
+        except ValueError:
+            return False
+
     def get_json(
         self,
         path: str,
