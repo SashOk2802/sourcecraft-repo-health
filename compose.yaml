@@ -6,9 +6,10 @@ services:
       context: ./frontend
     environment:
       API_PROXY_TARGET: http://backend:8000
-      # Docker-демо использует настоящий backend. Для изолированной вёрстки
-      # можно явно задать VITE_USE_MOCKS=true в локальном .env.
-      VITE_USE_MOCKS: "${VITE_USE_MOCKS:-false}"
+      # Чистый Docker-запуск использует fixtures: без токена и каталога SourceCraft
+      # настоящий рейтинг честно вернёт 503. Чтобы проверить live API, задайте
+      # SOURCECRAFT_* и явно включите VITE_USE_MOCKS=false в локальном .env.
+      VITE_USE_MOCKS: "${VITE_USE_MOCKS:-true}"
       # Кнопка входа включается только вместе с настроенными Yandex OAuth
       # переменными backend. Без них она остаётся выключенной.
       VITE_YANDEX_AUTH: "${VITE_YANDEX_AUTH:-false}"
