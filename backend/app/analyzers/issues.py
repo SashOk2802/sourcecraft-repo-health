@@ -477,7 +477,9 @@ def _backlog_metric(
     if cancelled:
         summary += f", отменено {len(cancelled)} (в решённые не входят)"
 
-    unresolved = [issue for issue in created if not issue.is_resolved]
+    unresolved = [
+        issue for issue in created if not issue.is_resolved and not issue.is_cancelled
+    ]
     evidence = tuple(
         Evidence(
             source=EVIDENCE_SOURCE,

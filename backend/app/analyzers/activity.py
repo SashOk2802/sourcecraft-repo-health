@@ -354,6 +354,7 @@ def collect_commit_history(
             repo_url,
             since=context.period_start,
             until=context.period_end,
+            revision=context.commit_sha,
             auth_token=client.git_bearer_token(),
             max_commits=COMMIT_HISTORY_LIMIT,
             timeout_seconds=COMMIT_HISTORY_TIMEOUT_SECONDS,
@@ -697,7 +698,7 @@ def _build_recommendations(
             Recommendation(
                 code="activity-no-commits-in-period",
                 priority=RecommendationPriority.P2,
-                problem="За период в истории ветки по умолчанию нет ни одного коммита.",
+                problem="За период в истории зафиксированного коммита нет ни одного коммита.",
                 action="Верните изменения в ветку по умолчанию, даже если это небольшой коммит.",
                 rationale=(
                     "Обновление карточки репозитория без коммитов не показывает, "

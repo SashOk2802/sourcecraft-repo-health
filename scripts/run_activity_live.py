@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -25,6 +26,33 @@ def read_token() -> str:
     raise SystemExit("SOURCECRAFT_TOKEN не найден в .env")
 
 
+def remote_head_sha(repo_url: str, token: str) -> str:
+    """SHA текущего HEAD. Живой прогон не идёт через резолвер каталога."""
+
+    command = [
+        "git",
+        "-c",
+        f"http.extraheader=AUTHORIZATION: Bearer {token}",
+        "ls-remote",
+        repo_url,
+        "HEAD",
+    ]
+    try:
+        completed = subprocess.run(
+            command,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
+        raise SystemExit("Не удалось прочитать SHA ветки по умолчанию.") from error
+    fields = completed.stdout.split()
+    if not fields:
+        raise SystemExit("У репозитория нет SHA ветки по умолчанию.")
+    return fields[0]
+
+
 def main() -> int:
     if len(sys.argv) != 2 or "/" not in sys.argv[1]:
         print("Использование: python scripts/run_activity_live.py org/repo", file=sys.stderr)
@@ -43,9 +71,14 @@ def main() -> int:
             web_url=payload.get("web_url"),
         )
         analyzed_at = datetime.now(UTC)
+        repo_url = SourceCraftClient.resolve_git_clone_url(
+            org,
+            slug,
+            repository.web_url if isinstance(repository.web_url, str) else None,
+        )
         context = AnalysisContext(
             repository=repository,
-            commit_sha="0" * 40,
+            commit_sha=remote_head_sha(repo_url, client.git_bearer_token()),
             analyzed_at=analyzed_at,
             period_start=analyzed_at - timedelta(days=180),
             period_end=analyzed_at,

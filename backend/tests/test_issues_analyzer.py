@@ -179,13 +179,19 @@ class IssuesEvaluateTest(unittest.TestCase):
             for index in range(8)
         ]
 
-        result = evaluate(build_facts([], cancelled), context())
+        open_items = [
+            open_issue("still-open", created_days_ago=20, updated_days_ago=2),
+            open_issue("also-open", created_days_ago=12, updated_days_ago=1),
+        ]
+
+        result = evaluate(build_facts(open_items, cancelled), context())
 
         self.assertIs(result.status, DataStatus.MEASURED)
         backlog = next(metric for metric in result.metrics if metric.code == "backlog_trend")
         self.assertEqual(backlog.value, 0.0)
         self.assertIn("отменено 8", backlog.summary)
-        self.assertEqual(len(backlog.evidence), 5)
+        self.assertEqual([item.reference for item in backlog.evidence], ["still-open", "also-open"])
+        self.assertTrue(all("не решена" in item.summary for item in backlog.evidence))
         self.assertTrue(all(item.url and item.url.endswith(item.reference) for item in backlog.evidence))
         growing = next(item for item in result.recommendations if item.code == "issues-backlog-growing")
         self.assertEqual(growing.evidence, backlog.evidence)

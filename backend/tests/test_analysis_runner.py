@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from unittest.mock import patch
 
 from backend.app.analysis.runner import AnalyzerRegistration, run_analysis
+from backend.app.analyzers.activity import METRIC_WEIGHTS
 from backend.app.contracts import (
     AnalysisContext,
     CategoryResult,
@@ -39,7 +40,9 @@ class AnalysisRunnerTest(unittest.TestCase):
         )
 
         self.assertEqual(execution.analysis.score, 67)
-        self.assertEqual(execution.analysis.methodology_version, METHODOLOGY_VERSION)
+        self.assertEqual(METRIC_WEIGHTS["active_weeks_in_period"], 25.0)
+        self.assertEqual(METHODOLOGY_VERSION, "v2")
+        self.assertEqual(execution.analysis.methodology_version, "v2")
         self.assertEqual(execution.score_summary.coverage, 1)
         self.assertEqual(
             tuple(category.category for category in execution.analysis.categories),

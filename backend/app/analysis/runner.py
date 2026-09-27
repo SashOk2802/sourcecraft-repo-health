@@ -36,7 +36,7 @@ _PRIORITY_ORDER = {
 
 @dataclass(frozen=True, slots=True)
 class AnalyzerRegistration:
-    """Анализатор категории и его стабильный код в методике v1."""
+    """Анализатор категории и его стабильный код в текущей методике."""
 
     category: str
     evaluate: CategoryEvaluator
