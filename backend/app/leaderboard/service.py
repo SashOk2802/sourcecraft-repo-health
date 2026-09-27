@@ -228,7 +228,12 @@ def _preliminary_sort_key(
             projection.repository.repository_id,
         )
     if sort is LeaderboardSort.LIKES:
-        return (-_likes_for_sort(projection), projection.repository.repository_id)
+        likes = projection.repository.likes
+        return (
+            likes is None,
+            -(likes or 0),
+            projection.repository.repository_id,
+        )
     activity = projection.repository.last_activity_at
     return (
         activity is None,
