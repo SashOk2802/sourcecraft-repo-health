@@ -30,10 +30,10 @@ export interface LocationState {
 }
 
 export function useLocation(): LocationState {
-  const [location, setLocation] = useState<LocationState>(readLocation);
+  const [location, setLocation] = useState<LocationState>(currentLocation);
 
   useEffect(() => {
-    const update = (): void => setLocation(readLocation());
+    const update = (): void => setLocation(currentLocation());
     window.addEventListener("popstate", update);
     window.addEventListener(NAVIGATION_EVENT, update);
     return () => {
@@ -67,6 +67,10 @@ export function Link({ to, onClick, target, ...rest }: LinkProps) {
   return <a {...rest} href={to} target={target} onClick={handleClick} />;
 }
 
-function readLocation(): LocationState {
+/**
+ * Адрес прямо сейчас. Обработчик, созданный на прошлом рендере (например, отложенный поиск),
+ * берёт текущие фильтры отсюда, а не из своего замыкания.
+ */
+export function currentLocation(): LocationState {
   return { pathname: window.location.pathname, search: window.location.search };
 }
