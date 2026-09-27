@@ -100,4 +100,11 @@ describe("withRecentAnalysis", () => {
     expect(withRecentAnalysis(fromBackend, status({}))).toBe(fromBackend);
     expect(withRecentAnalysis(item, null)).toBe(item);
   });
+
+  it("завершение опрошенного активного анализа заменяет устаревший activeAnalysisId", () => {
+    const active = { ...item, activeAnalysisId: "analysis-1" };
+    const completed = withRecentAnalysis(active, status({ status: "completed", isPreliminary: false, score: 82 }));
+    expect(completed.activeAnalysisId).toBeNull();
+    expect(completed.lastAnalysis).toMatchObject({ id: "analysis-1", status: "completed", score: 82 });
+  });
 });
