@@ -32,6 +32,7 @@ def upgrade() -> None:
             server_default=sa.text("0"),
         ),
         sa.Column("active", sa.Boolean(), nullable=False, server_default=sa.true()),
+        sa.Column("blocked", sa.Boolean(), nullable=False, server_default=sa.false()),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("lease_owner", sa.Text(), nullable=True),
         sa.Column("lease_expires_at", sa.DateTime(timezone=True), nullable=True),
@@ -50,7 +51,7 @@ def upgrade() -> None:
         ["next_analysis_at", "repository_id"],
         unique=False,
         postgresql_where=sa.text(
-            "active = TRUE AND in_flight_analysis_id IS NULL"
+            "active = TRUE AND blocked = FALSE AND in_flight_analysis_id IS NULL"
         ),
     )
 
