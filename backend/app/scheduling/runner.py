@@ -747,6 +747,7 @@ class PublicAnalysisScheduler:
         entry_lease: timedelta = _DEFAULT_ENTRY_LEASE,
         batch_size: int = _DEFAULT_BATCH_SIZE,
         scheduler_id: str | None = None,
+        analysis_id_factory: Callable[[], str] | None = None,
     ) -> None:
         if scan_interval <= timedelta():
             raise ValueError("scan_interval must be positive")
@@ -762,6 +763,7 @@ class PublicAnalysisScheduler:
         self._entry_lease = entry_lease
         self._batch_size = batch_size
         self._scheduler_id = scheduler_id or f"public-scheduler-{uuid4().hex}"
+        self._analysis_id_factory = analysis_id_factory or _new_analysis_id
         _require_lease_owner(self._scheduler_id)
         self._task: asyncio.Task[None] | None = None
         self._start_lock = asyncio.Lock()
@@ -803,7 +805,7 @@ class PublicAnalysisScheduler:
                 for repository in repositories
             )
             await self._schedule_store.reconcile_catalog(candidates, observed_at=now)
-            reconciled = await self._reconcile_terminal_jobs(
+            reconciled, reclaimed = await self._reconcile_terminal_jobs(
                 now=now,
                 candidates={candidate.repository_id: candidate for candidate in candidates},
             )
@@ -820,36 +822,54 @@ class PublicAnalysisScheduler:
         submitted = 0
         deferred = 0
         principal = AnalysisPrincipal(SYSTEM_SCHEDULER_SUBJECT)
-        for entry in claimed:
+        for entry in (*reclaimed, *claimed):
+            analysis_id = entry.in_flight_analysis_id
             try:
-                job = await self._dispatcher.submit(entry.repository_id, principal)
-                if job.repository_id != entry.repository_id:
-                    raise RuntimeError("dispatcher returned a job for another repository")
-                saved = await self._schedule_store.record_submission(
+                if analysis_id is None:
+                    analysis_id = self._analysis_id_factory()
+                    _require_analysis_id(analysis_id)
+                    reserved = await self._schedule_store.reserve_submission(
+                        entry.repository_id,
+                        lease_owner=self._scheduler_id,
+                        analysis_id=analysis_id,
+                        updated_at=_as_utc(self._clock(), "clock"),
+                    )
+                    if not reserved:
+                        continue
+                job = await self._dispatcher.submit(
+                    entry.repository_id,
+                    principal,
+                    analysis_id=analysis_id,
+                )
+                if job.repository_id != entry.repository_id or job.analysis_id != analysis_id:
+                    raise RuntimeError("dispatcher returned a mismatched scheduled job")
+                confirmed = await self._schedule_store.confirm_submission(
                     entry.repository_id,
                     lease_owner=self._scheduler_id,
-                    analysis_id=job.analysis_id,
-                    updated_at=now,
+                    analysis_id=analysis_id,
+                    updated_at=_as_utc(self._clock(), "clock"),
                 )
-                if not saved:
-                    logger.error(
-                        "Периодическое задание создано, но не привязано к расписанию.",
-                        extra={"analysis_id": job.analysis_id},
+                if not confirmed:
+                    logger.warning(
+                        "Периодическое задание создано и останется в reservation до сверки.",
+                        extra={"analysis_id": analysis_id},
                     )
                 submitted += 1
             except Exception:
                 logger.exception("Не удалось поставить периодический public-анализ.")
+                retry_at = _as_utc(self._clock(), "clock")
                 retry = schedule_temporary_retry(
                     entry.repository_id,
-                    failed_at=now,
+                    failed_at=retry_at,
                     consecutive_failures=entry.consecutive_failures + 1,
                 )
                 released = await self._schedule_store.release_submission(
                     entry.repository_id,
                     lease_owner=self._scheduler_id,
+                    analysis_id=analysis_id,
                     next_analysis_at=retry.due_at,
                     consecutive_failures=retry.consecutive_failures,
-                    updated_at=now,
+                    updated_at=retry_at,
                 )
                 if released:
                     deferred += 1
@@ -866,27 +886,26 @@ class PublicAnalysisScheduler:
         *,
         now: datetime,
         candidates: dict[str, ScheduleCandidate],
-    ) -> int:
+    ) -> tuple[int, tuple[ScheduleEntry, ...]]:
         settled = 0
+        reclaimed: list[ScheduleEntry] = []
         for entry in await self._schedule_store.list_in_flight():
             analysis_id = entry.in_flight_analysis_id
             if analysis_id is None:
                 continue
             job = await self._job_store.get(analysis_id)
             if job is None:
-                retry = schedule_temporary_retry(
-                    entry.repository_id,
-                    failed_at=now,
-                    consecutive_failures=entry.consecutive_failures + 1,
-                )
-                changed = await self._schedule_store.settle(
+                recovered = await self._schedule_store.claim_expired_reservation(
                     entry.repository_id,
                     analysis_id=analysis_id,
-                    next_analysis_at=retry.due_at,
-                    consecutive_failures=retry.consecutive_failures,
-                    updated_at=now,
+                    now=now,
+                    lease_owner=self._scheduler_id,
+                    lease_expires_at=now + self._entry_lease,
                 )
-            elif job.status in {AnalysisJobStatus.COMPLETED, AnalysisJobStatus.PARTIAL}:
+                if recovered is not None:
+                    reclaimed.append(recovered)
+                continue
+            if job.status in {AnalysisJobStatus.COMPLETED, AnalysisJobStatus.PARTIAL}:
                 scheduled_from = job.finished_at or now
                 candidate = candidates.get(entry.repository_id)
                 periodic = schedule_periodic_analysis(
@@ -921,12 +940,16 @@ class PublicAnalysisScheduler:
             else:
                 continue
             settled += int(changed)
-        return settled
+        return settled, tuple(reclaimed)
 
     async def _run_forever(self) -> None:
         while True:
             await asyncio.sleep(self._scan_interval.total_seconds())
             await self.run_once()
+
+
+def _new_analysis_id() -> str:
+    return f"analysis-scheduled-{uuid4().hex}"
 
 
 def _unique_candidates(candidates: Iterable[ScheduleCandidate]) -> tuple[ScheduleCandidate, ...]:
