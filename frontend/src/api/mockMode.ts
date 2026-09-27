@@ -1,6 +1,6 @@
 /**
- * Mock-режим нужен только для изолированной вёрстки без backend.
- * Docker-окружение задаёт VITE_USE_MOCKS=false, поэтому демо использует настоящий API.
+ * Чистый Docker-запуск остаётся на mock-данных без SourceCraft-конфигурации.
+ * Настоящий API включают явно через VITE_USE_MOCKS=false после настройки backend.
  */
 export const mocksEnabled: boolean = import.meta.env.VITE_USE_MOCKS !== "false";
 
