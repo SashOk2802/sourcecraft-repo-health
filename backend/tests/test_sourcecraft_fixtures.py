@@ -50,13 +50,25 @@ class SourceCraftFixtureTest(unittest.TestCase):
 
         self.assertEqual(
             set(payload),
-            {"engine", "availability", "finding_count", "severities", "reason"},
+            {
+                "engine",
+                "availability",
+                "finding_count",
+                "severities",
+                "reason",
+                "finding_groups",
+                "completeness",
+            },
         )
         self.assertEqual(payload["engine"], "SAST")
         self.assertEqual(payload["availability"], "available")
         self.assertEqual(payload["finding_count"], 23)
         self.assertEqual(payload["severities"], ["HIGH", "LOW", "MEDIUM"])
         self.assertIsNone(payload["reason"])
+        # Эта fixture создана до безопасной агрегации status. Нельзя
+        # выдумывать распределение по статусам для живого наблюдения.
+        self.assertIsNone(payload["finding_groups"])
+        self.assertEqual(payload["completeness"], "unknown")
         self.assertEqual(appsec_payload_status(payload), DataStatus.MEASURED)
 
         result = AppSecProbeResult(
@@ -65,6 +77,8 @@ class SourceCraftFixtureTest(unittest.TestCase):
             finding_count=payload["finding_count"],
             severities=tuple(payload["severities"]),
             reason=payload["reason"],
+            finding_groups=payload["finding_groups"],
+            completeness=payload["completeness"],
         )
         self.assertEqual(result.as_dict(), payload)
 
