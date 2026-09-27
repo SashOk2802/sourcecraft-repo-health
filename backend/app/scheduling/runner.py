@@ -23,6 +23,9 @@ import asyncpg
 from backend.app.analysis.dispatch import AnalysisDispatcher, AnalysisPrincipal
 from backend.app.analysis.jobs import AnalysisJobStatus, AnalysisJobStore
 from backend.app.integrations.sourcecraft_public_catalog import PublicRepositoryCatalog
+from backend.app.integrations.sourcecraft_repository import (
+    SourceCraftRepositoryUnavailableError,
+)
 from backend.app.scheduling.policy import (
     schedule_periodic_analysis,
     schedule_temporary_retry,
@@ -60,6 +63,7 @@ class ScheduleEntry:
     consecutive_failures: int
     active: bool
     updated_at: datetime
+    blocked: bool = False
     lease_owner: str | None = None
     lease_expires_at: datetime | None = None
 
@@ -69,6 +73,8 @@ class ScheduleEntry:
             _require_aware(self.last_activity_at, "last_activity_at")
         _require_aware(self.next_analysis_at, "next_analysis_at")
         _require_aware(self.updated_at, "updated_at")
+        if not isinstance(self.blocked, bool):
+            raise ValueError("blocked must be a boolean")
         if (
             isinstance(self.consecutive_failures, bool)
             or not isinstance(self.consecutive_failures, int)
@@ -95,6 +101,7 @@ class SchedulerRun:
     reconciled: int = 0
     submitted: int = 0
     deferred: int = 0
+    blocked: int = 0
 
 
 class AnalysisScheduleStore(Protocol):
@@ -169,6 +176,16 @@ class AnalysisScheduleStore(Protocol):
         updated_at: datetime,
     ) -> bool:
         """Освобождает reservation после ошибки постановки и назначает повтор."""
+
+    async def disable_submission(
+        self,
+        repository_id: str,
+        *,
+        lease_owner: str,
+        analysis_id: str,
+        updated_at: datetime,
+    ) -> bool:
+        """Останавливает повторную постановку после постоянной ошибки."""
 
     async def settle(
         self,
@@ -262,6 +279,7 @@ class InMemoryAnalysisScheduleStore:
                     entry
                     for entry in self._entries.values()
                     if entry.active
+                    and not entry.blocked
                     and entry.in_flight_analysis_id is None
                     and entry.next_analysis_at <= now
                     and (
@@ -409,6 +427,36 @@ class InMemoryAnalysisScheduleStore:
             )
             return True
 
+    async def disable_submission(
+        self,
+        repository_id: str,
+        *,
+        lease_owner: str,
+        analysis_id: str,
+        updated_at: datetime,
+    ) -> bool:
+        _require_repository_id(repository_id)
+        _require_lease_owner(lease_owner)
+        _require_analysis_id(analysis_id)
+        _require_aware(updated_at, "updated_at")
+        with self._lock:
+            entry = self._entries.get(repository_id)
+            if (
+                entry is None
+                or entry.in_flight_analysis_id != analysis_id
+                or entry.lease_owner != lease_owner
+            ):
+                return False
+            self._entries[repository_id] = replace(
+                entry,
+                in_flight_analysis_id=None,
+                lease_owner=None,
+                lease_expires_at=None,
+                blocked=True,
+                updated_at=updated_at,
+            )
+            return True
+
     async def settle(
         self,
         repository_id: str,
@@ -536,6 +584,7 @@ class PostgresAnalysisScheduleStore:
                 SELECT repository_id
                 FROM analysis_schedules
                 WHERE active = TRUE
+                    AND blocked = FALSE
                     AND in_flight_analysis_id IS NULL
                     AND next_analysis_at <= $1
                     AND (lease_expires_at IS NULL OR lease_expires_at <= $1)
@@ -692,6 +741,38 @@ class PostgresAnalysisScheduleStore:
         )
         return _was_updated(result)
 
+    async def disable_submission(
+        self,
+        repository_id: str,
+        *,
+        lease_owner: str,
+        analysis_id: str,
+        updated_at: datetime,
+    ) -> bool:
+        _require_repository_id(repository_id)
+        _require_lease_owner(lease_owner)
+        _require_analysis_id(analysis_id)
+        _require_aware(updated_at, "updated_at")
+        result = await self._require_pool().execute(
+            """
+            UPDATE analysis_schedules
+            SET
+                in_flight_analysis_id = NULL,
+                lease_owner = NULL,
+                lease_expires_at = NULL,
+                blocked = TRUE,
+                updated_at = $4
+            WHERE repository_id = $1
+                AND in_flight_analysis_id = $3
+                AND lease_owner = $2
+            """,
+            repository_id,
+            lease_owner,
+            analysis_id,
+            updated_at,
+        )
+        return _was_updated(result)
+
     async def settle(
         self,
         repository_id: str,
@@ -821,6 +902,7 @@ class PublicAnalysisScheduler:
 
         submitted = 0
         deferred = 0
+        blocked = 0
         principal = AnalysisPrincipal(SYSTEM_SCHEDULER_SUBJECT)
         for entry in (*reclaimed, *claimed):
             analysis_id = entry.in_flight_analysis_id
@@ -855,30 +937,41 @@ class PublicAnalysisScheduler:
                         extra={"analysis_id": analysis_id},
                     )
                 submitted += 1
-            except Exception:
+            except Exception as error:
                 logger.exception("Не удалось поставить периодический public-анализ.")
-                retry_at = _as_utc(self._clock(), "clock")
-                retry = schedule_temporary_retry(
-                    entry.repository_id,
-                    failed_at=retry_at,
-                    consecutive_failures=entry.consecutive_failures + 1,
-                )
-                released = await self._schedule_store.release_submission(
-                    entry.repository_id,
-                    lease_owner=self._scheduler_id,
-                    analysis_id=analysis_id,
-                    next_analysis_at=retry.due_at,
-                    consecutive_failures=retry.consecutive_failures,
-                    updated_at=retry_at,
-                )
-                if released:
-                    deferred += 1
+                failed_at = _as_utc(self._clock(), "clock")
+                if _is_temporary_submission_error(error):
+                    retry = schedule_temporary_retry(
+                        entry.repository_id,
+                        failed_at=failed_at,
+                        consecutive_failures=entry.consecutive_failures + 1,
+                    )
+                    released = await self._schedule_store.release_submission(
+                        entry.repository_id,
+                        lease_owner=self._scheduler_id,
+                        analysis_id=analysis_id,
+                        next_analysis_at=retry.due_at,
+                        consecutive_failures=retry.consecutive_failures,
+                        updated_at=failed_at,
+                    )
+                    if released:
+                        deferred += 1
+                elif analysis_id is not None:
+                    disabled = await self._schedule_store.disable_submission(
+                        entry.repository_id,
+                        lease_owner=self._scheduler_id,
+                        analysis_id=analysis_id,
+                        updated_at=failed_at,
+                    )
+                    if disabled:
+                        blocked += 1
 
         return SchedulerRun(
             catalog_size=len(candidates),
             reconciled=reconciled,
             submitted=submitted,
             deferred=deferred,
+            blocked=blocked,
         )
 
     async def _reconcile_terminal_jobs(
@@ -952,6 +1045,14 @@ def _new_analysis_id() -> str:
     return f"analysis-scheduled-{uuid4().hex}"
 
 
+def _is_temporary_submission_error(error: Exception) -> bool:
+    """Повторяет лишь сетевые и явно временные ошибки SourceCraft."""
+
+    if isinstance(error, SourceCraftRepositoryUnavailableError):
+        return error.retryable
+    return isinstance(error, (TimeoutError, OSError))
+
+
 def _unique_candidates(candidates: Iterable[ScheduleCandidate]) -> tuple[ScheduleCandidate, ...]:
     items = tuple(candidates)
     identifiers = [item.repository_id for item in items]
@@ -971,6 +1072,7 @@ def _entry_from_row(row: asyncpg.Record) -> ScheduleEntry:
         updated_at=row["updated_at"],
         lease_owner=row["lease_owner"],
         lease_expires_at=row["lease_expires_at"],
+        blocked=bool(row.get("blocked", False)),
     )
 
 
