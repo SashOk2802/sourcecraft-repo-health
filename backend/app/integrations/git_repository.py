@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -19,10 +20,13 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from backend.app.integrations.sourcecraft import SourceCraftClient
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_GIT_TIMEOUT_SECONDS = 60.0
 _NO_SHALLOW_COMMITS = "no commits selected for shallow requests"
+_FULL_COMMIT_SHA = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$", re.IGNORECASE)
 
 
 class GitCloneError(RuntimeError):
@@ -264,21 +268,26 @@ def read_commit_timestamps(
         raise ValueError("since and until must be timezone-aware")
     if until < since:
         raise ValueError("until must not be earlier than since")
-    if not isinstance(revision, str) or not revision.strip():
-        raise ValueError("revision must be a commit SHA")
+    if not isinstance(revision, str) or _FULL_COMMIT_SHA.fullmatch(revision) is None:
+        raise ValueError("revision must be a full commit SHA")
     if max_commits < 1:
         raise ValueError("max_commits must be at least 1")
     if timeout_seconds <= 0:
         raise ValueError("timeout_seconds must be positive")
 
     since_utc = since.astimezone(UTC)
-    # git --since и --until включают саму секунду. Секунда сверху на --until
-    # удерживает коммит ровно в period_end, если сравнение окажется строже.
-    # Коммиты вне [since, until] отсекает вызывающий код.
-    until_utc = until.astimezone(UTC) + timedelta(seconds=1)
+    period_until_utc = until.astimezone(UTC)
+    # Git может трактовать --until на границе секунды строже, поэтому
+    # запрашиваем одну дополнительную секунду. Перед возвратом результат
+    # строго фильтруется по исходному периоду.
+    until_for_query = period_until_utc + timedelta(seconds=1)
     since_text = since_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
-    until_text = until_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+    until_text = until_for_query.strftime("%Y-%m-%dT%H:%M:%SZ")
     clone_url = _history_clone_url(repo_url)
+    if auth_token and not SourceCraftClient.is_official_git_clone_url(clone_url):
+        raise GitCloneError(
+            "Для чтения приватной истории нужен официальный HTTPS-адрес SourceCraft."
+        )
     temp_dir = tempfile.mkdtemp(prefix="repo-health-history-")
     deadline = time.monotonic() + timeout_seconds
     completed: subprocess.CompletedProcess[str] | None = None
@@ -358,7 +367,7 @@ def read_commit_timestamps(
     committed_at = tuple(
         moment
         for moment in (_parse_git_timestamp(line) for line in lines)
-        if moment is not None
+        if moment is not None and since_utc <= moment <= period_until_utc
     )
     return CommitTimestampPage(committed_at=committed_at, truncated=truncated)
 
