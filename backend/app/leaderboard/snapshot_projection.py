@@ -144,8 +144,7 @@ def project_public_snapshot(
                 score=score,
                 is_preliminary=is_preliminary,
                 language=metadata.language,
-                # Неизвестные лайки сортируются как 0, но в HTTP-ответе остаются null.
-                likes=metadata.likes or 0,
+                likes=metadata.likes,
                 last_activity_at=metadata.last_activity_at,
             )
             if score is not None
