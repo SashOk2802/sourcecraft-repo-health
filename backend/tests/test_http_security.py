@@ -47,7 +47,9 @@ class HttpSecurityTest(unittest.IsolatedAsyncioTestCase):
     async def test_error_response_has_browser_security_headers(self) -> None:
         response = await self.client.get("/api/v1/analyses/not-a-valid-analysis-id")
 
-        # Без principal provider endpoint намеренно закрыт с 503 до проверки ID.\n        self.assertEqual(response.status_code, 503)\n        self.assertEqual(response.headers["x-content-type-options"], "nosniff")
+        # Без principal provider endpoint намеренно закрыт с 503 до проверки ID.
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.headers["x-content-type-options"], "nosniff")
         self.assertEqual(response.headers["content-security-policy"], _api_csp())
 
     async def test_unexpected_server_error_has_browser_security_headers(self) -> None:
