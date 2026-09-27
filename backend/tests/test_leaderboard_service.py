@@ -40,19 +40,19 @@ class LeaderboardServiceTest(unittest.IsolatedAsyncioTestCase):
             repository_catalog=FakePublicRepositoryCatalog(self.repositories),
         )
         await self.store.save(
-            "analysis-alpha-v1",
+            "analysis-alpha-v2",
             execution("alpha", self.now - timedelta(days=2), all_scores=95),
         )
         await self.store.save(
-            "analysis-bravo-v1",
+            "analysis-bravo-v2",
             execution("bravo", self.now - timedelta(days=1), all_scores=80),
         )
         await self.store.save(
-            "analysis-preview-v1",
+            "analysis-preview-v2",
             execution("preview", self.now, single_score=90),
         )
         await self.store.save(
-            "analysis-empty-v1",
+            "analysis-empty-v2",
             execution("empty", self.now - timedelta(hours=12)),
         )
 
@@ -82,7 +82,7 @@ class LeaderboardServiceTest(unittest.IsolatedAsyncioTestCase):
             [("Python", 2), ("Go", 1), ("Rust", 1)],
         )
         self.assertEqual(result.updated_at, self.now)
-        self.assertEqual(result.methodology_version, "v1")
+        self.assertEqual(result.methodology_version, "v2")
 
     async def test_search_keeps_global_place_and_language_filter_does_not_recalculate_it(
         self,
@@ -100,27 +100,27 @@ class LeaderboardServiceTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_uses_selected_methodology_without_mixing_versions(self) -> None:
         await self.store.save(
-            "analysis-alpha-v2",
+            "analysis-alpha-v1",
             execution(
                 "alpha",
                 self.now + timedelta(days=1),
                 all_scores=100,
-                methodology_version="v2",
+                methodology_version="v1",
             ),
         )
 
-        version_one = await self.service.get_page()
-        version_two = await self.service.get_page(methodology_version="v2")
+        version_two = await self.service.get_page()
+        version_one = await self.service.get_page(methodology_version="v1")
 
         self.assertEqual(
-            [(row.projection.analysis_id, row.rank) for row in version_one.entries],
-            [("analysis-alpha-v1", 1), ("analysis-bravo-v1", 2)],
+            [(row.projection.analysis_id, row.rank) for row in version_two.entries],
+            [("analysis-alpha-v2", 1), ("analysis-bravo-v2", 2)],
         )
         self.assertEqual(
-            [(row.projection.analysis_id, row.rank) for row in version_two.entries],
-            [("analysis-alpha-v2", 1)],
+            [(row.projection.analysis_id, row.rank) for row in version_one.entries],
+            [("analysis-alpha-v1", 1)],
         )
-        self.assertEqual(version_two.pending_count, 4)
+        self.assertEqual(version_one.pending_count, 4)
 
     async def test_paginates_full_rows_but_returns_all_requested_preliminary_rows(self) -> None:
         result = await self.service.get_page(
@@ -210,7 +210,7 @@ def execution(
     *,
     all_scores: float | None = None,
     single_score: float | None = None,
-    methodology_version: str = "v1",
+    methodology_version: str = "v2",
 ):
     context = AnalysisContext(
         repository=RepositoryRef(
