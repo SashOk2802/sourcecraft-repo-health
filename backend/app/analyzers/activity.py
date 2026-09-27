@@ -1,9 +1,9 @@
 """Категория Activity: развивается ли проект, а не сколько у него коммитов.
 
-Категория смотрит на давность обновления, merge requests, релизы и число участников.
-Сырой объём не должен безгранично поднимать оценку: три недавних merge дают тот же
-вклад, что и семьдесят. История коммитов в REST API SourceCraft отсутствует, поэтому
-частота коммитов и активные недели по Git в v1 не измеряются.
+Категория смотрит на давность обновления, активные недели по истории Git,
+merge requests, релизы и число участников. Сырой объём не должен безгранично
+поднимать оценку: три недавних merge дают тот же вклад, что и семьдесят,
+а девятая активная неделя не лучше восьмой.
 
 Модуль разделён на две части. `collect` обращается к SourceCraft и возвращает факты.
 `evaluate` — чистая функция: она не ходит в сеть и не смотрит на системное время.
@@ -11,9 +11,10 @@
 
 from __future__ import annotations
 
+import logging
 import urllib.parse
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
@@ -27,7 +28,14 @@ from backend.app.contracts import (
     RecommendationPriority,
     RepositoryRef,
 )
+from backend.app.integrations.git_repository import (
+    CommitTimestampPage,
+    GitCloneError,
+    read_commit_timestamps,
+)
 from backend.app.integrations.sourcecraft import SourceCraftClient, SourceCraftClientError
+
+logger = logging.getLogger(__name__)
 
 CATEGORY_CODE = "activity"
 
@@ -45,8 +53,15 @@ MERGED_MR_CAP = 3
 RELEASE_CAP = 3
 CONTRIBUTOR_CAP = 3
 
+# Восемь активных недель за период достаточно показывают регулярную работу.
+# Число коммитов не повышает оценку само по себе.
+ACTIVE_WEEKS_CAP = 8
+COMMIT_HISTORY_LIMIT = 20_000
+COMMIT_HISTORY_TIMEOUT_SECONDS = 90.0
+
 METRIC_WEIGHTS = {
     "last_activity_days": 40.0,
+    "active_weeks_in_period": 25.0,
     "merged_mr_in_period": 25.0,
     "releases_in_period": 20.0,
     "contributor_count": 15.0,
@@ -98,6 +113,16 @@ class ContributorFact:
 
 
 @dataclass(frozen=True, slots=True)
+class CommitHistoryFacts:
+    """Состояние отдельного чтения истории фиксированного commit SHA."""
+
+    collected: bool = False
+    committed_at: tuple[datetime, ...] = ()
+    truncated: bool = False
+    error: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class ActivityFacts:
     """Собранные факты и полнота каждого источника."""
 
@@ -114,6 +139,7 @@ class ActivityFacts:
     pulls_error: str | None = None
     releases_error: str | None = None
     skipped_count: int = 0
+    commit_history: CommitHistoryFacts = field(default_factory=CommitHistoryFacts)
 
     @property
     def errors(self) -> tuple[str, ...]:
@@ -124,6 +150,7 @@ class ActivityFacts:
                 self.contributors_error,
                 self.pulls_error,
                 self.releases_error,
+                self.commit_history.error,
             )
             if error
         )
@@ -215,6 +242,7 @@ def build_facts(
     contributors_error: str | None = None,
     pulls_error: str | None = None,
     releases_error: str | None = None,
+    commit_history: CommitHistoryFacts | None = None,
 ) -> ActivityFacts:
     """Собирает факты из сырых ответов API или из сохранённых фикстур."""
     contributors, skipped_contributors = _parse_many(contributor_items, parse_contributor)
@@ -234,6 +262,7 @@ def build_facts(
         pulls_error=pulls_error,
         releases_error=releases_error,
         skipped_count=skipped_contributors + skipped_pulls + skipped_releases,
+        commit_history=commit_history or CommitHistoryFacts(),
     )
 
 
@@ -294,11 +323,53 @@ def _fetch_repository(
     return parse_datetime(payload.get("last_updated")), bool(payload.get("is_empty")), None
 
 
+def collect_commit_history(
+    context: AnalysisContext,
+    *,
+    auth_token: str | None,
+) -> CommitHistoryFacts:
+    """Читает даты коммитов для зафиксированного SHA отдельным shallow-клоном.
+
+    Ошибка или неполная выборка исключает только эту метрику: API-метрики
+    Activity сохраняют свой результат. При Bearer-PAT reader до запуска git
+    проверяет официальный SourceCraft-host.
+    """
+
+    repository = context.repository
+    try:
+        clone_url = SourceCraftClient.resolve_git_clone_url(
+            repository.organization_slug,
+            repository.repository_slug,
+            repository.web_url,
+        )
+        page: CommitTimestampPage = read_commit_timestamps(
+            clone_url,
+            since=context.period_start,
+            until=context.period_end,
+            revision=context.commit_sha,
+            auth_token=auth_token,
+            max_commits=COMMIT_HISTORY_LIMIT,
+            timeout_seconds=COMMIT_HISTORY_TIMEOUT_SECONDS,
+        )
+    except (SourceCraftClientError, GitCloneError):
+        return CommitHistoryFacts(collected=True, error="commit_history_unavailable")
+    except Exception:
+        logger.exception("Не удалось прочитать историю коммитов для Activity.")
+        return CommitHistoryFacts(collected=True, error="commit_history_unavailable")
+
+    return CommitHistoryFacts(
+        collected=True,
+        committed_at=page.committed_at,
+        truncated=page.truncated,
+    )
+
+
 def collect(
     client: SourceCraftClient,
     repository: RepositoryRef,
     *,
     max_pages: int = DEFAULT_MAX_PAGES,
+    commit_history: CommitHistoryFacts | None = None,
 ) -> ActivityFacts:
     """Обращается к SourceCraft и возвращает факты. Оценок не выставляет."""
     org = urllib.parse.quote(repository.organization_slug, safe="")
@@ -481,6 +552,49 @@ def _contributor_metric(facts: ActivityFacts) -> tuple[MetricResult, float] | No
     return metric, score
 
 
+def _active_weeks_metric(
+    facts: ActivityFacts,
+    context: AnalysisContext,
+) -> tuple[MetricResult, float] | None:
+    """Оценивает регулярность по числу ISO-недель UTC с коммитами."""
+
+    history = facts.commit_history
+    if not history.collected or history.error is not None or history.truncated:
+        return None
+
+    weeks: set[tuple[int, int]] = set()
+    for moment in history.committed_at:
+        if _in_period(moment, context):
+            iso_week = moment.astimezone(UTC).isocalendar()
+            weeks.add((iso_week.year, iso_week.week))
+
+    count = len(weeks)
+    score = _linear_score(
+        float(min(count, ACTIVE_WEEKS_CAP)),
+        best=float(ACTIVE_WEEKS_CAP),
+        worst=0.0,
+    )
+    summary = f"за период коммиты были в {count} неделях"
+    if count > ACTIVE_WEEKS_CAP:
+        summary += f" (в оценке учитываются первые {ACTIVE_WEEKS_CAP})"
+    url = _repo_url(context.repository, "")
+    metric = MetricResult(
+        code="active_weeks_in_period",
+        value=count,
+        normalized_score=score,
+        summary=summary,
+        evidence=(
+            Evidence(
+                source=EVIDENCE_SOURCE,
+                reference="commit-history",
+                summary=summary,
+                url=url.rstrip("/") if url else None,
+            ),
+        ),
+    )
+    return metric, score
+
+
 def _build_recommendations(
     facts: ActivityFacts,
     context: AnalysisContext,
@@ -536,6 +650,31 @@ def _build_recommendations(
             )
         )
 
+    active_weeks = by_code.get("active_weeks_in_period")
+    if (
+        not stale
+        and active_weeks is not None
+        and isinstance(active_weeks.value, int)
+        and active_weeks.value == 0
+    ):
+        recommendations.append(
+            Recommendation(
+                code="activity-no-commits-in-period",
+                priority=RecommendationPriority.P2,
+                problem="За период в истории зафиксированного коммита нет ни одного коммита.",
+                action="Верните изменения в ветку по умолчанию, даже если это небольшой коммит.",
+                rationale=(
+                    "Обновление карточки репозитория без коммитов не показывает, "
+                    "что код проекта продолжает развиваться."
+                ),
+                expected_effect=(
+                    f"{ACTIVE_WEEKS_CAP} недель с коммитами за период поднимают "
+                    "метрику регулярности до 100."
+                ),
+                evidence=active_weeks.evidence,
+            )
+        )
+
     releases = by_code.get("releases_in_period")
     if (
         releases is not None
@@ -567,6 +706,7 @@ def _unmeasured_result(facts: ActivityFacts, summary: str) -> CategoryResult:
             facts.contributors,
             facts.pulls,
             facts.releases,
+            facts.commit_history.collected and facts.commit_history.error is None,
         )
     ):
         return CategoryResult(
@@ -577,7 +717,12 @@ def _unmeasured_result(facts: ActivityFacts, summary: str) -> CategoryResult:
             reason="; ".join(facts.errors),
         )
 
-    if facts.pulls_truncated or facts.releases_truncated or facts.contributors_truncated:
+    if (
+        facts.pulls_truncated
+        or facts.releases_truncated
+        or facts.contributors_truncated
+        or facts.commit_history.truncated
+    ):
         return CategoryResult(
             category=CATEGORY_CODE,
             status=DataStatus.INSUFFICIENT_SAMPLE,
@@ -602,6 +747,7 @@ def evaluate(facts: ActivityFacts, context: AnalysisContext) -> CategoryResult:
         and facts.contributors_error
         and facts.pulls_error
         and facts.releases_error
+        and (not facts.commit_history.collected or facts.commit_history.error is not None)
     ):
         return CategoryResult(
             category=CATEGORY_CODE,
@@ -624,6 +770,7 @@ def evaluate(facts: ActivityFacts, context: AnalysisContext) -> CategoryResult:
         result
         for result in (
             _recency_metric(facts, context),
+            _active_weeks_metric(facts, context),
             _merged_mr_metric(facts, context),
             _release_metric(facts, context),
             _contributor_metric(facts),
@@ -636,6 +783,8 @@ def evaluate(facts: ActivityFacts, context: AnalysisContext) -> CategoryResult:
         notes.append(f"часть данных недоступна ({'; '.join(facts.errors)})")
     if facts.pulls_truncated or facts.releases_truncated or facts.contributors_truncated:
         notes.append("список активности прочитан не полностью")
+    if facts.commit_history.truncated:
+        notes.append("история коммитов прочитана не полностью")
     if facts.skipped_count:
         notes.append(f"{facts.skipped_count} записей пропущено из-за неполных данных")
 

@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 import os
 from collections.abc import Iterable
+from dataclasses import replace
 from pathlib import Path
 
 from backend.app.analysis.runner import AnalyzerRegistration
@@ -56,7 +57,7 @@ def project_life_analyzer_provider(context: AnalysisContext) -> Iterable[Analyze
     """
     token = read_sourcecraft_token()
     return (
-        AnalyzerRegistration("activity", _client_evaluator("activity", token, activity)),
+        AnalyzerRegistration("activity", _activity_evaluator(token)),
         AnalyzerRegistration("issues", _client_evaluator("issues", token, issues)),
     )
 
@@ -109,6 +110,32 @@ def sourcecraft_analyzer_provider(context: AnalysisContext) -> Iterable[Analyzer
         *repo_content_analyzer_provider(context),
         AnalyzerRegistration("security", _security_evaluator()),
     )
+
+
+def _activity_evaluator(token: str):
+    """Возвращает Activity evaluator с API-фактами и отдельной историей Git."""
+
+    def evaluate(ctx: AnalysisContext) -> CategoryResult:
+        try:
+            client = SourceCraftClient(token)
+        except ValueError:
+            return _sourcecraft_configuration_error("activity")
+        try:
+            facts = activity.collect(client, ctx.repository)
+            history = activity.collect_commit_history(ctx, auth_token=token or None)
+            return activity.evaluate(replace(facts, commit_history=history), ctx)
+        except SourceCraftClientError as error:
+            return CategoryResult(
+                category="activity",
+                status=DataStatus.ERROR,
+                score=None,
+                summary="Не удалось получить данные из SourceCraft.",
+                reason=str(error),
+            )
+        finally:
+            client.close()
+
+    return evaluate
 
 
 def _cicd_evaluator(token: str):
