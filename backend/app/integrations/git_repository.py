@@ -16,7 +16,7 @@ import subprocess
 import tempfile
 import time
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -277,12 +277,11 @@ def read_commit_timestamps(
 
     since_utc = since.astimezone(UTC)
     period_until_utc = until.astimezone(UTC)
-    # Git может трактовать --until на границе секунды строже, поэтому
-    # запрашиваем одну дополнительную секунду. Перед возвратом результат
-    # строго фильтруется по исходному периоду.
-    until_for_query = period_until_utc + timedelta(seconds=1)
+    # Граница передаётся git без расширения: посторонние коммиты не должны
+    # занимать место в ограниченной выборке. Результат дополнительно
+    # фильтруется по тому же точному интервалу.
     since_text = since_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
-    until_text = until_for_query.strftime("%Y-%m-%dT%H:%M:%SZ")
+    until_text = period_until_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
     clone_url = _history_clone_url(repo_url)
     if auth_token and not SourceCraftClient.is_official_git_clone_url(clone_url):
         raise GitCloneError(
