@@ -41,6 +41,7 @@ class _Dispatcher:
         self._clock = clock
         self.requests: list[tuple[str, AnalysisPrincipal]] = []
         self.jobs: dict[str, AnalysisJob] = {}
+        self.submission_error: Exception | None = None
         self.first_submit_started: asyncio.Event | None = None
         self.allow_first_submission: asyncio.Event | None = None
 
@@ -52,6 +53,8 @@ class _Dispatcher:
         analysis_id: str | None = None,
     ) -> AnalysisJob:
         self.requests.append((repository_id, principal))
+        if self.submission_error is not None:
+            raise self.submission_error
         if len(self.requests) == 1 and self.first_submit_started is not None:
             self.first_submit_started.set()
             if self.allow_first_submission is not None:
@@ -163,6 +166,41 @@ class PublicAnalysisSchedulerTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((first_result.submitted, second_result.submitted), (1, 1))
         self.assertEqual(set(self.dispatcher.jobs), {"scheduled-1"})
         self.assertEqual(len(await self.store.list_in_flight()), 1)
+
+    async def test_permanent_submission_error_blocks_repository_until_operator_action(
+        self,
+    ) -> None:
+        scheduler = self._scheduler((_Repository("repo-a", self.now),))
+        self.dispatcher.submission_error = PermissionError("SourceCraft access is denied")
+
+        failed = await scheduler.run_once()
+        self.dispatcher.submission_error = None
+        repeated = await scheduler.run_once()
+
+        self.assertEqual(
+            (failed.submitted, failed.deferred, failed.blocked),
+            (0, 0, 1),
+        )
+        self.assertEqual((repeated.submitted, repeated.deferred, repeated.blocked), (0, 0, 0))
+        self.assertEqual(len(self.dispatcher.requests), 1)
+        entry = self.store._entries["repo-a"]
+        self.assertTrue(entry.blocked)
+        self.assertIsNone(entry.in_flight_analysis_id)
+
+    async def test_timeout_releases_repository_for_limited_retry(self) -> None:
+        scheduler = self._scheduler((_Repository("repo-a", self.now),))
+        self.dispatcher.submission_error = TimeoutError("SourceCraft timed out")
+
+        failed = await scheduler.run_once()
+        repeated = await scheduler.run_once()
+
+        self.assertEqual(
+            (failed.submitted, failed.deferred, failed.blocked),
+            (0, 1, 0),
+        )
+        self.assertEqual((repeated.submitted, repeated.deferred, repeated.blocked), (0, 0, 0))
+        self.assertEqual(len(self.dispatcher.requests), 1)
+        self.assertFalse(self.store._entries["repo-a"].blocked)
 
     async def test_failed_job_uses_retry_delay_before_a_new_submission(self) -> None:
         scheduler = self._scheduler((_Repository("repo-a", self.now),))
