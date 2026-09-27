@@ -2,6 +2,7 @@ import { ArrowUpRightFromSquare } from "@gravity-ui/icons";
 import { Button, Icon, Text } from "@gravity-ui/uikit";
 import { useEffect, useState } from "react";
 
+import type { AnalysisStatus } from "../api/common";
 import {
   fetchAnalysisStatus,
   fetchMyRepositories,
@@ -13,7 +14,6 @@ import {
 import { ErrorNote, LoadingNote } from "../components/PageNotes";
 import { dataOf, useAsync } from "../hooks/useAsync";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
-import { Link } from "../router";
 import { paths } from "../routes";
 import "./MyRepositoriesPage.css";
 
@@ -259,9 +259,14 @@ function AnalysisAction({ repository, job, starting, statusError, onStart, onRef
           {statusLabel(job.status)}
         </Text>
         {statusError && (
-          <Button view="flat-secondary" size="s" onClick={() => void onRefresh(repository.id, job.id)}>
-            Обновить статус
-          </Button>
+          <>
+            <Text variant="body-1" className="my-repositories__status my-repositories__status_error">
+              ${statusError.message}
+            </Text>
+            <Button view="outlined" size="s" onClick={() => void onRefresh(repository.id, job.id)}>
+              Обновить статус
+            </Button>
+          </>
         )}
       </div>
     );
@@ -270,9 +275,9 @@ function AnalysisAction({ repository, job, starting, statusError, onStart, onRef
   if (job && (job.status === "completed" || job.status === "partial")) {
     return (
       <div className="my-repositories__action">
-        <Link className="g-button g-button_view_action g-button_size_m" to={paths.analysis(job.id)}>
+        <Button view="action" href={paths.analysis(job.id)}>
           Открыть отчёт
-        </Link>
+        </Button>
         <Text variant="body-1" className="my-repositories__status my-repositories__status_done">
           {job.status === "partial" ? "Предварительная оценка" : "Анализ завершён"}
         </Text>
