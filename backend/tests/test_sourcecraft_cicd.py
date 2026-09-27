@@ -18,6 +18,9 @@ from backend.app.integrations.sourcecraft_cicd import SourceCraftCicdClient
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "sourcecraft" / "cicd_runs_page.json"
 OBSERVED_FIXTURE_PATH = Path(__file__).parent / "fixtures" / "sourcecraft" / "ci_runs.json"
+OBSERVED_FAILURE_FIXTURE_PATH = (
+    Path(__file__).parent / "fixtures" / "sourcecraft" / "ci_runs_failure.json"
+)
 
 
 class SourceCraftCicdClientTest(unittest.TestCase):
@@ -142,6 +145,24 @@ class SourceCraftCicdClientTest(unittest.TestCase):
         self.assertEqual(runs[0].id, "")
         self.assertEqual(runs[0].slug, "1")
         self.assertEqual(runs[0].event_type, "manual")
+
+    def test_list_runs_accepts_observed_failed_run(self) -> None:
+        payload = {
+            "runs": json.loads(OBSERVED_FAILURE_FIXTURE_PATH.read_text(encoding="utf-8")),
+            "next_page_token": "",
+        }
+        http_client = httpx.Client(
+            base_url="https://api.sourcecraft.tech",
+            transport=httpx.MockTransport(lambda request: httpx.Response(200, json=payload)),
+        )
+        client = SourceCraftCicdClient(SourceCraftClient("test-token", http_client=http_client))
+
+        runs = client.list_runs(_repository())
+
+        self.assertEqual(len(runs), 1)
+        self.assertEqual(runs[0].status, "failed")
+        self.assertEqual(runs[0].event_type, "manual")
+        self.assertEqual(runs[0].workflow_slugs, ("controlled-failure-workflow-redacted",))
 
     def test_list_runs_rejects_missing_or_non_string_run_id(self) -> None:
         for invalid_id in (None, 123, True, [], {}):
