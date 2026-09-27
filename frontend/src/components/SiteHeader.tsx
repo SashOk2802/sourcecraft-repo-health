@@ -1,8 +1,10 @@
 import { Pulse } from "@gravity-ui/icons";
 import { Button, Icon, Text } from "@gravity-ui/uikit";
+import { useState } from "react";
 
+import { useAuth } from "../auth/AuthContext";
 import { cn } from "../lib/classNames";
-import { yandexAuthPendingHint, yandexAuthReady } from "../lib/featureFlags";
+import { yandexAuthPendingHint } from "../lib/featureFlags";
 import { Link } from "../router";
 import { paths, type PageName, type Route } from "../routes";
 import { ThemeSwitch } from "./ThemeSwitch";
@@ -53,33 +55,65 @@ export function SiteHeader({ route }: { route: Route }) {
 
         <div className="site-header__user">
           <ThemeSwitch />
-          <SignInButton />
+          <UserArea />
         </div>
       </div>
     </header>
   );
 }
 
-/*
- * Пока backend не поднял /api/v1/auth/yandex, кнопка показывается выключенной:
- * переход на несуществующий endpoint отдавал 404.
- */
-function SignInButton() {
-  if (!yandexAuthReady) {
+function UserArea() {
+  const auth = useAuth();
+  const [signOutFailed, setSignOutFailed] = useState(false);
+
+  async function handleSignOut(): Promise<void> {
+    setSignOutFailed(false);
+    try {
+      await auth.signOut();
+    } catch {
+      // Сессию в интерфейсе не меняем: пользователь может повторить выход.
+      setSignOutFailed(true);
+    }
+  }
+
+  if (auth.status === "unknown") {
+    return null;
+  }
+
+  if (auth.user) {
+    return (
+      <>
+        <Text variant="body-2" color="secondary" className="site-header__user-name">
+          {auth.user.displayName}
+        </Text>
+        <Button view="flat" size="m" onClick={() => void handleSignOut()}>
+          Выйти
+        </Button>
+        {signOutFailed && (
+          <Text variant="caption-2" color="danger" role="status">
+            Не удалось выйти. Попробуйте ещё раз.
+          </Text>
+        )}
+      </>
+    );
+  }
+
+  // Без настроенного OAuth backend ответит на вход 503 — вместо перехода кнопка выключена.
+  if (!auth.canSignIn) {
     return (
       <span className="site-header__signin" title={yandexAuthPendingHint}>
         <Button view="outlined" size="m" disabled>
           Войти через Яндекс ID
         </Button>
         <Text variant="caption-2" color="secondary" className="site-header__signin-note">
-          скоро
+          не настроен
         </Text>
       </span>
     );
   }
 
   return (
-    <Button view="outlined" size="m" href="/api/v1/auth/yandex/start">
+    <Button view="outlined" size="m" onClick={auth.signIn}>
       Войти через Яндекс ID
     </Button>
   );
