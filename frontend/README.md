@@ -26,9 +26,9 @@ npm run preview  # собранная версия на http://localhost:4173 с
 
 | Режим | Что делает | Когда включается сам |
 | --- | --- | --- |
-| `auto` | Настоящий API. Если раздела нет (404 «Not Found», 405, 501), он не настроен (503) или backend не отвечает (502, 504, нет ответа), страница строится на демо-данных и помечена «Демо». Как только backend отдаст раздел, демо пропадёт само, без пересборки | `npm run build` и `npm run dev` рядом с backend (задан `API_PROXY_TARGET`, так делает compose) |
-| `api` | Только настоящий API, ошибки показываются как есть | — |
-| `demo` | Только демо-данные из `src/api/mocks/`, backend не нужен | одиночный `npm run dev` |
+| `auto` | Настоящий API. Если раздела нет (404 «Not Found», 405, 501), он не настроен (503) или backend не отвечает (502, 504, нет ответа), страница строится на демо-данных и помечена «Демо». Как только backend отдаст раздел, демо пропадёт само, без пересборки | `npm run build`; `npm run dev` рядом с backend (задан `API_PROXY_TARGET`), если режим не задан явно |
+| `api` | Только настоящий API, ошибки показываются как есть | `VITE_USE_MOCKS=false` |
+| `demo` | Только демо-данные из `src/api/mocks/`, backend не нужен | одиночный `npm run dev`; `docker compose up` по умолчанию (`compose.yaml` задаёт `VITE_USE_MOCKS=true`) |
 
 Настоящие ошибки демо не прячет: 404 конкретного анализа, 403 и 422 показываются как есть. Идентификаторы демо-данных начинаются с `demo-`, поэтому ссылку на демо-отчёт не спутать с настоящей. Демо-страницы закрыты от поисковиков (`noindex`), а репозитории и оценки в них вымышлены.
 
@@ -38,7 +38,7 @@ npm run preview  # собранная версия на http://localhost:4173 с
 $env:VITE_DATA_SOURCE = "api"; npm run dev
 ~~~
 
-Старая переменная `VITE_USE_MOCKS=true|false` тоже понимается (как `demo` и `api`).
+Старая переменная `VITE_USE_MOCKS=true|false` тоже понимается (как `demo` и `api`). Её задаёт `compose.yaml`: чтобы Docker ходил в настоящий API, укажите в `.env` `VITE_USE_MOCKS=false` вместе с `SOURCECRAFT_TOKEN` и `SOURCECRAFT_PUBLIC_ORGANIZATIONS`, а для входа — `VITE_YANDEX_AUTH=true` и переменные Yandex OAuth backend.
 
 В демо помогают параметры адреса:
 
@@ -60,14 +60,14 @@ $env:VITE_DATA_SOURCE = "api"; npm run dev
 
 | Экран | Endpoint | На main |
 | --- | --- | --- |
-| Отчёт | `GET /api/v1/analyses/{id}/report` | есть; в production — Activity, Issues, CI/CD, Documentation и Code health, Security пока `unavailable` |
+| Отчёт | `GET /api/v1/analyses/{id}/report` | есть, методика v2. Security — по обезличенной сводке AppSec ([docs/security-analyzer.md](../docs/security-analyzer.md)): без сводки «нет данных», сводка из CLI SourceCraft без подтверждённой полноты — «мало данных» |
 | Markdown | `GET /api/v1/analyses/{id}/report.md` | есть; демо-отчёт собирается в браузере в том же формате |
 | Ход анализа | `GET /api/v1/analyses/{id}` — `queued`, `running`, `completed`, `partial`, `failed` с `error: {code, summary}` | есть |
 | Запуск анализа | `POST /api/v1/repositories/{id}/analyses` | есть: после входа, по внутреннему id репозитория SourceCraft, только публичные репозитории из `SOURCECRAFT_PUBLIC_ORGANIZATIONS`; без неё и `SOURCECRAFT_TOKEN` — 503 |
-| Методика | `GET /api/v1/methodology` | есть: веса, названия и лимит — с backend, объяснения и политика пересчёта — в `src/lib/methodologyTexts.ts` |
+| Методика | `GET /api/v1/methodology` | есть, v2: веса, названия, лимит и формула Security Score — с backend, объяснения и политика пересчёта — в `src/lib/methodologyTexts.ts` |
 | Вход | `/api/v1/auth/yandex/start`, `/callback`, `GET /api/v1/me` (`{id, login}`), `POST /api/v1/auth/logout` | есть; без `YANDEX_CLIENT_ID` и `YANDEX_REDIRECT_URI` backend отвечает 503 — тогда в режиме `auto` работает демо-кабинет, в режиме `api` вход выключен с пояснением |
-| Рейтинг | `GET /api/v1/leaderboard` | есть (#56); места и сортировки по [docs/leaderboard-policy.md](../docs/leaderboard-policy.md) |
-| Мои репозитории | `GET /api/v1/me/repositories` | есть (#55): публичные репозитории из организаций `SOURCECRAFT_PUBLIC_ORGANIZATIONS`; последнего анализа в ответе пока нет. У backend без этого маршрута кабинет после входа предлагает проверить публичный репозиторий по идентификатору |
+| Рейтинг | `GET /api/v1/leaderboard` | есть; места и сортировки по [docs/leaderboard-policy.md](../docs/leaderboard-policy.md), снимки пополняет планировщик backend (`PUBLIC_ANALYSIS_SCHEDULER_ENABLED=true`) |
+| Мои репозитории | `GET /api/v1/me/repositories` | есть: публичные репозитории из организаций `SOURCECRAFT_PUBLIC_ORGANIZATIONS`; последнего анализа в ответе пока нет. У backend без этого маршрута кабинет после входа предлагает проверить публичный репозиторий по идентификатору |
 | Подключение SourceCraft | `/api/v1/connections/sourcecraft` | позже, для закрытых репозиториев; пока его нет, интерфейс его не предлагает |
 
 Формат ответов описан в [docs/api-contract.md](../docs/api-contract.md); типы лежат в `src/api/*.ts`.
