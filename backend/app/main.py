@@ -61,11 +61,11 @@ from backend.app.leaderboard import (
     LeaderboardSort,
 )
 from backend.app.leaderboard.sourcecraft_catalog import SourceCraftLeaderboardRepositoryCatalog
-from backend.app.scoring.methodology import build_methodology_payload
 from backend.app.scheduling.runner import (
     PostgresAnalysisScheduleStore,
     PublicAnalysisScheduler,
 )
+from backend.app.scoring.methodology import build_methodology_payload
 
 PrincipalProvider = Callable[[Request], Awaitable[AnalysisPrincipal]]
 _SAFE_HTTP_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "TRACE"})
