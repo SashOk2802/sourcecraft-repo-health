@@ -261,7 +261,7 @@ function AnalysisAction({ repository, job, starting, statusError, onStart, onRef
         {statusError && (
           <>
             <Text variant="body-1" className="my-repositories__status my-repositories__status_error">
-              ${statusError.message}
+              {statusError.message}
             </Text>
             <Button view="outlined" size="s" onClick={() => void onRefresh(repository.id, job.id)}>
               Обновить статус
