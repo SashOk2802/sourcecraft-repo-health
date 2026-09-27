@@ -12,15 +12,20 @@ import json
 import re
 import subprocess
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Literal
 
 _SOURCECRAFT_SLUG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+_COMMIT_SHA = re.compile(r"^[0-9a-f]{40}$")
 APPSEC_ENGINES = ("SAST", "SCA", "SECRETS")
 APPSEC_SAMPLE_LIMIT = 100
 AppSecAvailability = Literal["available", "unavailable", "error"]
+AppSecCompleteness = Literal["unknown", "complete"]
 CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
-_KNOWN_SEVERITIES = frozenset({"INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"})
+APPSEC_SEVERITIES = frozenset({"INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"})
+# Это только уже наблюдавшиеся в SourceCraft безопасные статусы. Неизвестная
+# строка никогда не попадает в сводку: она превращается в ``None`` в группе.
+APPSEC_STATUSES = frozenset({"OPEN", "TRIAGED_TP", "RESOLVED_FP", "RESOLVED_TOLERABLE"})
 _SAFE_REASONS = frozenset(
     {
         "sourcecraft_appsec_unavailable",
@@ -34,11 +39,44 @@ _SAFE_REASONS = frozenset(
 
 
 @dataclass(frozen=True, slots=True)
+class AppSecFindingGroup:
+    """Обезличенная группа finding'ов с одинаковыми severity и status.
+
+    ``None`` означает, что поле отсутствовало либо его значение пока не
+    подтверждено контрактом SourceCraft. Исходное значение не сохраняется.
+    """
+
+    severity: str | None
+    status: str | None
+    count: int
+
+    def __post_init__(self) -> None:
+        if self.severity is not None and self.severity not in APPSEC_SEVERITIES:
+            raise ValueError("AppSec finding group contains an unknown severity")
+        if self.status is not None and self.status not in APPSEC_STATUSES:
+            raise ValueError("AppSec finding group contains an unknown status")
+        if not isinstance(self.count, int) or isinstance(self.count, bool):
+            raise TypeError("AppSec finding group count must be an integer")
+        if self.count <= 0:
+            raise ValueError("AppSec finding group count must be positive")
+
+    def as_dict(self) -> dict[str, str | int | None]:
+        return {
+            "severity": self.severity,
+            "status": self.status,
+            "count": self.count,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class AppSecProbeResult:
     """Безопасный итог одного обращения к движку AppSec.
 
     ``finding_count`` показывает число элементов в ограниченной CLI-выборке,
     поэтому это не число всех уязвимостей и не оценка безопасности.
+    ``finding_groups`` содержит только агрегированные разрешённые значения;
+    ``completeness`` явно не позволяет спутать ограниченную выборку с полным
+    результатом сканирования.
     """
 
     engine: str
@@ -46,6 +84,11 @@ class AppSecProbeResult:
     finding_count: int | None
     severities: tuple[str, ...] = ()
     reason: str | None = None
+    finding_groups: tuple[AppSecFindingGroup, ...] | None = None
+    completeness: AppSecCompleteness | None = None
+    # Нужен только безопасному snapshot bridge, чтобы связать сводку с commit,
+    # который вернул SourceCraft. В отчёт и payload Security не попадает.
+    scan_commit_sha: str | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         if self.engine not in APPSEC_ENGINES:
@@ -56,8 +99,10 @@ class AppSecProbeResult:
             not isinstance(self.finding_count, int) or isinstance(self.finding_count, bool)
         ):
             raise TypeError("finding_count must be an integer or None")
-        if self.finding_count is not None and not 0 <= self.finding_count <= APPSEC_SAMPLE_LIMIT:
-            raise ValueError("finding_count must fit the configured AppSec sample limit")
+        if self.finding_count is not None and self.finding_count < 0:
+            raise ValueError("finding_count must not be negative")
+        if self.scan_commit_sha is not None and not _COMMIT_SHA.fullmatch(self.scan_commit_sha):
+            raise ValueError("AppSec scan commit SHA must be 40 lowercase hexadecimal characters")
         if not isinstance(self.severities, tuple):
             raise TypeError("severities must be a tuple")
         if not all(isinstance(severity, str) for severity in self.severities):
@@ -68,18 +113,47 @@ class AppSecProbeResult:
             raise ValueError("available AppSec result must have finding_count")
         if self.availability != "available" and self.finding_count is not None:
             raise ValueError("unavailable or error AppSec result cannot have finding_count")
+        if self.availability == "available" and self.completeness not in {"unknown", "complete"}:
+            raise ValueError("available AppSec result must declare completeness")
+        if (
+            self.completeness == "unknown"
+            and self.finding_count is not None
+            and self.finding_count > APPSEC_SAMPLE_LIMIT
+        ):
+            raise ValueError("unknown AppSec sample cannot exceed the configured sample limit")
+        if self.completeness == "complete" and self.finding_groups is None:
+            raise ValueError("complete AppSec result must provide safe finding groups")
+        if self.availability != "available" and self.completeness is not None:
+            raise ValueError("unavailable or error AppSec result cannot declare completeness")
         if self.availability != "available" and self.severities:
             raise ValueError("unavailable or error AppSec result cannot have severities")
         if self.availability == "available" and self.reason is not None:
             raise ValueError("available AppSec result cannot have a reason")
         if self.availability != "available" and self.reason not in _SAFE_REASONS:
             raise ValueError("AppSec result must use a known safe reason")
-        if any(severity not in _KNOWN_SEVERITIES for severity in self.severities):
+        if any(severity not in APPSEC_SEVERITIES for severity in self.severities):
             raise ValueError("AppSec result contains an unknown severity")
         if self.finding_count is not None and len(self.severities) > self.finding_count:
             raise ValueError("AppSec result cannot have more severities than findings")
+        if self.finding_groups is not None:
+            if not isinstance(self.finding_groups, tuple):
+                raise TypeError("finding_groups must be a tuple or None")
+            if not all(isinstance(group, AppSecFindingGroup) for group in self.finding_groups):
+                raise TypeError("finding_groups must contain AppSecFindingGroup values")
+            group_keys = {(group.severity, group.status) for group in self.finding_groups}
+            if len(group_keys) != len(self.finding_groups):
+                raise ValueError("AppSec finding groups must be unique")
+            if self.availability != "available" and self.finding_groups:
+                raise ValueError("unavailable or error AppSec result cannot have finding groups")
+            if self.finding_count is not None and sum(group.count for group in self.finding_groups) != self.finding_count:
+                raise ValueError("AppSec finding groups must account for every finding")
+            grouped_severities = tuple(
+                sorted({group.severity for group in self.finding_groups if group.severity is not None})
+            )
+            if grouped_severities != self.severities:
+                raise ValueError("AppSec finding groups must match result severities")
 
-    def as_dict(self) -> dict[str, str | int | list[str] | None]:
+    def as_dict(self) -> dict[str, str | int | list[dict[str, str | int | None]] | list[str] | None]:
         """Возвращает JSON-представление, в котором нет сырых findings."""
 
         return {
@@ -88,6 +162,10 @@ class AppSecProbeResult:
             "finding_count": self.finding_count,
             "severities": list(self.severities),
             "reason": self.reason,
+            "finding_groups": (
+                None if self.finding_groups is None else [group.as_dict() for group in self.finding_groups]
+            ),
+            "completeness": self.completeness,
         }
 
 
@@ -175,25 +253,72 @@ def _parse_result(engine: str, stdout: str) -> AppSecProbeResult:
     if not isinstance(payload, list) or not all(isinstance(item, dict) for item in payload):
         return _error_result(engine, "sourcecraft_cli_invalid_payload")
 
-    severities = _collect_severities(payload)
+    finding_groups = _collect_finding_groups(payload)
     return AppSecProbeResult(
         engine=engine,
         availability="available",
         finding_count=len(payload),
-        severities=severities,
+        severities=tuple(sorted({group.severity for group in finding_groups if group.severity})),
+        finding_groups=finding_groups,
+        # У CLI пока нет подтверждённого постраничного контракта. Даже ответ
+        # меньше limit нельзя выдавать за полный scan без отдельной проверки.
+        completeness="unknown",
+        scan_commit_sha=_extract_scan_commit(payload),
     )
 
 
-def _collect_severities(findings: list[dict[str, Any]]) -> tuple[str, ...]:
-    """Извлекает только агрегируемую критичность, не копируя contents finding'ов."""
+def _collect_finding_groups(findings: list[dict[str, Any]]) -> tuple[AppSecFindingGroup, ...]:
+    """Агрегирует разрешённые severity/status, не копируя contents finding'ов."""
 
-    values = {
-        normalized
-        for finding in findings
-        if isinstance(severity := finding.get("severity"), str) and severity.strip()
-        if (normalized := severity.strip().upper()) in _KNOWN_SEVERITIES
-    }
-    return tuple(sorted(values))
+    counts: dict[tuple[str | None, str | None], int] = {}
+    for finding in findings:
+        key = (_normalize_severity(finding.get("severity")), _normalize_status(finding.get("status")))
+        counts[key] = counts.get(key, 0) + 1
+
+    return tuple(
+        AppSecFindingGroup(severity=severity, status=status, count=count)
+        for (severity, status), count in sorted(
+            counts.items(),
+            key=lambda item: (item[0][0] or "", item[0][1] or ""),
+        )
+    )
+
+
+def _normalize_severity(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip().upper()
+    return normalized if normalized in APPSEC_SEVERITIES else None
+
+
+def _normalize_status(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip().upper()
+    return normalized if normalized in APPSEC_STATUSES else None
+
+
+def _extract_scan_commit(findings: list[dict[str, Any]]) -> str | None:
+    """Возвращает commit SourceCraft, только если он указан у каждой группы.
+
+    CLI показывает группы последнего scan. Нельзя привязывать результат к
+    произвольному commit из аргумента exporter'а: все элементы должны сообщать
+    один и тот же корректный ``latestCommit``. Пустой/неизвестный ответ остаётся
+    непригодным для commit-bound snapshot.
+    """
+
+    if not findings:
+        return None
+    commits: set[str] = set()
+    for finding in findings:
+        value = finding.get("latestCommit")
+        if not isinstance(value, str):
+            return None
+        normalized = value.strip().lower()
+        if not _COMMIT_SHA.fullmatch(normalized):
+            return None
+        commits.add(normalized)
+    return next(iter(commits)) if len(commits) == 1 else None
 
 
 def _error_result(engine: str, reason: str) -> AppSecProbeResult:

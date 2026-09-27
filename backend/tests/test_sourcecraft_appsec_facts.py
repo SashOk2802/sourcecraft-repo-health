@@ -26,6 +26,7 @@ class SourceCraftAppSecFactsTest(unittest.TestCase):
                 "available",
                 3,
                 severities=("CRITICAL", "HIGH"),
+                completeness="unknown",
             ),
             AppSecProbeResult(
                 "SCA",
@@ -49,6 +50,8 @@ class SourceCraftAppSecFactsTest(unittest.TestCase):
                         "finding_count": 3,
                         "severities": ["CRITICAL", "HIGH"],
                         "reason": None,
+                        "finding_groups": None,
+                        "completeness": "unknown",
                     },
                     {
                         "engine": "SCA",
@@ -56,6 +59,8 @@ class SourceCraftAppSecFactsTest(unittest.TestCase):
                         "finding_count": None,
                         "severities": [],
                         "reason": "sourcecraft_appsec_unavailable",
+                        "finding_groups": None,
+                        "completeness": None,
                     },
                     {
                         "engine": "SECRETS",
@@ -63,6 +68,8 @@ class SourceCraftAppSecFactsTest(unittest.TestCase):
                         "finding_count": None,
                         "severities": [],
                         "reason": "sourcecraft_cli_timeout",
+                        "finding_groups": None,
+                        "completeness": None,
                     },
                 ]
             },
@@ -112,7 +119,7 @@ class SourceCraftAppSecFactsTest(unittest.TestCase):
         self.assertIsNone(result.score)
 
     def test_invalid_or_incomplete_probe_result_is_mapping_error(self) -> None:
-        valid_sast = AppSecProbeResult("SAST", "available", 0)
+        valid_sast = AppSecProbeResult("SAST", "available", 0, completeness="unknown")
         cases = (
             (),
             (valid_sast,),
