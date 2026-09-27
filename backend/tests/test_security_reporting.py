@@ -34,11 +34,11 @@ class SecurityReportingTest(unittest.IsolatedAsyncioTestCase):
         null_payload = json.loads(fixture.read_text(encoding="utf-8"))
         cases = (
             (build_facts(null_payload), "unavailable", "appsec_unavailable", "unavailable"),
-            (build_facts([]), "insufficient_sample", "security_scoring_not_configured", "received"),
+            (build_facts([]), "insufficient_sample", "appsec_coverage_not_confirmed", "received"),
             (
                 build_facts({"defects": [{"snippet": "synthetic-finding-marker"}]}),
                 "insufficient_sample",
-                "security_scoring_not_configured",
+                "appsec_coverage_not_confirmed",
                 "received",
             ),
             (
