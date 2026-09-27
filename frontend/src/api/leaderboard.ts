@@ -4,7 +4,7 @@ import { mocksEnabled, withMockDelay } from "./mockMode";
 import { queryMockLeaderboard } from "./mocks/leaderboard";
 
 /*
- * GET /api/v1/leaderboard — предложение к docs/api-contract.md, backend его ещё не реализовал.
+ * GET /api/v1/leaderboard — согласованный backend-контракт публичного рейтинга.
  * Места, фильтры и сортировка считаются на backend по правилам docs/leaderboard-policy.md:
  * место — только по Score среди полных оценок одной версии методики, равные делят место.
  *
@@ -144,11 +144,9 @@ export async function fetchLeaderboard(query: LeaderboardQuery): Promise<Leaderb
 }
 
 /*
- * Раздела на backend ещё нет, а правила рейтинга уже есть — backend/app/leaderboard/policy.py.
- * Там полные оценки названы entries, место — rank, предварительные — preliminaryEntries,
- * а строка плоская: repositoryId, organizationSlug, repositorySlug. Принимаем и эти имена,
- * и имена из нашего предложения к контракту: какой бы вариант ни выбрал backend, страница
- * не сломается. Чего нет в ответе, показываем как неизвестное, а не придумываем.
+ * Backend возвращает канонические поля из docs/api-contract.md. Поддержка исторических
+ * `entries`, `rank` и плоской строки остаётся только для старых fixture и безопасной
+ * деградации: отсутствующие данные интерфейс показывает как неизвестные.
  */
 type LeaderboardRowPayload = Partial<Omit<LeaderboardItem, "repository">> & {
   rank?: number | null;
