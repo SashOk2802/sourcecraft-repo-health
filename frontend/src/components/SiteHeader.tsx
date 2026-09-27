@@ -61,9 +61,8 @@ export function SiteHeader({ route }: { route: Route }) {
 }
 
 /*
- * OAuth endpoint существует, но без client id, secret и redirect URI backend
- * вернёт ошибку конфигурации. Поэтому вход включается VITE_YANDEX_AUTH=true
- * только в окружении, где эти переменные заданы.
+ * Пока backend не поднял /api/v1/auth/yandex, кнопка показывается выключенной:
+ * переход на несуществующий endpoint отдавал 404.
  */
 function SignInButton() {
   if (!yandexAuthReady) {
@@ -73,7 +72,7 @@ function SignInButton() {
           Войти через Яндекс ID
         </Button>
         <Text variant="caption-2" color="secondary" className="site-header__signin-note">
-          настройте OAuth
+          скоро
         </Text>
       </span>
     );
