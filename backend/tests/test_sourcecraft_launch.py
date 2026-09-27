@@ -1112,7 +1112,11 @@ async def _wait_for_terminal_status(
         headers["Authorization"] = f"Bearer {token}"
     if cookie is not None:
         headers["Cookie"] = f"repo_health_session={cookie}"
-    for _ in range(100):
+    # Анализаторы выполняются в отдельном потоке. Фиксированное число
+    # переключений event loop не даёт потоку времени на запуск в загруженном CI.
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + 2
+    while True:
         response = await client.get(
             f"/api/v1/analyses/{analysis_id}",
             headers=headers,
@@ -1123,5 +1127,7 @@ async def _wait_for_terminal_status(
             "failed",
         }:
             return response
-        await asyncio.sleep(0)
+        if loop.time() >= deadline:
+            break
+        await asyncio.sleep(0.01)
     raise AssertionError("Background analysis did not finish.")
