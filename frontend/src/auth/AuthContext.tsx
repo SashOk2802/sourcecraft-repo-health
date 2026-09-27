@@ -5,6 +5,7 @@ import { fetchCurrentUser, signOut, yandexSignInUrl, type CurrentUser } from "..
 import { mockSession } from "../api/mocks/session";
 import { yandexAuthReady } from "../lib/featureFlags";
 import { navigate } from "../router";
+import { paths } from "../routes";
 
 export interface AuthState {
   /** unknown — ещё не спросили backend. */
@@ -15,8 +16,8 @@ export interface AuthState {
    * OAuth Яндекса (VITE_YANDEX_AUTH): иначе backend отвечает 503 «не настроен».
    */
   canSignIn: boolean;
-  /** Уводит на вход через Яндекс ID и после входа возвращает на returnTo. */
-  signIn: (returnTo: string) => void;
+  /** Уводит на вход через Яндекс ID; backend после него открывает «Мои репозитории». */
+  signIn: () => void;
   signOut: () => Promise<void>;
 }
 
@@ -47,14 +48,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       status,
       user,
       canSignIn: mocksEnabled || yandexAuthReady,
-      signIn: (returnTo) => {
+      signIn: () => {
         if (mocksEnabled) {
           mockSession.signIn();
           loadUser();
-          navigate(returnTo);
+          navigate(paths.myRepositories());
           return;
         }
-        window.location.assign(yandexSignInUrl(returnTo));
+        window.location.assign(yandexSignInUrl());
       },
       signOut: async () => {
         await signOut();
