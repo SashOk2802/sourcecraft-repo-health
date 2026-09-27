@@ -1,0 +1,61 @@
+.analysis-progress {
+  display: grid;
+  gap: 16px;
+  justify-items: start;
+}
+
+.analysis-progress__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 24px;
+  width: 100%;
+}
+
+.analysis-progress__state {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.stages {
+  display: grid;
+  width: 100%;
+  border-top: 1px solid var(--g-color-line-generic);
+}
+
+.stage {
+  display: grid;
+  grid-template-columns: 24px 260px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--g-color-line-generic);
+}
+
+.stage__icon {
+  color: var(--g-color-text-hint);
+}
+
+.stage_status_done .stage__icon {
+  color: var(--g-color-text-positive);
+}
+
+.stage_status_error .stage__icon {
+  color: var(--g-color-text-danger);
+}
+
+.stage_status_unavailable .stage__icon {
+  color: var(--g-color-text-warning-heavy);
+}
+
+@media (max-width: 700px) {
+  .stage {
+    grid-template-columns: 24px minmax(0, 1fr);
+  }
+
+  .stage > :last-child {
+    grid-column: 2;
+  }
+}
