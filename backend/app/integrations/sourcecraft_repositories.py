@@ -23,7 +23,7 @@ _UINT64_MAX = 2**64 - 1
 _REACTION_TYPES = frozenset({"none", "positive_low", "positive_medium", "positive_high"})
 _POSITIVE_REACTION_TYPES = _REACTION_TYPES - {"none"}
 _RFC3339 = re.compile(
-    r"^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$"
+    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\\.\d+)?(?:Z|[+-]\d{2}:\d{2})$"
 )
 
 REPOSITORY_PAGE_SIZE = 100
