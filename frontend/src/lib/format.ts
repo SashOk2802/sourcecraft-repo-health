@@ -66,6 +66,23 @@ export function formatDateTime(iso: string, timeZone?: string): string {
   return `${p.day} ${p.month} ${p.year}, ${p.hour}:${p.minute}`;
 }
 
+/** «15 сентября, 06:04» для текущего года и с годом — для прошлых. */
+export function formatDateTimeCompact(iso: string, now: Date = new Date(), timeZone?: string): string {
+  const p = dateParts(iso, {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZone,
+  });
+  const sameYear = Number(p.year) === now.getFullYear();
+  return sameYear
+    ? `${p.day} ${p.month}, ${p.hour}:${p.minute}`
+    : `${p.day} ${p.month} ${p.year}, ${p.hour}:${p.minute}`;
+}
+
 /** «14:05». */
 export function formatTime(iso: string, timeZone?: string): string {
   const p = dateParts(iso, { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone });
