@@ -6,7 +6,7 @@ import asyncio
 import os
 import re
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Protocol
 from urllib.parse import quote
@@ -57,7 +57,7 @@ Clock = Callable[[], datetime]
 class SourceCraftPublicCatalogSettings:
     """Явная настройка каталога, в котором разрешён только public-анализ."""
 
-    token: str
+    token: str = field(repr=False)
     organization_slugs: tuple[str, ...]
 
     def __post_init__(self) -> None:
@@ -251,6 +251,15 @@ def create_sourcecraft_public_repository_resolver_from_environment(
 ) -> SourceCraftPublicRepositoryResolver | None:
     """Создаёт public-only resolver при полной явной конфигурации окружения."""
 
+    settings = create_sourcecraft_public_catalog_settings_from_environment(environ)
+    return SourceCraftPublicRepositoryResolver(settings) if settings is not None else None
+
+
+def create_sourcecraft_public_catalog_settings_from_environment(
+    environ: dict[str, str] | None = None,
+) -> SourceCraftPublicCatalogSettings | None:
+    """Читает общую конфигурацию безопасного public-каталога из окружения."""
+
     values = os.environ if environ is None else environ
     token = values.get(_TOKEN_ENV, "").strip()
     raw_organizations = values.get(_ORGANIZATIONS_ENV, "")
@@ -261,11 +270,9 @@ def create_sourcecraft_public_repository_resolver_from_environment(
         return None
     if not token or not organization_slugs:
         raise ValueError(f"{_TOKEN_ENV} and {_ORGANIZATIONS_ENV} must be configured together")
-    return SourceCraftPublicRepositoryResolver(
-        SourceCraftPublicCatalogSettings(
-            token=token,
-            organization_slugs=organization_slugs,
-        )
+    return SourceCraftPublicCatalogSettings(
+        token=token,
+        organization_slugs=organization_slugs,
     )
 
 

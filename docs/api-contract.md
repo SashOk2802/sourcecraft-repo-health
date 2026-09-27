@@ -77,6 +77,39 @@
 
 Без действующей сессии возвращает `401`. Если Яндекс ID не сконфигурирован, возвращает `503`.
 
+### GET /api/v1/me/repositories
+
+Возвращает список **публичных** репозиториев из организаций,
+заданных в `SOURCECRAFT_PUBLIC_ORGANIZATIONS`. Нужна действующая сессия
+Яндекс ID. В первой версии это общий безопасный каталог: вход не даёт доступа
+к private/internal репозиториям SourceCraft.
+
+~~~json
+{
+  "repositories": [
+    {
+      "id": "repo-42",
+      "organizationSlug": "team",
+      "repositorySlug": "platform-api",
+      "name": "team/platform-api",
+      "url": "https://sourcecraft.dev/team/platform-api",
+      "defaultBranch": "main",
+      "language": "Python",
+      "isEmpty": false
+    }
+  ],
+  "total": 1
+}
+~~~
+
+`id` — непрозрачный идентификатор, который frontend передаёт в
+`POST /api/v1/repositories/{repository_id}/analyses`. Его не нужно составлять
+из `organizationSlug` и `repositorySlug`.
+
+| Статус | Причина |
+| --- | --- |
+| 401 | Нет действующей сессии Яндекс ID |
+| 503 | Не задана пара `SOURCECRAFT_TOKEN` и `SOURCECRAFT_PUBLIC_ORGANIZATIONS`, либо каталог SourceCraft недоступен |
 ### POST /api/v1/auth/logout
 
 Отзывает серверную сессию и удаляет cookie. Возвращает `204` даже если cookie уже отсутствует.
