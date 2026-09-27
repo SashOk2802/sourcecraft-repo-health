@@ -106,8 +106,8 @@ function ConnectedArea() {
 }
 
 /**
- * Вход через Яндекс ID уже работает, а списка репозиториев у backend ещё нет. Вместо ошибки —
- * честное объяснение и то, что можно сделать уже сейчас: backend проверяет публичные
+ * Вход работает, а раздела со списком репозиториев у backend нет (версия до PR #55). Вместо
+ * ошибки — честное объяснение и то, что можно сделать: backend проверяет публичные
  * репозитории из своего каталога по идентификатору SourceCraft.
  */
 function CabinetPending() {
@@ -162,7 +162,7 @@ function CabinetPending() {
   );
 }
 
-/** Маршрута у backend ещё нет: это «раздел в работе», а не сбой. */
+/** Маршрута у backend нет (старая версия): это «раздел в работе», а не сбой. */
 function isRouteMissing(error: Error): boolean {
   return error instanceof ApiError && error.routeMissing;
 }

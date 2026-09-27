@@ -81,7 +81,7 @@ function UserArea() {
     );
   }
 
-  // Режим api, а у backend входа нет: кнопка выключена, чтобы не вести на 404.
+  // Режим api, а вход на backend не настроен или он не отвечает: кнопка выключена, чтобы не вести на 503.
   if (auth.mode === "offline") {
     return (
       <span className="site-header__signin" title={signInUnavailableHint}>
@@ -89,7 +89,7 @@ function UserArea() {
           Войти<span className="site-header__signin-long"> через Яндекс ID</span>
         </Button>
         <Text variant="caption-2" color="secondary" className="site-header__signin-note">
-          скоро
+          недоступен
         </Text>
       </span>
     );
@@ -112,7 +112,7 @@ function DemoMark() {
       variant="caption-2"
       color="secondary"
       className="site-header__signin-note"
-      title="Демо-кабинет: вход и репозитории показаны на примере. Настоящий вход через Яндекс ID включится вместе с ним на backend."
+      title="Демо-кабинет: вход и репозитории показаны на примере. Настоящий вход через Яндекс ID включится, когда на сервере настроят OAuth."
     >
       демо
     </Text>

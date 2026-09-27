@@ -15,8 +15,8 @@ export interface AuthState {
   signOut: () => Promise<void>;
 }
 
-/** Что показать вместо входа, пока его нет ни у backend, ни в демо. */
-export const signInUnavailableHint = "Вход через Яндекс ID появится, когда backend поднимет /api/v1/auth/yandex";
+/** Что показать вместо входа, когда он недоступен: OAuth на сервере не настроен или backend не отвечает. */
+export const signInUnavailableHint = "Вход через Яндекс ID на этом сервере сейчас недоступен";
 
 const AuthContext = createContext<AuthState | null>(null);
 

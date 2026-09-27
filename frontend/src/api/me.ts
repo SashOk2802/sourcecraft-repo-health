@@ -76,8 +76,9 @@ export interface MyRepository {
 
 export interface Session {
   /**
-   * live — вход обслуживает backend; demo — демо-кабинет, пока у backend нет /me;
-   * offline — режим api, а backend без входа или недоступен: работаем как гость.
+   * live — вход обслуживает backend; demo — демо-кабинет в режиме auto, когда вход на backend
+   * недоступен (OAuth не настроен — 503, или раздела нет); offline — то же в режиме api:
+   * работаем как гость.
    */
   mode: "live" | "demo" | "offline";
   /** null — пользователь не вошёл. */
