@@ -1050,7 +1050,7 @@ def _is_temporary_submission_error(error: Exception) -> bool:
 
     if isinstance(error, SourceCraftRepositoryUnavailableError):
         return error.retryable
-    return isinstance(error, (TimeoutError, OSError))
+    return isinstance(error, (TimeoutError, ConnectionError))
 
 
 def _unique_candidates(candidates: Iterable[ScheduleCandidate]) -> tuple[ScheduleCandidate, ...]:
