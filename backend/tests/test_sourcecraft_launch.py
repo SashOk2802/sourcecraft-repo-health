@@ -767,7 +767,12 @@ class ProjectLifeHttpLaunchTest(unittest.IsolatedAsyncioTestCase):
             analysis_id_factory=lambda: "analysis-cookie",
             yandex_auth_service=auth,
         )
-        owner_cookie_header = {"Cookie": f"repo_health_session={owner_cookie}"}
+        # Браузер добавляет Origin к POST с сессионной cookie; без него CSRF
+        # защита закономерно прервёт проверку владения отчётом.
+        owner_cookie_header = {
+            "Cookie": f"repo_health_session={owner_cookie}",
+            "Origin": auth.settings.callback_origin,
+        }
         other_with_same_token = {
             "Authorization": f"Bearer {USER_TOKEN}",
             "Cookie": f"repo_health_session={other_cookie}",
