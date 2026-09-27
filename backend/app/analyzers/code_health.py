@@ -475,7 +475,11 @@ def _scan_comment_markers(
             return None
 
     return _count_marker_chunks(
-        _iter_c_style_comment_chunks(content, rust=extension == ".rs"),
+        _iter_c_style_comment_chunks(
+            content,
+            rust=extension == ".rs",
+            cpp=extension == ".cpp",
+        ),
         max_evidence=max_evidence,
     )
 
@@ -535,7 +539,7 @@ def _append_marker_evidence(
         previous_end = match.end()
 
 
-def _iter_c_style_comment_chunks(content: str, *, rust: bool):
+def _iter_c_style_comment_chunks(content: str, *, rust: bool, cpp: bool):
     """Поток комментариев C-подобных языков без квадратичного подсчёта строк."""
     index = 0
     line = 1
@@ -571,6 +575,13 @@ def _iter_c_style_comment_chunks(content: str, *, rust: bool):
                 index = raw_end
                 continue
 
+        if cpp and content.startswith('R"', index):
+            raw_end = _skip_cpp_raw_string(content, index)
+            if raw_end > index:
+                line += content.count("\n", index, raw_end)
+                index = raw_end
+                continue
+
         character = content[index]
         if character in "\"'`":
             index, line = _skip_quoted_literal_with_line(content, index, line)
@@ -578,6 +589,19 @@ def _iter_c_style_comment_chunks(content: str, *, rust: bool):
         if character == "\n":
             line += 1
         index += 1
+
+
+def _skip_cpp_raw_string(content: str, index: int) -> int:
+    """Пропускает C++ raw string вида R"delimiter(... )delimiter"."""
+    delimiter_end = content.find("(", index + 2, index + 19)
+    if delimiter_end == -1:
+        return index
+    delimiter = content[index + 2 : delimiter_end]
+    if any(character.isspace() or character in "\\()\\" for character in delimiter):
+        return index
+    closing = ")" + delimiter + '"'
+    end = content.find(closing, delimiter_end + 1)
+    return index if end == -1 else end + len(closing)
 
 
 def _skip_quoted_literal_with_line(content: str, index: int, line: int) -> tuple[int, int]:
