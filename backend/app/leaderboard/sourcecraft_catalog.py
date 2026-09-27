@@ -27,6 +27,8 @@ class SourceCraftLeaderboardRepositoryCatalog:
                 repository_slug=repository.slug,
                 url=repository.web_url,
                 language=repository.language,
+                likes=repository.likes,
+                last_activity_at=repository.last_activity_at,
             )
             for repository in repositories
         )
