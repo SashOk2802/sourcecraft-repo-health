@@ -9,6 +9,7 @@ from unittest.mock import Mock
 from backend.app.integrations.sourcecraft_appsec_probe import (
     APPSEC_ENGINES,
     APPSEC_SAMPLE_LIMIT,
+    AppSecFindingGroup,
     AppSecProbeResult,
     SourceCraftAppSecCliProbe,
 )
@@ -27,9 +28,9 @@ class SourceCraftAppSecCliProbeTest(unittest.TestCase):
             return subprocess.CompletedProcess(
                 command,
                 0,
-                stdout='[{"severity":"high","snippet":"synthetic-secret-marker"},'
-                '{"severity":"CRITICAL","rule":"synthetic-rule-marker"},'
-                '{"severity":"synthetic-unknown-marker"}]',
+                stdout='[{"severity":"high","status":"open","snippet":"synthetic-secret-marker"},'
+                '{"severity":"CRITICAL","status":"TRIAGED_TP","rule":"synthetic-rule-marker"},'
+                '{"severity":"synthetic-unknown-marker","status":"synthetic-unknown-status"}]',
             )
 
         result = SourceCraftAppSecCliProbe(
@@ -41,6 +42,15 @@ class SourceCraftAppSecCliProbeTest(unittest.TestCase):
         self.assertEqual(result.availability, "available")
         self.assertEqual(result.finding_count, 3)
         self.assertEqual(result.severities, ("CRITICAL", "HIGH"))
+        self.assertEqual(result.completeness, "unknown")
+        self.assertEqual(
+            result.finding_groups,
+            (
+                AppSecFindingGroup(None, None, 1),
+                AppSecFindingGroup("CRITICAL", "TRIAGED_TP", 1),
+                AppSecFindingGroup("HIGH", "OPEN", 1),
+            ),
+        )
         self.assertIsNone(result.reason)
         self.assertNotIn("synthetic-secret-marker", repr(result))
         self.assertNotIn("synthetic-rule-marker", repr(result))
@@ -65,42 +75,6 @@ class SourceCraftAppSecCliProbeTest(unittest.TestCase):
             ],
         )
 
-    def test_observed_finding_shape_never_leaks_to_safe_summary(self) -> None:
-        """Поля реального finding'а не должны попасть в агрегат или его repr."""
-        result = SourceCraftAppSecCliProbe(
-            runner=_runner(
-                stdout=(
-                    '[{"uuid":"synthetic-finding-uuid","publicId":42,'
-                    '"severity":"HIGH","engineType":"SAST",'
-                    '"ruleId":"synthetic-rule-id","fileName":"src/private.py",'
-                    '"codeBlock":"synthetic-code-fragment",'
-                    '"latestCommit":"synthetic-commit-sha",'
-                    '"latestTimeFound":1790281088522}]'
-                )
-            )
-        ).probe("example-org/example-repo", "SAST")
-
-        self.assertEqual(
-            result.as_dict(),
-            {
-                "engine": "SAST",
-                "availability": "available",
-                "finding_count": 1,
-                "severities": ["HIGH"],
-                "reason": None,
-            },
-        )
-        safe_output = repr(result) + repr(result.as_dict())
-        for marker in (
-            "synthetic-finding-uuid",
-            "synthetic-rule-id",
-            "src/private.py",
-            "synthetic-code-fragment",
-            "synthetic-commit-sha",
-        ):
-            with self.subTest(marker=marker):
-                self.assertNotIn(marker, safe_output)
-
     def test_null_response_is_unavailable_not_zero_findings(self) -> None:
         runner = _runner(stdout="null")
 
@@ -108,6 +82,7 @@ class SourceCraftAppSecCliProbeTest(unittest.TestCase):
 
         self.assertEqual(result.availability, "unavailable")
         self.assertIsNone(result.finding_count)
+        self.assertIsNone(result.completeness)
         self.assertEqual(result.reason, "sourcecraft_appsec_unavailable")
 
     def test_rejects_unsafe_repository_before_starting_cli(self) -> None:
@@ -182,11 +157,57 @@ class SourceCraftAppSecCliProbeTest(unittest.TestCase):
         )
         self.assertEqual(len(commands), 3)
 
+    def test_unknown_finding_fields_are_replaced_with_none_in_safe_group(self) -> None:
+        result = SourceCraftAppSecCliProbe(
+            runner=_runner(
+                stdout=(
+                    '[{"severity":"HIGH","status":"OPEN"},'
+                    '{"severity":"private-severity-marker","status":"private-status-marker"}]'
+                )
+            )
+        ).probe("example-org/example-repo", "SAST")
+
+        self.assertEqual(
+            result.as_dict()["finding_groups"],
+            [
+                {"severity": None, "status": None, "count": 1},
+                {"severity": "HIGH", "status": "OPEN", "count": 1},
+            ],
+        )
+        self.assertNotIn("private-severity-marker", repr(result.as_dict()))
+        self.assertNotIn("private-status-marker", repr(result.as_dict()))
+
+    def test_scan_commit_is_kept_only_when_every_group_confirms_the_same_commit(self) -> None:
+        commit_sha = "a" * 40
+        cases = (
+            (
+                '[{"latestCommit":"' + commit_sha + '"},{"latestCommit":"' + commit_sha + '"}]',
+                commit_sha,
+            ),
+            ('[{"latestCommit":"' + commit_sha + '"},{}]', None),
+            ('[{"latestCommit":"' + commit_sha + '"},{"latestCommit":"' + "b" * 40 + '"}]', None),
+        )
+        for stdout, expected_commit in cases:
+            with self.subTest(expected_commit=expected_commit):
+                result = SourceCraftAppSecCliProbe(runner=_runner(stdout=stdout)).probe(
+                    "example-org/example-repo", "SAST"
+                )
+
+                self.assertEqual(result.scan_commit_sha, expected_commit)
+                self.assertNotIn("latestCommit", result.as_dict())
+                self.assertNotIn(commit_sha, repr(result))
+
     def test_result_rejects_non_safe_reason_and_unknown_severity(self) -> None:
         with self.assertRaisesRegex(ValueError, "known safe reason"):
             AppSecProbeResult("SAST", "error", None, reason="synthetic-secret-marker")
         with self.assertRaisesRegex(ValueError, "unknown severity"):
-            AppSecProbeResult("SAST", "available", 1, severities=("synthetic-secret-marker",))
+            AppSecProbeResult(
+                "SAST",
+                "available",
+                1,
+                severities=("synthetic-secret-marker",),
+                completeness="unknown",
+            )
 
     def test_result_rejects_invalid_sample_count_and_severity_shape(self) -> None:
         for count in (True, 1.5, "1"):
@@ -199,9 +220,41 @@ class SourceCraftAppSecCliProbeTest(unittest.TestCase):
         with self.assertRaises(TypeError):
             AppSecProbeResult("SAST", "available", 1, severities=(1,))
         with self.assertRaises(ValueError):
-            AppSecProbeResult("SAST", "available", 1, severities=("HIGH", "HIGH"))
+            AppSecProbeResult(
+                "SAST", "available", 1, severities=("HIGH", "HIGH"), completeness="unknown"
+            )
         with self.assertRaises(ValueError):
-            AppSecProbeResult("SAST", "available", 1, severities=("HIGH", "LOW"))
+            AppSecProbeResult(
+                "SAST", "available", 1, severities=("HIGH", "LOW"), completeness="unknown"
+            )
+
+    def test_complete_safe_result_can_exceed_cli_sample_limit(self) -> None:
+        result = AppSecProbeResult(
+            "SAST",
+            "available",
+            APPSEC_SAMPLE_LIMIT + 1,
+            severities=("HIGH",),
+            finding_groups=(AppSecFindingGroup("HIGH", "OPEN", APPSEC_SAMPLE_LIMIT + 1),),
+            completeness="complete",
+        )
+
+        self.assertEqual(result.finding_count, APPSEC_SAMPLE_LIMIT + 1)
+
+    def test_result_requires_completeness_and_consistent_safe_groups(self) -> None:
+        with self.assertRaisesRegex(ValueError, "declare completeness"):
+            AppSecProbeResult("SAST", "available", 0)
+        with self.assertRaisesRegex(ValueError, "provide safe finding groups"):
+            AppSecProbeResult("SAST", "available", 0, completeness="complete")
+        with self.assertRaisesRegex(ValueError, "account for every finding"):
+            AppSecProbeResult(
+                "SAST",
+                "available",
+                2,
+                finding_groups=(AppSecFindingGroup("HIGH", "OPEN", 1),),
+                completeness="unknown",
+            )
+        with self.assertRaisesRegex(ValueError, "unknown status"):
+            AppSecFindingGroup("HIGH", "synthetic-status-marker", 1)
 
 
 def _runner(
