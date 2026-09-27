@@ -56,17 +56,20 @@ class FileAnalyzersTest(unittest.TestCase):
         self.assertLess(code_health_result.score, 100)
         self.assertEqual(
             {metric.code for metric in code_health_result.metrics},
-            {"total_analyzed_files", "todo_count", "fixme_count"},
+            {
+                "total_analyzed_files",
+                "todo_count",
+                "fixme_count",
+                "code_health.debt_file_ratio",
+                "code_health.marker_age",
+            },
         )
 
     def test_code_health_small_repo_single_marker_density_semantics(self) -> None:
-        """Одинокий FIXME в репозитории из 1–5 файлов обнуляет категорию (V.1).
+        """Одинокий FIXME в репозитории из 1–5 файлов обнуляет категорию.
 
-        Плотность — задокументированная семантика формулы (методика §4.3, ревью
-        V.1): штраф растёт как 1/total_files, поэтому один FIXME даёт penalty
-        >= 100 при total_files <= 5 и score 0. Тест фиксирует кривую 1/3/6/100
-        файлов; корректность порога ожидает согласования владельцем методики
-        (PENDING_APPROVAL в §4.3) и этим тестом не доказывается.
+        Плотность растёт как 1/total_files, поэтому один FIXME даёт penalty
+        >= 100 при total_files <= 5. Это правило уже зафиксировано методикой v1.
         """
         context = analysis_context()
 
@@ -83,14 +86,10 @@ class FileAnalyzersTest(unittest.TestCase):
             assert result.score is not None
             return result.score
 
-        # penalty = (1*5)/1*100 = 500 → score 0
         self.assertEqual(score_for(1), 0.0)
-        # penalty = (1*5)/3*100 ≈ 166.67 → score 0
         self.assertEqual(score_for(3), 0.0)
-        # Градиент непрерывен: за пределами «обнуляющего» диапазона score > 0.
         self.assertAlmostEqual(score_for(6), 16.67, places=2)
         self.assertGreater(score_for(6), score_for(3))
-        # В обычном по размеру репо одинокий FIXME категорию не обнуляет.
         self.assertEqual(score_for(100), 95.0)
 
     def test_code_health_fixme_critical_count_boundary(self) -> None:
