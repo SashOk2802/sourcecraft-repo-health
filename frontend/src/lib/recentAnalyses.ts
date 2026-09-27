@@ -60,7 +60,7 @@ export function forgetAnalysis(repositoryId: string, storage = browserStorage())
  * activeAnalysisId из списка: иначе строка осталась бы «идёт анализ» до ручного обновления.
  */
 export function withRecentAnalysis(item: MyRepository, recent: AnalysisStatusResponse | null): MyRepository {
-  if (recent === null) {
+  if (recent === null || (item.lastAnalysis !== null && item.activeAnalysisId === null)) {
     return item;
   }
   if (!isAnalysisFinished(recent.status)) {
