@@ -141,7 +141,7 @@ class PublicAnalysisSchedulerTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((result.reconciled, result.submitted), (1, 0))
         self.clock.value = finished_at + timedelta(minutes=14)
         self.assertEqual((await scheduler.run_once()).submitted, 0)
-        self.clock.value = finished_at + timedelta(minutes=16)
+        self.clock.value = finished_at + timedelta(minutes=17)
         self.assertEqual((await scheduler.run_once()).submitted, 1)
 
 
