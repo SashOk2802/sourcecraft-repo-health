@@ -201,7 +201,7 @@ function NoReportNote({ signInRequired }: { signInRequired: boolean }) {
             size="l"
             disabled={!auth.canSignIn}
             title={auth.canSignIn ? undefined : yandexAuthPendingHint}
-            onClick={() => auth.signIn(window.location.pathname)}
+            onClick={auth.signIn}
           >
             Войти через Яндекс ID
           </Button>
