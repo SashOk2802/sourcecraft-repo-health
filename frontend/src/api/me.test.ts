@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { toCurrentUser, toMyRepositories } from "./me";
+import { toCurrentUser, toMyRepositories, yandexSignInUrl } from "./me";
 
 describe("toCurrentUser", () => {
   it("показывает логин, когда backend отдаёт только id и login", () => {
@@ -19,6 +19,12 @@ describe("toCurrentUser", () => {
 
   it("без логина не оставляет шапку пустой", () => {
     expect(toCurrentUser({ id: "user-1", login: "  " })).toMatchObject({ login: null, displayName: "Пользователь Яндекса" });
+  });
+});
+
+describe("yandexSignInUrl", () => {
+  it("не обещает backend неподдерживаемый returnTo", () => {
+    expect(yandexSignInUrl()).toBe("/api/v1/auth/yandex/start");
   });
 });
 
