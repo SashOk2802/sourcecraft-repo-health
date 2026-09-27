@@ -230,7 +230,7 @@ def _parse_last_activity_at(value: object) -> datetime | None:
     if not isinstance(value, str) or not _RFC3339.fullmatch(value):
         raise SourceCraftResponseError("SourceCraft repository last_updated must be RFC3339 or null")
     try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value)
     except ValueError as error:
         raise SourceCraftResponseError(
             "SourceCraft repository last_updated must be RFC3339 or null"
