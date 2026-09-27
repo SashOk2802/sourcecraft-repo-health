@@ -313,7 +313,7 @@ export const mockRepositories: MockRepository[] = [
     categories: null,
   },
 
-  // Репозитории mock-пользователя: закрытые в рейтинг не попадают.
+  // Организация из каталога демо-кабинета (src/api/mocks/me.ts): её репозитории можно проверить после входа.
   {
     id: "repo-2001",
     organizationSlug: "shkola-it",
@@ -322,7 +322,7 @@ export const mockRepositories: MockRepository[] = [
     language: "Python",
     likes: 0,
     lastActivityAt: daysAgo(1),
-    visibility: "private",
+    visibility: "public",
     categories: { security: 81, cicd: 64, documentation: 52, activity: 88, issues: "not_applicable", code_health: 60 },
   },
   {
@@ -333,7 +333,7 @@ export const mockRepositories: MockRepository[] = [
     language: "TypeScript",
     likes: 0,
     lastActivityAt: daysAgo(3),
-    visibility: "private",
+    visibility: "public",
     categories: { security: 90, cicd: 72, documentation: 45, activity: 79, issues: "not_applicable", code_health: 83 },
     awaitingFirstAnalysis: true,
   },
@@ -345,7 +345,7 @@ export const mockRepositories: MockRepository[] = [
     language: "HTML",
     likes: 12,
     lastActivityAt: daysAgo(9),
-    visibility: "private",
+    visibility: "public",
     categories: {
       security: "not_applicable",
       cicd: 70,
