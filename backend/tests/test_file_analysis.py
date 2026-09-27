@@ -68,6 +68,20 @@ class CodeHealthCollectionTest(unittest.TestCase):
         self.assertEqual(result.status, DataStatus.INSUFFICIENT_SAMPLE)
         self.assertIsNone(result.score)
 
+    def test_cpp_raw_string_is_not_counted_as_comment(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "service.cpp").write_text(
+                'const auto text = R"tag(// TODO: literal\\n)tag";\\n// TODO: real\\n',
+                encoding="utf-8",
+            )
+            repository = LocalGitRepository("https://example.invalid/repo.git")
+            repository.temp_dir = directory
+            facts = code_health.collect(repository)
+
+        self.assertEqual(facts["todo_count"], 1)
+        self.assertEqual(facts["occurrences"][0]["line"], 2)
+
     def test_dense_comments_keep_evidence_bounded(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
