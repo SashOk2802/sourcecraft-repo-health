@@ -14,6 +14,66 @@
 
 Первый путь используют Docker healthcheck и инфраструктура. Второй — frontend через proxy.
 
+## Публичный рейтинг
+
+### GET /api/v1/leaderboard
+
+Возвращает рейтинг только по подтверждённым public-репозиториям и только для текущей опубликованной версии методики. Аутентификация не требуется. В ответ не попадают private/internal репозитории и снимки, у которых ID, организация или slug не совпали с текущей записью public-каталога.
+
+| Query-параметр | Значение по умолчанию | Правило |
+| --- | --- | --- |
+| `language` | отсутствует | точное совпадение языка без учёта регистра |
+| `search` | отсутствует | подстрока в `organization/repository` |
+| `sort` | `score` | `score`, `likes` или `activity`; меняет порядок строк, но не место |
+| `includePreliminary` | `false` | при `true` добавляет отдельный список предварительных оценок без места |
+| `page` | `1` | положительное число страницы полных оценок |
+| `pageSize` | `15` | от 1 до 100; применяется только к `items` |
+
+~~~json
+{
+  "items": [
+    {
+      "place": 1,
+      "analysisId": "analysis-2026-09-25",
+      "repository": {
+        "id": "repo-42",
+        "organizationSlug": "team",
+        "repositorySlug": "platform-api",
+        "name": "team/platform-api",
+        "url": "https://sourcecraft.dev/team/platform-api",
+        "description": null,
+        "language": "Python"
+      },
+      "score": 90,
+      "coverage": 1,
+      "isPreliminary": false,
+      "scoreLimited": false,
+      "likes": null,
+      "lastActivityAt": null,
+      "analyzedAt": "2026-09-25T12:00:00Z",
+      "categories": [
+        { "code": "security", "label": "Безопасность", "status": "measured", "score": 90 }
+      ]
+    }
+  ],
+  "preliminary": [],
+  "total": 1,
+  "preliminaryTotal": 2,
+  "page": 1,
+  "pageSize": 15,
+  "languages": [{ "name": "Python", "count": 1 }],
+  "updatedAt": "2026-09-25T12:00:00Z",
+  "pendingCount": 3,
+  "methodologyVersion": "v1"
+}
+~~~
+
+`place` получают только полные числовые Score выбранной методики. Равные Score получают спортивное место (`1, 2, 2, 4`), которое рассчитывается до фильтров и UI-сортировки. `preliminary` всегда содержит строки без места; туда попадают частичные оценки, а также готовые отчёты без числового Score. `total` считает только отфильтрованные полные строки, `preliminaryTotal` — все отфильтрованные предварительные, даже когда сам блок не запрошен.
+
+`pendingCount` — public-репозитории, у которых нет пригодного снимка текущей методики. `updatedAt` — самый новый `analyzedAt` среди пригодных public-снимков текущей версии или `null`. `languages` строится по таким же проанализированным строкам после `search`, но до фильтра `language`, чтобы селектор языка не исчезал после выбора.
+
+Если public-каталог не сконфигурирован, endpoint отвечает `503`. При полной паре `SOURCECRAFT_TOKEN` и `SOURCECRAFT_PUBLIC_ORGANIZATIONS` production-приложение собирает рейтинг через тот же каталог, что и список «Мои репозитории».
+
 ## Методика Score
 
 ### GET /api/v1/methodology
