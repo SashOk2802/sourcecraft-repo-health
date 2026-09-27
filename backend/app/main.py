@@ -10,7 +10,7 @@ from datetime import datetime
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import PlainTextResponse, RedirectResponse, Response
+from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse, Response
 
 from backend.app.analysis import (
     AnalysisDispatcher,
@@ -51,6 +51,8 @@ from backend.app.launch import (
 from backend.app.scoring.methodology import build_methodology_payload
 
 PrincipalProvider = Callable[[Request], Awaitable[AnalysisPrincipal]]
+_SAFE_HTTP_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "TRACE"})
+_API_PATH_PREFIX = "/api/"
 
 _COMMON_SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
@@ -148,6 +150,24 @@ def create_app(
         response = await call_next(request)
         _apply_http_security_headers(response, request.url.path)
         return response
+
+    @app.middleware("http")
+    async def reject_cross_site_mutations(
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
+        """Не даёт чужому сайту менять данные с отправленной браузером cookie."""
+        if _requires_csrf_protection(request, yandex_auth_service) and not _is_trusted_browser_mutation(
+            request,
+            yandex_auth_service.settings.callback_origin,
+        ):
+            response = JSONResponse(
+                status_code=403,
+                content={"detail": "Cross-site request rejected."},
+            )
+            _apply_http_security_headers(response, request.url.path)
+            return response
+        return await call_next(request)
 
     @app.get("/health", tags=["system"])
     async def health() -> dict[str, str]:
@@ -378,6 +398,26 @@ def create_sourcecraft_app(
         yandex_auth_service=yandex_auth_service,
         bind_sourcecraft_token=True,
     )
+
+
+
+
+def _requires_csrf_protection(request: Request, auth: YandexAuthService | None) -> bool:
+    return (
+        auth is not None
+        and request.method not in _SAFE_HTTP_METHODS
+        and request.url.path.startswith(_API_PATH_PREFIX)
+        and auth.settings.cookie_name in request.cookies
+    )
+
+
+def _is_trusted_browser_mutation(request: Request, expected_origin: str) -> bool:
+    """Проверяет Origin и браузерный Fetch Metadata для небезопасного запроса."""
+    if request.headers.get("origin") != expected_origin:
+        return False
+
+    fetch_site = request.headers.get("sec-fetch-site")
+    return fetch_site in (None, "same-origin")
 
 
 def _require_yandex_auth(auth: YandexAuthService | None) -> YandexAuthService:
