@@ -65,6 +65,42 @@ class SourceCraftAppSecCliProbeTest(unittest.TestCase):
             ],
         )
 
+    def test_observed_finding_shape_never_leaks_to_safe_summary(self) -> None:
+        """Поля реального finding'а не должны попасть в агрегат или его repr."""
+        result = SourceCraftAppSecCliProbe(
+            runner=_runner(
+                stdout=(
+                    '[{"uuid":"synthetic-finding-uuid","publicId":42,'
+                    '"severity":"HIGH","engineType":"SAST",'
+                    '"ruleId":"synthetic-rule-id","fileName":"src/private.py",'
+                    '"codeBlock":"synthetic-code-fragment",'
+                    '"latestCommit":"synthetic-commit-sha",'
+                    '"latestTimeFound":1790281088522}]'
+                )
+            )
+        ).probe("example-org/example-repo", "SAST")
+
+        self.assertEqual(
+            result.as_dict(),
+            {
+                "engine": "SAST",
+                "availability": "available",
+                "finding_count": 1,
+                "severities": ["HIGH"],
+                "reason": None,
+            },
+        )
+        safe_output = repr(result) + repr(result.as_dict())
+        for marker in (
+            "synthetic-finding-uuid",
+            "synthetic-rule-id",
+            "src/private.py",
+            "synthetic-code-fragment",
+            "synthetic-commit-sha",
+        ):
+            with self.subTest(marker=marker):
+                self.assertNotIn(marker, safe_output)
+
     def test_null_response_is_unavailable_not_zero_findings(self) -> None:
         runner = _runner(stdout="null")
 
