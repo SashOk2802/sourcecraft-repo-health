@@ -29,8 +29,16 @@ services:
       YANDEX_SESSION_COOKIE_SECURE: ${YANDEX_SESSION_COOKIE_SECURE:-false}
       SOURCECRAFT_TOKEN: ${SOURCECRAFT_TOKEN:-}
       SOURCECRAFT_PUBLIC_ORGANIZATIONS: ${SOURCECRAFT_PUBLIC_ORGANIZATIONS:-}
+      SOURCECRAFT_APPSEC_SNAPSHOT_DIR: /run/sourcecraft-appsec
+      SOURCECRAFT_APPSEC_SNAPSHOT_MAX_AGE_SECONDS: ${SOURCECRAFT_APPSEC_SNAPSHOT_MAX_AGE_SECONDS:-3600}
     ports: ["8000:8000"]
-    volumes: ["./backend:/app/backend"]
+    group_add:
+      # Exporter указывает этот же GID в --reader-gid. Он даёт app только
+      # чтение созданного snapshot, а не запись в каталог хоста.
+      - "${SOURCECRAFT_APPSEC_SNAPSHOT_READER_GID:-10001}"
+    volumes:
+      - ./backend:/app/backend
+      - ${SOURCECRAFT_APPSEC_SNAPSHOT_HOST_DIR:-./.local/sourcecraft-appsec-snapshots}:/run/sourcecraft-appsec:ro
     depends_on:
       postgres:
         condition: service_healthy
