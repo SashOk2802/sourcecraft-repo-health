@@ -177,6 +177,25 @@ class CommitHistoryTest(unittest.TestCase):
 
         self.assertEqual(page.committed_at, (until,))
 
+    def test_commit_after_period_does_not_consume_the_window_budget(self) -> None:
+        since = datetime(2026, 8, 1, tzinfo=UTC)
+        until = datetime(2026, 9, 1, tzinfo=UTC)
+        with tempfile.TemporaryDirectory() as temporary:
+            repo = init_repo(Path(temporary))
+            commit(repo, "inside-earlier", until - timedelta(seconds=1))
+            commit(repo, "period-end", until)
+            head = commit(repo, "after-period", until + timedelta(seconds=1))
+
+            page = read_commit_timestamps(
+                str(repo), since=since, until=until, revision=head, max_commits=2
+            )
+
+        self.assertFalse(page.truncated)
+        self.assertEqual(
+            page.committed_at,
+            (until, until - timedelta(seconds=1)),
+        )
+
     def test_clone_and_log_share_one_timeout_budget(self) -> None:
         since = datetime(2026, 8, 1, tzinfo=UTC)
         until = datetime(2026, 10, 1, tzinfo=UTC)
