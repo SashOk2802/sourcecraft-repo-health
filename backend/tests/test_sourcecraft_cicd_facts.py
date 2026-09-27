@@ -20,6 +20,9 @@ from backend.app.integrations.sourcecraft_cicd_facts import (
 )
 
 OBSERVED_RUNS_PATH = Path(__file__).parent / "fixtures" / "sourcecraft" / "ci_runs.json"
+OBSERVED_AUTOMATED_RUNS_PATH = (
+    Path(__file__).parent / "fixtures" / "sourcecraft" / "ci_runs_automated_success.json"
+)
 
 
 class SourceCraftCicdFactsTest(unittest.TestCase):
@@ -101,6 +104,18 @@ class SourceCraftCicdFactsTest(unittest.TestCase):
         self.assertEqual(result.status, DataStatus.MEASURED)
         self.assertEqual(result.score, 100)
         self.assertEqual(client.list_runs.call_args.args, (_repository(),))
+
+    def test_observed_automated_successes_reach_measured_cicd_score(self) -> None:
+        payload = {
+            "runs": json.loads(OBSERVED_AUTOMATED_RUNS_PATH.read_text(encoding="utf-8")),
+            "next_page_token": "",
+        }
+        with _http_client(lambda _: httpx.Response(200, json=payload)) as http_client:
+            result = make_analyzer(make_cicd_facts_provider(_cicd_client(http_client)))(_context())
+
+        self.assertEqual(result.status, DataStatus.MEASURED)
+        self.assertEqual(result.score, 100)
+        self.assertEqual(result.metrics[0].value, 5)
 
 
 def _http_client(handler):
