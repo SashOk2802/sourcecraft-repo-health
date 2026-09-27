@@ -50,11 +50,17 @@ export function MyRepositoriesPage() {
         if (cancelled) return;
 
         setJobs((current) => {
+          let changed = false;
           const next = { ...current };
           for (const update of updates) {
-            if ("job" in update) next[update.repositoryId] = update.job;
+            if ("job" in update) {
+              next[update.repositoryId] = update.job;
+              changed = true;
+            }
           }
-          return next;
+          // Если все запросы упали, не запускаем бесконечные автоматические повторы:
+          // пользователь видит ошибку и сам решает, когда обновить состояние.
+          return changed ? next : current;
         });
         setStatusErrors((current) => {
           const next = { ...current };
