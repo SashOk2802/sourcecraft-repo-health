@@ -138,6 +138,46 @@ class CommitHistoryTest(unittest.TestCase):
         self.assertFalse(page.truncated)
         self.assertEqual(page.committed_at, ())
 
+    def test_token_is_rejected_for_an_untrusted_git_host_before_git_starts(self) -> None:
+        with patch("backend.app.integrations.git_repository.subprocess.run") as git_run:
+            with self.assertRaises(GitCloneError):
+                read_commit_timestamps(
+                    "https://attacker.example/organization/repository.git",
+                    since=datetime(2026, 8, 1, tzinfo=UTC),
+                    until=datetime(2026, 9, 1, tzinfo=UTC),
+                    revision="a" * 40,
+                    auth_token="secret-token",
+                )
+
+        git_run.assert_not_called()
+
+    def test_symbolic_or_partial_revision_is_rejected_before_git_starts(self) -> None:
+        for revision in ("main", "a" * 39, "--upload-pack=malicious"):
+            with self.subTest(revision=revision), patch(
+                "backend.app.integrations.git_repository.subprocess.run"
+            ) as git_run:
+                with self.assertRaises(ValueError):
+                    read_commit_timestamps(
+                        "/tmp/repo-health-history",
+                        since=datetime(2026, 8, 1, tzinfo=UTC),
+                        until=datetime(2026, 9, 1, tzinfo=UTC),
+                        revision=revision,
+                    )
+
+            git_run.assert_not_called()
+
+    def test_commit_one_second_after_period_end_is_not_returned(self) -> None:
+        since = datetime(2026, 8, 1, tzinfo=UTC)
+        until = datetime(2026, 9, 1, tzinfo=UTC)
+        with tempfile.TemporaryDirectory() as temporary:
+            repo = init_repo(Path(temporary))
+            commit(repo, "period-end", until)
+            head = commit(repo, "after-period", until + timedelta(seconds=1))
+
+            page = read_commit_timestamps(str(repo), since=since, until=until, revision=head)
+
+        self.assertEqual(page.committed_at, (until,))
+
     def test_clone_and_log_share_one_timeout_budget(self) -> None:
         since = datetime(2026, 8, 1, tzinfo=UTC)
         until = datetime(2026, 10, 1, tzinfo=UTC)
