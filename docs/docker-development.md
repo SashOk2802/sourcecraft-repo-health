@@ -65,7 +65,53 @@ docker compose down
 | --- | --- | --- |
 | frontend | localhost:5173 | интерфейс React/Vite |
 | backend | localhost:8000 | FastAPI и OpenAPI |
+| backend-test | запускается только с profile `test` | полный набор backend-тестов и Ruff |
 | postgres | только внутри Docker-сети | постоянные данные приложения |
 | redis | только внутри Docker-сети | кэш и фоновые задачи |
 
 Пароли PostgreSQL в compose.yaml предназначены только для локальной разработки. Перед развёртыванием значения передаются через секреты окружения.
+
+## Полная проверка backend в Docker
+
+Обычный `backend` — сервис разработки: он применяет миграции и запускает API.
+Для полного тестового набора используйте отдельный сервис, который не стартует
+при `docker compose up` и не подключает PostgreSQL или Redis:
+
+~~~powershell
+docker compose --profile test run --rm --no-deps backend-test
+~~~
+
+Он монтирует `frontend`, `scripts`, `.github` и `compose.yaml` только для чтения,
+потому что часть статических тестов проверяет Dockerfile, workflow, Compose и
+скрипт редактирования fixtures. Запуск не меняет `postgres_data` и
+`frontend_node_modules`.
+
+## Права внутри контейнеров
+
+Backend и frontend-контейнеры создают пользователя `app`, передают ему файлы
+приложения и запускаются с `USER app`. Поэтому даже при ошибке в приложении код
+внутри контейнера не получает права `root` по умолчанию. Установка зависимостей
+в образе выполняется до переключения пользователя; в рантайме повышенных прав
+нет. Это защита контейнера, а не замена обновления зависимостей или проверки
+входных данных приложения.
+
+## Вход через Яндекс ID
+
+По умолчанию вход выключен: без пары `YANDEX_CLIENT_ID` и `YANDEX_REDIRECT_URI` API отвечает `503`, а остальные сценарии разработки продолжают работать. Чтобы проверить вход локально:
+
+1. Зарегистрируйте тестовый OAuth-клиент в Яндекс ID с redirect URI `http://localhost:5173/api/v1/auth/yandex/callback`.
+2. Скопируйте `.env.example` в `.env` и заполните `YANDEX_CLIENT_ID`, `YANDEX_REDIRECT_URI`; `YANDEX_CLIENT_SECRET` нужен только если его выдал Яндекс ID.
+3. Оставьте `YANDEX_SESSION_COOKIE_SECURE=false` только для локального HTTP и выполните `docker compose up --build`.
+
+OAuth-токен не попадает в браузер, отчёты или логи. В развёрнутой среде redirect URI использует HTTPS, а `YANDEX_SESSION_COOKIE_SECURE` должен быть `true`.
+
+## Анализ публичных репозиториев SourceCraft
+
+Чтобы включить production-анализ, заполните в `.env` обе переменные:
+
+~~~dotenv
+SOURCECRAFT_TOKEN=...
+SOURCECRAFT_PUBLIC_ORGANIZATIONS=org-one,org-two
+~~~
+
+Вторая переменная содержит slug организаций SourceCraft через запятую. Сервисный токен применяется только для этих каталогов, а анализ разрешён лишь для репозиториев с `visibility: public`; private/internal запросы получают `403`. Если одна из переменных не задана, dispatcher не запускается и endpoint анализа вернёт `503`. Подробности о категориях и безопасном git-клоне — в [документе production-анализатора](sourcecraft-production-analysis.md).

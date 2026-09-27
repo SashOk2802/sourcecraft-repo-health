@@ -140,13 +140,69 @@ class YandexAuthApiTest(unittest.IsolatedAsyncioTestCase):
     async def test_logout_revokes_session_on_server(self) -> None:
         async with api_client(self.app) as client:
             await self._login(client)
-            logged_out = await client.post("/api/v1/auth/logout")
+            logged_out = await client.post(
+                "/api/v1/auth/logout",
+                headers=trusted_browser_headers(self.settings),
+            )
             current_user = await client.get("/api/v1/me")
 
         self.assertEqual(logged_out.status_code, 204)
         self.assertIn("Max-Age=0", logged_out.headers["set-cookie"])
         self.assertEqual(current_user.status_code, 401)
         self.assertEqual(current_user.json(), {"detail": "Authentication required."})
+
+    async def test_cross_site_logout_is_rejected_without_revoking_session(self) -> None:
+        async with api_client(self.app) as client:
+            await self._login(client)
+            rejected = await client.post(
+                "/api/v1/auth/logout",
+                headers={
+                    "origin": "https://attacker.example",
+                    "sec-fetch-site": "cross-site",
+                },
+            )
+            current_user = await client.get("/api/v1/me")
+
+        self.assertEqual(rejected.status_code, 403)
+        self.assertEqual(rejected.json(), {"detail": "Cross-site request rejected."})
+        self.assertEqual(rejected.headers["x-content-type-options"], "nosniff")
+        self.assertEqual(
+            rejected.headers["content-security-policy"],
+            "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+        )
+        self.assertNotIn("set-cookie", rejected.headers)
+        self.assertEqual(current_user.status_code, 200)
+
+    async def test_unsafe_cookie_requests_require_same_origin_browser_headers(self) -> None:
+        async with api_client(self.app) as client:
+            await self._login(client)
+            without_origin = await client.post("/api/v1/auth/logout")
+            wrong_fetch_metadata = await client.post(
+                "/api/v1/auth/logout",
+                headers={
+                    "origin": self.settings.callback_origin,
+                    "sec-fetch-site": "cross-site",
+                },
+            )
+
+        self.assertEqual(without_origin.status_code, 403)
+        self.assertEqual(wrong_fetch_metadata.status_code, 403)
+
+    async def test_same_origin_request_without_fetch_metadata_is_allowed(self) -> None:
+        async with api_client(self.app) as client:
+            await self._login(client)
+            logged_out = await client.post(
+                "/api/v1/auth/logout",
+                headers={"origin": self.settings.callback_origin},
+            )
+
+        self.assertEqual(logged_out.status_code, 204)
+
+    async def test_logout_without_a_cookie_remains_idempotent(self) -> None:
+        async with api_client(self.app) as client:
+            response = await client.post("/api/v1/auth/logout")
+
+        self.assertEqual(response.status_code, 204)
 
     async def test_unconfigured_auth_endpoints_return_service_unavailable(self) -> None:
         app = create_app(
@@ -194,9 +250,41 @@ class YandexAuthConfigurationTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "official HTTPS URL"):
             YandexAuthSettings(
                 client_id="client-42",
-                redirect_uri="http://localhost/callback",
+                redirect_uri="https://repo-health.example/api/v1/auth/yandex/callback",
                 token_url="https://attacker.example/token",
             )
+
+    def test_canonical_callback_origin_is_used_for_browser_checks(self) -> None:
+        settings = YandexAuthSettings(
+            client_id="client-42",
+            redirect_uri="https://Repo-Health.Example:443/api/v1/auth/yandex/callback",
+        )
+
+        self.assertEqual(settings.callback_origin, "https://repo-health.example")
+
+    def test_rejects_unsafe_or_ambiguous_callback_urls(self) -> None:
+        invalid_redirect_uris = (
+            "https://repo-health.example/callback",
+            "https://repo-health.example/api/v1/auth/yandex/callback?next=/",
+            "https://user@repo-health.example/api/v1/auth/yandex/callback",
+            "http://repo-health.example/api/v1/auth/yandex/callback",
+            "http://localhost:5173/api/v1/auth/yandex/callback",
+            "https://repo-health.example:0/api/v1/auth/yandex/callback",
+            "https://repo-health.example/api/v1/auth/yandex/callback\nhttps://attacker.example",
+        )
+
+        for redirect_uri in invalid_redirect_uris:
+            with self.subTest(redirect_uri=redirect_uri), self.assertRaisesRegex(ValueError, "redirect_uri"):
+                YandexAuthSettings(client_id="client-42", redirect_uri=redirect_uri)
+
+    def test_allows_local_http_callback_only_with_insecure_development_cookie(self) -> None:
+        settings = YandexAuthSettings(
+            client_id="client-42",
+            redirect_uri="http://127.0.0.1:5173/api/v1/auth/yandex/callback",
+            cookie_secure=False,
+        )
+
+        self.assertEqual(settings.callback_origin, "http://127.0.0.1:5173")
 
 
 def request_with_cookie(cookie_name: str, cookie_value: str) -> Request:
@@ -213,6 +301,13 @@ def request_with_cookie(cookie_name: str, cookie_value: str) -> Request:
             "server": ("testserver", 80),
         }
     )
+
+
+def trusted_browser_headers(settings: YandexAuthSettings) -> dict[str, str]:
+    return {
+        "origin": settings.callback_origin,
+        "sec-fetch-site": "same-origin",
+    }
 
 
 @asynccontextmanager

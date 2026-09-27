@@ -77,13 +77,49 @@
 
 Без действующей сессии возвращает `401`. Если Яндекс ID не сконфигурирован, возвращает `503`.
 
+### GET /api/v1/me/repositories
+
+Возвращает список **публичных** репозиториев из организаций,
+заданных в `SOURCECRAFT_PUBLIC_ORGANIZATIONS`. Нужна действующая сессия
+Яндекс ID. В первой версии это общий безопасный каталог: вход не даёт доступа
+к private/internal репозиториям SourceCraft.
+
+~~~json
+{
+  "repositories": [
+    {
+      "id": "repo-42",
+      "organizationSlug": "team",
+      "repositorySlug": "platform-api",
+      "name": "team/platform-api",
+      "url": "https://sourcecraft.dev/team/platform-api",
+      "defaultBranch": "main",
+      "language": "Python",
+      "isEmpty": false
+    }
+  ],
+  "total": 1
+}
+~~~
+
+`id` — непрозрачный идентификатор, который frontend передаёт в
+`POST /api/v1/repositories/{repository_id}/analyses`. Его не нужно составлять
+из `organizationSlug` и `repositorySlug`.
+
+| Статус | Причина |
+| --- | --- |
+| 401 | Нет действующей сессии Яндекс ID |
+| 503 | Не задана пара `SOURCECRAFT_TOKEN` и `SOURCECRAFT_PUBLIC_ORGANIZATIONS`, либо каталог SourceCraft недоступен |
 ### POST /api/v1/auth/logout
 
 Отзывает серверную сессию и удаляет cookie. Возвращает `204` даже если cookie уже отсутствует.
+Когда в запросе есть сессионная cookie, браузер должен передать `Origin`, совпадающий с
+origin из `YANDEX_REDIRECT_URI`; чужой origin получает `403` до выполнения logout.
+Подробности — в [документе о CSRF-защите](csrf-protection.md).
 
 ### Конфигурация
 
-Для включения входа нужны обе переменные: `YANDEX_CLIENT_ID` и `YANDEX_REDIRECT_URI`. Последний адрес должен в точности совпадать с redirect URI в настройках приложения Яндекс ID; для локального Docker это обычно `http://localhost:5173/api/v1/auth/yandex/callback`. `YANDEX_CLIENT_SECRET` добавляют, только если он выдан типу OAuth-клиента. В production `YANDEX_SESSION_COOKIE_SECURE=true`; для локального HTTP Docker compose устанавливает `false`. Значения с секретами хранят только в `.env` или секретах среды развёртывания.
+Для включения входа нужны обе переменные: `YANDEX_CLIENT_ID` и `YANDEX_REDIRECT_URI`. Последний адрес должен в точности совпадать с redirect URI в настройках приложения Яндекс ID и иметь путь `/api/v1/auth/yandex/callback`; для локального Docker это обычно `http://localhost:5173/api/v1/auth/yandex/callback`. `YANDEX_CLIENT_SECRET` добавляют, только если он выдан типу OAuth-клиента. В production используйте HTTPS и `YANDEX_SESSION_COOKIE_SECURE=true`; для локального HTTP Docker compose устанавливает `false`. Значения с секретами хранят только в `.env` или секретах среды развёртывания.
 
 ## Запуск и состояние анализа
 

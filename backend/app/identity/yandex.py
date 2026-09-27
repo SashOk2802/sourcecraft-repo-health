@@ -5,13 +5,15 @@ from __future__ import annotations
 import asyncio
 import base64
 import hashlib
+import ipaddress
 import os
+import re
 import secrets
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Protocol
-from urllib.parse import urlencode, urlsplit
+from urllib.parse import SplitResult, urlencode, urlsplit
 from uuid import uuid4
 
 import asyncpg
@@ -22,6 +24,8 @@ _TOKEN_URL = "https://oauth.yandex.ru/token"
 _USERINFO_URL = "https://login.yandex.ru/info"
 _ALLOWED_OAUTH_HOSTS = frozenset({"oauth.yandex.ru", "oauth.yandex.com"})
 _ALLOWED_PROFILE_HOSTS = frozenset({"login.yandex.ru", "login.yandex.com"})
+_CALLBACK_PATH = "/api/v1/auth/yandex/callback"
+_CONTROL_CHARACTERS = re.compile(r"[\x00-\x1f\x7f-\x9f]")
 
 
 class YandexAuthenticationError(RuntimeError):
@@ -277,9 +281,15 @@ class YandexAuthSettings:
             raise ValueError("Yandex auth TTL values must be positive")
         if not self.success_redirect_path.startswith("/") or self.success_redirect_path.startswith("//"):
             raise ValueError("success_redirect_path must be a local absolute path")
+        _validate_redirect_uri(self.redirect_uri, cookie_secure=self.cookie_secure)
         _validate_https_url(self.authorize_url, _ALLOWED_OAUTH_HOSTS, "/authorize")
         _validate_https_url(self.token_url, _ALLOWED_OAUTH_HOSTS, "/token")
         _validate_https_url(self.userinfo_url, _ALLOWED_PROFILE_HOSTS, "/info")
+
+    @property
+    def callback_origin(self) -> str:
+        """Канонический browser origin для CSRF-проверки cookie-сессии."""
+        return _url_origin(urlsplit(self.redirect_uri))
 
 
 HttpClientFactory = Callable[[], httpx.AsyncClient]
@@ -498,6 +508,55 @@ def _validate_https_url(value: str, allowed_hosts: frozenset[str], path: str) ->
         or parsed.fragment
     ):
         raise ValueError("Yandex OAuth endpoint must use an official HTTPS URL")
+
+
+def _validate_redirect_uri(value: str, *, cookie_secure: bool) -> None:
+    """Не позволяет конфигурации OAuth ослабить CSRF-границу приложения."""
+    if value != value.strip() or _CONTROL_CHARACTERS.search(value):
+        raise ValueError("Yandex redirect_uri must not contain control characters")
+
+    try:
+        parsed = urlsplit(value)
+        port = parsed.port
+    except ValueError as error:
+        raise ValueError("Yandex redirect_uri must be a valid callback URL") from error
+
+    if (
+        parsed.scheme not in {"http", "https"}
+        or not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.path != _CALLBACK_PATH
+        or parsed.query
+        or parsed.fragment
+        or port == 0
+    ):
+        raise ValueError("Yandex redirect_uri must be a valid callback URL")
+
+    if parsed.scheme == "http" and (cookie_secure or not _is_loopback_host(parsed.hostname)):
+        raise ValueError("insecure Yandex redirect_uri is allowed only for local development")
+
+
+def _is_loopback_host(host: str) -> bool:
+    if host.lower() == "localhost":
+        return True
+
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def _url_origin(parsed: SplitResult) -> str:
+    """Возвращает origin URL без пути и канонических default-портов."""
+    host = parsed.hostname
+    if host is None:
+        raise ValueError("URL has no host")
+
+    host_value = f"[{host}]" if ":" in host else host
+    default_port = 443 if parsed.scheme == "https" else 80
+    port_suffix = "" if parsed.port in (None, default_port) else f":{parsed.port}"
+    return f"{parsed.scheme}://{host_value}{port_suffix}"
 
 
 def _normalize_database_url(database_url: str) -> str:

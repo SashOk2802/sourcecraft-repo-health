@@ -10,7 +10,7 @@ from datetime import datetime
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import PlainTextResponse, RedirectResponse, Response
+from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse, Response
 
 from backend.app.analysis import (
     AnalysisDispatcher,
@@ -37,6 +37,11 @@ from backend.app.identity import (
     create_yandex_auth_service_from_environment,
 )
 from backend.app.integrations.sourcecraft import SourceCraftClient
+from backend.app.integrations.sourcecraft_public_catalog import (
+    PublicRepositoryCatalog,
+    create_sourcecraft_public_repository_catalog_from_environment,
+)
+from backend.app.integrations.sourcecraft_repositories import SourceCraftRepository
 from backend.app.integrations.sourcecraft_repository import (
     SourceCraftRepositoryUnavailableError,
     create_sourcecraft_public_repository_resolver_from_environment,
@@ -51,6 +56,21 @@ from backend.app.launch import (
 from backend.app.scoring.methodology import build_methodology_payload
 
 PrincipalProvider = Callable[[Request], Awaitable[AnalysisPrincipal]]
+_SAFE_HTTP_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "TRACE"})
+_API_PATH_PREFIX = "/api/"
+
+_COMMON_SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Permissions-Policy": "camera=(), geolocation=(), microphone=()",
+    "Cross-Origin-Resource-Policy": "same-origin",
+}
+_API_CONTENT_SECURITY_POLICY = (
+    "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+)
+_API_DOCUMENT_PATHS = frozenset({"/health", "/openapi.json"})
+_SENSITIVE_RESPONSE_PREFIXES = ("/api/v1/auth/", "/api/v1/me")
 
 
 def create_app(
@@ -61,6 +81,8 @@ def create_app(
     principal_provider: PrincipalProvider | None = None,
     yandex_auth_service: YandexAuthService | None = None,
     bind_sourcecraft_token: bool = False,
+    repository_catalog: PublicRepositoryCatalog | None = None,
+    configure_public_repository_catalog: bool = True,
 ) -> FastAPI:
     """Создаёт HTTP-приложение с хранилищами и необязательным worker анализа."""
 
@@ -75,6 +97,9 @@ def create_app(
     effective_analysis_dispatcher = analysis_dispatcher
     if effective_analysis_dispatcher is None and analysis_store is None and job_store is None:
         effective_analysis_dispatcher = _create_default_analysis_dispatcher(store, jobs)
+    effective_repository_catalog = repository_catalog
+    if effective_repository_catalog is None and configure_public_repository_catalog:
+        effective_repository_catalog = _create_default_public_repository_catalog()
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -116,6 +141,44 @@ def create_app(
     app.state.principal_provider = effective_principal_provider
     app.state.yandex_auth_service = yandex_auth_service
     app.state.binds_caller_sourcecraft_token = bind_sourcecraft_token
+    app.state.public_repository_catalog = effective_repository_catalog
+
+    @app.exception_handler(Exception)
+    async def unexpected_server_error(request: Request, _: Exception) -> Response:
+        """Не оставляет непойманный 500-ответ без browser-защиты."""
+
+        response = PlainTextResponse("Internal Server Error", status_code=500)
+        _apply_http_security_headers(response, request.url.path)
+        return response
+
+    @app.middleware("http")
+    async def apply_http_security_headers(
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
+        """Добавляет browser-защиту, не включая межсайтовый доступ к API."""
+
+        response = await call_next(request)
+        _apply_http_security_headers(response, request.url.path)
+        return response
+
+    @app.middleware("http")
+    async def reject_cross_site_mutations(
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
+        """Не даёт чужому сайту менять данные с отправленной браузером cookie."""
+        if _requires_csrf_protection(request, yandex_auth_service) and not _is_trusted_browser_mutation(
+            request,
+            yandex_auth_service.settings.callback_origin,
+        ):
+            response = JSONResponse(
+                status_code=403,
+                content={"detail": "Cross-site request rejected."},
+            )
+            _apply_http_security_headers(response, request.url.path)
+            return response
+        return await call_next(request)
 
     @app.get("/health", tags=["system"])
     async def health() -> dict[str, str]:
@@ -187,6 +250,47 @@ def create_app(
         auth = _require_yandex_auth(yandex_auth_service)
         user = await _require_yandex_user(auth, request)
         return {"id": user.id, "login": user.login}
+
+    @app.get("/api/v1/me/repositories", tags=["repositories"])
+    async def get_my_repositories(request: Request) -> dict[str, object]:
+        """Возвращает безопасный список публичных репозиториев для выбора анализа."""
+
+        auth = _require_yandex_auth(yandex_auth_service)
+        await _require_yandex_user(auth, request)
+        if effective_repository_catalog is None:
+            raise HTTPException(
+                status_code=503,
+                detail="SourceCraft repository catalog is not configured.",
+            )
+
+        try:
+            repositories = await effective_repository_catalog.list_repositories()
+        except SourceCraftRepositoryUnavailableError as error:
+            raise HTTPException(
+                status_code=503,
+                detail="SourceCraft repository catalog is unavailable.",
+            ) from error
+
+        if any(repository.visibility != "public" for repository in repositories):
+            raise HTTPException(
+                status_code=503,
+                detail="SourceCraft repository catalog is unavailable.",
+            )
+        repositories = tuple(
+            sorted(
+                repositories,
+                key=lambda repository: (
+                    repository.organization_slug,
+                    repository.slug,
+                    repository.id,
+                ),
+            )
+        )
+
+        return {
+            "repositories": [_public_repository_payload(repository) for repository in repositories],
+            "total": len(repositories),
+        }
 
     @app.post("/api/v1/auth/logout", tags=["authentication"], status_code=204)
     async def logout(request: Request) -> Response:
@@ -320,9 +424,7 @@ def create_sourcecraft_app(
 
     store = analysis_store or _default_analysis_store()
     jobs = job_store or (
-        InMemoryAnalysisJobStore()
-        if analysis_store is not None
-        else _default_analysis_job_store()
+        InMemoryAnalysisJobStore() if analysis_store is not None else _default_analysis_job_store()
     )
     open_bound_client = build_request_opener(http_client_factory)
 
@@ -345,7 +447,28 @@ def create_sourcecraft_app(
         principal_provider=principal_provider,
         yandex_auth_service=yandex_auth_service,
         bind_sourcecraft_token=True,
+        configure_public_repository_catalog=False,
     )
+
+
+
+
+def _requires_csrf_protection(request: Request, auth: YandexAuthService | None) -> bool:
+    return (
+        auth is not None
+        and request.method not in _SAFE_HTTP_METHODS
+        and request.url.path.startswith(_API_PATH_PREFIX)
+        and auth.settings.cookie_name in request.cookies
+    )
+
+
+def _is_trusted_browser_mutation(request: Request, expected_origin: str) -> bool:
+    """Проверяет Origin и браузерный Fetch Metadata для небезопасного запроса."""
+    if request.headers.get("origin") != expected_origin:
+        return False
+
+    fetch_site = request.headers.get("sec-fetch-site")
+    return fetch_site in (None, "same-origin")
 
 
 def _require_yandex_auth(auth: YandexAuthService | None) -> YandexAuthService:
@@ -362,6 +485,21 @@ async def _require_yandex_user(
         return await auth.require_user(request.cookies.get(auth.settings.cookie_name))
     except PermissionError as error:
         raise HTTPException(status_code=401, detail="Authentication required.") from error
+
+
+def _public_repository_payload(repository: SourceCraftRepository) -> dict[str, object]:
+    """Строит публичную проекцию каталога без служебных полей SourceCraft."""
+
+    return {
+        "id": repository.id,
+        "organizationSlug": repository.organization_slug,
+        "repositorySlug": repository.slug,
+        "name": f"{repository.organization_slug}/{repository.slug}",
+        "url": repository.web_url,
+        "defaultBranch": repository.default_branch or None,
+        "language": repository.language,
+        "isEmpty": repository.is_empty,
+    }
 
 
 def _yandex_principal_provider(
@@ -399,6 +537,12 @@ def _create_default_analysis_dispatcher(
         context_resolver=resolver,
         analyzer_provider=sourcecraft_analyzer_provider,
     )
+
+
+def _create_default_public_repository_catalog() -> PublicRepositoryCatalog | None:
+    """Создаёт каталог списка только из явно разрешённых public-организаций."""
+
+    return create_sourcecraft_public_repository_catalog_from_environment()
 
 
 def _default_analysis_store() -> AnalysisStore:
@@ -446,6 +590,16 @@ async def _authorized_job(
     ):
         raise HTTPException(status_code=404, detail="Analysis not found.")
     return job
+
+
+def _apply_http_security_headers(response: Response, path: str) -> None:
+    for name, value in _COMMON_SECURITY_HEADERS.items():
+        response.headers.setdefault(name, value)
+
+    if path.startswith("/api/") or path in _API_DOCUMENT_PATHS:
+        response.headers.setdefault("Content-Security-Policy", _API_CONTENT_SECURITY_POLICY)
+    if path.startswith(_SENSITIVE_RESPONSE_PREFIXES):
+        response.headers["Cache-Control"] = "no-store"
 
 
 def _normalize_analysis_id(analysis_id: str) -> str:

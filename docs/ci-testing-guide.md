@@ -7,7 +7,7 @@ CI — это автоматическая проверка GitHub Actions. Он
 | Проверка | Что делает |
 |---|---|
 | Backend | Запускает все Python-тесты из `backend/tests` и Ruff — проверку стиля и простых ошибок. |
-| Frontend | Проверяет TypeScript, запускает Vitest-тесты и собирает production-версию интерфейса. |
+| Frontend | Проверяет TypeScript и собирает production-версию интерфейса. |
 | Docker Compose | Проверяет, что `compose.yaml` корректно описывает окружение. |
 | Secret scan | Ищет случайно закоммиченные секреты во всей доступной истории Git. |
 | Python dependency audit | Проверяет установленные Python-пакеты по базе известных уязвимостей. |
@@ -35,16 +35,18 @@ python -m pip install -e ".[dev]"
 
 ~~~powershell
 alembic upgrade head
-python -m pytest
+python -m unittest discover -s backend/tests -v
 ruff check backend --ignore EXE002
 ~~~
 
-Если используете Docker Desktop, команды можно выполнять в том же контейнере, что и backend:
+Если используете Docker Desktop, весь backend-набор выполняет отдельный
+opt-in сервис. Он не запускает PostgreSQL/Redis, не пишет в volumes и монтирует
+`frontend`, `scripts`, `.github` и `compose.yaml` только для чтения: нескольким
+тестам нужны эти файлы проекта.
 
 ~~~powershell
 docker compose run --rm --no-deps backend alembic upgrade head
-docker compose run --rm --no-deps backend python -m pytest
-docker compose run --rm --no-deps backend ruff check backend --ignore EXE002
+docker compose --profile test run --rm --no-deps backend-test
 ~~~
 
 ### Frontend
@@ -53,7 +55,6 @@ docker compose run --rm --no-deps backend ruff check backend --ignore EXE002
 cd frontend
 npm ci
 npm run check
-npm test
 npm run build
 ~~~
 
@@ -101,16 +102,18 @@ from backend.app.contracts import DataStatus
 
 class ActivityTest(unittest.TestCase):
     def test_empty_history_is_not_measured(self) -> None:
-        status = DataStatus.INSUFFICIENT_SAMPLE
+        status = DataStatus.NOT_ENOUGH_DATA
 
-        self.assertEqual(status, DataStatus.INSUFFICIENT_SAMPLE)
+        self.assertEqual(status, DataStatus.NOT_ENOUGH_DATA)
 ~~~
 
 Не копируйте этот пример буквально: тест должен вызывать вашу функцию или анализатор и проверять его результат.
 
 ## Что тестировать на frontend
 
-CI уже ловит ошибки типов и ошибки сборки, а также запускает Vitest-тесты. Тестируйте важную логику: преобразование API-данных в модель интерфейса, расчёты для отображения (например, метка «Предварительно» для неполной оценки), фильтры, score bands и feature flags. Не нужно писать тест на каждую CSS-строку.
+Сейчас CI уже ловит ошибки типов и ошибки сборки. Когда во frontend появятся функции преобразования API-данных, расчёты для отображения, фильтры или сложные состояния экрана, добавляем Vitest и тесты на эти правила в том же pull request.
+
+Для экранов достаточно тестировать важную логику: например, что неполная оценка показывает метку «Предварительно», фильтр действительно меняет список, а ответ API корректно превращается в модель интерфейса. Не нужно писать тест на каждую CSS-строку.
 
 ## Чек-лист автора PR
 

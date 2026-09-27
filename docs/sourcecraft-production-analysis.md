@@ -17,8 +17,7 @@ private/internal репозиторию не расширяет права HTTP-
 
 Без полной пары переменных worker не создаётся, а endpoint отвечает `503`.
 Это fail-closed режим до отдельного пользовательского подключения SourceCraft.
-Оно потребуется для «Моих репозиториев» и любого анализа private/internal
-репозитория.
+Оно потребуется для показа и анализа private/internal репозиториев.
 
 В одном запуске provider регистрирует Activity, Issues, CI/CD, Documentation,
 Code health и Security. CI/CD использует REST API. Security пока возвращает

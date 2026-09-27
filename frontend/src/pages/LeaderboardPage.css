@@ -1,0 +1,328 @@
+/* Принцип рейтинга — мелкой строкой под описанием, слева: справа в шапке подставка. */
+.leaderboard__principle {
+  max-width: 560px;
+  text-align: left;
+  opacity: 0.85;
+}
+
+/* Фильтры — своя карточка над таблицей, а не полоса между линейками. */
+.leaderboard__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  padding: 14px 18px;
+  margin-bottom: 14px;
+  border-radius: var(--rh-radius-card);
+  background: var(--rh-surface);
+  box-shadow: var(--rh-shadow-1);
+}
+
+.leaderboard__search {
+  width: 280px;
+}
+
+.leaderboard__search-icon {
+  margin-left: 8px;
+  color: var(--g-color-text-secondary);
+}
+
+.leaderboard__preliminary-toggle {
+  margin-left: auto;
+}
+
+.leaderboard__empty {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  padding: 28px 0;
+}
+
+/* Таблица рейтинга */
+
+/* Таблица — карточка поверх тонированной страницы. */
+.board {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--rh-surface);
+  border-radius: var(--rh-radius-card);
+  box-shadow: var(--rh-shadow-1);
+  overflow: hidden;
+  transition: opacity 0.15s;
+}
+
+.board_loading {
+  opacity: 0.55;
+}
+
+.board th {
+  padding: 14px 12px 12px 0;
+  background: var(--rh-surface-muted);
+  border-bottom: 1px solid var(--rh-hairline);
+  color: var(--g-color-text-secondary);
+  font-size: var(--g-text-body-1-font-size);
+  font-weight: 400;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.board td {
+  padding: 13px 12px 13px 0;
+  border-bottom: 1px solid var(--rh-hairline);
+  vertical-align: middle;
+}
+
+.board th:first-child,
+.board td:first-child {
+  padding-left: 22px;
+}
+
+.board th:last-child,
+.board td:last-child {
+  padding-right: 22px;
+}
+
+.board tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.board__row {
+  cursor: pointer;
+}
+
+.board__row {
+  transition: background 140ms ease-out;
+}
+
+.board__row:hover td {
+  background: var(--rh-accent-soft);
+}
+
+/* Строка без отчёта: открыть нечего, поэтому и не притворяется ссылкой. */
+.board__row_static {
+  cursor: default;
+}
+
+.board__row_static:hover td {
+  background: none;
+}
+
+.board__place {
+  width: 72px;
+  color: var(--g-color-text-secondary);
+}
+
+/* Первая тройка отмечена кружком — её видно, не вчитываясь в номера. */
+.board__medal {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #6b4b00;
+  background: linear-gradient(180deg, #ffe08a, #ffc94d);
+}
+
+.board__medal_place_2 {
+  color: #4a4f57;
+  background: linear-gradient(180deg, #eef1f5, #d6dbe2);
+}
+
+.board__medal_place_3 {
+  color: #6d4326;
+  background: linear-gradient(180deg, #f4d3b4, #e0b189);
+}
+
+.board__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.board__link {
+  font-weight: 500;
+  color: var(--g-color-text-primary);
+  text-decoration: none;
+}
+
+/* Ссылка в SourceCraft: заметна при наведении на строку, но не спорит с названием. */
+.board__external {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  color: var(--g-color-text-hint);
+  transition:
+    color 140ms ease-out,
+    background 140ms ease-out;
+}
+
+.board__row:hover .board__external,
+.board__external:focus-visible {
+  color: var(--rh-accent);
+}
+
+.board__external:hover {
+  background: var(--rh-surface);
+}
+
+.board__link:hover {
+  color: var(--g-color-text-link-hover);
+}
+
+.board__org {
+  color: var(--g-color-text-secondary);
+  font-weight: 400;
+}
+
+.board__about {
+  display: block;
+  max-width: 420px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.board__cells {
+  width: 108px;
+}
+
+.board__score {
+  width: 104px;
+  white-space: nowrap;
+}
+
+.board__score-value {
+  display: inline-block;
+  min-width: 44px;
+  padding: 3px 10px;
+  border-radius: var(--rh-radius-chip);
+  font-size: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  background: var(--rh-band-high-soft);
+  color: var(--rh-band-high);
+}
+
+.board__score_band_mid .board__score-value {
+  background: var(--rh-band-mid-soft);
+  color: var(--rh-band-mid);
+}
+
+.board__score_band_low .board__score-value {
+  background: var(--rh-band-low-soft);
+  color: var(--rh-band-low);
+}
+
+.board__mark {
+  display: inline-block;
+  width: 12px;
+  color: var(--g-color-text-danger);
+  text-align: center;
+}
+
+.board__likes {
+  width: 104px;
+}
+
+.board__language {
+  width: 140px;
+  font-size: var(--g-text-body-1-font-size);
+}
+
+.board__activity {
+  width: 132px;
+  color: var(--g-color-text-secondary);
+  font-size: var(--g-text-body-1-font-size);
+  white-space: nowrap;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 0;
+}
+
+.leaderboard__legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 18px;
+  padding: 12px 0;
+  color: var(--g-color-text-secondary);
+  font-size: var(--g-text-body-1-font-size);
+}
+
+.leaderboard__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.leaderboard__swatch {
+  display: inline-block;
+  width: 9px;
+  height: 14px;
+  border-radius: 2px;
+}
+
+.leaderboard__swatch_band_high {
+  background: var(--rh-band-high);
+}
+
+.leaderboard__swatch_band_mid {
+  background: var(--rh-band-mid);
+}
+
+.leaderboard__swatch_band_low {
+  background: var(--rh-band-low);
+}
+
+.leaderboard__swatch_status_none {
+  background: var(--rh-hatch);
+  box-shadow: inset 0 0 0 1px var(--g-color-line-generic);
+}
+
+.leaderboard__swatch_status_na {
+  box-shadow: inset 0 0 0 1px var(--g-color-line-generic);
+}
+
+.leaderboard__preliminary {
+  padding-top: 8px;
+}
+
+@media (max-width: 1100px) {
+  .board__language,
+  .board__cells {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .leaderboard__principle {
+    max-width: none;
+    text-align: left;
+  }
+
+  .leaderboard__preliminary-toggle {
+    margin-left: 0;
+  }
+
+  .board__activity,
+  .board__likes {
+    display: none;
+  }
+}
+
+/* Одна строка о том, что вообще значит оценка: рейтинг открывают и не разработчики. */
+.leaderboard__about {
+  display: block;
+  max-width: 680px;
+  padding-top: 6px;
+}

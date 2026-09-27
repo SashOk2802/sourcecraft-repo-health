@@ -2,6 +2,7 @@ name: Security checks
 
 on:
   pull_request:
+  # Push в feature-ветку уже запускает pull request workflow.
   push:
     branches:
       - main
