@@ -21,13 +21,13 @@ npm run build    # проверка типов и сборка
 
 ## Настоящий API и mock-режим
 
-Откуда брать данные, решает `VITE_USE_MOCKS`: `false` — настоящий backend, иначе mock-данные из `src/api/mocks/` для вёрстки без backend (репозитории и оценки в них вымышлены). В Docker переменную задаёт `compose.yaml`. Настоящий API без Docker:
+Откуда брать данные, решает `VITE_USE_MOCKS`: `false` — настоящий backend, иначе mock-данные из `src/api/mocks/` для вёрстки без backend (репозитории и оценки в них вымышлены). В Docker по умолчанию включены mock-данные (`compose.yaml`): без каталога SourceCraft настоящий рейтинг и запуск анализа ответят 503. Чтобы Docker ходил в настоящий API, задайте в `.env` `VITE_USE_MOCKS=false` вместе с `SOURCECRAFT_TOKEN` и `SOURCECRAFT_PUBLIC_ORGANIZATIONS`. Настоящий API без Docker:
 
 ~~~powershell
 $env:VITE_USE_MOCKS = "false"; npm run dev
 ~~~
 
-Кнопки входа включает `VITE_YANDEX_AUTH=true` — только там, где у backend заданы `YANDEX_CLIENT_ID`, `YANDEX_CLIENT_SECRET` и `YANDEX_REDIRECT_URI`. Без них вход выключен с пояснением, а не ведёт на ответ 503. Открывать сервис нужно по адресу из `YANDEX_REDIRECT_URI`: запуск анализа и выход с другого адреса (например, `127.0.0.1` вместо `localhost`) защита от подделки запросов отклонит — интерфейс так и скажет.
+Кнопки входа включает `VITE_YANDEX_AUTH=true` (в Docker по умолчанию `false`) — только там, где у backend заданы `YANDEX_CLIENT_ID`, `YANDEX_CLIENT_SECRET` и `YANDEX_REDIRECT_URI`. Без них вход выключен с пояснением, а не ведёт на ответ 503. Открывать сервис нужно по адресу из `YANDEX_REDIRECT_URI`: запуск анализа и выход с другого адреса (например, `127.0.0.1` вместо `localhost`) защита от подделки запросов отклонит — интерфейс так и скажет.
 
 В mock-режиме помогают параметры адреса:
 
@@ -55,8 +55,8 @@ $env:VITE_USE_MOCKS = "false"; npm run dev
 | Запуск анализа | `POST /api/v1/repositories/{id}/analyses` — есть; id берётся из списка репозиториев |
 | Вход | `/api/v1/auth/yandex/start`, `/callback`, `GET /api/v1/me`, `POST /api/v1/auth/logout` — есть |
 | Мои репозитории | `GET /api/v1/me/repositories` — есть: публичные репозитории из организаций `SOURCECRAFT_PUBLIC_ORGANIZATIONS`; последнего анализа в ответе пока нет |
-| Методика | `GET /api/v1/methodology` — есть |
-| Рейтинг | `GET /api/v1/leaderboard` — есть |
+| Методика | `GET /api/v1/methodology` — есть, v2: веса, ограничение Score и формула Security Score |
+| Рейтинг | `GET /api/v1/leaderboard` — есть: public-репозитории того же каталога; снимки пополняет планировщик backend (`PUBLIC_ANALYSIS_SCHEDULER_ENABLED=true`) |
 | Подключение SourceCraft | `/api/v1/connections/sourcecraft` — позже, для закрытых репозиториев; пока его нет, интерфейс его не предлагает |
 
 Формат ответов описан в [docs/api-contract.md](../docs/api-contract.md); типы лежат в `src/api/*.ts`.
