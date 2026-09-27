@@ -52,9 +52,16 @@ class PostgresAnalysisScheduleStoreTest(unittest.IsolatedAsyncioTestCase):
             lease_owner="scheduler-second",
             lease_expires_at=self.now + timedelta(minutes=5),
         )
+        reserved = await self.first.reserve_submission(
+            self.repository_id,
+            lease_owner="scheduler-first",
+            analysis_id="analysis-reserved",
+            updated_at=self.now,
+        )
         released = await self.first.release_submission(
             self.repository_id,
             lease_owner="scheduler-first",
+            analysis_id="analysis-reserved",
             next_analysis_at=self.now + timedelta(minutes=15),
             consecutive_failures=1,
             updated_at=self.now,
@@ -62,4 +69,5 @@ class PostgresAnalysisScheduleStoreTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual([entry.repository_id for entry in first_claim], [self.repository_id])
         self.assertEqual(second_claim, ())
+        self.assertTrue(reserved)
         self.assertTrue(released)
