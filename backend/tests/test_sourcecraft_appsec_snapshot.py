@@ -176,6 +176,20 @@ class SourceCraftAppSecSnapshotTest(unittest.TestCase):
         self.assertEqual(symlinked.source_error, "sourcecraft_appsec_snapshot_unreadable")
         self.assertNotIn("synthetic-secret-marker", repr(symlinked))
 
+    def test_group_or_world_writable_snapshot_paths_are_never_read(self) -> None:
+        for target, mode in (
+            (self.snapshot_directory, 0o770),
+            (self._write(_complete_results()), 0o660),
+        ):
+            with self.subTest(target=target, mode=oct(mode)):
+                target.chmod(mode)
+                facts = self.store.collect(self.context)
+
+                self.assertEqual(facts.source_error, "sourcecraft_appsec_snapshot_unreadable")
+
+                # Вторая проверка использует исходный безопасный каталог.
+                self.snapshot_directory.chmod(0o700)
+
     def test_symlink_snapshot_directory_is_never_traversed(self) -> None:
         if not hasattr(os, "symlink"):
             self.skipTest("symlinks are not available on this platform")
