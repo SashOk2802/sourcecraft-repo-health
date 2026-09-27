@@ -38,10 +38,21 @@ class CodeHealthCollectionTest(unittest.TestCase):
             result = code_health.evaluate(analysis_context(), code_health.collect(repository))
 
         self.assertEqual(result.status, DataStatus.MEASURED)
-        self.assertEqual(result.score, 40.0)
+        self.assertEqual(result.score, 0.0)
         metrics = {metric.code: metric.value for metric in result.metrics}
         self.assertEqual(metrics["todo_count"], 1)
         self.assertEqual(metrics["fixme_count"], 1)
+
+    def test_malformed_python_does_not_receive_a_score(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "broken.py").write_text('""" TODO: unterminated', encoding="utf-8")
+            repository = LocalGitRepository("https://example.invalid/repo.git")
+            repository.temp_dir = directory
+            result = code_health.evaluate(analysis_context(), code_health.collect(repository))
+
+        self.assertEqual(result.status, DataStatus.INSUFFICIENT_SAMPLE)
+        self.assertIsNone(result.score)
 
     def test_exceeding_scan_budget_does_not_create_partial_score(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
