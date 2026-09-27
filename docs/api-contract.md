@@ -64,7 +64,7 @@
   "languages": [{ "name": "Python", "count": 1 }],
   "updatedAt": "2026-09-25T12:00:00Z",
   "pendingCount": 3,
-  "methodologyVersion": "v1"
+  "methodologyVersion": "v2"
 }
 ~~~
 
@@ -272,7 +272,7 @@ JSON-модель строится в `backend/app/reporting/builder.py`; endpoi
     "status": "partial",
     "analyzedAt": "2026-09-15T12:30:00Z",
     "commitSha": "d7bebd1",
-    "methodologyVersion": "v1",
+    "methodologyVersion": "v2",
     "coverage": 0.75,
     "isPreliminary": true,
     "scoreLimit": null
@@ -361,7 +361,7 @@ JSON-модель строится в `backend/app/reporting/builder.py`; endpoi
 | analysis.scoreLimit | null либо объект с value, uncappedScore, code и summary |
 | categories[].code | security, cicd, documentation, activity, issues или code_health |
 | categories[].status | measured, unavailable, not_applicable, insufficient_sample или error |
-| categories[].weight | исходный вес категории в методике v1 |
+| categories[].weight | исходный вес категории в методике, указанной в analysis.methodologyVersion |
 | categories[].effectiveWeight | вес категории среди измеренных; null, если категория не участвовала в Score |
 | categories[].points | фактический вклад категории в Score; null, если категория не участвовала |
 | recommendation.priority | p0, p1, p2 или p3 |
