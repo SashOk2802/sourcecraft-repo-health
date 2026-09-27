@@ -1,0 +1,96 @@
+.my-repositories__about {
+  display: block;
+  max-width: 720px;
+  margin-top: 6px;
+}
+
+.my-repositories__table-wrap {
+  overflow-x: auto;
+  margin-top: 20px;
+  border-radius: var(--rh-radius-card);
+  background: var(--rh-surface);
+  box-shadow: var(--rh-shadow-1);
+}
+
+.my-repositories__table {
+  width: 100%;
+  min-width: 680px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.my-repositories__table th,
+.my-repositories__table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--rh-hairline);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.my-repositories__table th {
+  background: var(--rh-surface-muted);
+  color: var(--g-color-text-secondary);
+  font-size: var(--g-text-body-1-font-size);
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.my-repositories__table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.my-repositories__name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--g-color-text-primary);
+  font-weight: 600;
+}
+
+.my-repositories__external {
+  display: inline-grid;
+  place-items: center;
+  color: var(--g-color-text-hint);
+}
+
+.my-repositories__external:hover,
+.my-repositories__external:focus-visible {
+  color: var(--rh-accent);
+}
+
+.my-repositories__meta,
+.my-repositories__status {
+  display: block;
+  margin-top: 3px;
+}
+
+.my-repositories__empty {
+  margin-top: 20px;
+  padding: 28px;
+}
+
+.my-repositories__action {
+  display: grid;
+  gap: 5px;
+  justify-items: start;
+}
+
+.my-repositories__status_error {
+  color: var(--g-color-text-danger);
+}
+
+.my-repositories__status_done {
+  color: var(--g-color-text-positive);
+}
+
+.my-repositories__notice {
+  margin-top: 16px;
+}
+
+@media (max-width: 720px) {
+  .my-repositories__table-wrap {
+    margin-left: -16px;
+    margin-right: -16px;
+    border-radius: 0;
+  }
+}
