@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import subprocess
 import tempfile
 import unittest
 from collections.abc import Iterator
@@ -12,7 +13,11 @@ from pathlib import Path
 from unittest.mock import patch
 
 from backend.app.analyzers import code_health, documentation
-from backend.app.analyzers.code_health import MARKER_AGE_SUMMARY, MAX_FILE_READ_BYTES
+from backend.app.analyzers.code_health import (
+    DEFAULT_MAX_SOURCE_FILES,
+    MARKER_AGE_SUMMARY,
+    MAX_FILE_READ_BYTES,
+)
 from backend.app.contracts import (
     AnalysisContext,
     DataStatus,
@@ -20,6 +25,7 @@ from backend.app.contracts import (
     RepositoryRef,
 )
 from backend.app.integrations.git_repository import GitCloneError, LocalGitRepository
+from backend.app.integrations.sourcecraft import SourceCraftClient
 
 
 class CodeHealthCollectionTest(unittest.TestCase):
@@ -431,6 +437,195 @@ class MethodologyAlignmentTest(unittest.TestCase):
         self.assertEqual(code_health.FIXME_PENALTY_PER_MARKER, 5)
         self.assertEqual(code_health.TODO_PENALTY_PER_MARKER, 1)
         self.assertEqual(code_health.FIXME_CRITICAL_COUNT, 2)
+
+
+class LocalCloneScenarioTest(unittest.TestCase):
+    def test_complete_repository_scores_both_categories_at_100(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            remote = self._publish(
+                root / "origin",
+                {
+                    "README.md": "# Demo\n\n## Запуск\n\n```bash\npython -m pytest\n```\n",
+                    "CONTRIBUTING.md": "# Правила\n",
+                    "LICENSE": "MIT\n",
+                    "CODEOWNERS": "* @team\n",
+                    "service.py": "value = 1\n",
+                },
+            )
+            repository = LocalGitRepository(remote, ref="main", timeout_seconds=30)
+            repository.clone()
+            try:
+                facts_documentation = documentation.collect(repository)
+                facts_health = code_health.collect(repository)
+            finally:
+                repository.cleanup()
+
+        documented = documentation.evaluate(context(), facts_documentation)
+        health = code_health.evaluate(context(), facts_health)
+        self.assertEqual(documented.status, DataStatus.MEASURED)
+        self.assertEqual(documented.score, 100)
+        self.assertEqual(health.status, DataStatus.MEASURED)
+        self.assertEqual(health.score, 100)
+        self.assertIn(MARKER_AGE_SUMMARY, health.summary)
+
+    def test_missing_regulations_and_one_fixme_are_measured_penalties(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            remote = self._publish(root / "origin", {"service.py": "# FIXME: broken\n"})
+            repository = LocalGitRepository(remote, ref="main", timeout_seconds=30)
+            repository.clone()
+            try:
+                facts_documentation = documentation.collect(repository)
+                facts_health = code_health.collect(repository)
+            finally:
+                repository.cleanup()
+
+        documented = documentation.evaluate(context(), facts_documentation)
+        health = code_health.evaluate(context(), facts_health)
+        self.assertEqual(documented.status, DataStatus.MEASURED)
+        self.assertEqual(documented.score, 15)
+        self.assertEqual(health.status, DataStatus.MEASURED)
+        self.assertEqual(health.score, 0)
+        self.assertEqual(health.recommendations[0].priority, RecommendationPriority.P2)
+
+    def test_missing_remote_is_an_error_without_a_score(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            missing = str(Path(temporary_directory) / "missing.git")
+            token = "super-secret-token"
+            repository = LocalGitRepository(
+                missing,
+                ref="main",
+                auth_token=token,
+                timeout_seconds=30,
+            )
+            with self.assertRaises(GitCloneError) as captured:
+                repository.clone()
+
+        message = str(captured.exception)
+        self.assertNotIn(token, message)
+        self.assertNotIn(missing, message)
+        for module in (documentation, code_health):
+            result = module.evaluate(context(), {"error": message})
+            self.assertEqual(result.status, DataStatus.ERROR)
+            self.assertIsNone(result.score)
+
+    def _publish(self, origin: Path, files: dict[str, str]) -> str:
+        origin.mkdir()
+        self._git(origin, "init", "-b", "main")
+        for name, content in files.items():
+            path = origin / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content, encoding="utf-8")
+        self._git(origin, "add", ".")
+        environment = os.environ.copy()
+        environment.update(
+            {
+                "GIT_AUTHOR_NAME": "Repo Health Test",
+                "GIT_AUTHOR_EMAIL": "test@example.com",
+                "GIT_COMMITTER_NAME": "Repo Health Test",
+                "GIT_COMMITTER_EMAIL": "test@example.com",
+            }
+        )
+        self._git(origin, "commit", "-m", "init", env=environment)
+        return origin.as_uri()
+
+    def _git(self, repository: Path, *arguments: str, env: dict[str, str] | None = None) -> None:
+        subprocess.run(
+            ["git", "-c", "commit.gpgsign=false", "-C", str(repository), *arguments],
+            check=True,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+
+
+class LargeTreeScanTest(unittest.TestCase):
+    def test_ten_thousand_files_stay_inside_the_budget(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            for index in range(10_001):
+                (root / f"f{index:05d}.py").write_text("value = 1\n", encoding="utf-8")
+            repository = LocalGitRepository("https://example.invalid/large.git")
+            repository.temp_dir = temporary_directory
+            facts = code_health.collect(repository)
+            result = code_health.evaluate(context(), facts)
+
+        self.assertEqual(facts["total_files"], 10_001)
+        self.assertFalse(facts["truncated"])
+        self.assertGreater(facts["bytes_read"], 0)
+        self.assertEqual(result.status, DataStatus.MEASURED)
+        self.assertEqual(result.score, 100)
+
+    def test_past_the_file_budget_reports_volume_without_a_score(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            for index in range(DEFAULT_MAX_SOURCE_FILES + 1):
+                (root / f"f{index:05d}.py").write_text("value = 1\n", encoding="utf-8")
+            repository = LocalGitRepository("https://example.invalid/larger.git")
+            repository.temp_dir = temporary_directory
+            facts = code_health.collect(repository)
+            result = code_health.evaluate(context(), facts)
+
+        self.assertTrue(facts["truncated"])
+        self.assertEqual(facts["total_files"], DEFAULT_MAX_SOURCE_FILES)
+        self.assertEqual(result.status, DataStatus.INSUFFICIENT_SAMPLE)
+        self.assertIsNone(result.score)
+        metrics = {metric.code: metric.value for metric in result.metrics}
+        self.assertEqual(metrics["partial_analyzed_files"], DEFAULT_MAX_SOURCE_FILES)
+        self.assertGreater(metrics["partial_bytes_read"], 0)
+        self.assertEqual(metrics["partial_candidate_files"], DEFAULT_MAX_SOURCE_FILES + 1)
+
+
+@unittest.skipUnless(os.environ.get("SOURCECRAFT_LIVE") == "1", "set SOURCECRAFT_LIVE=1")
+class LiveSourceCraftFileAnalysisTest(unittest.TestCase):
+    def test_public_clone_url_and_three_control_repositories(self) -> None:
+        self.assertEqual(
+            SourceCraftClient.resolve_git_clone_url(
+                "k-5-45mm",
+                "dozzle-plus",
+                "https://sourcecraft.dev/k-5-45mm/dozzle-plus",
+            ),
+            "https://git.sourcecraft.dev/k-5-45mm/dozzle-plus.git",
+        )
+        healthy = self._measure("k-5-45mm", "dozzle-plus")
+        weaker = self._measure("brothersandksu", "casesc")
+        self.assertEqual(healthy[0].status, DataStatus.MEASURED)
+        self.assertEqual(weaker[0].status, DataStatus.MEASURED)
+        self.assertGreater(healthy[0].score, weaker[0].score)
+        self.assertEqual(healthy[1].status, DataStatus.MEASURED)
+        self.assertEqual(weaker[1].status, DataStatus.MEASURED)
+        self.assertGreater(healthy[1].score, 90)
+        self.assertIn(MARKER_AGE_SUMMARY, healthy[1].summary)
+
+        missing_url = SourceCraftClient.resolve_git_clone_url(
+            "missing-org",
+            "missing-repo",
+            "https://sourcecraft.dev/missing-org/missing-repo",
+        )
+        missing = LocalGitRepository(missing_url, ref="main", timeout_seconds=30)
+        with self.assertRaises(GitCloneError) as captured:
+            missing.clone()
+        self.assertNotIn(missing_url, str(captured.exception))
+        for module in (documentation, code_health):
+            result = module.evaluate(context(), {"error": str(captured.exception)})
+            self.assertEqual(result.status, DataStatus.ERROR)
+            self.assertIsNone(result.score)
+
+    def _measure(self, organization: str, slug: str):
+        url = SourceCraftClient.resolve_git_clone_url(
+            organization,
+            slug,
+            f"https://sourcecraft.dev/{organization}/{slug}",
+        )
+        repository = LocalGitRepository(url, ref="main", timeout_seconds=90)
+        repository.clone()
+        try:
+            documented = documentation.evaluate(context(), documentation.collect(repository))
+            health = code_health.evaluate(context(), code_health.collect(repository))
+        finally:
+            repository.cleanup()
+        return documented, health
 
 
 def context() -> AnalysisContext:

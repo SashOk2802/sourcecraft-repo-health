@@ -478,6 +478,36 @@ Evidence рекомендации называет конкретный файл
 Константы `PENALTY_*` в `backend/app/analyzers/documentation.py` совпадают
 с этой таблицей.
 
+### 4.5. Контрольные сценарии
+
+Локальные сценарии проходят через `LocalGitRepository.clone()`:
+
+| Сценарий | Ожидание |
+| --- | --- |
+| Полный набор регламентов и код без маркеров | Documentation 100, Code health 100, оба `measured` |
+| Нет регламентов, один FIXME в одном файле | Documentation 15, Code health 0, оба `measured` |
+| Remote не существует | `GitCloneError`; обе категории `error`, `score: null` |
+
+Дерево из 10 001 файла с языком из поддерживаемого набора укладывается в бюджет
+20 000 файлов / 50 МиБ и получает `measured`. Дерево из 20 001 файла
+останавливается: `insufficient_sample`, `score: null`, в метриках виден объём
+уже разобранных файлов.
+
+Живой shallow-прогон 27.09.2026, remote
+`https://git.sourcecraft.dev/{org}/{slug}.git`, ветка `main`:
+
+| Сценарий | Репозиторий | Commit | Documentation | Code health |
+| --- | --- | --- | --- | --- |
+| Более полный регламент | `k-5-45mm/dozzle-plus` | `374ce5cd` | `measured` 65; нет CONTRIBUTING и CODEOWNERS | `measured` 99.7; 302 файла, 1 TODO |
+| Слабая документация | `brothersandksu/casesc` | `65035b98` | `measured` 50; нет CONTRIBUTING, LICENSE и CODEOWNERS | `measured` 100; 20 файлов |
+| Нет инструкций запуска | `divkit/divkit` | `101b803e` | `measured` 70; нет CODEOWNERS и инструкций | `measured` 98.2; 768 файлов, 14 TODO |
+| Репозиторий недоступен | `missing-org/missing-repo` | — | `error`, `score: null` | `error`, `score: null` |
+
+Разница Documentation между `dozzle-plus` и `casesc` — 15 баллов при одном и
+том же прогоне. Повторный живой прогон включается переменной
+`SOURCECRAFT_LIVE=1`: публичные репозитории меняются, точные числа таблицы
+относятся к указанным commit.
+
 ## 5. Как менять методику
 
 1. Меняете порог или вес в коде анализатора или ядра.

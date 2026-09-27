@@ -60,8 +60,9 @@ def project_life_analyzer_provider(context: AnalysisContext) -> Iterable[Analyze
 def repo_content_analyzer_provider(context: AnalysisContext) -> Iterable[AnalyzerRegistration]:
     """Регистрирует категории Documentation и Code health (анализ файлов репозитория).
 
-    Git-remot URL резолвится через ``SourceCraftClient.resolve_git_clone_url`` —
-    тот же источник каталога и тот же Bearer-PAT, что у API-клиента. Один
+    Git-remote URL резолвится через ``SourceCraftClient.resolve_git_clone_url``
+    в ``https://git.sourcecraft.dev/{org}/{slug}.git``. Аутентификация — тот же
+    Bearer-PAT, что у API-клиента. Один
     аутентифицированный ``LocalGitRepository`` передаётся обоим коллекторам:
     clone выполняется один раз, cleanup — после возврата результата последней
     категории, поэтому временная директория не переживает запуск.

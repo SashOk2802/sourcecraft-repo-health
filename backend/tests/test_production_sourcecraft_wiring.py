@@ -120,7 +120,11 @@ class SourceCraftPublicRepositoryResolverTest(unittest.IsolatedAsyncioTestCase):
                 "platform-api",
                 "https://sourcecraft.dev/team/platform-api",
             ),
-            "https://sourcecraft.dev/team/platform-api.git",
+            "https://git.sourcecraft.dev/team/platform-api.git",
+        )
+        self.assertEqual(
+            SourceCraftClient.resolve_git_clone_url("team", "platform-api", None),
+            "https://git.sourcecraft.dev/team/platform-api.git",
         )
         for web_url in (
             "https://attacker.example/team/platform-api",
