@@ -1,6 +1,6 @@
 /**
- * Пока backend не отдаёт нужные endpoint, интерфейс работает на mock-данных.
- * Чтобы ходить в настоящий API, запустите frontend с переменной VITE_USE_MOCKS=false.
+ * Чистый Docker-запуск остаётся на mock-данных без SourceCraft-конфигурации.
+ * Настоящий API включают явно через VITE_USE_MOCKS=false после настройки backend.
  */
 export const mocksEnabled: boolean = import.meta.env.VITE_USE_MOCKS !== "false";
 
