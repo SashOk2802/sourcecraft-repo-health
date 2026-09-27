@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any, Literal
 from urllib.parse import urlsplit
 
@@ -19,6 +20,11 @@ _CONTROL_CHARACTERS = re.compile(r"[\x00-\x1f\x7f-\x9f]")
 _SOURCECRAFT_WEB_HOST = "sourcecraft.dev"
 _VISIBILITIES = frozenset({"public", "internal", "private"})
 _UINT64_MAX = 2**64 - 1
+_REACTION_TYPES = frozenset({"none", "positive_low", "positive_medium", "positive_high"})
+_POSITIVE_REACTION_TYPES = _REACTION_TYPES - {"none"}
+_RFC3339 = re.compile(
+    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$"
+)
 
 REPOSITORY_PAGE_SIZE = 100
 REPOSITORY_MAX_PAGES = 100
@@ -43,6 +49,9 @@ class SourceCraftRepository:
     language: str | None = field(repr=False)
     branch_count: int
     web_url: str | None = field(repr=False)
+    # Публичные реакции и время последнего изменения нужны для сортировок рейтинга.
+    likes: int | None = None
+    last_activity_at: datetime | None = field(default=None, repr=False)
 
     def as_repository_ref(self) -> RepositoryRef:
         """Возвращает минимальную ссылку для общего контекста анализа."""
@@ -117,6 +126,8 @@ def _parse_repository(
         )
 
     language = _parse_language(payload.get("language"))
+    likes = _parse_likes(payload.get("rating"))
+    last_activity_at = _parse_last_activity_at(payload.get("last_updated"))
 
     counters = payload.get("counters")
     if not isinstance(counters, dict):
@@ -140,6 +151,8 @@ def _parse_repository(
         language=language,
         branch_count=branch_count,
         web_url=web_url,
+        likes=likes,
+        last_activity_at=last_activity_at,
     )
 
 
@@ -175,6 +188,54 @@ def _parse_language(value: object) -> str | None:
             "SourceCraft repository language must contain a non-empty name"
         )
     return name
+
+
+def _parse_likes(value: object) -> int | None:
+    """Суммирует только положительные публичные реакции репозитория."""
+
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise SourceCraftResponseError("SourceCraft repository rating must be an object or null")
+    reaction_counts = value.get("reaction_counts")
+    if reaction_counts is None:
+        return None
+    if not isinstance(reaction_counts, list):
+        raise SourceCraftResponseError("SourceCraft repository reaction_counts must be an array")
+
+    seen_types: set[str] = set()
+    likes = 0
+    for reaction in reaction_counts:
+        if not isinstance(reaction, dict):
+            raise SourceCraftResponseError("SourceCraft repository reaction must be an object")
+        reaction_type = reaction.get("type")
+        if not isinstance(reaction_type, str) or reaction_type not in _REACTION_TYPES:
+            raise SourceCraftResponseError("SourceCraft repository reaction has an unknown type")
+        if reaction_type in seen_types:
+            raise SourceCraftResponseError("SourceCraft repository contains duplicate reaction types")
+        seen_types.add(reaction_type)
+        count = _parse_uint64(reaction.get("count"), "reaction counter")
+        if reaction_type in _POSITIVE_REACTION_TYPES:
+            likes += count
+            if likes > _UINT64_MAX:
+                raise SourceCraftResponseError("SourceCraft repository likes must be uint64")
+    return likes
+
+
+def _parse_last_activity_at(value: object) -> datetime | None:
+    """Проверяет RFC3339-время последнего изменения из public API."""
+
+    if value is None:
+        return None
+    if not isinstance(value, str) or not _RFC3339.fullmatch(value):
+        raise SourceCraftResponseError("SourceCraft repository last_updated must be RFC3339 or null")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as error:
+        raise SourceCraftResponseError(
+            "SourceCraft repository last_updated must be RFC3339 or null"
+        ) from error
+    return parsed.astimezone(UTC)
 
 
 def _parse_uint64(value: object, field_name: str) -> int:
