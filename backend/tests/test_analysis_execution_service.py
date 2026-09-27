@@ -35,6 +35,28 @@ class AnalysisExecutionServiceTest(unittest.IsolatedAsyncioTestCase):
             context.repository.id,
         )
 
+    async def test_create_or_get_reuses_a_scheduled_analysis_id(self) -> None:
+        timestamp = datetime(2026, 9, 19, 10, tzinfo=UTC)
+        context = _context("repo-42", timestamp)
+        service, _, _ = _service(timestamp)
+
+        first, created_first = await service.create_or_get_job(
+            context,
+            "analysis-scheduled-42",
+            owner_subject="system:public-scheduler",
+            worker_id="worker-1",
+        )
+        repeated, created_repeated = await service.create_or_get_job(
+            context,
+            "analysis-scheduled-42",
+            owner_subject="system:public-scheduler",
+            worker_id="worker-2",
+        )
+
+        self.assertTrue(created_first)
+        self.assertFalse(created_repeated)
+        self.assertEqual(repeated, first)
+
     async def test_rejects_context_for_another_repository_before_running_analyzers(
         self,
     ) -> None:
