@@ -15,6 +15,7 @@ from backend.app.integrations.sourcecraft_repository import (
     SourceCraftPublicCatalogSettings,
     SourceCraftRepositoryUnavailableError,
     create_sourcecraft_public_catalog_settings_from_environment,
+    is_temporary_sourcecraft_error,
 )
 
 _PUBLIC_VISIBILITY = "public"
@@ -63,7 +64,8 @@ class SourceCraftPublicRepositoryCatalog:
             )
         except SourceCraftClientError as error:
             raise SourceCraftRepositoryUnavailableError(
-                "SourceCraft repository catalog is unavailable"
+                "SourceCraft repository catalog is unavailable",
+                retryable=is_temporary_sourcecraft_error(error),
             ) from error
         except Exception as error:
             raise SourceCraftRepositoryUnavailableError(
