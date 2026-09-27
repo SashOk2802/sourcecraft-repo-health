@@ -698,6 +698,7 @@ def _unmeasured_result(facts: ActivityFacts, summary: str) -> CategoryResult:
             facts.contributors,
             facts.pulls,
             facts.releases,
+            facts.commit_history.collected and facts.commit_history.error is None,
         )
     ):
         return CategoryResult(
