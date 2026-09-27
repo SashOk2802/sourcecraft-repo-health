@@ -28,7 +28,11 @@ from backend.app.contracts import (
     RecommendationPriority,
     RepositoryRef,
 )
-from backend.app.integrations.git_repository import CommitTimestampPage, GitCloneError, read_commit_timestamps
+from backend.app.integrations.git_repository import (
+    CommitTimestampPage,
+    GitCloneError,
+    read_commit_timestamps,
+)
 from backend.app.integrations.sourcecraft import SourceCraftClient, SourceCraftClientError
 
 logger = logging.getLogger(__name__)
