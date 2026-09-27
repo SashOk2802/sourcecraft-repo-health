@@ -11,7 +11,7 @@ import subprocess
 import tempfile
 from base64 import b64encode
 from collections.abc import Iterator
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from urllib.parse import urlsplit
 
 logger = logging.getLogger(__name__)
@@ -21,6 +21,7 @@ DEFAULT_GIT_TIMEOUT_SECONDS = 60.0
 MAX_FILE_BYTES = 512 * 1024
 _SEGMENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 _COMMIT_SHA = re.compile(r"^[0-9a-fA-F]{7,64}$")
+_REGULAR_GIT_FILE_MODES = frozenset({"100644", "100755"})
 
 
 class GitCloneError(RuntimeError):
@@ -64,27 +65,64 @@ class LocalGitRepository:
         self._auth_token = auth_token or None
         self._timeout_seconds = timeout_seconds
         self.temp_dir: str | None = None
+        # После blobless clone здесь хранится commit и метаданные обычных
+        # файлов. Рабочее дерево намеренно не checkout'ится: иначе Git скачает
+        # все blob'ы репозитория ещё до лимитов анализатора.
+        self._treeish: str | None = None
+        self._tree_entries: dict[str, int | None] | None = None
 
     def clone(self) -> str:
-        """Клонирует дерево и, если задан SHA, переключается на него."""
+        """Получает только Git-дерево без checkout всех blob'ов.
+
+        ``--filter=blob:none`` оставляет на диске commit и дерево путей, но не
+        содержимое файлов. Размер каждого blob'а проверяется по метаданным до
+        отдельного чтения в ``read_file``; поэтому крупный репозиторий не может
+        заполнить диск до срабатывания бюджета Code health.
+        """
 
         self.cleanup()
         self.temp_dir = tempfile.mkdtemp(prefix="repo-health-")
         try:
-            self._run_git(["clone", "--depth", "1", self._repo_url, self.temp_dir])
+            self._run_git(
+                [
+                    "clone",
+                    "--depth",
+                    "1",
+                    "--filter=blob:none",
+                    "--no-checkout",
+                    self._repo_url,
+                    self.temp_dir,
+                ]
+            )
             if self._ref is not None:
-                self._run_git(["-C", self.temp_dir, "fetch", "--depth", "1", "origin", self._ref])
-                self._run_git(["-C", self.temp_dir, "checkout", "--detach", "FETCH_HEAD"])
+                self._run_git(
+                    [
+                        "-C",
+                        self.temp_dir,
+                        "fetch",
+                        "--depth",
+                        "1",
+                        "--filter=blob:none",
+                        "origin",
+                        self._ref,
+                    ]
+                )
+            self._treeish = self._resolve_commit("FETCH_HEAD" if self._ref is not None else "HEAD")
+            self._tree_entries = self._list_tree(self._treeish)
             return self.temp_dir
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
+        except (GitCloneError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
             self.cleanup()
             if isinstance(error, subprocess.TimeoutExpired):
                 raise GitCloneError("Клонирование репозитория превысило лимит времени.") from error
+            if isinstance(error, GitCloneError):
+                raise
             raise GitCloneError("Не удалось подготовить содержимое репозитория.") from error
 
     def file_exists(self, relative_path: str) -> bool:
         """Проверяет обычный файл внутри временного дерева, не следуя симлинкам."""
 
+        if self._tree_entries is not None:
+            return relative_path in self._tree_entries
         path = self._resolve_file(relative_path)
         return path is not None and path.is_file() and not path.is_symlink()
 
@@ -93,6 +131,21 @@ class LocalGitRepository:
 
         if max_bytes < 1:
             raise ValueError("max_bytes must be positive")
+        if self._tree_entries is not None:
+            size = self._tree_entries.get(relative_path)
+            if self._treeish is None or size is None or size > max_bytes:
+                return None
+            try:
+                content = self._run_git_bytes(
+                    ["-C", self._require_temp_dir(), "cat-file", "blob", f"{self._treeish}:{relative_path}"]
+                ).stdout
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+                return None
+            # Git должен вернуть ровно размер, объявленный деревом. Повторная
+            # проверка защищает бюджет при изменении удалённого объекта.
+            if len(content) > max_bytes or len(content) != size:
+                return None
+            return content.decode("utf-8", errors="replace")
         path = self._resolve_file(relative_path)
         if path is None or not path.is_file() or path.is_symlink():
             return None
@@ -105,6 +158,12 @@ class LocalGitRepository:
     def iter_files(self, *, excluded_directories: frozenset[str]) -> Iterator[str]:
         """Возвращает обычные файлы, не покидая workspace."""
 
+        if self._tree_entries is not None:
+            for relative_path in sorted(self._tree_entries):
+                if any(part in excluded_directories for part in PurePosixPath(relative_path).parts[:-1]):
+                    continue
+                yield relative_path
+            return
         if self.temp_dir is None:
             return
         root = Path(self.temp_dir).resolve()
@@ -125,6 +184,8 @@ class LocalGitRepository:
                     continue
 
     def file_size(self, relative_path: str) -> int | None:
+        if self._tree_entries is not None:
+            return self._tree_entries.get(relative_path)
         path = self._resolve_file(relative_path)
         if path is None or path.is_symlink():
             return None
@@ -137,6 +198,8 @@ class LocalGitRepository:
         """Удаляет только созданную этим объектом временную рабочую папку."""
 
         temp_dir, self.temp_dir = self.temp_dir, None
+        self._treeish = None
+        self._tree_entries = None
         if temp_dir is None:
             return
         try:
@@ -145,18 +208,9 @@ class LocalGitRepository:
             logger.warning("Не удалось удалить временную папку Git-клона.")
 
     def _run_git(self, arguments: list[str]) -> subprocess.CompletedProcess[str]:
-        environment = os.environ.copy()
+        environment = self._git_environment()
         # Backend-процесс не должен ожидать ввода логина или пароля в терминале.
         environment["GIT_TERMINAL_PROMPT"] = "0"
-        if self._auth_token is not None:
-            # Для Git SourceCraft PAT является паролем HTTP Basic. Заголовок
-            # передаётся через окружение и не попадает в URL или argv процесса.
-            credentials = b64encode(f"git:{self._auth_token}".encode()).decode("ascii")
-            environment["GIT_CONFIG_COUNT"] = "1"
-            environment["GIT_CONFIG_KEY_0"] = (
-                f"http.https://{SOURCECRAFT_GIT_HOST}/.extraHeader"
-            )
-            environment["GIT_CONFIG_VALUE_0"] = f"Authorization: Basic {credentials}"
         return subprocess.run(
             [
                 "git",
@@ -175,6 +229,86 @@ class LocalGitRepository:
             timeout=self._timeout_seconds,
             env=environment,
         )
+
+    def _run_git_bytes(self, arguments: list[str]) -> subprocess.CompletedProcess[bytes]:
+        """Выполняет Git без вывода ошибок и возвращает только blob bytes."""
+
+        return subprocess.run(
+            [
+                "git",
+                "-c",
+                "protocol.file.allow=never",
+                "-c",
+                "protocol.ext.allow=never",
+                "-c",
+                "http.followRedirects=false",
+                *arguments,
+            ],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            timeout=self._timeout_seconds,
+            env=self._git_environment(),
+        )
+
+    def _git_environment(self) -> dict[str, str]:
+        environment = os.environ.copy()
+        # Backend-процесс не должен ожидать ввода логина или пароля в терминале.
+        environment["GIT_TERMINAL_PROMPT"] = "0"
+        if self._auth_token is not None:
+            # Для Git SourceCraft PAT является паролем HTTP Basic. Заголовок
+            # передаётся через окружение и не попадает в URL или argv процесса.
+            credentials = b64encode(f"git:{self._auth_token}".encode()).decode("ascii")
+            environment["GIT_CONFIG_COUNT"] = "1"
+            environment["GIT_CONFIG_KEY_0"] = (
+                f"http.https://{SOURCECRAFT_GIT_HOST}/.extraHeader"
+            )
+            environment["GIT_CONFIG_VALUE_0"] = f"Authorization: Basic {credentials}"
+        return environment
+
+    def _resolve_commit(self, reference: str) -> str:
+        completed = self._run_git_bytes(
+            ["-C", self._require_temp_dir(), "rev-parse", "--verify", f"{reference}^{{commit}}"]
+        )
+        commit = completed.stdout.decode("ascii", errors="strict").strip()
+        if not _COMMIT_SHA.fullmatch(commit):
+            raise GitCloneError("Не удалось подтвердить commit подготовленного репозитория.")
+        return commit
+
+    def _list_tree(self, treeish: str) -> dict[str, int | None]:
+        """Возвращает метаданные только обычных файлов без чтения blob'ов."""
+
+        completed = self._run_git_bytes(
+            ["-C", self._require_temp_dir(), "ls-tree", "-r", "-z", "-l", treeish]
+        )
+        entries: dict[str, int | None] = {}
+        for record in completed.stdout.split(b"\0"):
+            if not record:
+                continue
+            metadata, separator, raw_path = record.partition(b"\t")
+            fields = metadata.split()
+            if separator != b"\t" or len(fields) != 4:
+                raise GitCloneError("Git вернул некорректное дерево репозитория.")
+            mode, object_type, _object_id, raw_size = fields
+            if mode.decode("ascii", errors="ignore") not in _REGULAR_GIT_FILE_MODES or object_type != b"blob":
+                continue
+            relative_path = raw_path.decode("utf-8", errors="surrogateescape")
+            path = PurePosixPath(relative_path)
+            if not relative_path or path.is_absolute() or ".." in path.parts:
+                raise GitCloneError("Git вернул небезопасный путь в дереве репозитория.")
+            try:
+                size = int(raw_size) if raw_size != b"-" else None
+            except ValueError as error:
+                raise GitCloneError("Git вернул некорректный размер файла.") from error
+            if size is not None and size < 0:
+                raise GitCloneError("Git вернул некорректный размер файла.")
+            entries[relative_path] = size
+        return entries
+
+    def _require_temp_dir(self) -> str:
+        if self.temp_dir is None:
+            raise GitCloneError("Git-репозиторий ещё не подготовлен.")
+        return self.temp_dir
 
     def _resolve_file(self, relative_path: str) -> Path | None:
         if self.temp_dir is None or not isinstance(relative_path, str):

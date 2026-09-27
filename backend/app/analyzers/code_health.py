@@ -35,6 +35,7 @@ _JS_EXPRESSION_PREFIX_KEYWORDS = frozenset({
     "delete",
     "do",
     "else",
+    "extends",
     "in",
     "instanceof",
     "new",
@@ -92,7 +93,13 @@ def collect(
             truncated = True
             break
         size = repository.file_size(relative_path)
-        if size is None or size > MAX_FILE_BYTES:
+        # В blobless Git-дереве неизвестный размер нельзя безопасно читать:
+        # Git пришлось бы скачать объект до проверки лимита. Останавливаем
+        # анализ вместо частичной и потенциально опасной оценки.
+        if size is None:
+            truncated = True
+            break
+        if size > MAX_FILE_BYTES:
             skipped_large += 1
             continue
         if total_bytes + size > max_total_bytes:

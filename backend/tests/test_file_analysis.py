@@ -8,6 +8,7 @@ from unittest.mock import patch
 from backend.app.analyzers import code_health, documentation
 from backend.app.contracts import AnalysisContext, DataStatus, RepositoryRef
 from backend.app.integrations.git_repository import (
+    MAX_FILE_BYTES,
     GitCloneError,
     LocalGitRepository,
     sourcecraft_clone_url,
@@ -75,6 +76,7 @@ class FileAnalysisTest(unittest.TestCase):
                 "if (ok) /[//] TODO/.test(value);\n"
                 "if ((ok && check())) {} /[//] TODO/.test(value);\n"
                 "export default /[//] TODO/;\n"
+                "class Derived extends /[//] TODO/.constructor {}\n"
                 "const grouped = (left + right) / divisor; // TODO: grouped division\n"
                 "const objectRatio = {value: 2} / divisor; // TODO: object division\n"
                 "const propertyRatio = obj.if(value) / divisor; // TODO: property call\n"
@@ -89,6 +91,38 @@ class FileAnalysisTest(unittest.TestCase):
         self.assertEqual(facts.todo_count, 4)
         self.assertEqual(facts.fixme_count, 1)
         self.assertEqual(facts.files_with_debt, 1)
+
+    @patch("backend.app.integrations.git_repository.subprocess.run")
+    def test_clone_uses_blobless_tree_without_checkout(self, run) -> None:
+        repository = LocalGitRepository(sourcecraft_clone_url("team", "service"))
+        run.side_effect = (
+            subprocess.CompletedProcess(["git"], 0),
+            subprocess.CompletedProcess(["git"], 0, stdout=b"a" * 40 + b"\n"),
+            subprocess.CompletedProcess(["git"], 0, stdout=b""),
+        )
+
+        with tempfile.TemporaryDirectory() as directory, patch(
+            "backend.app.integrations.git_repository.tempfile.mkdtemp",
+            return_value=directory,
+        ):
+            repository.clone()
+
+        clone_command = run.call_args_list[0].args[0]
+        self.assertIn("--filter=blob:none", clone_command)
+        self.assertIn("--no-checkout", clone_command)
+        self.assertNotIn("checkout", clone_command)
+
+    def test_blobless_reader_rejects_large_blob_before_git_can_fetch_it(self) -> None:
+        repository = LocalGitRepository(sourcecraft_clone_url("team", "service"))
+        repository.temp_dir = "/tmp/repo"
+        repository._treeish = "a" * 40
+        repository._tree_entries = {"large.py": MAX_FILE_BYTES + 1}
+
+        with patch.object(repository, "_run_git_bytes") as run_git:
+            content = repository.read_file("large.py")
+
+        self.assertIsNone(content)
+        run_git.assert_not_called()
 
     def test_evaluate_is_reproducible(self) -> None:
         docs = documentation.evaluate(self.context, documentation.DocumentationFacts(True, False, False, False, True))
