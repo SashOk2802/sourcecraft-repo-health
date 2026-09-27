@@ -216,7 +216,36 @@ class CodeHealthCollectionTest(unittest.TestCase):
         self.assertEqual(calls, [])
         self.assertEqual(facts["total_files"], 0)
         self.assertEqual(facts["skipped_large_files"], 1)
+        self.assertTrue(facts["incomplete"])
         self.assertFalse(facts["truncated"])
+        result = code_health.evaluate(self._context(), facts)
+        self.assertEqual(result.status, DataStatus.INSUFFICIENT_SAMPLE)
+        self.assertIsNone(result.score)
+        self.assertEqual(result.reason, "code_health_unreadable_source")
+
+    def test_oversized_file_beside_a_small_one_does_not_score(self) -> None:
+        with self._workspace() as root:
+            (root / "small.py").write_text("value = 1\n", encoding="utf-8")
+            (root / "big.py").write_text("x" * (MAX_FILE_READ_BYTES + 8), encoding="utf-8")
+            facts = code_health.collect(self._repository(root))
+            result = code_health.evaluate(self._context(), facts)
+
+        self.assertEqual(facts["total_files"], 1)
+        self.assertTrue(facts["incomplete"])
+        self.assertEqual(result.status, DataStatus.INSUFFICIENT_SAMPLE)
+        self.assertIsNone(result.score)
+
+    def test_block_comment_marker_uses_its_own_line(self) -> None:
+        with self._workspace() as root:
+            (root / "note.go").write_text(
+                "package p\n/*\nheader\nFIXME: buried\n*/\n",
+                encoding="utf-8",
+            )
+            facts = code_health.collect(self._repository(root))
+
+        self.assertEqual(facts["fixme_count"], 1)
+        self.assertEqual(facts["occurrences"][0]["line"], 4)
+        self.assertEqual(facts["occurrences"][0]["path"], "note.go")
 
     def test_generated_and_minified_files_are_skipped(self) -> None:
         with self._workspace() as root:

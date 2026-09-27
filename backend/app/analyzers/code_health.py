@@ -152,6 +152,7 @@ def collect(
         "bytes_read": 0,
         "candidate_files": 0,
         "truncated": False,
+        "incomplete": False,
         "occurrences": [],
     }
 
@@ -179,9 +180,11 @@ def collect(
                 size = os.path.getsize(file_path)
             except OSError:
                 facts["skipped_large_files"] += 1
+                facts["incomplete"] = True
                 continue
             if size > MAX_FILE_READ_BYTES:
                 facts["skipped_large_files"] += 1
+                facts["incomplete"] = True
                 continue
             if total_bytes + size > max_total_bytes:
                 facts["truncated"] = True
@@ -193,6 +196,7 @@ def collect(
             relative_path = os.path.relpath(file_path, temp_dir).replace(os.sep, "/")
             content = repo.read_file_safe(relative_path, max_bytes=MAX_FILE_READ_BYTES)
             if content is None or "\x00" in content:
+                facts["incomplete"] = True
                 continue
 
             spans = _comment_spans(content, extension)
@@ -241,20 +245,27 @@ def evaluate(context: AnalysisContext, raw_data: dict) -> CategoryResult:
             reason=raw_data["error"],
         )
 
-    if raw_data.get("truncated"):
+    if raw_data.get("truncated") or raw_data.get("incomplete"):
         checked = raw_data.get("total_files", 0)
         bytes_read = raw_data.get("bytes_read", 0)
         candidates = raw_data.get("candidate_files", 0)
+        unread = raw_data.get("incomplete") and not raw_data.get("truncated")
         return CategoryResult(
             category="code_health",
             status=DataStatus.INSUFFICIENT_SAMPLE,
             score=None,
             summary=(
-                "Анализ исходного кода остановлен по лимиту ресурсов: "
-                f"разобрано {checked} файлов, прочитано {bytes_read} байт, "
-                f"кандидатов встречено {candidates}."
+                "Часть исходных файлов не прочитана, поэтому балл Code health не ставится."
+                if unread
+                else (
+                    "Анализ исходного кода остановлен по лимиту ресурсов: "
+                    f"разобрано {checked} файлов, прочитано {bytes_read} байт, "
+                    f"кандидатов встречено {candidates}."
+                )
             ),
-            reason="code_health_scan_limit_exceeded",
+            reason=(
+                "code_health_unreadable_source" if unread else "code_health_scan_limit_exceeded"
+            ),
             metrics=(
                 MetricResult(
                     code="partial_analyzed_files",
@@ -489,8 +500,9 @@ def _marker_occurrences(
     """Вхождения маркера в комментариях: kind, путь и строка (для evidence)."""
     occurrences: list[dict] = []
     for text, line in spans:
-        for _ in pattern.finditer(text):
-            occurrences.append({"kind": kind, "path": relative_path, "line": line})
+        for match in pattern.finditer(text):
+            marker_line = line + text.count("\n", 0, match.start())
+            occurrences.append({"kind": kind, "path": relative_path, "line": marker_line})
     return occurrences
 
 
