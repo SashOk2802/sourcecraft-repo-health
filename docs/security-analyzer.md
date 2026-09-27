@@ -87,31 +87,45 @@ Production web-worker никогда не запускает локальный 
 
 1. На машине, где пользователь уже выполнил `src auth login`, запускается
    exporter. Он вызывает SourceCraft CLI, отбрасывает raw findings и атомарно
-   записывает только разрешённые агрегаты в отдельный каталог:
+   записывает только разрешённые агрегаты в отдельный каталог. Перед первым
+   запуском задайте GID группы, через которую контейнер сможет **только
+   читать** файл. Для локального Linux проще всего использовать свою основную
+   группу — это не требует `sudo`:
+
+   ```bash
+   export SOURCECRAFT_APPSEC_SNAPSHOT_HOST_DIR="$PWD/.local/sourcecraft-appsec-snapshots"
+   export SOURCECRAFT_APPSEC_SNAPSHOT_READER_GID="$(id -g)"
+   mkdir -p "$SOURCECRAFT_APPSEC_SNAPSHOT_HOST_DIR"
+   ```
+
+   Затем создайте snapshot тем же GID:
 
    ```bash
    python scripts/export_sourcecraft_appsec_snapshot.py OWNER/REPOSITORY \
-     --output-dir /absolute/path/to/appsec-snapshots \
+     --output-dir "$SOURCECRAFT_APPSEC_SNAPSHOT_HOST_DIR" \
+     --reader-gid "$SOURCECRAFT_APPSEC_SNAPSHOT_READER_GID" \
      --src-bin /absolute/path/to/src
    ```
 
    Идентификатор репозитория не вводится вручную: exporter читает его через
    `src api` для того же `OWNER/REPOSITORY`. Commit также не передаётся
-   аргументом: SourceCraft обязан сообщить одинаковый корректный
-   `latestCommit` для каждого доступного AppSec-скана. Если commit отсутствует
-   или значения расходятся, exporter ничего не записывает. Поэтому нельзя
-   случайно связать сводку одного scan'а с другим репозиторием или коммитом.
+   аргументом. Если scan содержит findings, SourceCraft обязан сообщить
+   одинаковый корректный `latestCommit` для каждого доступного scan'а. Для
+   подтверждённо пустого ответа `[]`, где такого поля по природе нет,
+   exporter отдельно читает head default-ветки через `src api`. Непустой,
+   частичный или противоречивый scan fallback'ом не исправляется. Поэтому
+   нельзя случайно связать сводку одного scan'а с другим репозиторием или
+   коммитом.
 
-2. Этот каталог монтируется в `backend` только для чтения. Внутри контейнера
-   задаются `SOURCECRAFT_APPSEC_SNAPSHOT_DIR=/run/sourcecraft-appsec` и
-   `SOURCECRAFT_APPSEC_SNAPSHOT_MAX_AGE_SECONDS=3600` (или меньший допустимый
-   интервал). Пример для локального `compose.override.yaml`:
+2. В стандартном `compose.yaml` этот каталог уже монтируется в `backend` как
+   `/run/sourcecraft-appsec:ro`. Docker добавляет backend-пользователя `app`
+   только в группу `SOURCECRAFT_APPSEC_SNAPSHOT_READER_GID`; exporter создаёт
+   каталог с правами `0750` и JSON с `0640`. Поэтому backend может прочитать
+   snapshot, но не изменить файл или каталог хоста. После export запустите
+   Compose в том же shell, чтобы он увидел обе переменные из шага 1:
 
-   ```yaml
-   services:
-     backend:
-       volumes:
-         - /absolute/path/to/appsec-snapshots:/run/sourcecraft-appsec:ro
+   ```bash
+   docker compose up --build
    ```
 
 Snapshot привязан SHA-256 отпечатком к `repository.id`, к конкретному commit и

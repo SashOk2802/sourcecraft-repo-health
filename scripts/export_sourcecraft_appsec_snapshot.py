@@ -17,6 +17,7 @@ from pathlib import Path
 
 from backend.app.integrations.sourcecraft_appsec_probe import SourceCraftAppSecCliProbe
 from backend.app.integrations.sourcecraft_appsec_snapshot import (
+    DEFAULT_SNAPSHOT_READER_GID,
     SourceCraftAppSecCliSnapshotExporter,
     SourceCraftAppSecSnapshotExportError,
 )
@@ -44,6 +45,15 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         help="максимальное ожидание каждого ответа в секундах (по умолчанию: 20)",
     )
+    parser.add_argument(
+        "--reader-gid",
+        default=DEFAULT_SNAPSHOT_READER_GID,
+        type=int,
+        help=(
+            "GID backend-пользователя, которому разрешено только читать snapshot "
+            f"(по умолчанию: {DEFAULT_SNAPSHOT_READER_GID})"
+        ),
+    )
     return parser
 
 
@@ -58,7 +68,11 @@ def main(argv: list[str] | None = None) -> int:
             probe,
             cli_binary=args.src_bin,
             timeout_seconds=args.timeout,
-        ).export(args.repository, args.output_dir)
+        ).export(
+            args.repository,
+            args.output_dir,
+            reader_gid=args.reader_gid,
+        )
     except (OSError, TypeError, ValueError, SourceCraftAppSecSnapshotExportError):
         # Не печатаем вывод SourceCraft CLI, содержимое snapshot и текст ОС:
         # все они могут включить пользовательский путь или данные AppSec.

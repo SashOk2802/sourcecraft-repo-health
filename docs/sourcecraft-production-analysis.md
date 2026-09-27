@@ -27,16 +27,23 @@ Code health и Security. CI/CD использует REST API. Security не за
 
 Для демонстрации реальных AppSec-данных предусмотрен необязательный безопасный
 snapshot bridge. Локальный exporter, запущенный после `src auth login`, оставляет
-в отдельном каталоге только группы `severity/status/count`. Backend читает этот
-каталог через read-only mount, если задан абсолютный
-`SOURCECRAFT_APPSEC_SNAPSHOT_DIR`; `SOURCECRAFT_APPSEC_SNAPSHOT_MAX_AGE_SECONDS`
-ограничивает срок свежести (по умолчанию 3600 секунд). Exporter сам получает
-repository id через SourceCraft API и принимает commit только когда каждый
-доступный AppSec scan сообщил одинаковый `latestCommit`; оба значения не
-принимаются оператором вручную. Snapshot обязан совпасть по SHA-256 отпечатку
-repository id и по commit SHA задания. Неверный, старый, слишком большой файл
-или symlink не используется; корневой каталог и файл не могут быть symlink'ами.
-Без свежего snapshot'а Security возвращает `unavailable`.
+в отдельном каталоге только группы `severity/status/count`. Compose монтирует
+`SOURCECRAFT_APPSEC_SNAPSHOT_HOST_DIR` в backend как read-only
+`/run/sourcecraft-appsec:ro`. Exporter назначает файлу права `0640` и каталогу
+`0750` для GID `SOURCECRAFT_APPSEC_SNAPSHOT_READER_GID`, а backend получает
+только членство в этой группе. Так разные Unix-пользователи могут передать
+snapshot без world-readable прав и без возможности backend менять данные хоста.
+`SOURCECRAFT_APPSEC_SNAPSHOT_MAX_AGE_SECONDS` ограничивает срок свежести
+(по умолчанию 3600 секунд).
+
+Exporter сам получает repository id через SourceCraft API. Непустой AppSec scan
+принимается только с единым `latestCommit`; для подтверждённо пустого ответа
+`[]`, где commit отсутствует, exporter отдельно читает head default-ветки.
+Непустой, частичный или противоречивый результат fallback'ом не исправляется.
+Snapshot обязан совпасть по SHA-256 отпечатку repository id и по commit SHA
+задания. Неверный, старый, слишком большой файл или symlink не используется;
+корневой каталог и файл не могут быть symlink'ами. Без свежего snapshot'а
+Security возвращает `unavailable`.
 
 CLI пока подтверждает только ограниченную выборку последнего скана, а не
 постраничный полный набор. Поэтому exporter сохраняет `completeness=unknown`:

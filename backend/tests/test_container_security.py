@@ -12,10 +12,17 @@ class ContainerSecurityTest(unittest.TestCase):
     def test_backend_container_runs_as_named_non_root_user(self) -> None:
         dockerfile = _read("backend/Dockerfile")
 
-        self.assertIn("groupadd --system app", dockerfile)
-        self.assertIn("useradd --system --gid app", dockerfile)
+        self.assertIn("groupadd --gid 10001 app", dockerfile)
+        self.assertIn("useradd --uid 10001 --gid app", dockerfile)
         self.assertIn("chown -R app:app /app", dockerfile)
         self.assertEqual(_last_user(dockerfile), "app")
+
+    def test_appsec_snapshot_mount_is_read_only_for_the_backend_user(self) -> None:
+        compose = _read("compose.yaml")
+
+        self.assertIn("SOURCECRAFT_APPSEC_SNAPSHOT_DIR: /run/sourcecraft-appsec", compose)
+        self.assertIn("SOURCECRAFT_APPSEC_SNAPSHOT_READER_GID", compose)
+        self.assertIn(":/run/sourcecraft-appsec:ro", compose)
 
     def test_frontend_container_runs_as_named_non_root_user(self) -> None:
         dockerfile = _read("frontend/Dockerfile")

@@ -18,8 +18,10 @@ from backend.app.contracts import AnalysisContext, DataStatus, RepositoryRef
 from backend.app.integrations.sourcecraft_appsec_probe import (
     AppSecFindingGroup,
     AppSecProbeResult,
+    SourceCraftAppSecCliProbe,
 )
 from backend.app.integrations.sourcecraft_appsec_snapshot import (
+    DEFAULT_SNAPSHOT_READER_GID,
     MAX_SNAPSHOT_BYTES,
     SourceCraftAppSecCliSnapshotExporter,
     SourceCraftAppSecSnapshotExportError,
@@ -144,6 +146,7 @@ class SourceCraftAppSecSnapshotTest(unittest.TestCase):
             ("schema_version", True),
             ("repository_id_sha256", "z" * 64),
             ("commit_sha", "z" * 40),
+            ("commit_sha", "+" + "a" * 39),
         ):
             with self.subTest(field=field):
                 destination = self._write(_complete_results())
@@ -205,6 +208,39 @@ class SourceCraftAppSecSnapshotTest(unittest.TestCase):
                 collected_at=self.now,
                 results=_complete_results(),
             )
+
+    def test_snapshot_can_be_shared_read_only_with_backend_group(self) -> None:
+        """Exporter не открывает файл миру и не выдаёт группе право записи."""
+
+        with (
+            patch("backend.app.integrations.sourcecraft_appsec_snapshot.os.chown") as chown,
+            patch("backend.app.integrations.sourcecraft_appsec_snapshot.os.fchown") as fchown,
+        ):
+            destination = write_snapshot(
+                self.snapshot_directory,
+                repository_id=self.context.repository.id,
+                commit_sha=self.context.commit_sha,
+                collected_at=self.now,
+                results=_complete_results(),
+                reader_gid=DEFAULT_SNAPSHOT_READER_GID,
+            )
+
+        self.assertEqual(stat.S_IMODE(self.snapshot_directory.stat().st_mode), 0o750)
+        self.assertEqual(stat.S_IMODE(destination.stat().st_mode), 0o640)
+        chown.assert_called_once_with(self.snapshot_directory, -1, DEFAULT_SNAPSHOT_READER_GID)
+        self.assertEqual(fchown.call_args.args[1:], (-1, DEFAULT_SNAPSHOT_READER_GID))
+
+    def test_snapshot_rejects_invalid_reader_gid(self) -> None:
+        for reader_gid in (True, -1, "10001"):
+            with self.subTest(reader_gid=reader_gid), self.assertRaises((TypeError, ValueError)):
+                write_snapshot(
+                    self.snapshot_directory,
+                    repository_id=self.context.repository.id,
+                    commit_sha=self.context.commit_sha,
+                    collected_at=self.now,
+                    results=_complete_results(),
+                    reader_gid=reader_gid,  # type: ignore[arg-type]
+                )
 
     def test_environment_requires_absolute_directory_and_positive_age(self) -> None:
         self.assertIsNone(snapshot_settings_from_environment({}))
@@ -305,6 +341,50 @@ class SourceCraftAppSecSnapshotTest(unittest.TestCase):
                     exporter.export("example-org/example-repo", self.snapshot_directory)
 
                 runner.assert_not_called()
+
+    def test_cli_exporter_binds_clean_scan_to_default_branch_commit(self) -> None:
+        commands: list[list[str]] = []
+
+        def runner(command: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+            commands.append(command)
+            if command[1:4] == ["appsec", "defect", "list"]:
+                # Реальный наблюдаемый ответ SourceCraft CLI: пустой список
+                # валиден, но не несёт ``latestCommit``.
+                return subprocess.CompletedProcess(command, 0, stdout="[]")
+            responses = {
+                "repos/example-org/example-repo": '{"id":"repository-id-redacted","default_branch":"main"}',
+                "repos/example-org/example-repo/branches?filter=main": (
+                    '{"branches":[{"name":"main","commit":{"hash":"' + COMMIT_SHA + '"}}]}'
+                ),
+            }
+            return subprocess.CompletedProcess(command, 0, stdout=responses[command[4]])
+
+        probe = SourceCraftAppSecCliProbe(cli_binary="/safe/path/src", runner=runner)
+        destination = SourceCraftAppSecCliSnapshotExporter(
+            probe,
+            cli_binary="/safe/path/src",
+            runner=runner,
+            clock=lambda: self.now,
+        ).export("example-org/example-repo", self.snapshot_directory)
+        payload = json.loads(destination.read_text(encoding="utf-8"))
+
+        self.assertEqual(len(commands), 5)
+        self.assertEqual(
+            commands[-2:],
+            [
+                ["/safe/path/src", "api", "-X", "GET", "repos/example-org/example-repo", "--json"],
+                [
+                    "/safe/path/src",
+                    "api",
+                    "-X",
+                    "GET",
+                    "repos/example-org/example-repo/branches?filter=main",
+                    "--json",
+                ],
+            ],
+        )
+        self.assertEqual(payload["commit_sha"], COMMIT_SHA)
+        self.assertEqual(payload["repository_id_sha256"], repository_fingerprint("repository-id-redacted"))
 
     def test_cli_exporter_rejects_unsafe_repository_before_calling_sourcecraft(self) -> None:
         probe = Mock()

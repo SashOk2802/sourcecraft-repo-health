@@ -10,8 +10,10 @@ RUN apt-get update \
     && apt-get install --no-install-recommends -y git \
     && rm -rf /var/lib/apt/lists/*
 
-RUN groupadd --system app \
-    && useradd --system --gid app --no-create-home --home-dir /app --shell /usr/sbin/nologin app
+# Этот GID — явный контракт с exporter'ом AppSec snapshot: файл получает
+# group-read для 10001, а backend читает его из bind mount только как :ro.
+RUN groupadd --gid 10001 app \
+    && useradd --uid 10001 --gid app --no-create-home --home-dir /app --shell /usr/sbin/nologin app
 
 COPY pyproject.toml README.md ./
 COPY backend ./backend

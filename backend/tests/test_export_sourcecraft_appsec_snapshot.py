@@ -9,6 +9,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+from backend.app.integrations.sourcecraft_appsec_snapshot import DEFAULT_SNAPSHOT_READER_GID
 from scripts.export_sourcecraft_appsec_snapshot import main
 
 
@@ -40,6 +41,10 @@ class ExportSourceCraftAppSecSnapshotTest(unittest.TestCase):
 
             self.assertEqual(exit_code, 0)
             self.assertEqual(exporter.export.call_args.args, ("example-org/example-repo", Path(temporary_directory)))
+            self.assertEqual(
+                exporter.export.call_args.kwargs,
+                {"reader_gid": DEFAULT_SNAPSHOT_READER_GID},
+            )
             self.assertNotIn("example-org", output.getvalue())
             self.assertIn("safe-snapshot.json", output.getvalue())
 
