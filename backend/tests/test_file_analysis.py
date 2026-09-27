@@ -68,6 +68,22 @@ class CodeHealthCollectionTest(unittest.TestCase):
         self.assertEqual(result.status, DataStatus.INSUFFICIENT_SAMPLE)
         self.assertIsNone(result.score)
 
+    def test_dense_comments_keep_evidence_bounded(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            marker_count = 10_000
+            (root / "dense.py").write_text(
+                "# TODO FIXME\n" * marker_count,
+                encoding="utf-8",
+            )
+            repository = LocalGitRepository("https://example.invalid/repo.git")
+            repository.temp_dir = directory
+            facts = code_health.collect(repository)
+
+        self.assertEqual(facts["todo_count"], marker_count)
+        self.assertEqual(facts["fixme_count"], marker_count)
+        self.assertLessEqual(len(facts["occurrences"]), code_health.MAX_EVIDENCE_ENTRIES)
+
     def test_unreadable_large_source_does_not_count_as_clean(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
