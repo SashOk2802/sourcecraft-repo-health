@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 SYSTEM_SCHEDULER_SUBJECT = "system:public-scheduler"
 _DEFAULT_SCAN_INTERVAL = timedelta(minutes=1)
-_DEFAULT_ENTRY_LEASE = timedelta(minutes=2)
+_DEFAULT_ENTRY_LEASE = timedelta(minutes=5)
 _DEFAULT_BATCH_SIZE = 10
 
 
@@ -277,7 +277,6 @@ class InMemoryAnalysisScheduleStore:
             entry = self._entries.get(repository_id)
             if (
                 entry is None
-                or not entry.active
                 or entry.in_flight_analysis_id is not None
                 or entry.lease_owner != lease_owner
             ):
@@ -498,7 +497,6 @@ class PostgresAnalysisScheduleStore:
                 lease_expires_at = NULL,
                 updated_at = $4
             WHERE repository_id = $1
-                AND active = TRUE
                 AND in_flight_analysis_id IS NULL
                 AND lease_owner = $2
             """,
