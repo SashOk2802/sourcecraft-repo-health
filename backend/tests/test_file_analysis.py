@@ -411,6 +411,28 @@ class DocumentationCollectionTest(unittest.TestCase):
         self.assertIn("README.md", missing.evidence[0].summary)
 
 
+class MethodologyAlignmentTest(unittest.TestCase):
+    def test_documented_penalties_match_code_and_stay_unapproved(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        methodology = (root / "docs/scoring-methodology.md").read_text(encoding="utf-8")
+        approval = (root / "docs/methodology-owner-approval.md").read_text(encoding="utf-8")
+
+        self.assertIn("### 4.4. Documentation", methodology)
+        self.assertIn("### 4.1. CI/CD", methodology)
+        self.assertIn("PENDING_APPROVAL", methodology)
+        self.assertIn("PENDING_APPROVAL", approval)
+        self.assertNotIn("**APPROVED**", approval)
+        self.assertEqual(documentation.PENALTY_README, 35)
+        self.assertEqual(documentation.PENALTY_CONTRIBUTING, 20)
+        self.assertEqual(documentation.PENALTY_LICENSE, 15)
+        self.assertEqual(documentation.PENALTY_CODEOWNERS, 15)
+        self.assertEqual(documentation.PENALTY_INSTRUCTIONS, 15)
+        self.assertIn("| `has_readme` | `README.md`, `README.rst` | 35 | P1 |", methodology)
+        self.assertEqual(code_health.FIXME_PENALTY_PER_MARKER, 5)
+        self.assertEqual(code_health.TODO_PENALTY_PER_MARKER, 1)
+        self.assertEqual(code_health.FIXME_CRITICAL_COUNT, 2)
+
+
 def context() -> AnalysisContext:
     now = datetime(2026, 9, 27, 12, tzinfo=UTC)
     return AnalysisContext(

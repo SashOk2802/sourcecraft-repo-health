@@ -27,7 +27,7 @@ CODEOWNERS_PATHS = ("CODEOWNERS", ".github/CODEOWNERS", "docs/CODEOWNERS")
 LICENSE_PATHS = ("LICENSE", "LICENSE.md", "LICENSE.txt", "COPYING", "LICENCE")
 
 # Штрафы за отсутствие регламентов (источник правды для «Как считаем» —
-# docs/scoring-methodology.md §5; здесь значения должны совпадать).
+# docs/scoring-methodology.md §4.4; здесь значения должны совпадать).
 PENALTY_README = 35.0
 PENALTY_CONTRIBUTING = 20.0
 PENALTY_LICENSE = 15.0
