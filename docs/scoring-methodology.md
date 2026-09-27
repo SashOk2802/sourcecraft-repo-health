@@ -7,6 +7,7 @@
 | Раздел | Реализация |
 | --- | --- |
 | Итоговый Score | `backend/app/scoring/engine.py` |
+| Категория Security | `backend/app/analyzers/security.py` |
 | Категория Issues | `backend/app/analyzers/issues.py` |
 | Категория Activity | `backend/app/analyzers/activity.py` |
 | Общие статусы и контракты | `backend/app/contracts.py` |
@@ -385,11 +386,56 @@ CI/CD score = successful_automated_outcome_runs / all_automated_outcome_runs * 1
 детали требуют отдельной подтверждённой схемы данных и безопасной политики
 вывода.
 
-### 4.2. Security
+### 4.2. Security — AppSec SourceCraft
 
-Security-анализатор пока нормализует доступность AppSec-данных. Числовая
-формула SAST, SCA и secret scanning появится только после подтверждённой схемы
-findings, полноты выборки и политики обработки чувствительных деталей.
+Security учитывает только реальные агрегированные результаты AppSec SourceCraft
+из SAST, SCA и secret scanning. Собственный сканер не запускается.
+
+Числовой результат допускается только при всех условиях:
+
+1. каждый из трёх движков вернул `available`;
+2. у каждого стоит `completeness = complete`;
+3. безопасные группы `severity/status/count` полностью покрывают число
+   полученных findings;
+4. severity и status входят в подтверждённый набор контракта.
+
+Если любое условие не выполнено, Security получает `insufficient_sample` с
+причиной `appsec_coverage_not_confirmed`, не участвует в Score и не становится
+нулём. `null` от всех движков означает `unavailable`. Так ограниченная
+CLI-выборка или неизвестная схема ответа не превращаются в ложную оценку.
+
+Открытыми считаются статусы `OPEN` и `TRIAGED_TP`; статусы `RESOLVED_FP` и
+`RESOLVED_TOLERABLE` не снижают оценку. Для score используются только
+агрегированные количества, без путей, текста правил, фрагментов кода,
+идентификаторов finding'ов и секретов.
+
+```text
+penalty = 60 * min(critical, 2)
+        + 15 * min(high, 3)
+        +  5 * min(medium, 4)
+        +  1 * min(low, 10)
+
+SecurityScore = max(0, 100 - penalty)
+```
+
+`INFO` не уменьшает балл. Ограничители количества нужны, чтобы длинный список
+однотипных LOW/MEDIUM findings не доминировал над остальными категориями.
+
+Подтверждённый (`TRIAGED_TP`) открытый critical finding дополнительно включает
+глобальное правило:
+
+```text
+RepoHealthScore = min(Score_base, 60)
+```
+
+Обычный `OPEN` critical уже снижает Security Score, но не включает глобальный
+cap, пока он не подтверждён. Это не даёт неподтверждённому finding'у
+необратимо исказить весь рейтинг. Правило вычисляется автоматически из
+метрики `appsec_confirmed_open_critical_findings` в общем scoring engine.
+
+Контрольные сценарии фиксируют: пустой полный scan → 100; подтверждённый
+critical → Security 40 и глобальный cap; false positive/исправленный finding
+не влияют; повторяющиеся HIGH/MEDIUM/LOW ограничены формулой.
 
 ### 4.3. Code health — плотность технического долга
 
