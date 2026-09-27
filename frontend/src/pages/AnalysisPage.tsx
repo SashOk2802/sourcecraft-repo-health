@@ -2,8 +2,13 @@ import { ArrowRotateLeft, ArrowUpRightFromSquare, Printer } from "@gravity-ui/ic
 import { Button, Icon, Link as GravityLink, Text } from "@gravity-ui/uikit";
 import { useEffect, useState } from "react";
 
-import { fetchAnalysisStatus, isAnalysisFinished, type AnalysisStatusResponse } from "../api/analyses";
-import { ApiError, describeError } from "../api/http";
+import {
+  describeStartError,
+  fetchAnalysisStatus,
+  isAnalysisFinished,
+  type AnalysisStatusResponse,
+} from "../api/analyses";
+import { ApiError } from "../api/http";
 import { mocksEnabled } from "../api/mockMode";
 import { fetchReport, type RepositoryReport } from "../api/report";
 import { useAuth } from "../auth/AuthContext";
@@ -18,6 +23,7 @@ import { ScoreCard } from "../components/report/ScoreCard";
 import { dataOf, useAsync } from "../hooks/useAsync";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { useStartAnalysis } from "../hooks/useStartAnalysis";
+import { yandexAuthPendingHint } from "../lib/featureFlags";
 import { formatDateTime } from "../lib/format";
 import { Link, navigate } from "../router";
 import { paths } from "../routes";
@@ -150,7 +156,7 @@ function ReportView({ report }: { report: RepositoryReport }) {
 
       {rerun.error && (
         <Text variant="body-2" color="danger" className="report__rerun-error">
-          Не удалось запустить анализ. {describeError(rerun.error)}
+          Не удалось запустить анализ. {describeStartError(rerun.error)}
         </Text>
       )}
 
@@ -190,7 +196,13 @@ function NoReportNote({ signInRequired }: { signInRequired: boolean }) {
       </Text>
       <div className="no-report__actions">
         {offerSignIn && (
-          <Button view="action" size="l" onClick={() => auth.signIn(window.location.pathname)}>
+          <Button
+            view="action"
+            size="l"
+            disabled={!auth.canSignIn}
+            title={auth.canSignIn ? undefined : yandexAuthPendingHint}
+            onClick={() => auth.signIn(window.location.pathname)}
+          >
             Войти через Яндекс ID
           </Button>
         )}

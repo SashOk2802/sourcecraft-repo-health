@@ -3,12 +3,18 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { mocksEnabled } from "../api/mockMode";
 import { fetchCurrentUser, signOut, yandexSignInUrl, type CurrentUser } from "../api/me";
 import { mockSession } from "../api/mocks/session";
+import { yandexAuthReady } from "../lib/featureFlags";
 import { navigate } from "../router";
 
 export interface AuthState {
   /** unknown — ещё не спросили backend. */
   status: "unknown" | "guest" | "signedIn";
   user: CurrentUser | null;
+  /**
+   * Можно ли войти. На mock-данных вход локальный; с настоящим API — только там, где настроен
+   * OAuth Яндекса (VITE_YANDEX_AUTH): иначе backend отвечает 503 «не настроен».
+   */
+  canSignIn: boolean;
   /** Уводит на вход через Яндекс ID и после входа возвращает на returnTo. */
   signIn: (returnTo: string) => void;
   signOut: () => Promise<void>;
@@ -40,6 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       status,
       user,
+      canSignIn: mocksEnabled || yandexAuthReady,
       signIn: (returnTo) => {
         if (mocksEnabled) {
           mockSession.signIn();

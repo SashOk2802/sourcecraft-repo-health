@@ -1,6 +1,7 @@
 import { Alert, Button, Label, Link as GravityLink, Text, TextInput } from "@gravity-ui/uikit";
 import { useState } from "react";
 
+import { describeStartError } from "../api/analyses";
 import {
   connectSourceCraft,
   disconnectSourceCraft,
@@ -15,6 +16,7 @@ import { dataOf, useAsync } from "../hooks/useAsync";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { useStartAnalysis } from "../hooks/useStartAnalysis";
 import { cn } from "../lib/classNames";
+import { yandexAuthPendingHint } from "../lib/featureFlags";
 import { formatDateTimeCompact, formatScore } from "../lib/format";
 import { getScoreBand } from "../lib/scoreBands";
 import { Link } from "../router";
@@ -39,13 +41,15 @@ export function MyRepositoriesPage() {
       </div>
 
       {auth.status === "unknown" && <LoadingNote>Проверяем вход</LoadingNote>}
-      {auth.status === "guest" && <SignInInvite onSignIn={() => auth.signIn(paths.myRepositories())} />}
+      {auth.status === "guest" && (
+        <SignInInvite unavailable={!auth.canSignIn} onSignIn={() => auth.signIn(paths.myRepositories())} />
+      )}
       {auth.status === "signedIn" && <ConnectedArea />}
     </div>
   );
 }
 
-function SignInInvite({ onSignIn }: { onSignIn: () => void }) {
+function SignInInvite({ unavailable, onSignIn }: { unavailable: boolean; onSignIn: () => void }) {
   return (
     <section className="card my-repos__invite">
       <Text variant="subheader-2" as="h2">
@@ -60,10 +64,15 @@ function SignInInvite({ onSignIn }: { onSignIn: () => void }) {
         <li>Выберите репозиторий из списка и запустите проверку.</li>
         <li>Через пару минут получите оценку, объяснение и список действий.</li>
       </ol>
-      <div>
-        <Button view="action" size="l" onClick={onSignIn}>
+      <div className="my-repos__invite-actions">
+        <Button view="action" size="l" disabled={unavailable} onClick={onSignIn}>
           Войти через Яндекс ID
         </Button>
+        {unavailable && (
+          <Text variant="body-1" color="secondary">
+            {yandexAuthPendingHint}.
+          </Text>
+        )}
       </div>
     </section>
   );
@@ -245,7 +254,7 @@ function RepositoryList() {
           theme="danger"
           view="outlined"
           title="Не удалось запустить анализ"
-          message={describeError(analysis.error)}
+          message={describeStartError(analysis.error)}
         />
       )}
     </>

@@ -1,10 +1,9 @@
 import { Pulse } from "@gravity-ui/icons";
 import { Button, Icon, Text } from "@gravity-ui/uikit";
 
-import { mocksEnabled } from "../api/mockMode";
 import { useAuth } from "../auth/AuthContext";
 import { cn } from "../lib/classNames";
-import { yandexAuthPendingHint, yandexAuthReady } from "../lib/featureFlags";
+import { yandexAuthPendingHint } from "../lib/featureFlags";
 import { Link } from "../router";
 import { paths, type PageName, type Route } from "../routes";
 import { ThemeSwitch } from "./ThemeSwitch";
@@ -82,19 +81,15 @@ function UserArea() {
     );
   }
 
-  /*
-   * На mock-данных вход работает локально, а с настоящим API ведёт на
-   * /api/v1/auth/yandex, которого backend ещё не поднял: там был 404.
-   * Пока endpoint нет, кнопка показывается выключенной.
-   */
-  if (!mocksEnabled && !yandexAuthReady) {
+  // Без настроенного OAuth backend ответит на вход 503 — вместо перехода кнопка выключена.
+  if (!auth.canSignIn) {
     return (
       <span className="site-header__signin" title={yandexAuthPendingHint}>
         <Button view="outlined" size="m" disabled>
           Войти через Яндекс ID
         </Button>
         <Text variant="caption-2" color="secondary" className="site-header__signin-note">
-          скоро
+          не настроен
         </Text>
       </span>
     );

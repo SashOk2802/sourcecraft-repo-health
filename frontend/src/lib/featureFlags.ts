@@ -1,8 +1,7 @@
 /*
- * Часть экранов опирается на endpoint, которых backend ещё не поднял
- * (docs/api-contract.md: реализованы healthcheck и отчёт по снимку анализа).
- * Пока endpoint нет, интерфейс не уводит на 404, а показывает элемент выключенным.
- * Включается переменной окружения, когда backend будет готов.
+ * Вход через Яндекс ID backend уже умеет (/api/v1/auth/yandex/*), но без OAuth-переменных
+ * YANDEX_CLIENT_ID, YANDEX_CLIENT_SECRET и YANDEX_REDIRECT_URI отвечает 503 «не настроен».
+ * Поэтому кнопки входа включает VITE_YANDEX_AUTH=true — только там, где OAuth настроен.
  */
 
 /** Вход через Яндекс ID: `/api/v1/auth/yandex/*`. */
@@ -12,6 +11,5 @@ export function isYandexAuthReady(value: string | undefined): boolean {
 
 export const yandexAuthReady = isYandexAuthReady(import.meta.env.VITE_YANDEX_AUTH);
 
-/** Что показать вместо перехода, пока вход не подключён. */
-export const yandexAuthPendingHint =
-  "Вход через Яндекс ID появится, когда backend поднимет /api/v1/auth/yandex";
+/** Что показать вместо перехода, пока вход в окружении не настроен. */
+export const yandexAuthPendingHint = "Вход через Яндекс ID на этом сервере пока не настроен";

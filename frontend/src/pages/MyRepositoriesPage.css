@@ -15,6 +15,13 @@
   list-style: decimal;
 }
 
+.my-repos__invite-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+
 .my-repos__token-form {
   display: flex;
   flex-wrap: wrap;

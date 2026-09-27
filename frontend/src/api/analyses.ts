@@ -1,5 +1,5 @@
 import type { AnalysisStatus } from "./common";
-import { ApiError, getJson, postJson } from "./http";
+import { ApiError, describeError, getJson, postJson } from "./http";
 import { mocksEnabled, withMockDelay } from "./mockMode";
 import { fetchMockAnalysis, startMockAnalysis } from "./mocks/analyses";
 
@@ -80,4 +80,34 @@ export async function startAnalysis(repositoryId: string): Promise<StartedAnalys
     return withMockDelay(started, 250);
   }
   return postJson<StartedAnalysis>(`/api/v1/repositories/${encodeURIComponent(repositoryId)}/analyses`);
+}
+
+/**
+ * Почему не запустился анализ — по кодам POST /api/v1/repositories/{id}/analyses
+ * (docs/api-contract.md). Пока без подключения SourceCraft к кабинету backend проверяет
+ * только публичные репозитории из настроенного каталога, отсюда отдельные тексты для 403 и 404.
+ */
+export function describeStartError(error: Error): string {
+  if (error instanceof ApiError) {
+    if (error.status === 401) return "Сессия закончилась — войдите через Яндекс ID ещё раз.";
+    // Защита от подделки запросов (docs/csrf-protection.md): POST пришёл не с адреса сервиса.
+    if (error.status === 403 && /cross-site/i.test(error.message)) {
+      return "Сервер отклонил запрос с этого адреса. Откройте сервис по его основному адресу и попробуйте снова.";
+    }
+    if (error.status === 403) {
+      return "Сейчас можно проверить только публичный репозиторий: закрытые и внутренние откроются, когда SourceCraft подключат к кабинету.";
+    }
+    if (error.status === 404) return "Такого репозитория нет в каталоге, который проверяет сервис.";
+    if (error.status === 422) return "Такой идентификатор репозитория не подходит — проверьте, что скопировали его целиком.";
+    // 429 — SourceCraft ограничил частоту запросов, 502 — его ответ не превратить в анализ.
+    if (error.status === 429) return "SourceCraft просит подождать: слишком много запросов подряд. Попробуйте через минуту.";
+    if (error.status === 502) return "SourceCraft вернул данные, по которым анализ не запустить. Попробуйте позже.";
+    if (error.status === 503) {
+      // backend/app/main.py: каталог SourceCraft не ответил — это временно; иначе запуск не настроен.
+      return /catalog/i.test(error.message)
+        ? "SourceCraft сейчас не отдаёт данные этого репозитория. Попробуйте через несколько минут."
+        : "Запуск анализа на сервере пока не настроен. Попробуйте позже.";
+    }
+  }
+  return describeError(error);
 }
