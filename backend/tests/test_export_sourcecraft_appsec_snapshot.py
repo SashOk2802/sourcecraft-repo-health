@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import io
+import subprocess
+import sys
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -14,6 +16,20 @@ from scripts.export_sourcecraft_appsec_snapshot import main
 
 
 class ExportSourceCraftAppSecSnapshotTest(unittest.TestCase):
+    def test_documented_direct_python_invocation_finds_project_package(self) -> None:
+        script = Path(__file__).parents[2] / "scripts" / "export_sourcecraft_appsec_snapshot.py"
+
+        completed = subprocess.run(
+            [sys.executable, str(script), "--help"],
+            check=False,
+            capture_output=True,
+            text=True,
+            cwd=script.parents[1],
+        )
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn("Создать безопасный AppSec snapshot", completed.stdout)
+
     def test_exporter_writes_safe_snapshot_without_repository_slug(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             output = io.StringIO()

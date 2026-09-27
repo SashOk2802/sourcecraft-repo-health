@@ -15,6 +15,13 @@ import argparse
 import sys
 from pathlib import Path
 
+# Команду документируем как ``python scripts/...``. При таком запуске Python
+# добавляет в sys.path только каталог scripts, поэтому явно добавляем корень
+# проекта до импортов backend. Запуск ``python -m scripts...`` уже содержит
+# корень и эту ветку не выполняет.
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 from backend.app.integrations.sourcecraft_appsec_probe import SourceCraftAppSecCliProbe
 from backend.app.integrations.sourcecraft_appsec_snapshot import (
     DEFAULT_SNAPSHOT_READER_GID,
