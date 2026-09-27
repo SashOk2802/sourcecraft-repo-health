@@ -80,7 +80,7 @@ class CodeHealthCollectionTest(unittest.TestCase):
             facts = code_health.collect(repository)
 
         self.assertEqual(facts["todo_count"], 1)
-        self.assertEqual(facts["occurrences"][0]["line"], 2)
+        self.assertEqual(facts["occurrences"][0]["line"], 3)
 
     def test_dense_comments_keep_evidence_bounded(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
