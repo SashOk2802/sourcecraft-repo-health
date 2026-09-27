@@ -61,3 +61,10 @@ Git-клон используется только Documentation и Code health.
 REST-клиент SourceCraft создаётся с `trust_env=False`: proxy и подмена CA через
 `HTTPS_PROXY`, `SSL_CERT_FILE` и другие переменные окружения не влияют на
 запросы с Bearer PAT.
+
+
+## Регулярный пересчёт public-каталога
+
+Для периодического обновления рейтинга задайте `PUBLIC_ANALYSIS_SCHEDULER_ENABLED=true` после применения миграций PostgreSQL. Планировщик читает только тот же allowlist `SOURCECRAFT_PUBLIC_ORGANIZATIONS`, создаёт ограниченную пачку заданий через production-dispatcher и не использует данные browser-сессий или пользовательские токены. Если PostgreSQL, public-каталог или production-dispatcher не сконфигурированы, явное включение завершит запуск с ошибкой вместо небезопасного fallback.
+
+Подробности об интервалах, retry и координации экземпляров: [политика регулярного пересчёта](scheduling-policy.md).
