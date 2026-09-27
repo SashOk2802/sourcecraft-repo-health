@@ -1,6 +1,6 @@
 /**
- * Пока backend не отдаёт нужные endpoint, интерфейс работает на mock-данных.
- * Чтобы ходить в настоящий API, запустите frontend с переменной VITE_USE_MOCKS=false.
+ * Mock-режим нужен только для изолированной вёрстки без backend.
+ * Docker-окружение задаёт VITE_USE_MOCKS=false, поэтому демо использует настоящий API.
  */
 export const mocksEnabled: boolean = import.meta.env.VITE_USE_MOCKS !== "false";
 
