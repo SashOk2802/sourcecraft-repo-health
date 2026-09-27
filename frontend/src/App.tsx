@@ -1,5 +1,6 @@
 import type { ReactElement } from "react";
 
+import { AuthProvider } from "./auth/AuthContext";
 import { SiteFooter } from "./components/SiteFooter";
 import { SiteHeader } from "./components/SiteHeader";
 import { AnalysisPage } from "./pages/AnalysisPage";
@@ -16,9 +17,11 @@ export function App() {
 
   return (
     <ThemeChoiceProvider>
-      <SiteHeader route={route} />
-      <main className="page">{renderPage(route)}</main>
-      <SiteFooter />
+      <AuthProvider>
+        <SiteHeader route={route} />
+        <main className="page">{renderPage(route)}</main>
+        <SiteFooter />
+      </AuthProvider>
     </ThemeChoiceProvider>
   );
 }

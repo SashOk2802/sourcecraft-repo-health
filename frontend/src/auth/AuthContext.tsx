@@ -1,0 +1,78 @@
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+
+import { mocksEnabled } from "../api/mockMode";
+import { fetchCurrentUser, signOut, yandexSignInUrl, type CurrentUser } from "../api/me";
+import { mockSession } from "../api/mocks/session";
+import { yandexAuthReady } from "../lib/featureFlags";
+import { navigate } from "../router";
+import { paths } from "../routes";
+
+export interface AuthState {
+  /** unknown — ещё не спросили backend. */
+  status: "unknown" | "guest" | "signedIn";
+  user: CurrentUser | null;
+  /**
+   * Можно ли войти. На mock-данных вход локальный; с настоящим API — только там, где настроен
+   * OAuth Яндекса (VITE_YANDEX_AUTH): иначе backend отвечает 503 «не настроен».
+   */
+  canSignIn: boolean;
+  /** Уводит на вход через Яндекс ID; backend после него открывает «Мои репозитории». */
+  signIn: () => void;
+  signOut: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthState | null>(null);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<CurrentUser | null>(null);
+  const [status, setStatus] = useState<AuthState["status"]>("unknown");
+
+  const loadUser = useCallback((): void => {
+    fetchCurrentUser().then(
+      (current) => {
+        setUser(current);
+        setStatus(current ? "signedIn" : "guest");
+      },
+      // Backend недоступен: работаем как с гостем, публичные страницы от этого не ломаются.
+      () => {
+        setUser(null);
+        setStatus("guest");
+      },
+    );
+  }, []);
+
+  useEffect(loadUser, [loadUser]);
+
+  const value = useMemo<AuthState>(
+    () => ({
+      status,
+      user,
+      canSignIn: mocksEnabled || yandexAuthReady,
+      signIn: () => {
+        if (mocksEnabled) {
+          mockSession.signIn();
+          loadUser();
+          navigate(paths.myRepositories());
+          return;
+        }
+        window.location.assign(yandexSignInUrl());
+      },
+      signOut: async () => {
+        await signOut();
+        setUser(null);
+        setStatus("guest");
+      },
+    }),
+    [status, user, loadUser],
+  );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth(): AuthState {
+  const value = useContext(AuthContext);
+  if (!value) {
+    throw new Error("useAuth можно вызывать только внутри AuthProvider");
+  }
+  return value;
+}

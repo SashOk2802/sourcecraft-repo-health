@@ -1,0 +1,164 @@
+.my-repos__invite,
+.my-repos__connect {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  max-width: 760px;
+}
+
+.my-repos__steps {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 20px;
+  color: var(--g-color-text-secondary);
+  list-style: decimal;
+}
+
+.my-repos__invite-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+
+.my-repos__token-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+}
+
+.my-repos__token-input {
+  max-width: 420px;
+}
+
+/* Подключение — своя карточка, как фильтры в рейтинге. */
+.my-repos__connection {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 13px 18px;
+  margin-bottom: 14px;
+  border-radius: var(--rh-radius-card);
+  background: var(--rh-surface);
+  box-shadow: var(--rh-shadow-1);
+}
+
+.my-repos__table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--rh-surface);
+  border-radius: var(--rh-radius-card);
+  box-shadow: var(--rh-shadow-1);
+  overflow: hidden;
+}
+
+.my-repos__table th {
+  padding: 14px 12px 12px 0;
+  background: var(--rh-surface-muted);
+  border-bottom: 1px solid var(--rh-hairline);
+  color: var(--g-color-text-secondary);
+  font-size: var(--g-text-body-1-font-size);
+  font-weight: 400;
+  text-align: left;
+}
+
+.my-repos__table td {
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--rh-hairline);
+  vertical-align: middle;
+}
+
+.my-repos__table th:first-child,
+.my-repos__table td:first-child {
+  padding-left: 22px;
+}
+
+.my-repos__table th:last-child,
+.my-repos__table td:last-child {
+  padding-right: 22px;
+}
+
+.my-repos__table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.my-repos__table tbody tr {
+  transition: background 140ms ease-out;
+}
+
+.my-repos__table tbody tr:hover td {
+  background: var(--rh-accent-soft);
+}
+
+.my-repos__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.my-repos__link {
+  color: var(--g-color-text-primary);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+a.my-repos__link:hover {
+  color: var(--g-color-text-link-hover);
+}
+
+.my-repos__org {
+  color: var(--g-color-text-secondary);
+  font-weight: 400;
+}
+
+.my-repos__about {
+  display: block;
+}
+
+.my-repos__last {
+  width: 220px;
+}
+
+.my-repos__score {
+  width: 84px;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.my-repos__score_band_mid {
+  color: var(--g-color-text-warning-heavy);
+}
+
+.my-repos__score_band_low {
+  color: var(--g-color-text-danger);
+}
+
+.my-repos__actions {
+  width: 260px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.my-repos__actions-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.my-repos__error {
+  margin-top: 16px;
+}
+
+@media (max-width: 900px) {
+  .my-repos__last {
+    display: none;
+  }
+
+  .my-repos__actions {
+    width: auto;
+  }
+}

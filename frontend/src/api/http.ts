@@ -23,7 +23,7 @@ export async function postJson<T>(path: string, body?: unknown): Promise<T> {
   });
 }
 
-async function request<T>(path: string, init: RequestInit): Promise<T> {
+export async function request<T>(path: string, init: RequestInit): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set("Accept", "application/json");
 
