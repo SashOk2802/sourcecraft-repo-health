@@ -131,41 +131,51 @@ def collect(
     }
     candidate_files = total_bytes = 0
 
-    for relative_path in repo.iter_files(excluded_directories=EXCLUDED_DIRECTORIES):
-        extension = Path(relative_path).suffix.lower()
-        if extension not in SUPPORTED_EXTENSIONS:
-            continue
-        candidate_files += 1
-        if candidate_files > max_files:
-            facts["truncated"] = True
-            break
-        size = repo.file_size(relative_path)
-        if size is None:
-            # Без размера нельзя доказать соблюдение бюджета до lazy-fetch.
-            facts["truncated"] = True
-            break
-        if size > MAX_FILE_BYTES:
-            facts["skipped_large_files"] += 1
-            continue
-        if total_bytes + size > max_total_bytes:
-            facts["truncated"] = True
-            break
-        # Списываем размер до read_file: бинарный файл тоже расходует лимит.
-        total_bytes += size
-        content = repo.read_file(relative_path, max_bytes=MAX_FILE_BYTES)
-        if content is None or "\x00" in content:
-            continue
+    try:
+        for entry in repo.iter_file_entries(excluded_directories=EXCLUDED_DIRECTORIES):
+            relative_path = entry.relative_path
+            extension = Path(relative_path).suffix.lower()
+            if extension not in SUPPORTED_EXTENSIONS:
+                continue
+            candidate_files += 1
+            if candidate_files > max_files:
+                facts["truncated"] = True
+                break
+            size = entry.size
+            if size is None:
+                # Без размера нельзя доказать соблюдение бюджета до lazy-fetch.
+                facts["truncated"] = True
+                break
+            if size > MAX_FILE_BYTES:
+                facts["skipped_large_files"] += 1
+                continue
+            if total_bytes + size > max_total_bytes:
+                facts["truncated"] = True
+                break
+            # Списываем размер до read_file: бинарный файл тоже расходует лимит.
+            total_bytes += size
+            content = repo.read_file(
+                relative_path,
+                max_bytes=MAX_FILE_BYTES,
+                expected_size=size,
+            )
+            if content is None or "\x00" in content:
+                continue
 
-        facts["total_files"] += 1
-        comments = _comments_only(content, extension)
-        todos = len(TODO_PATTERN.findall(comments))
-        fixmes = len(FIXME_PATTERN.findall(comments))
-        if todos == 0 and fixmes == 0:
-            continue
+            facts["total_files"] += 1
+            comments = _comments_only(content, extension)
+            todos = len(TODO_PATTERN.findall(comments))
+            fixmes = len(FIXME_PATTERN.findall(comments))
+            if todos == 0 and fixmes == 0:
+                continue
 
-        facts["todo_count"] += todos
-        facts["fixme_count"] += fixmes
-        facts["files_with_debt"] += 1
+            facts["todo_count"] += todos
+            facts["fixme_count"] += fixmes
+            facts["files_with_debt"] += 1
+    except GitCloneError:
+        # Даже один нечитабельный blob или оборванный вывод ``ls-tree`` означает,
+        # что набор исходников неполный. Частичной оценкой нельзя завышать score.
+        facts["truncated"] = True
 
     return facts
 

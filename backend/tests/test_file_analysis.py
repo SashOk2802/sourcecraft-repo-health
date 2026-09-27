@@ -10,9 +10,14 @@ from backend.app.contracts import AnalysisContext, DataStatus, RepositoryRef
 from backend.app.integrations.git_repository import (
     MAX_FILE_BYTES,
     GitCloneError,
+    GitTreeLimitError,
     LocalGitRepository,
     sourcecraft_clone_url,
 )
+
+
+def _tree_record(relative_path: str, size: int) -> bytes:
+    return f"100644 blob {'a' * 40} {size}\t{relative_path}\0".encode()
 
 
 class FileAnalysisTest(unittest.TestCase):
@@ -116,7 +121,6 @@ class FileAnalysisTest(unittest.TestCase):
         run.side_effect = (
             subprocess.CompletedProcess(["git"], 0),
             subprocess.CompletedProcess(["git"], 0, stdout=b"a" * 40 + b"\n"),
-            subprocess.CompletedProcess(["git"], 0, stdout=b""),
         )
 
         with tempfile.TemporaryDirectory() as directory, patch(
@@ -140,7 +144,6 @@ class FileAnalysisTest(unittest.TestCase):
             subprocess.CompletedProcess(["git"], 0),
             subprocess.CompletedProcess(["git"], 0),
             subprocess.CompletedProcess(["git"], 0, stdout=b"a" * 40 + b"\n"),
-            subprocess.CompletedProcess(["git"], 0, stdout=b""),
         )
 
         with tempfile.TemporaryDirectory() as directory, patch(
@@ -160,13 +163,102 @@ class FileAnalysisTest(unittest.TestCase):
         repository = LocalGitRepository(sourcecraft_clone_url("team", "service"))
         repository.temp_dir = "/tmp/repo"
         repository._treeish = "a" * 40
-        repository._tree_entries = {"large.py": MAX_FILE_BYTES + 1}
 
         with patch.object(repository, "_run_git_bytes") as run_git:
-            content = repository.read_file("large.py")
+            content = repository.read_file("large.py", expected_size=MAX_FILE_BYTES + 1)
 
         self.assertIsNone(content)
         run_git.assert_not_called()
+
+    def test_blobless_tree_stops_at_entry_limit_without_consuming_the_whole_tree(self) -> None:
+        repository = LocalGitRepository(sourcecraft_clone_url("team", "service"))
+        repository.temp_dir = "/tmp/repo"
+        repository._treeish = "a" * 40
+        consumed: list[str] = []
+
+        def chunks():
+            for filename in ("first.py", "second.py", "third.py", "fourth.py"):
+                consumed.append(filename)
+                yield _tree_record(filename, 7)
+
+        with (
+            patch.object(repository, "_iter_git_tree_chunks", return_value=chunks()),
+            self.assertRaises(GitTreeLimitError),
+        ):
+            list(
+                repository.iter_file_entries(
+                    excluded_directories=frozenset(),
+                    max_entries=2,
+                    max_tree_bytes=10_000,
+                )
+            )
+
+        self.assertEqual(consumed, ["first.py", "second.py", "third.py"])
+
+    def test_blobless_tree_stops_at_metadata_byte_limit(self) -> None:
+        repository = LocalGitRepository(sourcecraft_clone_url("team", "service"))
+        repository.temp_dir = "/tmp/repo"
+        repository._treeish = "a" * 40
+        record = _tree_record("app.py", 7)
+
+        with (
+            patch.object(repository, "_iter_git_tree_chunks", return_value=iter((record,))),
+            self.assertRaises(GitTreeLimitError),
+        ):
+            list(
+                repository.iter_file_entries(
+                    excluded_directories=frozenset(),
+                    max_entries=10,
+                    max_tree_bytes=len(record) - 1,
+                )
+            )
+
+    def test_blobless_tree_streams_entries_from_a_real_git_tree(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "app.py").write_text("# TODO\n", encoding="utf-8")
+            for arguments in (
+                ["git", "init", "--quiet", directory],
+                ["git", "-C", directory, "add", "app.py"],
+            ):
+                subprocess.run(arguments, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            treeish = subprocess.run(
+                ["git", "-C", directory, "write-tree"],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+            ).stdout.decode("ascii").strip()
+            repository = LocalGitRepository(sourcecraft_clone_url("team", "service"))
+            repository.temp_dir = directory
+            repository._treeish = treeish
+
+            entries = list(repository.iter_file_entries(excluded_directories=frozenset()))
+            facts = code_health.collect(repository)
+
+        self.assertEqual(entries[0].relative_path, "app.py")
+        self.assertEqual(entries[0].size, 7)
+        self.assertEqual((facts["total_files"], facts["todo_count"]), (1, 1))
+
+    def test_blob_fetch_failure_returns_insufficient_sample_not_a_score(self) -> None:
+        repository = LocalGitRepository(sourcecraft_clone_url("team", "service"))
+        repository.temp_dir = "/tmp/repo"
+        repository._treeish = "a" * 40
+
+        with (
+            patch.object(repository, "_iter_git_tree_chunks", return_value=iter((_tree_record("app.py", 7),))),
+            patch.object(
+                repository,
+                "_run_git_bytes",
+                side_effect=subprocess.TimeoutExpired(["git", "cat-file"], 1),
+            ),
+        ):
+            facts = code_health.collect(repository)
+
+        self.assertTrue(facts["truncated"])
+        self.assertEqual(facts["total_files"], 0)
+        result = code_health.evaluate(self.context, facts)
+        self.assertEqual(result.status, DataStatus.INSUFFICIENT_SAMPLE)
+        self.assertIsNone(result.score)
 
     def test_evaluate_is_reproducible(self) -> None:
         docs = documentation.evaluate(
