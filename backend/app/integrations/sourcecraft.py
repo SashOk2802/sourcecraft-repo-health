@@ -200,14 +200,14 @@ class SourceCraftClient:
         некорректному ответу платформы запустить бесконечный цикл запросов.
         """
 
-        if not items_field:
+        if not isinstance(items_field, str):
+            raise TypeError("items_field must be a string")
+        if not items_field.strip():
             raise ValueError("items_field must not be empty")
-        if page_size < 1:
-            raise ValueError("page_size must be positive")
-        if max_pages < 1:
-            raise ValueError("max_pages must be positive")
+        _validate_positive_int(page_size, "page_size")
+        _validate_positive_int(max_pages, "max_pages")
 
-        request_params = dict(params or {})
+        request_params = _validated_query_params(params)
         request_params["page_size"] = page_size
         request_params.pop("page_token", None)
         collected: list[dict[str, Any]] = []
@@ -281,3 +281,35 @@ class SourceCraftClient:
             raise SourceCraftRequestError(
                 "SourceCraft request path must be a relative path beginning with '/'"
             )
+
+
+
+def _validate_positive_int(value: object, field: str) -> None:
+    """Проверяет лимит до построения запроса и до цикла."""
+
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise TypeError(f"{field} must be an integer")
+    if value <= 0:
+        raise ValueError(f"{field} must be positive")
+
+
+def _validated_query_params(
+    params: Mapping[str, str | int] | None,
+) -> dict[str, str | int]:
+    """Копирует только допустимые типы query-параметров SourceCraft."""
+
+    if params is None:
+        return {}
+    if not isinstance(params, Mapping):
+        raise TypeError("params must be a mapping")
+
+    validated: dict[str, str | int] = {}
+    for key, value in params.items():
+        if not isinstance(key, str):
+            raise TypeError("SourceCraft query parameter names must be strings")
+        if not key.strip() or "\x00" in key:
+            raise ValueError("SourceCraft query parameter names must be non-empty and safe")
+        if not isinstance(value, (str, int)) or isinstance(value, bool):
+            raise TypeError("SourceCraft query parameter values must be strings or integers")
+        validated[key] = value
+    return validated

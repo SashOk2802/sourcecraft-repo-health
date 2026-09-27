@@ -189,6 +189,46 @@ class SourceCraftClientTest(unittest.TestCase):
                 max_pages=0,
             )
 
+        for invalid_items_field in (None, True, 1):
+            with self.subTest(invalid_items_field=invalid_items_field), self.assertRaises(TypeError):
+                client.get_paginated_objects(
+                    "/repos/example-org/example-repo/cicd/runs",
+                    items_field=invalid_items_field,  # type: ignore[arg-type]
+                )
+        with self.assertRaises(ValueError):
+            client.get_paginated_objects(
+                "/repos/example-org/example-repo/cicd/runs", items_field="   "
+            )
+
+        for field, invalid_value in (
+            ("page_size", True),
+            ("page_size", 1.5),
+            ("page_size", float("nan")),
+            ("max_pages", False),
+            ("max_pages", 2.5),
+            ("max_pages", float("inf")),
+        ):
+            with self.subTest(field=field, invalid_value=invalid_value), self.assertRaises(TypeError):
+                client.get_paginated_objects(
+                    "/repos/example-org/example-repo/cicd/runs",
+                    items_field="runs",
+                    **{field: invalid_value},  # type: ignore[arg-type]
+                )
+
+        for invalid_params, expected_error in (
+            ([("filter", "main")], TypeError),
+            ({" ": "main"}, ValueError),
+            ({"\x00filter": "main"}, ValueError),
+            ({"filter": True}, TypeError),
+            ({"filter": 1.5}, TypeError),
+        ):
+            with self.subTest(invalid_params=invalid_params), self.assertRaises(expected_error):
+                client.get_paginated_objects(
+                    "/repos/example-org/example-repo/cicd/runs",
+                    items_field="runs",
+                    params=invalid_params,  # type: ignore[arg-type]
+                )
+
         self.assertEqual(requests, [])
 
     def test_authentication_error_does_not_include_token(self) -> None:
