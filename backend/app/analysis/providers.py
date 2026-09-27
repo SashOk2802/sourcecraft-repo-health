@@ -18,6 +18,10 @@ from backend.app.analyzers import activity, cicd, code_health, documentation, is
 from backend.app.contracts import AnalysisContext, CategoryResult, DataStatus
 from backend.app.integrations.git_repository import GitCloneError, LocalGitRepository
 from backend.app.integrations.sourcecraft import SourceCraftClient, SourceCraftClientError
+from backend.app.integrations.sourcecraft_appsec_snapshot import (
+    SourceCraftAppSecSnapshotStore,
+    snapshot_settings_from_environment,
+)
 from backend.app.integrations.sourcecraft_cicd import SourceCraftCicdClient
 from backend.app.integrations.sourcecraft_cicd_facts import make_cicd_facts_provider
 
@@ -93,10 +97,10 @@ def repo_content_analyzer_provider(context: AnalysisContext) -> Iterable[Analyze
 def sourcecraft_analyzer_provider(context: AnalysisContext) -> Iterable[AnalyzerRegistration]:
     """Регистрирует все шесть категорий для одного production-запуска.
 
-    CI/CD использует подтверждённый REST-адаптер. Security также регистрируется,
-    но до серверного AppSec API возвращает честный статус unavailable: имеющийся
-    CLI-probe опирается на локальную пользовательскую сессию и не должен
-    выполняться внутри web-worker.
+    CI/CD использует подтверждённый REST-адаптер. Security читает только
+    опциональный свежий AppSec snapshot из read-only каталога. Его создаёт
+    локальный CLI-процесс пользователя; worker никогда не получает IAM-сессию
+    или raw finding'и. Без snapshot'а Security честно остаётся unavailable.
     """
     token = read_sourcecraft_token()
     return (
@@ -125,9 +129,13 @@ def _cicd_evaluator(token: str):
 
 
 def _security_evaluator():
-    """Регистрирует Security без запуска локального SourceCraft CLI в сервере."""
+    """Регистрирует Security с опциональным безопасным AppSec snapshot-ом."""
 
-    return security.make_analyzer(lambda _: security.build_facts(None))
+    settings = snapshot_settings_from_environment()
+    if settings is None:
+        return security.make_analyzer(lambda _: security.build_facts(None))
+    store = SourceCraftAppSecSnapshotStore(settings)
+    return security.make_context_analyzer(store.collect)
 
 
 def _sourcecraft_configuration_error(category_code: str) -> CategoryResult:
