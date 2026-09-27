@@ -55,18 +55,20 @@ export function forgetAnalysis(repositoryId: string, storage = browserStorage())
 }
 
 /**
- * Строка кабинета с анализом из памяти браузера — если backend сам не прислал ни последний,
- * ни идущий анализ. Идущий показываем ссылкой на ход, завершённый — датой, Score и отчётом.
+ * Строка кабинета с последним опрошенным анализом. Идущий показываем ссылкой на ход,
+ * завершённый — датой, Score и отчётом. Ответ статуса должен уметь заменить устаревший
+ * activeAnalysisId из списка: иначе строка осталась бы «идёт анализ» до ручного обновления.
  */
 export function withRecentAnalysis(item: MyRepository, recent: AnalysisStatusResponse | null): MyRepository {
-  if (recent === null || item.lastAnalysis !== null || item.activeAnalysisId !== null) {
+  if (recent === null) {
     return item;
   }
   if (!isAnalysisFinished(recent.status)) {
-    return { ...item, activeAnalysisId: recent.id };
+    return { ...item, lastAnalysis: null, activeAnalysisId: recent.id };
   }
   return {
     ...item,
+    activeAnalysisId: null,
     lastAnalysis: {
       id: recent.id,
       status: recent.status,
