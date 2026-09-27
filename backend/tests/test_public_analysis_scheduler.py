@@ -31,8 +31,11 @@ class _Repository:
 class _Catalog:
     def __init__(self, repositories: tuple[_Repository, ...]) -> None:
         self.repositories = repositories
+        self.error: Exception | None = None
 
     async def list_repositories(self) -> tuple[_Repository, ...]:
+        if self.error is not None:
+            raise self.error
         return self.repositories
 
 
@@ -96,9 +99,10 @@ class PublicAnalysisSchedulerTest(unittest.IsolatedAsyncioTestCase):
         *,
         batch_size: int = 10,
         scheduler_id: str = "scheduler-test",
+        catalog: _Catalog | None = None,
     ) -> PublicAnalysisScheduler:
         return PublicAnalysisScheduler(
-            repository_catalog=_Catalog(repositories),
+            repository_catalog=catalog or _Catalog(repositories),
             dispatcher=self.dispatcher,
             job_store=self.jobs,
             schedule_store=self.store,
@@ -166,6 +170,33 @@ class PublicAnalysisSchedulerTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((first_result.submitted, second_result.submitted), (1, 1))
         self.assertEqual(set(self.dispatcher.jobs), {"scheduled-1"})
         self.assertEqual(len(await self.store.list_in_flight()), 1)
+
+    async def test_permanent_catalog_error_blocks_periodic_requests_until_restart(
+        self,
+    ) -> None:
+        catalog = _Catalog((_Repository("repo-a", self.now),))
+        catalog.error = PermissionError("SourceCraft catalog access is denied")
+        scheduler = self._scheduler((), catalog=catalog)
+
+        failed = await scheduler.run_once()
+        catalog.error = None
+        repeated = await scheduler.run_once()
+
+        self.assertEqual((failed.deferred, failed.blocked), (0, 1))
+        self.assertEqual((repeated.deferred, repeated.blocked), (0, 0))
+        self.assertEqual(self.dispatcher.requests, [])
+
+    async def test_temporary_catalog_error_uses_backoff_before_retrying(self) -> None:
+        catalog = _Catalog((_Repository("repo-a", self.now),))
+        catalog.error = TimeoutError("SourceCraft catalog timed out")
+        scheduler = self._scheduler((), catalog=catalog)
+
+        failed = await scheduler.run_once()
+        repeated = await scheduler.run_once()
+
+        self.assertEqual((failed.deferred, failed.blocked), (1, 0))
+        self.assertEqual((repeated.deferred, repeated.blocked), (0, 0))
+        self.assertEqual(self.dispatcher.requests, [])
 
     async def test_permanent_submission_error_blocks_repository_until_operator_action(
         self,
