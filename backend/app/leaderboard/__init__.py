@@ -8,6 +8,13 @@ from backend.app.leaderboard.policy import (
     LeaderboardSort,
     build_leaderboard,
 )
+from backend.app.leaderboard.service import (
+    LeaderboardLanguageFacet,
+    LeaderboardPage,
+    LeaderboardPageRow,
+    LeaderboardService,
+    PublicRepositoryCatalog,
+)
 from backend.app.leaderboard.snapshot_projection import (
     LeaderboardCategoryBrief,
     LeaderboardSnapshotProjection,
@@ -19,10 +26,15 @@ __all__ = [
     "LeaderboardCandidate",
     "LeaderboardCategoryBrief",
     "LeaderboardFilters",
+    "LeaderboardLanguageFacet",
+    "LeaderboardPage",
+    "LeaderboardPageRow",
     "LeaderboardResult",
     "LeaderboardRow",
+    "LeaderboardService",
     "LeaderboardSnapshotProjection",
     "LeaderboardSort",
+    "PublicRepositoryCatalog",
     "PublicRepositoryMetadata",
     "build_leaderboard",
     "project_public_snapshot",

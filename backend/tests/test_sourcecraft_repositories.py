@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import unittest
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -57,6 +58,11 @@ class SourceCraftRepositoryCatalogClientTest(unittest.TestCase):
             repositories = catalog.list_repositories("example-org")
 
         self.assertEqual([repository.slug for repository in repositories], ["first", "second"])
+        self.assertEqual(repositories[0].likes, 6)
+        self.assertEqual(
+            repositories[0].last_activity_at,
+            datetime(2026, 9, 27, 12, 30, tzinfo=UTC),
+        )
         self.assertEqual(
             repositories[0].as_repository_ref(),
             RepositoryRef(
@@ -153,6 +159,11 @@ class SourceCraftRepositoryCatalogClientTest(unittest.TestCase):
             {"default_branch": ""},
             {"language": []},
             {"language": {}},
+            {"rating": []},
+            {"rating": {"reaction_counts": {}}},
+            {"rating": {"reaction_counts": [{"type": "unknown", "count": "1"}]}},
+            {"rating": {"reaction_counts": [{"type": "positive_low", "count": "not-a-number"}]}},
+            {"last_updated": "not-a-date"},
             {"counters": {"branches": "not-a-number"}},
             {"counters": {"branches": str(2**64)}},
             {"organization": {"id": "org-id", "slug": "another-org"}},
@@ -256,4 +267,13 @@ def _repository_payload(
         "web_url": f"https://sourcecraft.dev/example-org/{slug}",
         "counters": {"branches": "2"},
         "language": {"name": "Python", "color": "#3572A5"},
+        "last_updated": "2026-09-27T12:30:00Z",
+        "rating": {
+            "reaction_counts": [
+                {"type": "none", "count": "9"},
+                {"type": "positive_low", "count": "2"},
+                {"type": "positive_medium", "count": "3"},
+                {"type": "positive_high", "count": "1"},
+            ]
+        },
     }
