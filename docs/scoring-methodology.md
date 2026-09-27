@@ -422,7 +422,8 @@ evidence рекомендаций (7.2).
 Score — метрика плотности, а не сырое число маркеров:
 
 ```text
-penalty = (fixmes * 5 + todos * 1) / total_files * 100
+denominator = max(total_files, 10)
+penalty = (fixmes * 5 + todos * 1) / denominator * 100
 score   = max(0, 100 - penalty)
 ```
 
@@ -531,34 +532,29 @@ Score категории: `max(0, 100 − сумма штрафов)`.
 
 ### 7.2. Code health — плотность технического долга
 
-<!-- PENDING_APPROVAL: awaiting methodology owner sign-off -->
 | Константа | Значение |
 | --- | ---: |
 | Штраф за один FIXME | 5 баллов |
 | Штраф за один TODO | 1 балл |
-| Нормировка | на `total_files`, масштаб ×100 |
+| Пол знаменателя | `max(total_files, 10)` |
+| Нормировка | на пол знаменателя, масштаб ×100 |
 | Порог рекомендации по TODO | `todos > 15` |
 | Порог «критичного FIXME» (P1) | `fixmes >= 2`; единичный FIXME — P2 |
 
 ```text
-penalty = (fixmes * 5 + todos * 1) / total_files * 100
+denominator = max(total_files, 10)
+penalty = (fixmes * 5 + todos * 1) / denominator * 100
 score   = max(0, 100 - penalty)
 expected_score_delta = score_после_устранения - score_до
 ```
 
-<!-- PENDING_APPROVAL: awaiting methodology owner sign-off -->
-Правило малых репозиториев (семантика плотности, ревью V.1):
-штраф растёт как `1 / total_files`, поэтому одинокий FIXME обнуляет категорию
-при `total_files <= 5` (penalty ≥ 100), одинокий TODO — при `total_files = 1`.
-Интерпретация, зафиксированная в ревью V.1: «концентрированный долг в маленьком
-репо хуже», а не дефект нормировки: оценка непрерывна (без скачков), и в
-репозитории обычного размера одинокий маркер категорию не обнуляет. Поведение
-стабильно и видно ревьюерам: оно зафиксировано регрессионным тестом
-`test_code_health_small_repo_single_marker_density_semantics` (диапазон
-`total_files` 1–3 с одним маркером). Границу эскалации P1/P2 закрепляет тест
-`test_code_health_fixme_critical_count_boundary`: единичный FIXME — P2, от
-`FIXME_CRITICAL_COUNT` включительно — P1. Тесты и документация доказывают
-стабильность поведения, а не корректность самих чисел.
+Пол знаменателя утверждён 27.09.2026 после сверки с техническим заданием
+(§3.1, §3.2, §13.2). Репозиторий меньше 10 файлов считается как репозиторий
+из 10 файлов: один FIXME даёт score 50 и при 1 файле, и при 10, а при 100
+файлах score равен 95. Два FIXME в репозитории до 10 файлов дают score 0.
+Граница рекомендации отдельно: один FIXME — P2, с `FIXME_CRITICAL_COUNT = 2`
+включительно — P1. Кривую фиксирует
+`test_code_health_small_repo_single_marker_density_semantics`.
 
 Сырые счётчики (`total_analyzed_files`, `todo_count`, `fixme_count`) и доля
 файлов с техническим долгом (`code_health.debt_file_ratio`) — информационные

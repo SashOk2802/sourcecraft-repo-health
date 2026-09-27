@@ -454,16 +454,7 @@ def test_code_health_density_depends_on_total_files(mock_context):
 
 
 def test_code_health_small_repo_single_marker_density_semantics(mock_context):
-    """Одинокий маркер в репозитории из 1–5 файлов обнуляет категорию (V.1).
-
-    Плотность — задокументированная семантика формулы (методика §7.2, ревью V.1):
-    штраф растёт как 1/total_files, поэтому один FIXME даёт penalty >= 100 при
-    total_files <= 5 и score 0. Интерпретация ревью V.1 — «концентрированный
-    долг в маленьком репо хуже», а не дефект нормировки. Тест фиксирует
-    стабильность поведения для диапазона 1–3 файла (который старые тесты
-    10/100/1000 не покрывали); корректность самого порога ожидает согласования
-    владельцем методики (PENDING_APPROVAL в §7.2) и этим тестом не доказывается.
-    """
+    """Один FIXME не обнуляет категорию: знаменатель не меньше 10 файлов (§7.2)."""
     one_file = ch_evaluate(
         mock_context,
         {"total_files": 1, "todo_count": 0, "fixme_count": 1, "files_with_debt": 1},
@@ -481,15 +472,11 @@ def test_code_health_small_repo_single_marker_density_semantics(mock_context):
         {"total_files": 100, "todo_count": 0, "fixme_count": 1, "files_with_debt": 1},
     )
 
-    # penalty = (1*5)/1*100 = 500 → score 0
-    assert one_file.score == 0.0
-    # penalty = (1*5)/3*100 ≈ 166.67 → score 0
-    assert three_files.score == 0.0
-    # Градиент непрерывен: за пределами «обнуляющего» диапазона score > 0.
-    assert six_files.score == pytest.approx(16.67, abs=0.01)
-    assert six_files.score > three_files.score
-    # В обычном по размеру репо одинокий FIXME категорию не обнуляет.
+    assert one_file.score == 50.0
+    assert three_files.score == 50.0
+    assert six_files.score == 50.0
     assert large.score == 95.0
+    assert large.score > one_file.score
 
 
 def test_code_health_metrics_are_informational_not_scored(mock_context):
