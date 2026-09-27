@@ -49,9 +49,9 @@ export function AnalysisProgress({ analysis, elapsedSeconds }: AnalysisProgressP
         </ol>
       )}
 
-      {/* GET /api/v1/me/repositories на main не отдаёт последний анализ, поэтому обещаем только эту ссылку. */}
+      {/* Кабинет находит этот анализ по памяти браузера (lib/recentAnalyses.ts), даже если backend его не отдаёт. */}
       <Text variant="body-1" color="secondary">
-        Страницу можно закрыть: анализ продолжится на сервере, а отчёт откроется по этой ссылке.
+        Страницу можно закрыть: анализ продолжится на сервере. Отчёт откроется по этой ссылке и в «Моих репозиториях».
       </Text>
     </section>
   );

@@ -14,6 +14,7 @@ import { useAuth } from "../auth/AuthContext";
 import { ErrorNote, LoadingNote } from "../components/PageNotes";
 import { dataOf, useAsync } from "../hooks/useAsync";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
+import { useRecentAnalyses } from "../hooks/useRecentAnalyses";
 import { useStartAnalysis } from "../hooks/useStartAnalysis";
 import { cn } from "../lib/classNames";
 import { yandexAuthPendingHint } from "../lib/featureFlags";
@@ -204,6 +205,7 @@ function RepositoryList() {
   const [state, reload] = useAsync(fetchMyRepositories, []);
   const data = dataOf(state);
   const analysis = useStartAnalysis();
+  const items = useRecentAnalyses(data?.items);
 
   if (!data) {
     return state.status === "error" ? (
@@ -238,7 +240,7 @@ function RepositoryList() {
           </tr>
         </thead>
         <tbody>
-          {data.items.map((item) => (
+          {items.map((item) => (
             <RepositoryRow
               key={item.repository.id}
               item={item}
