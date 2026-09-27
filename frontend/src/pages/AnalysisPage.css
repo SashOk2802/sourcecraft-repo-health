@@ -84,6 +84,12 @@
   margin-top: 8px;
 }
 
+.no-report__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
 @media (max-width: 1000px) {
   .report__grid {
     grid-template-columns: 1fr;
