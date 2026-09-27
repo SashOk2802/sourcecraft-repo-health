@@ -46,7 +46,6 @@ class CommitHistoryTest(unittest.TestCase):
                 since=since,
                 until=until,
                 revision=head,
-                auth_token="secret-token",
             )
 
         self.assertFalse(page.truncated)
