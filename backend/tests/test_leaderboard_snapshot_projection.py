@@ -75,7 +75,7 @@ class LeaderboardSnapshotProjectionTest(unittest.TestCase):
         assert entry is not None
         self.assertEqual(entry.analysis_id, "analysis-42")
         self.assertEqual(entry.repository.name, "team/platform-api")
-        self.assertEqual(entry.methodology_version, "v1")
+        self.assertEqual(entry.methodology_version, "v2")
         self.assertEqual(entry.score, 91)
         self.assertTrue(entry.is_preliminary)
         self.assertIsNotNone(entry.candidate)

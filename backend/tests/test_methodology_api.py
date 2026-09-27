@@ -18,7 +18,8 @@ class MethodologyApiTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(response.status_code, 200)
         payload = response.json()
-        self.assertEqual(payload["version"], METHODOLOGY_VERSION)
+        self.assertEqual(METHODOLOGY_VERSION, "v2")
+        self.assertEqual(payload["version"], "v2")
         self.assertEqual(payload["scoreRange"], {"minimum": 0, "maximum": 100})
         self.assertEqual(
             [(category["code"], category["weight"]) for category in payload["categories"]],

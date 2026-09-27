@@ -1,4 +1,9 @@
-"""Публичное описание неизменяемых правил методики Repo Health Score v1."""
+"""Публичное описание неизменяемых правил методики Repo Health Score.
+
+Текущая версия — v2. От v1 она отличается формулой Activity: метрика
+``active_weeks_in_period`` с сырым весом 25 меняет оценку категории.
+Снимки v1 и v2 в одном рейтинге не сравниваются.
+"""
 
 from __future__ import annotations
 
@@ -7,7 +12,7 @@ from types import MappingProxyType
 
 from backend.app.contracts import DataStatus
 
-METHODOLOGY_VERSION = "v1"
+METHODOLOGY_VERSION = "v2"
 
 
 @dataclass(frozen=True, slots=True)

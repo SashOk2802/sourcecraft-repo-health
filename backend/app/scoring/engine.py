@@ -56,7 +56,7 @@ def calculate_score(
     *,
     score_limit: ScoreLimit | None = None,
 ) -> ScoreSummary:
-    """Считает Score v1 без сети, времени и округления промежуточных значений."""
+    """Считает Score текущей методики без сети, времени и округления промежуточных значений."""
 
     categories_by_code = _validate_categories(categories)
     _validate_score_limit(categories_by_code, score_limit)

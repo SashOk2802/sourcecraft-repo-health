@@ -90,7 +90,7 @@ export function buildMockReport(repository: MockRepository, details: ReportDetai
       status: scored.status,
       analyzedAt: minutesAgo(details.analyzedMinutesAgo ?? 190),
       commitSha: fakeCommitSha(repository.id),
-      methodologyVersion: "v1",
+      methodologyVersion: "v2",
       coverage: scored.coverage,
       isPreliminary: scored.isPreliminary,
       scoreLimit:
