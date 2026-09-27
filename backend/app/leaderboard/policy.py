@@ -28,7 +28,7 @@ class LeaderboardCandidate:
     score: float
     is_preliminary: bool
     language: str | None
-    likes: int
+    likes: int | None
     last_activity_at: datetime | None
 
     def __post_init__(self) -> None:
@@ -50,8 +50,10 @@ class LeaderboardCandidate:
             if not isinstance(self.language, str) or not self.language.strip():
                 raise ValueError("language must be a nonblank string or None")
             object.__setattr__(self, "language", self.language.strip())
-        if isinstance(self.likes, bool) or not isinstance(self.likes, int) or self.likes < 0:
-            raise ValueError("likes must be a non-negative integer")
+        if self.likes is not None and (
+            isinstance(self.likes, bool) or not isinstance(self.likes, int) or self.likes < 0
+        ):
+            raise ValueError("likes must be a non-negative integer or None")
         if self.last_activity_at is not None and (
             not isinstance(self.last_activity_at, datetime)
             or self.last_activity_at.tzinfo is None
@@ -185,7 +187,11 @@ def _sort_rows(
         return tuple(
             sorted(
                 rows,
-                key=lambda row: (-row.candidate.likes, row.candidate.repository_id),
+                key=lambda row: (
+                    row.candidate.likes is None,
+                    -(row.candidate.likes or 0),
+                    row.candidate.repository_id,
+                ),
             )
         )
     return tuple(
