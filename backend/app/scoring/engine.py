@@ -7,7 +7,13 @@ from dataclasses import dataclass
 from math import fsum, isclose
 
 from backend.app.contracts import CategoryResult, DataStatus
-from backend.app.scoring.methodology import CATEGORY_WEIGHTS
+from backend.app.scoring.methodology import (
+    CATEGORY_WEIGHTS,
+    SECURITY_OPEN_CRITICAL_LIMIT,
+    SECURITY_OPEN_CRITICAL_LIMIT_CODE,
+    SECURITY_OPEN_CRITICAL_LIMIT_SUMMARY,
+    SECURITY_OPEN_CRITICAL_METRIC,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,6 +66,10 @@ def calculate_score(
 
     categories_by_code = _validate_categories(categories)
     _validate_score_limit(categories_by_code, score_limit)
+    effective_score_limit = _more_restrictive_limit(
+        score_limit,
+        _security_score_limit(categories_by_code["security"]),
+    )
 
     applicable_weight = sum(
         weight
@@ -98,7 +108,9 @@ def calculate_score(
         fsum(contribution.points for contribution in contributions if contribution.points is not None)
     )
     applied_limit = (
-        score_limit if score_limit is not None and uncapped_score > score_limit.maximum_score else None
+        effective_score_limit
+        if effective_score_limit is not None and uncapped_score > effective_score_limit.maximum_score
+        else None
     )
     score = _normalize_score(
         min(uncapped_score, applied_limit.maximum_score) if applied_limit else uncapped_score
@@ -182,3 +194,36 @@ def _validate_score_limit(
 ) -> None:
     if score_limit is not None and categories["security"].status is not DataStatus.MEASURED:
         raise ValueError("score limit requires measured security category")
+
+
+def _security_score_limit(category: CategoryResult) -> ScoreLimit | None:
+    """Извлекает жёсткое ограничение только из измеренного Security-результата."""
+
+    if category.status is not DataStatus.MEASURED:
+        return None
+    has_confirmed_open_critical = any(
+        metric.code == SECURITY_OPEN_CRITICAL_METRIC
+        and isinstance(metric.value, int)
+        and not isinstance(metric.value, bool)
+        and metric.value > 0
+        for metric in category.metrics
+    )
+    if not has_confirmed_open_critical:
+        return None
+    return ScoreLimit(
+        maximum_score=SECURITY_OPEN_CRITICAL_LIMIT,
+        code=SECURITY_OPEN_CRITICAL_LIMIT_CODE,
+        summary=SECURITY_OPEN_CRITICAL_LIMIT_SUMMARY,
+    )
+
+
+def _more_restrictive_limit(
+    first: ScoreLimit | None,
+    second: ScoreLimit | None,
+) -> ScoreLimit | None:
+    """Выбирает более строгий предел, если его передали два независимых правила."""
+
+    candidates = tuple(limit for limit in (first, second) if limit is not None)
+    if not candidates:
+        return None
+    return min(candidates, key=lambda limit: (limit.maximum_score, limit.code))
