@@ -32,7 +32,7 @@ SourceCraftClientFactory = Callable[[str], SourceCraftClient]
 
 
 class SourceCraftPublicRepositoryCatalog:
-    """Читает настроенные SourceCraft-организации вне event loop.
+    """Читает настроенный public-каталог SourceCraft вне event loop.
 
     Сервисный PAT применяется только к запросу каталога. Результат перед
     отправкой в HTTP дополнительно фильтруется по ``visibility == public``.
@@ -56,12 +56,15 @@ class SourceCraftPublicRepositoryCatalog:
         client = self._client_factory(self._settings.token)
         try:
             catalog = SourceCraftRepositoryCatalogClient(client)
-            repositories = tuple(
-                repository
-                for organization_slug in self._settings.organization_slugs
-                for repository in catalog.list_repositories(organization_slug)
-                if repository.visibility == _PUBLIC_VISIBILITY
-            )
+            if self._settings.discover_all_public:
+                repositories = catalog.discover_public_repositories()
+            else:
+                repositories = tuple(
+                    repository
+                    for organization_slug in self._settings.organization_slugs
+                    for repository in catalog.list_repositories(organization_slug)
+                    if repository.visibility == _PUBLIC_VISIBILITY
+                )
         except SourceCraftClientError as error:
             raise SourceCraftRepositoryUnavailableError(
                 "SourceCraft repository catalog is unavailable",
@@ -90,7 +93,7 @@ class SourceCraftPublicRepositoryCatalog:
 def create_sourcecraft_public_repository_catalog_from_environment(
     environ: dict[str, str] | None = None,
 ) -> SourceCraftPublicRepositoryCatalog | None:
-    """Создаёт каталог лишь при полной паре безопасных переменных окружения."""
+    """Создаёт каталог лишь при полной безопасной конфигурации окружения."""
 
     settings = create_sourcecraft_public_catalog_settings_from_environment(environ)
     return SourceCraftPublicRepositoryCatalog(settings) if settings is not None else None

@@ -4,7 +4,9 @@
 
 В production он включается только при одновременном выполнении условий:
 
-- заданы `SOURCECRAFT_TOKEN` и `SOURCECRAFT_PUBLIC_ORGANIZATIONS`;
+- задан `SOURCECRAFT_TOKEN` и выбран ровно один каталог:
+  `SOURCECRAFT_DISCOVER_PUBLIC_REPOSITORIES=true` либо
+  `SOURCECRAFT_PUBLIC_ORGANIZATIONS`;
 - настроен `DATABASE_URL` для PostgreSQL;
 - `PUBLIC_ANALYSIS_SCHEDULER_ENABLED=true`;
 - применены миграции Alembic.

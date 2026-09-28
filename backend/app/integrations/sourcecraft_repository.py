@@ -27,6 +27,7 @@ _SOURCECRAFT_SLUG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 _COMMIT_SHA = re.compile(r"^[0-9a-fA-F]{40}(?:[0-9a-fA-F]{24})?$")
 _PUBLIC_VISIBILITY = "public"
 _DEFAULT_PERIOD = timedelta(days=365)
+_DISCOVER_PUBLIC_ENV = "SOURCECRAFT_DISCOVER_PUBLIC_REPOSITORIES"
 _ORGANIZATIONS_ENV = "SOURCECRAFT_PUBLIC_ORGANIZATIONS"
 _TOKEN_ENV = "SOURCECRAFT_TOKEN"
 
@@ -53,6 +54,14 @@ class SourceCraftCatalogClient(Protocol):
     ) -> list[dict[str, object]]:
         """Возвращает все элементы каталога."""
 
+    def get_json(
+        self,
+        path: str,
+        *,
+        params: Mapping[str, str | int] | None = None,
+    ) -> dict[str, object] | list[object] | None:
+        """Возвращает один объект SourceCraft."""
+
     def close(self) -> None:
         """Закрывает созданные HTTP-ресурсы."""
 
@@ -66,13 +75,18 @@ class SourceCraftPublicCatalogSettings:
     """Явная настройка каталога, в котором разрешён только public-анализ."""
 
     token: str = field(repr=False)
-    organization_slugs: tuple[str, ...]
+    organization_slugs: tuple[str, ...] = ()
+    discover_all_public: bool = False
 
     def __post_init__(self) -> None:
         if not isinstance(self.token, str) or not self.token.strip():
             raise ValueError("SourceCraft token must not be blank")
-        if not self.organization_slugs:
-            raise ValueError("at least one public SourceCraft organization is required")
+        if not isinstance(self.discover_all_public, bool):
+            raise TypeError("discover_all_public must be a boolean")
+        if bool(self.organization_slugs) == self.discover_all_public:
+            raise ValueError(
+                "configure exactly one public SourceCraft catalog mode"
+            )
         if any(
             not isinstance(slug, str) or not _SOURCECRAFT_SLUG.fullmatch(slug)
             for slug in self.organization_slugs
@@ -83,12 +97,7 @@ class SourceCraftPublicCatalogSettings:
 
 
 class SourceCraftPublicRepositoryResolver:
-    """Строит контекст лишь для публичного репозитория из настроенного каталога.
-
-    До появления пользовательского подключения SourceCraft сервисный токен не
-    даёт право анализировать private/internal репозитории: такой запрос
-    завершается PermissionError, даже если токен backend технически имеет доступ.
-    """
+    """Строит контекст лишь для публичного репозитория из настроенного каталога."""
 
     def __init__(
         self,
@@ -160,6 +169,31 @@ class SourceCraftPublicRepositoryResolver:
         client: SourceCraftCatalogClient,
         repository_id: str,
     ) -> _ResolvedRepository:
+        if self._settings.discover_all_public:
+            try:
+                payload = client.get_json(f"/repos/id:{quote(repository_id, safe='')}")
+            except SourceCraftResponseError as error:
+                if error.status_code == 404:
+                    raise LookupError("SourceCraft repository was not found") from error
+                raise
+            if not isinstance(payload, dict):
+                raise SourceCraftRepositoryUnavailableError(
+                    "SourceCraft repository payload is invalid"
+                )
+            if payload.get("id") != repository_id:
+                raise SourceCraftRepositoryUnavailableError(
+                    "SourceCraft repository payload is invalid"
+                )
+            organization = payload.get("organization")
+            if not isinstance(organization, dict):
+                raise SourceCraftRepositoryUnavailableError(
+                    "SourceCraft repository organization is invalid"
+                )
+            organization_slug = _required_slug(
+                organization.get("slug"), "organization slug"
+            )
+            return _parse_public_repository(payload, organization_slug)
+
         for organization_slug in self._settings.organization_slugs:
             path = f"/orgs/{quote(organization_slug, safe='')}/repos"
             repositories = client.get_paginated_objects(
@@ -272,17 +306,31 @@ def create_sourcecraft_public_catalog_settings_from_environment(
     values = os.environ if environ is None else environ
     token = values.get(_TOKEN_ENV, "").strip()
     raw_organizations = values.get(_ORGANIZATIONS_ENV, "")
+    discover_all_public = _parse_boolean_environment(
+        values.get(_DISCOVER_PUBLIC_ENV, ""),
+        _DISCOVER_PUBLIC_ENV,
+    )
     organization_slugs = tuple(
         slug.strip() for slug in raw_organizations.split(",") if slug.strip()
     )
-    if not token and not organization_slugs:
+    if not token and not organization_slugs and not discover_all_public:
         return None
-    if not token or not organization_slugs:
-        raise ValueError(f"{_TOKEN_ENV} and {_ORGANIZATIONS_ENV} must be configured together")
+    if not token:
+        raise ValueError(f"{_TOKEN_ENV} is required for the public SourceCraft catalog")
     return SourceCraftPublicCatalogSettings(
         token=token,
         organization_slugs=organization_slugs,
+        discover_all_public=discover_all_public,
     )
+
+
+def _parse_boolean_environment(value: str, name: str) -> bool:
+    normalized = value.strip().lower()
+    if normalized in ("", "false"):
+        return False
+    if normalized == "true":
+        return True
+    raise ValueError(f"{name} must be true or false")
 
 
 def is_temporary_sourcecraft_error(error: SourceCraftClientError) -> bool:

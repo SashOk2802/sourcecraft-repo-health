@@ -97,15 +97,41 @@ class SourceCraftPublicRepositoryCatalogTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(client.closed)
 
+    async def test_global_discovery_returns_public_repositories_across_organizations(self) -> None:
+        client = CatalogHttpClient(
+            "sourcecraft-secret",
+            {},
+            discovered_repositories=[
+                repository_payload("repo-b", "second", organization_slug="beta"),
+                repository_payload("repo-a", "first", organization_slug="alpha"),
+            ],
+        )
+        catalog = SourceCraftPublicRepositoryCatalog(
+            SourceCraftPublicCatalogSettings(
+                "sourcecraft-secret", discover_all_public=True
+            ),
+            client_factory=lambda _: client,
+        )
+
+        repositories = await catalog.list_repositories()
+
+        self.assertEqual(
+            [(repository.organization_slug, repository.slug) for repository in repositories],
+            [("alpha", "first"), ("beta", "second")],
+        )
+        self.assertEqual(client.requests, ["/repos"])
+        self.assertEqual(client.request_params, [{"sort_by": "created_at"}])
+        self.assertTrue(client.closed)
+
 
 class SourceCraftPublicCatalogSettingsTest(unittest.TestCase):
     def test_factory_requires_complete_configuration_and_hides_token_from_repr(self) -> None:
         self.assertIsNone(create_sourcecraft_public_repository_catalog_from_environment({}))
-        with self.assertRaisesRegex(ValueError, "configured together"):
+        with self.assertRaisesRegex(ValueError, "exactly one"):
             create_sourcecraft_public_repository_catalog_from_environment(
                 {"SOURCECRAFT_TOKEN": "secret"}
             )
-        with self.assertRaisesRegex(ValueError, "configured together"):
+        with self.assertRaisesRegex(ValueError, "SOURCECRAFT_TOKEN"):
             create_sourcecraft_public_repository_catalog_from_environment(
                 {"SOURCECRAFT_PUBLIC_ORGANIZATIONS": "team"}
             )
@@ -114,6 +140,33 @@ class SourceCraftPublicCatalogSettingsTest(unittest.TestCase):
 
         self.assertNotIn("sourcecraft-secret", repr(settings))
 
+    def test_factory_supports_explicit_global_discovery_only(self) -> None:
+        catalog = create_sourcecraft_public_repository_catalog_from_environment(
+            {
+                "SOURCECRAFT_TOKEN": "sourcecraft-secret",
+                "SOURCECRAFT_DISCOVER_PUBLIC_REPOSITORIES": "true",
+            }
+        )
+
+        self.assertIsNotNone(catalog)
+        self.assertTrue(catalog._settings.discover_all_public)
+        self.assertEqual(catalog._settings.organization_slugs, ())
+        self.assertNotIn("sourcecraft-secret", repr(catalog._settings))
+
+    def test_factory_rejects_ambiguous_or_invalid_global_discovery(self) -> None:
+        with self.assertRaisesRegex(ValueError, "exactly one"):
+            create_sourcecraft_public_repository_catalog_from_environment(
+                {
+                    "SOURCECRAFT_TOKEN": "secret",
+                    "SOURCECRAFT_DISCOVER_PUBLIC_REPOSITORIES": "true",
+                    "SOURCECRAFT_PUBLIC_ORGANIZATIONS": "team",
+                }
+            )
+        with self.assertRaisesRegex(ValueError, "must be true or false"):
+            create_sourcecraft_public_repository_catalog_from_environment(
+                {"SOURCECRAFT_DISCOVER_PUBLIC_REPOSITORIES": "yes"}
+            )
+
 
 class CatalogHttpClient:
     def __init__(
@@ -121,12 +174,15 @@ class CatalogHttpClient:
         token: str,
         repositories_by_organization: dict[str, list[dict[str, object]]],
         *,
+        discovered_repositories: list[dict[str, object]] | None = None,
         error: Exception | None = None,
     ) -> None:
         self.token = token
         self._repositories_by_organization = repositories_by_organization
+        self._discovered_repositories = discovered_repositories
         self._error = error
         self.requests: list[str] = []
+        self.request_params: list[dict[str, str | int] | None] = []
         self.closed = False
 
     def get_paginated_objects(
@@ -134,14 +190,22 @@ class CatalogHttpClient:
         path: str,
         *,
         items_field: str,
+        params: dict[str, str | int] | None = None,
         page_size: int,
         max_pages: int,
     ) -> list[dict[str, object]]:
         self.requests.append(path)
+        self.request_params.append(dict(params) if params is not None else None)
         if self._error is not None:
             raise self._error
         if items_field != "repositories" or page_size != 100 or max_pages != 100:
             raise AssertionError("unexpected SourceCraft catalog parameters")
+        if path == "/repos":
+            if params != {"sort_by": "created_at"} or self._discovered_repositories is None:
+                raise AssertionError("unexpected SourceCraft discovery parameters")
+            return self._discovered_repositories
+        if params is not None:
+            raise AssertionError("unexpected SourceCraft organization catalog parameters")
         return self._repositories_by_organization[
             path.removeprefix("/orgs/").removesuffix("/repos")
         ]

@@ -106,6 +106,27 @@ class SourceCraftRepositoryCatalogClient:
         _validate_unique_repositories(repositories)
         return repositories
 
+    def discover_public_repositories(self) -> tuple[SourceCraftRepository, ...]:
+        """Возвращает глобальный public-каталог в устойчивом порядке API."""
+
+        payloads = self._sourcecraft_client.get_paginated_objects(
+            "/repos",
+            items_field="repositories",
+            params={"sort_by": "created_at"},
+            page_size=REPOSITORY_PAGE_SIZE,
+            max_pages=REPOSITORY_MAX_PAGES,
+        )
+        repositories = tuple(
+            _parse_repository(payload, expected_organization_slug=None)
+            for payload in payloads
+        )
+        if any(repository.visibility != "public" for repository in repositories):
+            raise SourceCraftResponseError(
+                "SourceCraft public discovery returned a non-public repository"
+            )
+        _validate_unique_repositories(repositories)
+        return repositories
+
 
 def _parse_repository(
     payload: dict[str, Any],

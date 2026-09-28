@@ -105,6 +105,45 @@ class SourceCraftRepositoryCatalogClientTest(unittest.TestCase):
             max_pages=REPOSITORY_MAX_PAGES,
         )
 
+    def test_public_discovery_uses_stable_order_and_accepts_multiple_organizations(self) -> None:
+        client = Mock(spec=SourceCraftClient)
+        first = _repository_payload("repository-1", "first")
+        first["visibility"] = "public"
+        second = _repository_payload("repository-2", "second")
+        second.update(
+            {
+                "organization": {"id": "organization-2", "slug": "another-org"},
+                "visibility": "public",
+                "web_url": "https://sourcecraft.dev/another-org/second",
+            }
+        )
+        client.get_paginated_objects.return_value = [first, second]
+
+        repositories = SourceCraftRepositoryCatalogClient(
+            client
+        ).discover_public_repositories()
+
+        self.assertEqual(
+            [(repository.organization_slug, repository.slug) for repository in repositories],
+            [("example-org", "first"), ("another-org", "second")],
+        )
+        client.get_paginated_objects.assert_called_once_with(
+            "/repos",
+            items_field="repositories",
+            params={"sort_by": "created_at"},
+            page_size=REPOSITORY_PAGE_SIZE,
+            max_pages=REPOSITORY_MAX_PAGES,
+        )
+
+    def test_public_discovery_fails_closed_on_non_public_repository(self) -> None:
+        client = Mock(spec=SourceCraftClient)
+        client.get_paginated_objects.return_value = [
+            _repository_payload("private-id", "private")
+        ]
+
+        with self.assertRaisesRegex(SourceCraftResponseError, "non-public"):
+            SourceCraftRepositoryCatalogClient(client).discover_public_repositories()
+
     def test_observed_fixture_maps_only_required_catalog_fields(self) -> None:
         payload = json.loads(_FIXTURE.read_text(encoding="utf-8"))
         client = Mock(spec=SourceCraftClient)

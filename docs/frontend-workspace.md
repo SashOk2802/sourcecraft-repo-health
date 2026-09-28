@@ -14,7 +14,7 @@ docker compose up
 4. Визуализацию причин, рекомендаций и ссылок на evidence.
 5. Экспорт отчёта и обработку ошибок реального API.
 
-Frontend использует согласованный HTTP-контракт: рейтинг, методика, каталог, запуск анализа и отчёты имеют API-клиенты. В чистом Docker-запуске он обращается к backend (`VITE_USE_MOCKS=false`): без настроенного каталога SourceCraft рейтинг и запуск анализа честно вернут `503`. Для офлайн-демо fixtures явно задайте `VITE_USE_MOCKS=true` в локальном `.env` и перезапустите Compose. Для настоящего анализа укажите `SOURCECRAFT_TOKEN` и `SOURCECRAFT_PUBLIC_ORGANIZATIONS`.
+Frontend использует согласованный HTTP-контракт: рейтинг, методика, каталог, запуск анализа и отчёты имеют API-клиенты. В чистом Docker-запуске он обращается к backend (`VITE_USE_MOCKS=false`): без настроенного каталога SourceCraft рейтинг и запуск анализа честно вернут `503`. Для офлайн-демо fixtures явно задайте `VITE_USE_MOCKS=true` в локальном `.env` и перезапустите Compose. Для настоящего анализа укажите `SOURCECRAFT_TOKEN` и включите глобальный `SOURCECRAFT_DISCOVER_PUBLIC_REPOSITORIES=true` либо задайте `SOURCECRAFT_PUBLIC_ORGANIZATIONS`.
 
 Вход через Яндекс ID включают только для окружения с заданными `YANDEX_CLIENT_ID`, `YANDEX_CLIENT_SECRET` и `YANDEX_REDIRECT_URI` backend. В том же `.env` следует задать `VITE_YANDEX_AUTH=true`; без этого кнопка намеренно выключена, чтобы не вести пользователя к ошибке конфигурации.
 
