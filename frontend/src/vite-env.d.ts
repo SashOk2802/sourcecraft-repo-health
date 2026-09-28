@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  /** "false" — ходить в настоящий API вместо mock-данных. */
+  /** "true" — явно включить fixtures для офлайн-демо; без флага используется backend API. */
   readonly VITE_USE_MOCKS?: string;
 }
 

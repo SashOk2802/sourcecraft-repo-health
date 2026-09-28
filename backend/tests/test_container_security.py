@@ -60,6 +60,11 @@ class ContainerSecurityTest(unittest.TestCase):
         self.assertIn('"dev": "vite --configLoader runner"', package_json)
         self.assertIn('cacheDir: process.env.VITE_CACHE_DIR ?? "node_modules/.vite"', vite_config)
 
+    def test_compose_uses_real_frontend_api_unless_mocks_are_explicit(self) -> None:
+        compose = _read("compose.yaml")
+
+        self.assertIn('VITE_USE_MOCKS: "${VITE_USE_MOCKS:-false}"', compose)
+
     def test_backend_test_service_is_opt_in_and_mounts_test_inputs_read_only(self) -> None:
         compose = _read("compose.yaml")
 
