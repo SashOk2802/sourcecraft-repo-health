@@ -104,6 +104,17 @@ def _parse_run(payload: dict[str, Any]) -> SourceCraftCiRun:
     if not isinstance(workflows, list) or not all(isinstance(item, dict) for item in workflows):
         raise SourceCraftResponseError("SourceCraft CI run must contain an array of workflows")
 
+    started_at = _parse_timestamp(dates, "started_at", optional=True)
+    finished_at = _parse_timestamp(dates, "finished_at", optional=True)
+    if (
+        started_at is not None
+        and finished_at is not None
+        and finished_at < started_at
+    ):
+        raise SourceCraftResponseError(
+            "SourceCraft CI run finished_at must not precede started_at"
+        )
+
     return SourceCraftCiRun(
         # В наблюдённом ответе платформы id бывает пустым, однако slug заполнен.
         id=_require_string(payload, "id", allow_empty=True),
@@ -111,8 +122,8 @@ def _parse_run(payload: dict[str, Any]) -> SourceCraftCiRun:
         status=status,
         event_type=event_type,
         created_at=_parse_timestamp(dates, "created_at"),
-        started_at=_parse_timestamp(dates, "started_at", optional=True),
-        finished_at=_parse_timestamp(dates, "finished_at", optional=True),
+        started_at=started_at,
+        finished_at=finished_at,
         updated_at=_parse_timestamp(dates, "updated_at"),
         workflow_slugs=tuple(_require_string(workflow, "slug") for workflow in workflows),
     )

@@ -8,7 +8,9 @@
 from __future__ import annotations
 
 import logging
+import math
 import re
+import statistics
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -30,6 +32,7 @@ MAX_LINKED_FAILED_RUNS = 3
 _SAFE_URL_SEGMENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 
 MINIMUM_AUTOMATED_RUNS = 5
+MINIMUM_DURATION_TREND_RUNS = 6
 AUTOMATED_EVENT_TYPES = frozenset({"push", "pr_update", "schedule"})
 SUCCESS_STATUS = "success"
 FAILURE_STATUSES = frozenset({"failed", "timeout"})
@@ -67,6 +70,7 @@ class CiRunFact:
     status: str
     event_type: str
     created_at: datetime
+    duration_seconds: float | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.slug, str) or not self.slug.strip():
@@ -81,6 +85,13 @@ class CiRunFact:
             or self.created_at.utcoffset() is None
         ):
             raise ValueError("CI run created_at must include a timezone")
+        if self.duration_seconds is not None and (
+            not isinstance(self.duration_seconds, (int, float))
+            or isinstance(self.duration_seconds, bool)
+            or not math.isfinite(self.duration_seconds)
+            or self.duration_seconds < 0
+        ):
+            raise ValueError("CI run duration_seconds must be a finite non-negative number")
 
     @property
     def is_automated(self) -> bool:
@@ -225,6 +236,7 @@ def evaluate(facts: CicdFacts, context: AnalysisContext) -> CategoryResult:
             ),
             evidence=(history_evidence, *failed_evidence),
         ),
+        *_duration_metrics(outcome_runs, history_evidence),
     )
     return CategoryResult(
         category=CATEGORY_CODE,
@@ -311,6 +323,81 @@ def _recommendations(
             evidence=failed_evidence,
         ),
     )
+
+
+def _duration_metrics(
+    outcome_runs: tuple[CiRunFact, ...],
+    history_evidence: Evidence,
+) -> tuple[MetricResult, ...]:
+    """Строит дополнительные метрики только по подтверждённым интервалам."""
+
+    timed_runs = tuple(run for run in outcome_runs if run.duration_seconds is not None)
+    if not timed_runs:
+        return ()
+
+    durations = tuple(float(run.duration_seconds) for run in timed_runs)
+    median_duration = statistics.median(durations)
+    p90_duration = _nearest_rank_percentile(durations, 0.9)
+    metrics = [
+        MetricResult(
+            code="automated_ci_duration_sample_runs",
+            value=len(durations),
+            normalized_score=None,
+            summary=f"Длительность подтверждена для {len(durations)} запусков CI/CD.",
+            evidence=(history_evidence,),
+        ),
+        MetricResult(
+            code="automated_ci_median_duration_seconds",
+            value=median_duration,
+            normalized_score=None,
+            summary=(
+                "Медианная длительность автоматического CI/CD за период — "
+                f"{median_duration:.0f} с."
+            ),
+            evidence=(history_evidence,),
+        ),
+        MetricResult(
+            code="automated_ci_p90_duration_seconds",
+            value=p90_duration,
+            normalized_score=None,
+            summary=(
+                "90-й перцентиль длительности автоматического CI/CD — "
+                f"{p90_duration:.0f} с."
+            ),
+            evidence=(history_evidence,),
+        ),
+    ]
+
+    if len(timed_runs) >= MINIMUM_DURATION_TREND_RUNS:
+        ordered = sorted(timed_runs, key=lambda run: (run.created_at, run.slug))
+        half = len(ordered) // 2
+        earlier_median = statistics.median(
+            float(run.duration_seconds) for run in ordered[:half]
+        )
+        recent_median = statistics.median(
+            float(run.duration_seconds) for run in ordered[-half:]
+        )
+        if earlier_median > 0:
+            change_percent = (recent_median - earlier_median) / earlier_median * 100
+            metrics.append(
+                MetricResult(
+                    code="automated_ci_duration_trend_percent",
+                    value=change_percent,
+                    normalized_score=None,
+                    summary=(
+                        "Медианная длительность поздней половины запусков изменилась "
+                        f"на {change_percent:+.0f} % относительно ранней половины."
+                    ),
+                    evidence=(history_evidence,),
+                )
+            )
+    return tuple(metrics)
+
+
+def _nearest_rank_percentile(values: tuple[float, ...], percentile: float) -> float:
+    ordered = sorted(values)
+    rank = max(1, math.ceil(percentile * len(ordered)))
+    return ordered[rank - 1]
 
 
 def _failed_run_evidence(

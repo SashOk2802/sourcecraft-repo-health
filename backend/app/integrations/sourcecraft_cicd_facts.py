@@ -7,7 +7,7 @@ from collections.abc import Callable
 from backend.app.analyzers.cicd import CicdFacts, CiRunFact, build_facts
 from backend.app.contracts import RepositoryRef
 from backend.app.integrations.sourcecraft import SourceCraftClientError
-from backend.app.integrations.sourcecraft_cicd import SourceCraftCicdClient
+from backend.app.integrations.sourcecraft_cicd import SourceCraftCicdClient, SourceCraftCiRun
 
 _CLIENT_FAILURE = "sourcecraft_cicd_client_failed"
 _MAPPING_FAILURE = "sourcecraft_cicd_mapping_failed"
@@ -36,6 +36,7 @@ def collect_cicd_facts(
                 status=run.status,
                 event_type=run.event_type,
                 created_at=run.created_at,
+                duration_seconds=_duration_seconds(run),
             )
             for run in runs
         )
@@ -54,3 +55,14 @@ def make_cicd_facts_provider(
         return collect_cicd_facts(client, repository)
 
     return provide
+
+
+def _duration_seconds(run: SourceCraftCiRun) -> float | None:
+    started_at = run.started_at
+    finished_at = run.finished_at
+    if started_at is None or finished_at is None:
+        return None
+    duration = (finished_at - started_at).total_seconds()
+    if duration < 0:
+        raise ValueError("CI run duration must not be negative")
+    return duration

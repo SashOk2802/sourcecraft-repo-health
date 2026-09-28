@@ -130,6 +130,54 @@ class CicdAnalyzerTest(unittest.TestCase):
         self.assertEqual(result.recommendations[0].evidence[0].url, failed_url)
         self.assertNotIn("1", result.summary)
 
+    def test_reports_duration_distribution_and_trend_without_changing_score(self) -> None:
+        durations = (10, 20, 30, 60, 70, 80)
+        facts = build_facts(
+            tuple(
+                _run(
+                    str(index),
+                    "success",
+                    created_at=_timestamp() + timedelta(days=index),
+                    duration_seconds=duration,
+                )
+                for index, duration in enumerate(durations, 1)
+            )
+        )
+
+        result = evaluate(facts, _context())
+        metrics = {metric.code: metric for metric in result.metrics}
+
+        self.assertEqual(result.score, 100)
+        self.assertEqual(metrics["automated_ci_duration_sample_runs"].value, 6)
+        self.assertEqual(metrics["automated_ci_median_duration_seconds"].value, 45)
+        self.assertEqual(metrics["automated_ci_p90_duration_seconds"].value, 80)
+        self.assertEqual(metrics["automated_ci_duration_trend_percent"].value, 250)
+        for code in (
+            "automated_ci_duration_sample_runs",
+            "automated_ci_median_duration_seconds",
+            "automated_ci_p90_duration_seconds",
+            "automated_ci_duration_trend_percent",
+        ):
+            self.assertIsNone(metrics[code].normalized_score)
+
+    def test_missing_or_too_small_duration_sample_does_not_invent_trend(self) -> None:
+        facts = build_facts(
+            (
+                *(
+                    _run(str(index), "success", duration_seconds=float(index))
+                    for index in range(1, 5)
+                ),
+                _run("5", "success"),
+            )
+        )
+
+        result = evaluate(facts, _context())
+        metric_codes = {metric.code for metric in result.metrics}
+
+        self.assertEqual(result.score, 100)
+        self.assertIn("automated_ci_median_duration_seconds", metric_codes)
+        self.assertNotIn("automated_ci_duration_trend_percent", metric_codes)
+
     def test_links_only_recent_failed_automated_outcomes_in_period(self) -> None:
         context = _context()
         facts = build_facts(
@@ -304,13 +352,16 @@ class CicdAnalyzerTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "duplicate slugs"):
             build_facts((_run("1", "success"), _run("1", "failed")))
 
-    def test_run_rejects_blank_slug_unknown_values_and_naive_time(self) -> None:
+    def test_run_rejects_blank_slug_unknown_values_naive_time_and_bad_duration(self) -> None:
         base = {"slug": "1", "status": "success", "event_type": "push", "created_at": _timestamp()}
         cases = (
             ({"slug": " "}, "slug"),
             ({"status": "unexpected"}, "status"),
             ({"event_type": "unexpected"}, "event type"),
             ({"created_at": _timestamp().replace(tzinfo=None)}, "timezone"),
+            ({"duration_seconds": -1}, "duration_seconds"),
+            ({"duration_seconds": float("inf")}, "duration_seconds"),
+            ({"duration_seconds": True}, "duration_seconds"),
         )
         for changes, message in cases:
             with self.subTest(changes=changes), self.assertRaisesRegex(ValueError, message):
@@ -385,12 +436,14 @@ def _run(
     *,
     event_type: str = "push",
     created_at: datetime | None = None,
+    duration_seconds: float | None = None,
 ) -> CiRunFact:
     return CiRunFact(
         slug=slug,
         status=status,
         event_type=event_type,
         created_at=created_at or _timestamp(),
+        duration_seconds=duration_seconds,
     )
 
 
