@@ -142,31 +142,3 @@
     display: none;
   }
 }
-
-/* Телефон: логотип и вход в первой строке, разделы — второй строкой с прокруткой. */
-@media (max-width: 720px) {
-  .site-header__inner {
-    flex-wrap: wrap;
-    row-gap: 0;
-    height: auto;
-    padding: 8px 16px 0;
-  }
-
-  .site-header__nav {
-    order: 3;
-    width: 100%;
-    height: 42px;
-    gap: 20px;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .site-header__nav::-webkit-scrollbar {
-    display: none;
-  }
-
-  .site-header__user-name,
-  .site-header__signin-long {
-    display: none;
-  }
-}
