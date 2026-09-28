@@ -32,6 +32,8 @@ DEFAULT_MAX_GIT_BLOB_BYTES = 1_048_576
 DEFAULT_MAX_GIT_TREE_BYTES = 50 * 1024 * 1024
 DEFAULT_MAX_GIT_CHECKOUT_BYTES = 100 * 1024 * 1024
 DEFAULT_GIT_WORKSPACE_POLL_SECONDS = 0.01
+WINDOWS_PROCESS_TREE_KILL_TIMEOUT_SECONDS = 5.0
+_WINDOWS_NEW_PROCESS_GROUP = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0x00000200)
 _NO_SHALLOW_COMMITS = "no commits selected for shallow requests"
 _FULL_COMMIT_SHA = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$", re.IGNORECASE)
 
@@ -281,7 +283,23 @@ class LocalGitRepository:
         except AttributeError:
             process.kill()
             return
-        if os.name != "nt":
+        if os.name == "nt":
+            try:
+                subprocess.run(
+                    ["taskkill", "/PID", str(process_id), "/T", "/F"],
+                    check=False,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=WINDOWS_PROCESS_TREE_KILL_TIMEOUT_SECONDS,
+                )
+            except (OSError, subprocess.TimeoutExpired):
+                # taskkill входит в Windows, но отказ его запуска не должен
+                # оставить хотя бы родительский git.exe работающим.
+                pass
+            if process.poll() is None:
+                process.kill()
+            return
+        else:
             try:
                 os.killpg(os.getpgid(process_id), signal.SIGKILL)
                 return
@@ -307,7 +325,11 @@ class LocalGitRepository:
         """
 
         process_options: dict[str, object] = {}
-        if os.name != "nt":
+        if os.name == "nt":
+            # Отдельная группа делает дерево Git явной единицей управления;
+            # taskkill /T ниже завершает git.exe вместе с transport/index-pack.
+            process_options["creationflags"] = _WINDOWS_NEW_PROCESS_GROUP
+        else:
             process_options["start_new_session"] = True
         process = subprocess.Popen(
             command,

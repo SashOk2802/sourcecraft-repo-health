@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import os
 import subprocess
+import sys
 import tempfile
+import time
 import unittest
 from datetime import UTC, datetime
 from pathlib import Path
@@ -238,6 +241,82 @@ class BoundedGitRepositoryTest(unittest.TestCase):
             self.assertTrue(process.killed)
             self.assertFalse(process.completed_before_kill)
 
+    def test_windows_workspace_limit_uses_process_group_and_tree_kill(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repository = LocalGitRepository(CLONE_URL, limits=GitCheckoutLimits())
+            repository.temp_dir = directory
+            process = WindowsGrowingWorkspaceProcess(Path(directory))
+
+            def terminate_tree(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess[str]:
+                process.kill()
+                return subprocess.CompletedProcess([], 0, "", "")
+
+            with (
+                patch("backend.app.integrations.git_repository.os.name", "nt"),
+                patch(
+                    "backend.app.integrations.git_repository.subprocess.Popen",
+                    return_value=process,
+                ) as git_start,
+                patch(
+                    "backend.app.integrations.git_repository.subprocess.run",
+                    side_effect=terminate_tree,
+                ) as tree_kill,
+                self.assertRaisesRegex(GitCloneError, "workspace превышает лимит"),
+            ):
+                repository._run_git(
+                    ["clone", "--no-checkout", CLONE_URL, directory],
+                    workspace_limit_bytes=8,
+                )
+
+            creation_flags = git_start.call_args.kwargs["creationflags"]
+            self.assertEqual(creation_flags, 0x00000200)
+            tree_kill.assert_called_once_with(
+                ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=5.0,
+            )
+            self.assertTrue(process.killed)
+
+    @unittest.skipUnless(os.name == "nt", "Windows process-tree integration test")
+    def test_windows_tree_kill_stops_real_child_writer(self) -> None:
+        child_code = """
+import pathlib
+import sys
+import time
+
+target = pathlib.Path(sys.argv[1])
+while True:
+    with target.open("ab") as output:
+        output.write(b"x" * 4096)
+    time.sleep(0.005)
+"""
+        parent_code = """
+import subprocess
+import sys
+import time
+
+subprocess.Popen([sys.executable, "-c", sys.argv[1], sys.argv[2]])
+time.sleep(30)
+"""
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory)
+            output = workspace / "child-output.bin"
+            repository = LocalGitRepository(CLONE_URL, timeout_seconds=5)
+            repository.temp_dir = directory
+
+            with self.assertRaisesRegex(GitCloneError, "workspace превышает лимит"):
+                repository._run_git_with_workspace_limit(
+                    [sys.executable, "-c", parent_code, child_code, str(output)],
+                    env=os.environ.copy(),
+                    max_bytes=32 * 1024,
+                )
+
+            size_after_kill = output.stat().st_size
+            time.sleep(0.2)
+            self.assertEqual(output.stat().st_size, size_after_kill)
+
     def test_authenticated_git_log_never_contains_pat_or_private_url(self) -> None:
         repository = LocalGitRepository(CLONE_URL, auth_token=PERSONAL_PAT)
         failure = subprocess.CalledProcessError(
@@ -318,3 +397,7 @@ class GrowingWorkspaceProcess:
     def kill(self) -> None:
         self.killed = True
         self._return_code = -9
+
+
+class WindowsGrowingWorkspaceProcess(GrowingWorkspaceProcess):
+    pid = 4242
