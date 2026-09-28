@@ -603,22 +603,18 @@ def create_app(
             normalized_id = normalize_analysis_id(analysis_id)
         except ValueError:
             return _badge_response(
-                render_score_badge(value_override="not found", color_override="#6a737d")
+                render_score_badge(value_override="unknown", color_override="#6a737d")
             )
 
-        snapshot = await store.get(normalized_id)
+        snapshot = await _public_badge_snapshot(
+            await store.get(normalized_id),
+            effective_repository_catalog,
+        )
         if snapshot is None:
             return _badge_response(
-                render_score_badge(value_override="not found", color_override="#6a737d")
+                render_score_badge(value_override="unknown", color_override="#6a737d")
             )
-
-        score = snapshot.report.get("score")
-        int_score = int(score) if isinstance(score, (int, float)) else None
-        analysis_meta = snapshot.report.get("analysis")
-        is_preliminary = bool(
-            isinstance(analysis_meta, dict) and analysis_meta.get("isPreliminary")
-        )
-        return _badge_response(render_score_badge(int_score, is_preliminary=is_preliminary))
+        return _badge_response(_render_score_badge(snapshot))
 
     @app.get(
         "/api/v1/repositories/{organization_slug}/{repository_slug}/badge.svg",
@@ -629,18 +625,15 @@ def create_app(
         """Возвращает публичный SVG-бейдж последнего анализа репозитория."""
 
         latest = await store.get_latest_for_repository_slug(organization_slug, repository_slug)
-        if latest is None:
+        snapshot = await _public_badge_snapshot(
+            latest.snapshot if latest is not None else None,
+            effective_repository_catalog,
+        )
+        if snapshot is None:
             return _badge_response(
                 render_score_badge(value_override="unknown", color_override="#6a737d")
             )
-
-        score = latest.snapshot.report.get("score")
-        int_score = int(score) if isinstance(score, (int, float)) else None
-        analysis_meta = latest.snapshot.report.get("analysis")
-        is_preliminary = bool(
-            isinstance(analysis_meta, dict) and analysis_meta.get("isPreliminary")
-        )
-        return _badge_response(render_score_badge(int_score, is_preliminary=is_preliminary))
+        return _badge_response(_render_score_badge(snapshot))
 
     return app
 
@@ -961,6 +954,42 @@ def _apply_http_security_headers(response: Response, path: str) -> None:
 
 def _badge_response(svg: str) -> Response:
     return Response(content=svg, media_type="image/svg+xml")
+
+
+def _render_score_badge(snapshot: AnalysisSnapshot) -> str:
+    score = snapshot.report.get("score")
+    rounded_score = round(score) if isinstance(score, (int, float)) else None
+    analysis_meta = snapshot.report.get("analysis")
+    is_preliminary = bool(
+        isinstance(analysis_meta, dict) and analysis_meta.get("isPreliminary")
+    )
+    return render_score_badge(rounded_score, is_preliminary=is_preliminary)
+
+
+async def _public_badge_snapshot(
+    snapshot: AnalysisSnapshot | None,
+    repository_catalog: PublicRepositoryCatalog | None,
+) -> AnalysisSnapshot | None:
+    """Возвращает снимок только для репозитория, подтверждённого public-каталогом."""
+
+    if snapshot is None or repository_catalog is None:
+        return None
+    repository = snapshot.report.get("repository")
+    repository_id = repository.get("id") if isinstance(repository, dict) else None
+    if not isinstance(repository_id, str) or not repository_id:
+        return None
+    try:
+        catalog = await repository_catalog.list_repositories()
+    except SourceCraftRepositoryUnavailableError:
+        return None
+    return (
+        snapshot
+        if any(
+            item.id == repository_id and item.visibility == "public"
+            for item in catalog
+        )
+        else None
+    )
 
 
 def _normalize_analysis_id(analysis_id: str) -> str:
