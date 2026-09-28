@@ -13,6 +13,7 @@ from backend.app.analysis import run_analysis
 from backend.app.analysis.runner import AnalysisExecution
 from backend.app.analysis.store import InMemoryAnalysisStore
 from backend.app.contracts import AnalysisContext, RepositoryRef
+from backend.app.integrations.sourcecraft_repositories import SourceCraftRepository
 from backend.app.main import create_app
 from backend.app.reporting.badge import _estimate_text_width, render_score_badge
 
@@ -22,7 +23,7 @@ def _sample_execution(
     repository_id: str = "repo-42",
     organization_slug: str = "test-org",
     repository_slug: str = "test-repo",
-    score: int | None = 85,
+    score: float | None = 85,
     is_preliminary: bool = False,
 ) -> AnalysisExecution:
     analyzed_at = datetime(2026, 9, 28, 12, 0, tzinfo=UTC)
@@ -87,11 +88,39 @@ class ScoreBadgeTest(unittest.TestCase):
         self.assertIn("test &amp; 'quote'", svg)
 
 
+class _Catalog:
+    def __init__(self) -> None:
+        self.repositories: tuple[SourceCraftRepository, ...] = ()
+
+    async def list_repositories(self) -> tuple[SourceCraftRepository, ...]:
+        return self.repositories
+
+
+def _public_repository(
+    repository_id: str,
+    organization_slug: str,
+    repository_slug: str,
+) -> SourceCraftRepository:
+    return SourceCraftRepository(
+        id=repository_id,
+        name=repository_slug,
+        organization_slug=organization_slug,
+        slug=repository_slug,
+        default_branch="main",
+        visibility="public",
+        is_empty=False,
+        language=None,
+        branch_count=1,
+        web_url=None,
+    )
+
+
 class BadgeApiTest(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         self.store = InMemoryAnalysisStore()
+        self.catalog = _Catalog()
         await self.store.start()
-        self.app = create_app(analysis_store=self.store)
+        self.app = create_app(analysis_store=self.store, repository_catalog=self.catalog)
 
     async def asyncTearDown(self) -> None:
         await self.store.close()
@@ -99,6 +128,7 @@ class BadgeApiTest(unittest.IsolatedAsyncioTestCase):
     async def test_analysis_badge_returns_svg_with_cors_headers(self) -> None:
         execution = _sample_execution(score=92)
         await self.store.save("analysis-1", execution)
+        self.catalog.repositories = (_public_repository("repo-42", "test-org", "test-repo"),)
 
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=self.app), base_url="http://testserver"
@@ -132,6 +162,7 @@ class BadgeApiTest(unittest.IsolatedAsyncioTestCase):
             score=73,
         )
         await self.store.save("analysis-1", execution)
+        self.catalog.repositories = (_public_repository("repo-42", "my-org", "my-repo"),)
 
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=self.app), base_url="http://testserver"
@@ -144,6 +175,34 @@ class BadgeApiTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.headers.get("cross-origin-resource-policy"), "cross-origin")
         self.assertIn("73/100", response.text)
         self.assertIn("#dfb317", response.text)
+
+    async def test_private_repository_badge_is_neutral(self) -> None:
+        execution = _sample_execution(score=92)
+        await self.store.save("analysis-1", execution)
+
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=self.app), base_url="http://testserver"
+        ) as client:
+            by_analysis = await client.get("/api/v1/analyses/analysis-1/badge.svg")
+            by_repository = await client.get("/api/v1/repositories/test-org/test-repo/badge.svg")
+
+        self.assertIn("unknown", by_analysis.text)
+        self.assertIn("unknown", by_repository.text)
+        self.assertNotIn("92/100", by_analysis.text)
+        self.assertNotIn("92/100", by_repository.text)
+
+    async def test_badge_rounds_score_like_frontend(self) -> None:
+        execution = _sample_execution(score=75.5)
+        await self.store.save("analysis-1", execution)
+        self.catalog.repositories = (_public_repository("repo-42", "test-org", "test-repo"),)
+
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=self.app), base_url="http://testserver"
+        ) as client:
+            response = await client.get("/api/v1/analyses/analysis-1/badge.svg")
+
+        self.assertIn("76/100", response.text)
+        self.assertNotIn("75/100", response.text)
 
     async def test_missing_repository_badge_returns_unknown_svg(self) -> None:
         async with httpx.AsyncClient(
@@ -159,6 +218,7 @@ class BadgeApiTest(unittest.IsolatedAsyncioTestCase):
     async def test_badge_cache_control_not_overwritten_by_sensitive_prefixes(self) -> None:
         execution = _sample_execution(score=92)
         await self.store.save("analysis-1", execution)
+        self.catalog.repositories = (_public_repository("repo-42", "test-org", "test-repo"),)
 
         sensitive_with_badges = (
             "/api/v1/auth/",
