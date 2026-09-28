@@ -38,6 +38,7 @@ class SourceCraftCicdFactsTest(unittest.TestCase):
         self.assertEqual(len(facts.runs), 1)
         self.assertEqual(facts.runs[0].slug, "1")
         self.assertEqual(facts.runs[0].event_type, "manual")
+        self.assertEqual(facts.runs[0].duration_seconds, 29)
         self.assertNotIn("id", repr(facts))
 
     def test_collects_paginated_repository_event_without_dropping_history(self) -> None:
@@ -83,6 +84,28 @@ class SourceCraftCicdFactsTest(unittest.TestCase):
                 started_at=None,
                 finished_at=None,
                 updated_at=datetime(2026, 1, 1, tzinfo=UTC),
+                workflow_slugs=(),
+            ),
+        )
+
+        facts = collect_cicd_facts(client, _repository())
+
+        self.assertIsNone(facts.runs)
+        self.assertEqual(facts.source_error, "sourcecraft_cicd_mapping_failed")
+
+    def test_negative_duration_does_not_return_partial_history(self) -> None:
+        client = Mock()
+        timestamp = datetime(2026, 1, 1, tzinfo=UTC)
+        client.list_runs.return_value = (
+            SourceCraftCiRun(
+                id="",
+                slug="run-1",
+                status="success",
+                event_type="push",
+                created_at=timestamp,
+                started_at=timestamp,
+                finished_at=datetime(2025, 12, 31, tzinfo=UTC),
+                updated_at=timestamp,
                 workflow_slugs=(),
             ),
         )

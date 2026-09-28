@@ -48,6 +48,7 @@ class SourceCraftCicdClientTest(unittest.TestCase):
         self.assertEqual(runs[0].status, "success")
         self.assertEqual(runs[0].workflow_slugs, ("example-workflow",))
         self.assertEqual(runs[0].started_at.isoformat(), "2026-01-01T00:00:02+00:00")
+        self.assertEqual(runs[0].finished_at.isoformat(), "2026-01-01T00:00:30+00:00")
         self.assertEqual(requests[0].url.path, "/repos/example-org/example-repo/cicd/runs")
         self.assertEqual(requests[0].url.params["page_size"], "100")
 
@@ -257,6 +258,23 @@ class SourceCraftCicdClientTest(unittest.TestCase):
 
                 with self.assertRaisesRegex(SourceCraftResponseError, message):
                     client.list_runs(_repository())
+
+    def test_list_runs_rejects_negative_duration(self) -> None:
+        payload = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+        payload["runs"][0]["dates"]["finished_at"] = "2026-01-01T00:00:01Z"
+        payload["runs"][0]["dates"]["started_at"] = "2026-01-01T00:00:02Z"
+        with httpx.Client(
+            base_url="https://api.sourcecraft.tech",
+            transport=httpx.MockTransport(
+                lambda request: httpx.Response(200, json=payload)
+            ),
+        ) as http_client:
+            client = SourceCraftCicdClient(
+                SourceCraftClient("test-token", http_client=http_client)
+            )
+
+            with self.assertRaisesRegex(SourceCraftResponseError, "must not precede"):
+                client.list_runs(_repository())
 
 
 def _repository() -> RepositoryRef:
