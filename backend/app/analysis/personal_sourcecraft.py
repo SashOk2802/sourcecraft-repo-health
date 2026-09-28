@@ -59,9 +59,25 @@ class PersonalOrPublicAnalysisPlanner:
                 principal_guard=lambda actual: _require_subject(actual, owner_subject),
             )
             context = await resolver.resolve(repository_id, principal)
+
+            def prepare_git_repository():
+                assert self._connections is not None
+                return self._connections.prepare_git_repository(
+                    lease,
+                    owner_subject,
+                    context.repository,
+                    context.commit_sha,
+                )
+
             return AnalysisPlan(
                 context,
-                tuple(personal_sourcecraft_analyzer_provider(context, open_client)),
+                tuple(
+                    personal_sourcecraft_analyzer_provider(
+                        context,
+                        open_client,
+                        prepare_git_repository,
+                    )
+                ),
             )
 
         if self._public_resolver is None:

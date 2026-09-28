@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import tempfile
 import unittest
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import httpx
 from cryptography.fernet import Fernet
@@ -26,6 +28,7 @@ from backend.app.identity import (
     SourceCraftConnectionService,
     SourceCraftTokenVault,
 )
+from backend.app.integrations.git_repository import LocalGitRepository
 from backend.app.integrations.sourcecraft import SourceCraftClient
 from backend.app.main import create_app
 
@@ -50,6 +53,23 @@ class PersonalSourceCraftAnalysisTest(unittest.IsolatedAsyncioTestCase):
             clock=lambda: NOW,
         )
         await self.connections.connect(OWNER, OWNER_PAT)
+        self.prepared_git_directories: list[Path] = []
+
+        def prepare_git_repository(*_):
+            directory = Path(tempfile.mkdtemp(prefix="personal-git-test-"))
+            (directory / "README.md").write_text(
+                "# Example\n\n## Running\n\n```bash\npython -m pytest\n```\n",
+                encoding="utf-8",
+            )
+            (directory / "service.py").write_text("# TODO: example\n", encoding="utf-8")
+            repository = LocalGitRepository(
+                "https://sourcecraft.dev/sample-org/sample-private.git"
+            )
+            repository.temp_dir = str(directory)
+            self.prepared_git_directories.append(directory)
+            return repository
+
+        self.connections.prepare_git_repository = prepare_git_repository  # type: ignore[method-assign]
         self.planner = PersonalOrPublicAnalysisPlanner(
             connection_service=self.connections,
             public_resolver=None,
@@ -103,12 +123,8 @@ class PersonalSourceCraftAnalysisTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(categories["activity"]["status"], "measured")
         self.assertEqual(categories["issues"]["status"], "measured")
         self.assertEqual(categories["cicd"]["status"], "measured")
-        self.assertEqual(categories["documentation"]["status"], "unavailable")
-        self.assertEqual(
-            categories["documentation"]["reason"],
-            "personal_git_transport_unavailable",
-        )
-        self.assertEqual(categories["code_health"]["status"], "unavailable")
+        self.assertEqual(categories["documentation"]["status"], "measured")
+        self.assertEqual(categories["code_health"]["status"], "measured")
         self.assertEqual(categories["security"]["status"], "unavailable")
         self.assertEqual(other_status.status_code, 404)
         self.assertEqual(other_report.status_code, 404)
@@ -138,6 +154,8 @@ class PersonalSourceCraftAnalysisTest(unittest.IsolatedAsyncioTestCase):
             "/repos/sample-org/sample-private/cicd/runs",
             {path for path, _ in self.client_factory.requests},
         )
+        self.assertTrue(self.prepared_git_directories)
+        self.assertTrue(all(not path.exists() for path in self.prepared_git_directories))
 
     async def test_other_user_cannot_use_owner_connection_or_repository(self) -> None:
         before = len(self.client_factory.requests)

@@ -11,9 +11,11 @@ import logging
 import os
 import re
 import shutil
+import signal
 import stat
 import subprocess
 import tempfile
+import threading
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -25,6 +27,13 @@ from backend.app.integrations.sourcecraft import SourceCraftClient
 logger = logging.getLogger(__name__)
 
 DEFAULT_GIT_TIMEOUT_SECONDS = 60.0
+DEFAULT_MAX_GIT_FILES = 20_000
+DEFAULT_MAX_GIT_BLOB_BYTES = 1_048_576
+DEFAULT_MAX_GIT_TREE_BYTES = 50 * 1024 * 1024
+DEFAULT_MAX_GIT_CHECKOUT_BYTES = 100 * 1024 * 1024
+DEFAULT_GIT_WORKSPACE_POLL_SECONDS = 0.01
+WINDOWS_PROCESS_TREE_KILL_TIMEOUT_SECONDS = 5.0
+_WINDOWS_NEW_PROCESS_GROUP = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0x00000200)
 _NO_SHALLOW_COMMITS = "no commits selected for shallow requests"
 _FULL_COMMIT_SHA = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$", re.IGNORECASE)
 
@@ -38,6 +47,25 @@ class GitCloneError(RuntimeError):
 
 class GitOperationError(GitCloneError):
     """Неуспешный exit-код git-команды внутри подготовленной рабочей области."""
+
+
+@dataclass(frozen=True, slots=True)
+class GitCheckoutLimits:
+    """Жёсткие бюджеты private-клона до materialization рабочего дерева."""
+
+    max_files: int = DEFAULT_MAX_GIT_FILES
+    max_blob_bytes: int = DEFAULT_MAX_GIT_BLOB_BYTES
+    max_tree_bytes: int = DEFAULT_MAX_GIT_TREE_BYTES
+    max_checkout_bytes: int = DEFAULT_MAX_GIT_CHECKOUT_BYTES
+
+    def __post_init__(self) -> None:
+        if min(
+            self.max_files,
+            self.max_blob_bytes,
+            self.max_tree_bytes,
+            self.max_checkout_bytes,
+        ) < 1:
+            raise ValueError("git checkout limits must be positive")
 
 
 def _redact(value: str, *, repo_url: str | None, token: str | None) -> str:
@@ -60,6 +88,7 @@ class LocalGitRepository:
         *,
         auth_token: str | None = None,
         timeout_seconds: float = DEFAULT_GIT_TIMEOUT_SECONDS,
+        limits: GitCheckoutLimits | None = None,
     ) -> None:
         """Принимает URL, ссылку для checkout и токен аутентификации.
 
@@ -71,6 +100,7 @@ class LocalGitRepository:
         self.ref = ref
         self._auth_token = auth_token
         self._timeout_seconds = timeout_seconds
+        self._limits = limits
         self.temp_dir: str | None = None
 
     @property
@@ -97,7 +127,9 @@ class LocalGitRepository:
 
         self.temp_dir = tempfile.mkdtemp(prefix="repo-health-")
         try:
-            if self.ref:
+            if self._limits is not None:
+                self._clone_bounded(self.ref)
+            elif self.ref:
                 self._clone_shallow_with_ref(self.ref)
             else:
                 self._run_git(["clone", "--depth", "1", self.repo_url, self.temp_dir])
@@ -112,6 +144,220 @@ class LocalGitRepository:
             raise GitCloneError(
                 "Не удалось получить содержимое репозитория: git-команда завершилась ошибкой."
             ) from error
+        except GitCloneError:
+            self.cleanup()
+            raise
+        finally:
+            # Credential больше не нужен после clone/fetch и не остаётся в
+            # workspace, который затем читают анализаторы.
+            self._auth_token = None
+
+    def _clone_bounded(self, ref: str | None) -> None:
+        limits = self._limits
+        assert limits is not None
+        if self._auth_token and not SourceCraftClient.is_official_git_clone_url(self.repo_url):
+            raise GitCloneError(
+                "Для чтения приватного репозитория нужен официальный HTTPS-адрес SourceCraft."
+            )
+        filter_spec = f"blob:limit={limits.max_blob_bytes}"
+        self._run_git(
+            [
+                "clone",
+                "--quiet",
+                "--depth",
+                "1",
+                "--filter",
+                filter_spec,
+                "--no-checkout",
+                self.repo_url,
+                self.temp_dir,
+            ],
+            workspace_limit_bytes=limits.max_checkout_bytes,
+        )
+        self._validate_checkout_size(limits.max_checkout_bytes)
+
+        target = "HEAD"
+        if ref:
+            self._run_git(
+                [
+                    "-C",
+                    self.temp_dir,
+                    "fetch",
+                    "--quiet",
+                    "--depth",
+                    "1",
+                    "--filter",
+                    filter_spec,
+                    "origin",
+                    ref,
+                ],
+                workspace_limit_bytes=limits.max_checkout_bytes,
+            )
+            target = "FETCH_HEAD"
+
+        self._validate_tree(target, limits)
+        self._run_git(
+            ["-C", self.temp_dir, "checkout", "--quiet", "--detach", target],
+            no_lazy_fetch=True,
+            workspace_limit_bytes=limits.max_checkout_bytes,
+        )
+        self._validate_checkout_size(limits.max_checkout_bytes)
+
+    def _validate_tree(self, target: str, limits: GitCheckoutLimits) -> None:
+        """Проверяет число и размеры blob до checkout с ограниченной памятью."""
+
+        command = [
+            "git",
+            "-C",
+            str(self.temp_dir),
+            "ls-tree",
+            "-r",
+            "--format=%(objecttype) %(objectsize)",
+            target,
+        ]
+        env = self._git_environment(no_lazy_fetch=True)
+        process = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            env=env,
+        )
+        file_count = 0
+        total_bytes = 0
+        deadline = time.monotonic() + self._timeout_seconds
+        watchdog = threading.Timer(self._timeout_seconds, process.kill)
+        watchdog.daemon = True
+        watchdog.start()
+        try:
+            assert process.stdout is not None
+            for line in process.stdout:
+                if time.monotonic() >= deadline:
+                    raise subprocess.TimeoutExpired(command, self._timeout_seconds)
+                object_type, separator, raw_size = line.strip().partition(" ")
+                if object_type != "blob" or not separator or not raw_size.isdigit():
+                    raise GitCloneError("Git-дерево содержит неподдерживаемый объект.")
+                file_count += 1
+                blob_bytes = int(raw_size)
+                total_bytes += blob_bytes
+                if file_count > limits.max_files:
+                    raise GitCloneError("Git-дерево превышает лимит числа файлов.")
+                if blob_bytes > limits.max_blob_bytes:
+                    raise GitCloneError("Git-дерево содержит слишком большой файл.")
+                if total_bytes > limits.max_tree_bytes:
+                    raise GitCloneError("Git-дерево превышает лимит общего размера.")
+            remaining = max(0.001, deadline - time.monotonic())
+            return_code = process.wait(timeout=remaining)
+            if return_code != 0:
+                raise GitCloneError("Не удалось проверить размер Git-дерева.")
+        finally:
+            watchdog.cancel()
+            if process.poll() is None:
+                process.kill()
+                process.wait()
+
+    def _validate_checkout_size(self, max_bytes: int) -> None:
+        total = 0
+        if self.temp_dir is None:
+            raise GitCloneError("Git workspace не создан.")
+        for root, _, files in os.walk(self.temp_dir):
+            for name in files:
+                try:
+                    total += os.path.getsize(os.path.join(root, name))
+                except FileNotFoundError:
+                    # Git переименовывает временные pack/index-файлы во время
+                    # записи. Исчезнувший между os.walk и getsize путь уже не
+                    # занимает место и не должен давать ложную ошибку.
+                    continue
+                except OSError as error:
+                    raise GitCloneError("Не удалось проверить размер Git workspace.") from error
+                if total > max_bytes:
+                    raise GitCloneError("Git workspace превышает лимит размера.")
+
+    @staticmethod
+    def _kill_process_tree(process: subprocess.Popen[str]) -> None:
+        """Останавливает git и дочерние transport/index-pack процессы."""
+
+        try:
+            process_id = process.pid
+        except AttributeError:
+            process.kill()
+            return
+        if os.name == "nt":
+            try:
+                subprocess.run(
+                    ["taskkill", "/PID", str(process_id), "/T", "/F"],
+                    check=False,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=WINDOWS_PROCESS_TREE_KILL_TIMEOUT_SECONDS,
+                )
+            except (OSError, subprocess.TimeoutExpired):
+                # taskkill входит в Windows, но отказ его запуска не должен
+                # оставить хотя бы родительский git.exe работающим.
+                pass
+            if process.poll() is None:
+                process.kill()
+            return
+        else:
+            try:
+                os.killpg(os.getpgid(process_id), signal.SIGKILL)
+                return
+            except ProcessLookupError:
+                return
+            except OSError:
+                pass
+        process.kill()
+
+    def _run_git_with_workspace_limit(
+        self,
+        command: list[str],
+        *,
+        env: dict[str, str],
+        max_bytes: int,
+    ) -> subprocess.CompletedProcess[str]:
+        """Запускает git и ограничивает workspace во время скачивания/checkout.
+
+        Проверка после ``clone`` недостаточна: один допустимый blob может быть мал,
+        но pack из тысяч blob способен занять весь диск. Поэтому процесс запускается
+        отдельно, а временный каталог измеряется, пока transport/index-pack ещё
+        работают. При превышении бюджета завершается вся группа процессов.
+        """
+
+        process_options: dict[str, object] = {}
+        if os.name == "nt":
+            # Отдельная группа делает дерево Git явной единицей управления;
+            # taskkill /T ниже завершает git.exe вместе с transport/index-pack.
+            process_options["creationflags"] = _WINDOWS_NEW_PROCESS_GROUP
+        else:
+            process_options["start_new_session"] = True
+        process = subprocess.Popen(
+            command,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            env=env,
+            **process_options,
+        )
+        deadline = time.monotonic() + self._timeout_seconds
+        try:
+            while process.poll() is None:
+                self._validate_checkout_size(max_bytes)
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise subprocess.TimeoutExpired(command, self._timeout_seconds)
+                time.sleep(min(DEFAULT_GIT_WORKSPACE_POLL_SECONDS, remaining))
+
+            self._validate_checkout_size(max_bytes)
+            return_code = process.wait()
+            if return_code != 0:
+                raise subprocess.CalledProcessError(return_code, command)
+            return subprocess.CompletedProcess(command, return_code, "", "")
+        except BaseException:
+            if process.poll() is None:
+                self._kill_process_tree(process)
+                process.wait()
+            raise
 
     def _clone_shallow_with_ref(self, ref: str) -> None:
         try:
@@ -127,36 +373,87 @@ class LocalGitRepository:
             self._run_git(["-C", self.temp_dir, "fetch", "--depth", "1", "origin", ref])
             self._run_git(["-C", self.temp_dir, "checkout", "--detach", "FETCH_HEAD"])
 
-    def _run_git(self, arguments: list[str]) -> subprocess.CompletedProcess[str]:
+    def _run_git(
+        self,
+        arguments: list[str],
+        *,
+        no_lazy_fetch: bool = False,
+        workspace_limit_bytes: int | None = None,
+    ) -> subprocess.CompletedProcess[str]:
         command = ["git"]
-        if self._auth_token:
-            # Тот же Bearer-PAT, что и у API-клиента; в URL токен не попадает.
-            command += ["-c", f"http.extraheader=AUTHORIZATION: Bearer {self._auth_token}"]
         command += arguments
+        operation = arguments[0] if arguments else ""
+        if operation == "-C" and len(arguments) > 2:
+            operation = arguments[2]
+        use_auth = self._auth_token is not None and operation in {"clone", "fetch"}
+        env = self._git_environment(use_auth=use_auth, no_lazy_fetch=no_lazy_fetch)
 
         try:
+            if workspace_limit_bytes is not None:
+                return self._run_git_with_workspace_limit(
+                    command,
+                    env=env,
+                    max_bytes=workspace_limit_bytes,
+                )
+            output_options = (
+                {"stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
+                if self._auth_token
+                else {"capture_output": True}
+            )
             return subprocess.run(
                 command,
                 check=True,
-                capture_output=True,
                 text=True,
                 timeout=self._timeout_seconds,
+                env=env,
+                **output_options,
             )
         except subprocess.TimeoutExpired:
             raise
         except subprocess.CalledProcessError as error:
-            diagnostic = _redact(
-                error.stderr or "",
-                repo_url=self.repo_url,
-                token=self._auth_token,
-            )
-            logger.debug(
-                "git %s failed (exit %s): %s",
-                arguments[0],
-                error.returncode,
-                diagnostic,
-            )
+            if self._auth_token:
+                logger.debug(
+                    "authenticated git %s failed (exit %s)",
+                    operation,
+                    error.returncode,
+                )
+            else:
+                diagnostic = _redact(
+                    error.stderr or "",
+                    repo_url=self.repo_url,
+                    token=None,
+                )
+                logger.debug(
+                    "git %s failed (exit %s): %s",
+                    operation,
+                    error.returncode,
+                    diagnostic,
+                )
             raise
+
+    def _git_environment(
+        self,
+        *,
+        use_auth: bool = False,
+        no_lazy_fetch: bool = False,
+    ) -> dict[str, str]:
+        env = os.environ.copy()
+        for key in tuple(env):
+            if key == "GIT_CONFIG_COUNT" or key.startswith(
+                ("GIT_CONFIG_KEY_", "GIT_CONFIG_VALUE_")
+            ):
+                env.pop(key, None)
+        env.pop("GIT_NO_LAZY_FETCH", None)
+        env["GIT_TERMINAL_PROMPT"] = "0"
+        if use_auth and self._auth_token:
+            # Credential передаётся только окружению короткой clone/fetch
+            # операции и не виден в URL или argv процесса.
+            env["GIT_CONFIG_COUNT"] = "1"
+            env["GIT_CONFIG_KEY_0"] = "http.extraheader"
+            env["GIT_CONFIG_VALUE_0"] = f"AUTHORIZATION: Bearer {self._auth_token}"
+        if no_lazy_fetch:
+            env["GIT_NO_LAZY_FETCH"] = "1"
+        return env
 
     def file_exists(self, relative_path: str) -> bool:
         """Проверяет наличие обычного файла в рабочей области клона.
@@ -460,4 +757,3 @@ def _remove_history_dir(temp_dir: str) -> None:
             shutil.rmtree(temp_dir, onerror=_force_remove_readonly)
     except OSError:
         logger.warning("Не удалось удалить временную директорию истории коммитов.", exc_info=True)
-

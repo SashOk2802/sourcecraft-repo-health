@@ -18,6 +18,12 @@ from typing import Protocol
 import asyncpg
 from cryptography.fernet import Fernet, InvalidToken
 
+from backend.app.contracts import RepositoryRef
+from backend.app.integrations.git_repository import (
+    GitCheckoutLimits,
+    GitCloneError,
+    LocalGitRepository,
+)
 from backend.app.integrations.sourcecraft import (
     SourceCraftAuthenticationError,
     SourceCraftClient,
@@ -374,6 +380,59 @@ class SourceCraftConnectionService:
                 ) from error
             finally:
                 client.close()
+        finally:
+            token = ""
+
+    def prepare_git_repository(
+        self,
+        lease: SourceCraftCredentialLease,
+        user_id: str,
+        repository: RepositoryRef,
+        commit_sha: str,
+    ) -> LocalGitRepository:
+        """Клонирует private workspace внутри короткой credential-операции."""
+
+        safe_user_id = _validate_user_id(user_id)
+        if not isinstance(lease, SourceCraftCredentialLease):
+            raise TypeError("SourceCraft credential lease is required")
+        if not hmac.compare_digest(
+            lease.owner_subject.encode("utf-8"),
+            safe_user_id.encode("utf-8"),
+        ):
+            raise PermissionError("SourceCraft credential lease belongs to another user")
+        if self._clock() >= lease.expires_at:
+            raise SourceCraftConnectionUnavailableError("SourceCraft credential lease expired")
+
+        token = self._vault.decrypt(lease.encrypted_token)
+        workspace: LocalGitRepository | None = None
+        try:
+            clone_url = SourceCraftClient.resolve_git_clone_url(
+                repository.organization_slug,
+                repository.repository_slug,
+                repository.web_url,
+            )
+            workspace = LocalGitRepository(
+                clone_url,
+                ref=commit_sha,
+                auth_token=token,
+                limits=GitCheckoutLimits(),
+            )
+            workspace.clone()
+            if workspace.auth_token is not None:
+                raise SourceCraftConnectionUnavailableError(
+                    "SourceCraft Git credential was not released"
+                )
+            return workspace
+        except SourceCraftConnectionUnavailableError:
+            if workspace is not None:
+                workspace.cleanup()
+            raise
+        except (GitCloneError, SourceCraftClientError, TypeError, ValueError, OSError):
+            if workspace is not None:
+                workspace.cleanup()
+            raise SourceCraftConnectionUnavailableError(
+                "SourceCraft Git workspace is unavailable"
+            ) from None
         finally:
             token = ""
 
