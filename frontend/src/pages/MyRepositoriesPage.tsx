@@ -9,7 +9,7 @@ import {
   type SourceCraftConnection,
 } from "../api/connections";
 import { describeError } from "../api/http";
-import { fetchMyRepositories, type MyRepository } from "../api/me";
+import { fetchMyRepositories, repositoryVisibilityLabel, type MyRepository } from "../api/me";
 import { useAuth } from "../auth/AuthContext";
 import { ErrorNote, LoadingNote } from "../components/PageNotes";
 import { dataOf, useAsync } from "../hooks/useAsync";
@@ -272,6 +272,7 @@ interface RepositoryRowProps {
 function RepositoryRow({ item, starting, onStart }: RepositoryRowProps) {
   const { repository, lastAnalysis, activeAnalysisId } = item;
   const hasReport = lastAnalysis !== null && (lastAnalysis.status === "completed" || lastAnalysis.status === "partial");
+  const visibilityLabel = repositoryVisibilityLabel(repository.visibility);
 
   return (
     <tr>
@@ -286,9 +287,9 @@ function RepositoryRow({ item, starting, onStart }: RepositoryRowProps) {
               <span className="my-repos__org">{repository.organizationSlug} /</span> {repository.repositorySlug}
             </span>
           )}
-          {repository.visibility === "private" && (
+          {visibilityLabel && (
             <Label size="xs" theme="unknown">
-              закрытый
+              {visibilityLabel}
             </Label>
           )}
         </span>
