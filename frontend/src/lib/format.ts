@@ -41,6 +41,13 @@ export function formatPoints(value: number): string {
   return decimalFormat.format(value);
 }
 
+/** Объём в байтах: «512 Б», «4,5 КБ», «50 МБ» (двоичные единицы, как лимиты backend). */
+export function formatBytes(value: number): string {
+  if (value >= 1024 * 1024) return `${decimalFormat.format(value / (1024 * 1024))} МБ`;
+  if (value >= 1024) return `${decimalFormat.format(value / 1024)} КБ`;
+  return `${integerFormat.format(value)} Б`;
+}
+
 function dateParts(iso: string, options: Intl.DateTimeFormatOptions): Record<string, string> {
   const parts = new Intl.DateTimeFormat("ru-RU", options).formatToParts(new Date(iso));
   return Object.fromEntries(parts.map((part) => [part.type, part.value]));

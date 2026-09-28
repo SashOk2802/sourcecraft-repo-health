@@ -8,7 +8,7 @@ describe("describeReason", () => {
     expect(isKnownReason("analyzer_not_configured")).toBe(true);
   });
 
-  it("знает причины анализаторов Security, CI/CD и Code health", () => {
+  it("знает причины анализаторов Security, CI/CD, Activity и Code health", () => {
     const codes = [
       "appsec_unavailable",
       "appsec_source_error",
@@ -20,7 +20,10 @@ describe("describeReason", () => {
       "cicd_no_automated_runs_in_period",
       "cicd_too_few_outcome_runs",
       "code_health_scan_limit_exceeded",
+      "code_health_unreadable_source",
       "code_files_unavailable",
+      "commit_history_unavailable",
+      "appsec_coverage_not_confirmed",
     ];
     for (const code of codes) {
       expect(isKnownReason(code)).toBe(true);
@@ -60,6 +63,15 @@ describe("describeReason", () => {
     // Так activity.py собирает reason: ошибки списков через «; », у issues — с префиксом статуса.
     const reason = "SourceCraft denied access with HTTP 403; open: SourceCraft denied access with HTTP 403";
     expect(describeReason(reason)).toBe("SourceCraft не дал доступ к этим данным (HTTP 403).");
+  });
+
+  it("код в склеенном списке переводит, а не показывает как предложение", () => {
+    // Activity v2 добавляет в тот же список код ошибки истории коммитов.
+    const text = describeReason("SourceCraft request timed out; commit_history_unavailable; some_new_code");
+    expect(text).toContain("не ответил вовремя");
+    expect(text).toContain("Историю коммитов прочитать не удалось");
+    expect(text).toContain("Причина: some_new_code.");
+    expect(text).not.toContain("Commit_history_unavailable");
   });
 });
 

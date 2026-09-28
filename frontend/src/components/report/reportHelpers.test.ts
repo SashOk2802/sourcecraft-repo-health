@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import type { Evidence } from "../../api/common";
 import type { CategoryMetric, ReportCategory } from "../../api/report";
 import {
   biggestLosses,
@@ -266,6 +267,139 @@ describe("метрики документации и Code health", () => {
   it("незнакомый has_* с другим значением считает обычной метрикой", () => {
     expect(isPresenceMetric({ ...hasReadme, code: "has_something", value: 1 })).toBe(false);
     expect(isPresenceMetric({ ...hasReadme, value: "да" })).toBe(false);
+  });
+
+  it("долю файлов с пометками показывает в процентах и без формулы в подписи", () => {
+    // Так её отдаёт backend/app/analyzers/code_health.py: доля от 0 до 1, summary с формулой.
+    const debtShare: CategoryMetric = {
+      code: "code_health.debt_file_ratio",
+      value: 9 / 120,
+      normalizedScore: null,
+      summary: "Доля файлов с техническим долгом (files_with_debt / total_files)",
+      evidence: [],
+    };
+    expect(metricLabel(debtShare)).toBe("Доля файлов с TODO или FIXME");
+    expect(metricValueText(debtShare)).toBe("8%");
+    expect(metricTone(debtShare)).toBe("info");
+  });
+
+  it("возраст пометок объясняет без «shallow» и «blame»", () => {
+    const markerAge: CategoryMetric = {
+      code: "code_health.marker_age",
+      value: null,
+      normalizedScore: null,
+      summary: "Возраст TODO/FIXME недоступен: клон shallow, истории для blame нет.",
+      evidence: [],
+    };
+    expect(metricLabel(markerAge)).not.toMatch(/shallow|blame/);
+    expect(metricValueText(markerAge)).toBe("—");
+    expect(metricTone(markerAge)).toBe("info");
+  });
+
+  it("прочитанный до лимита объём показывает в мегабайтах", () => {
+    const bytesRead: CategoryMetric = {
+      code: "partial_bytes_read",
+      value: 50 * 1024 * 1024,
+      normalizedScore: null,
+      summary: "Байт исходников прочитано до достижения лимита",
+      evidence: [],
+    };
+    expect(metricValueText(bytesRead)).toBe("50 МБ");
+  });
+});
+
+describe("подписи метрик Activity", () => {
+  it("summary со строчной буквы показывает с заглавной", () => {
+    // backend/app/analyzers/activity.py, метрика v2.
+    const activeWeeks: CategoryMetric = {
+      code: "active_weeks_in_period",
+      value: 5,
+      normalizedScore: 62.5,
+      summary: "за период коммиты были в 5 неделях",
+      evidence: [],
+    };
+    expect(metricLabel(activeWeeks)).toBe("За период коммиты были в 5 неделях");
+    expect(metricValueText(activeWeeks)).toBe("63");
+  });
+
+  it("ссылку с тем же текстом, что у метрики, подписывает по-своему", () => {
+    const summary = "за период коммиты были в 5 неделях";
+    const history: Evidence = {
+      source: "sourcecraft-activity",
+      reference: "commit-history",
+      summary,
+      url: "https://sourcecraft.dev/team/api",
+    };
+    const activeWeeks: CategoryMetric = {
+      code: "active_weeks_in_period",
+      value: 5,
+      normalizedScore: 62.5,
+      summary,
+      evidence: [history],
+    };
+    expect(metricEvidence(activeWeeks)).toEqual([{ ...history, summary: "история коммитов" }]);
+    // Ссылка на релиз с повтором текста остаётся ссылкой, но без повтора.
+    const release: Evidence = { ...history, reference: "v2.14.0" };
+    expect(metricEvidence({ ...activeWeeks, evidence: [release] })).toEqual([{ ...release, summary: "" }]);
+  });
+});
+
+// Так backend/app/analyzers/security.py отдаёт измеренную безопасность: три метрики и один общий факт.
+const appsecFact: Evidence = {
+  source: "sourcecraft-appsec",
+  reference: "appsec-defects",
+  summary: "Получены полные обезличенные результаты SAST, SCA и secret scanning.",
+  url: null,
+};
+const appsecCoverage: CategoryMetric = {
+  code: "appsec_data_coverage",
+  value: "complete",
+  normalizedScore: null,
+  summary: appsecFact.summary,
+  evidence: [appsecFact],
+};
+const appsecOpen: CategoryMetric = {
+  code: "appsec_open_findings",
+  value: 3,
+  normalizedScore: 85,
+  summary: "Открытые findings учитываются по severity и статусу SourceCraft.",
+  evidence: [appsecFact],
+};
+const appsecCritical: CategoryMetric = {
+  code: "appsec_confirmed_open_critical_findings",
+  value: 0,
+  normalizedScore: null,
+  summary: "Критичные finding'и с подтверждённым открытым статусом ограничивают итоговый Score.",
+  evidence: [appsecFact],
+};
+
+describe("метрики Security Score", () => {
+  const securityMetrics = [appsecCoverage, appsecOpen, appsecCritical];
+
+  it("подписывает своими словами, а не правилом методики", () => {
+    expect(securityMetrics.map(metricLabel)).toEqual([
+      "Результаты SAST, SCA и secret scanning",
+      "Открытые находки сканеров",
+      "Из них подтверждённые критичные",
+    ]);
+  });
+
+  it("справа — число находок, а не повтор оценки категории", () => {
+    expect(metricValueText(appsecCoverage)).toBe("полные");
+    expect(metricValueText({ ...appsecCoverage, value: "partial" })).toBe("—");
+    expect(metricValueText(appsecOpen)).toBe("3");
+    expect(metricValueText(appsecCritical)).toBe("0");
+    // Цвет точки — по оценке: 85 — хорошо; у подтверждённых критичных оценки нет.
+    expect(metricTone(appsecOpen)).toBe("high");
+    expect(metricTone(appsecCritical)).toBe("info");
+  });
+
+  it("общий факт не повторяет под каждой метрикой", () => {
+    for (const metric of securityMetrics) {
+      expect(metricEvidence(metric, securityMetrics)).toEqual([]);
+    }
+    // Без соседей факт остался бы: его текст отличается от summary самой метрики.
+    expect(metricEvidence(appsecOpen)).toHaveLength(1);
   });
 });
 
