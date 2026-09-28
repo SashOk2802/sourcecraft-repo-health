@@ -51,6 +51,59 @@ class ContainerSecurityTest(unittest.TestCase):
         self.assertIn("chown -R app:app /app", dockerfile)
         self.assertEqual(_last_user(dockerfile), "app")
 
+    def test_production_frontend_is_static_non_root_and_digest_pinned(self) -> None:
+        dockerfile = _read("frontend/Dockerfile.prod")
+        from_lines = [line for line in dockerfile.splitlines() if line.startswith("FROM ")]
+
+        self.assertEqual(len(from_lines), 2)
+        for line in from_lines:
+            self.assertRegex(line, r"@sha256:[0-9a-f]{64}(?: AS build)?$")
+        self.assertIn("RUN npm run build", dockerfile)
+        self.assertIn("COPY --from=build /app/dist /usr/share/nginx/html", dockerfile)
+        self.assertNotIn("npm run dev", dockerfile)
+        self.assertEqual(_last_user(dockerfile), "101")
+
+    def test_production_nginx_blocks_dev_sources_and_sets_browser_headers(self) -> None:
+        nginx = _read("frontend/nginx/default.conf.template")
+
+        self.assertIn("location /api/", nginx)
+        self.assertIn("proxy_pass $api_upstream", nginx)
+        self.assertIn("location ~ ^/(?:@vite|src)(?:/|$)", nginx)
+        self.assertIn("Content-Security-Policy", nginx)
+        self.assertIn("Strict-Transport-Security", nginx)
+        self.assertIn('X-Content-Type-Options "nosniff"', nginx)
+        self.assertIn('X-Frame-Options "DENY"', nginx)
+        self.assertIn("Referrer-Policy", nginx)
+        self.assertIn("Permissions-Policy", nginx)
+
+    def test_production_compose_does_not_expose_development_runtime(self) -> None:
+        compose = _read("compose.production.yaml")
+
+        self.assertIn("dockerfile: Dockerfile.prod", compose)
+        self.assertIn("VITE_DATA_SOURCE: api", compose)
+        self.assertIn("APP_ENV: production", compose)
+        self.assertIn('YANDEX_SESSION_COOKIE_SECURE: "true"', compose)
+        self.assertIn("127.0.0.1:${FRONTEND_PORT:-5173}:8080", compose)
+        self.assertNotIn("--reload", compose)
+        self.assertNotIn("./backend:/app/backend", compose)
+        self.assertNotIn("./frontend:/app", compose)
+        self.assertNotIn("VITE_USE_MOCKS", compose)
+        self.assertRegex(
+            compose,
+            r"image: postgres:16-alpine@sha256:[0-9a-f]{64}",
+        )
+        self.assertRegex(
+            compose,
+            r"image: redis:7-alpine@sha256:[0-9a-f]{64}",
+        )
+
+        deployment_docs = _read("docs/production-deployment-smoke.md")
+        self.assertIn(
+            "docker compose -f compose.production.yaml config --quiet",
+            deployment_docs,
+        )
+        self.assertNotIn("compose.production.yaml config\n", deployment_docs)
+
     def test_frontend_vite_cache_is_outside_the_node_modules_volume(self) -> None:
         dockerfile = _read("frontend/Dockerfile")
         package_json = _read("frontend/package.json")
@@ -74,6 +127,10 @@ class ContainerSecurityTest(unittest.TestCase):
         self.assertIn("- ./scripts:/app/scripts:ro", compose)
         self.assertIn("- ./.github:/app/.github:ro", compose)
         self.assertIn("- ./compose.yaml:/app/compose.yaml:ro", compose)
+        self.assertIn(
+            "- ./compose.production.yaml:/app/compose.production.yaml:ro",
+            compose,
+        )
         self.assertIn("python -m unittest discover -s backend/tests -v", compose)
         self.assertIn("ruff check backend --ignore EXE002", compose)
 

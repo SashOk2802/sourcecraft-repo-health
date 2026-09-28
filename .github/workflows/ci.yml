@@ -111,6 +111,12 @@ jobs:
           persist-credentials: false
       - name: Check Compose configuration
         run: docker compose config --quiet
+      - name: Check production Compose configuration
+        env:
+          DATABASE_URL: postgresql+asyncpg://repo_health:ci-only@postgres:5432/repo_health
+          POSTGRES_PASSWORD: ci-only
+          SOURCECRAFT_TOKEN: ci-placeholder
+        run: docker compose -f compose.production.yaml config --quiet
       # `config --quiet` проверяет только синтаксис. Поднимаем чистый стек,
       # чтобы Dockerfile, миграции Alembic и healthcheck'и действительно были
       # совместимы на новой машине до попадания изменения в main.

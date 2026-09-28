@@ -38,6 +38,8 @@ class ContainerSecurityWorkflowTest(unittest.TestCase):
         self.assertIn("dockerfile: backend/Dockerfile", self.workflow)
         self.assertIn("context: .", self.workflow)
         self.assertIn("dockerfile: frontend/Dockerfile", self.workflow)
+        self.assertIn("dockerfile: frontend/Dockerfile.prod", self.workflow)
+        self.assertIn("image: sourcecraft-repo-health-production-frontend:scan", self.workflow)
         self.assertIn("context: frontend", self.workflow)
         self.assertIn("fail-fast: false", self.workflow)
 

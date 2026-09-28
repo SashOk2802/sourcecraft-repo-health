@@ -33,6 +33,10 @@ jobs:
             context: frontend
             dockerfile: frontend/Dockerfile
             image: sourcecraft-repo-health-frontend:scan
+          - name: production-frontend
+            context: frontend
+            dockerfile: frontend/Dockerfile.prod
+            image: sourcecraft-repo-health-production-frontend:scan
 
     steps:
       - name: Check out repository

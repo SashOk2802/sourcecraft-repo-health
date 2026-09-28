@@ -1,0 +1,94 @@
+name: sourcecraft-repo-health-production
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        VITE_DATA_SOURCE: api
+    environment:
+      API_PROXY_TARGET: http://backend:8000
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-5173}:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+    init: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: >-
+      sh -c "alembic upgrade head &&
+      exec uvicorn backend.app.main:app --host 0.0.0.0 --port 8000"
+    environment:
+      APP_ENV: production
+      DATABASE_URL: "${DATABASE_URL:?set DATABASE_URL in the server environment}"
+      REDIS_URL: redis://redis:6379/0
+      YANDEX_CLIENT_ID: "${YANDEX_CLIENT_ID:-}"
+      YANDEX_REDIRECT_URI: "${YANDEX_REDIRECT_URI:-}"
+      YANDEX_CLIENT_SECRET: "${YANDEX_CLIENT_SECRET:-}"
+      YANDEX_SESSION_COOKIE_SECURE: "true"
+      SOURCECRAFT_CONNECTION_ENCRYPTION_KEY: "${SOURCECRAFT_CONNECTION_ENCRYPTION_KEY:-}"
+      SOURCECRAFT_TOKEN: "${SOURCECRAFT_TOKEN:?set SOURCECRAFT_TOKEN in the server environment}"
+      SOURCECRAFT_DISCOVER_PUBLIC_REPOSITORIES: "${SOURCECRAFT_DISCOVER_PUBLIC_REPOSITORIES:-true}"
+      SOURCECRAFT_PUBLIC_ORGANIZATIONS: "${SOURCECRAFT_PUBLIC_ORGANIZATIONS:-}"
+      PUBLIC_ANALYSIS_SCHEDULER_ENABLED: "${PUBLIC_ANALYSIS_SCHEDULER_ENABLED:-true}"
+      SOURCECRAFT_APPSEC_SNAPSHOT_DIR: /run/sourcecraft-appsec
+      SOURCECRAFT_APPSEC_SNAPSHOT_MAX_AGE_SECONDS: "${SOURCECRAFT_APPSEC_SNAPSHOT_MAX_AGE_SECONDS:-3600}"
+    group_add:
+      - "${SOURCECRAFT_APPSEC_SNAPSHOT_READER_GID:-10001}"
+    volumes:
+      - "${SOURCECRAFT_APPSEC_SNAPSHOT_HOST_DIR:-./.local/sourcecraft-appsec-snapshots}:/run/sourcecraft-appsec:ro"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 20s
+    init: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  postgres:
+    image: postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
+    environment:
+      POSTGRES_DB: "${POSTGRES_DB:-repo_health}"
+      POSTGRES_USER: "${POSTGRES_USER:-repo_health}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in the server environment}"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  redis:
+    image: redis:7-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
+    command: redis-server --save "" --appendonly no
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  postgres_data:
