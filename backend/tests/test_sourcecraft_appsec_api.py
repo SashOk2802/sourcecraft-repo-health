@@ -11,6 +11,7 @@ from unittest.mock import patch
 from uuid import UUID
 
 from backend.app.analyzers import security
+from backend.app.contracts import RepositoryRef
 from backend.app.integrations.sourcecraft_appsec_api import SourceCraftAppSecApiProbe
 from backend.app.integrations.sourcecraft_appsec_facts import build_security_facts_from_results
 from backend.app.integrations.sourcecraft_appsec_snapshot import (
@@ -111,15 +112,22 @@ class AppSecApiTest(unittest.TestCase):
         )
         self.assertEqual(sast.finding_groups[0].count, 201)
         self.assertEqual(sast.finding_groups[0].severity, "HIGH")
+        self.assertEqual(sast.scan_uuid, SCAN_ID)
         self.assertEqual(sca.availability, "unavailable")
         self.assertEqual(secrets.availability, "unavailable")
         self.assertIsNone(sca.scan_commit_sha)
         self.assertNotIn(PRIVATE, repr(results))
         self.assertNotIn(COMMIT, json.dumps([r.as_dict() for r in results]))
+        self.assertNotIn(SCAN_ID, json.dumps([r.as_dict() for r in results]))
         self.assertTrue(any("pageToken=200" in c for c in source.commands))
-        result = security.evaluate(build_security_facts_from_results(results))
+        facts = build_security_facts_from_results(results)
+        self.assertEqual(facts.scan_uuid, SCAN_ID)
+        result = security.evaluate(
+            facts, repository=RepositoryRef(REPOSITORY_ID, "example-org", "example-repo")
+        )
         self.assertEqual(result.status, "insufficient_sample")
         self.assertIsNone(result.score)
+        self.assertIn("scan_id", result.metrics[1].evidence[0].url or "")
 
     def test_snapshot_bridge_uses_source_commit_for_complete_nonempty_data(self):
         results = probe(FakeSource())

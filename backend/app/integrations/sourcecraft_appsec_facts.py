@@ -45,6 +45,8 @@ def collect_security_facts(
 
 def build_security_facts_from_results(
     results: tuple[object, ...],
+    *,
+    scan_uuid: str | None = None,
 ) -> SecurityFacts:
     """Строит ``SecurityFacts`` из уже безопасных результатов трёх движков.
 
@@ -61,7 +63,16 @@ def build_security_facts_from_results(
         for engine in APPSEC_ENGINES
     )
     if any(result.availability == "available" for result in ordered_results):
-        return build_facts({"engines": [result.as_dict() for result in ordered_results]})
+        available = tuple(result for result in ordered_results if result.availability == "available")
+        observed_ids = {result.scan_uuid for result in available}
+        if observed_ids - {None}:
+            if len(observed_ids) != 1 or (scan_uuid is not None and scan_uuid not in observed_ids):
+                return build_facts(None, source_error=_MAPPING_FAILURE)
+            scan_uuid = next(iter(observed_ids))
+        return build_facts(
+            {"engines": [result.as_dict() for result in ordered_results]},
+            scan_uuid=scan_uuid,
+        )
     if all(result.availability == "unavailable" for result in ordered_results):
         return build_facts(None)
     return build_facts(None, source_error=_PROBE_FAILURE)

@@ -8,9 +8,11 @@ import stat
 import subprocess
 import tempfile
 import unittest
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import Mock, patch
+from uuid import UUID
 
 from backend.app.analysis.providers import sourcecraft_analyzer_provider
 from backend.app.analyzers.security import evaluate, make_context_analyzer
@@ -24,9 +26,12 @@ from backend.app.integrations.sourcecraft_appsec_snapshot import (
     DEFAULT_SNAPSHOT_READER_GID,
     MAX_SNAPSHOT_BYTES,
     SourceCraftAppSecCliSnapshotExporter,
+    SourceCraftAppSecSnapshotError,
     SourceCraftAppSecSnapshotExportError,
     SourceCraftAppSecSnapshotSettings,
     SourceCraftAppSecSnapshotStore,
+    _parse_snapshot,
+    _snapshot_payload,
     repository_fingerprint,
     snapshot_filename,
     snapshot_settings_from_environment,
@@ -34,6 +39,7 @@ from backend.app.integrations.sourcecraft_appsec_snapshot import (
 )
 
 COMMIT_SHA = "a" * 40
+SCAN_UUID = str(UUID(int=42))
 
 
 class SourceCraftAppSecSnapshotTest(unittest.TestCase):
@@ -58,6 +64,64 @@ class SourceCraftAppSecSnapshotTest(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.temporary_directory.cleanup()
+
+    def test_scan_uuid_is_bound_to_snapshot_and_legacy_v2_still_reads(self) -> None:
+        results = tuple(replace(result, scan_uuid=SCAN_UUID) for result in _complete_results())
+        payload = _snapshot_payload(
+            self.context.repository.id, self.now, results, commit_sha=COMMIT_SHA
+        )
+
+        self.assertEqual(payload["schema_version"], 3)
+        self.assertEqual(payload["scan_uuid"], SCAN_UUID)
+        parsed, scan_uuid = _parse_snapshot(
+            payload,
+            repository_id=self.context.repository.id,
+            commit_sha=COMMIT_SHA,
+            now=self.now,
+            max_age=timedelta(minutes=10),
+        )
+        self.assertEqual(len(parsed), 3)
+        self.assertEqual(scan_uuid, SCAN_UUID)
+        with (
+            patch(
+                "backend.app.integrations.sourcecraft_appsec_snapshot._snapshot_path",
+                return_value=self.snapshot_directory / "safe.json",
+            ),
+            patch(
+                "backend.app.integrations.sourcecraft_appsec_snapshot._read_snapshot",
+                return_value=payload,
+            ),
+        ):
+            facts = self.store.collect(self.context)
+        self.assertEqual(facts.scan_uuid, SCAN_UUID)
+        report = evaluate(facts, repository=self.context.repository)
+        self.assertIn("scanId=" + SCAN_UUID, report.metrics[0].evidence[0].url or "")
+        legacy = {key: value for key, value in payload.items() if key != "scan_uuid"}
+        legacy["schema_version"] = 2
+        _, legacy_scan_uuid = _parse_snapshot(
+            legacy,
+            repository_id=self.context.repository.id,
+            commit_sha=COMMIT_SHA,
+            now=self.now,
+            max_age=timedelta(minutes=10),
+        )
+        self.assertIsNone(legacy_scan_uuid)
+
+        payload["scan_uuid"] = "../../another-repository"
+        with self.assertRaises(SourceCraftAppSecSnapshotError):
+            _parse_snapshot(
+                payload,
+                repository_id=self.context.repository.id,
+                commit_sha=COMMIT_SHA,
+                now=self.now,
+                max_age=timedelta(minutes=10),
+            )
+
+    def test_mixed_scan_uuids_cannot_create_snapshot(self) -> None:
+        results = [replace(result, scan_uuid=SCAN_UUID) for result in _complete_results()]
+        results[1] = replace(results[1], scan_uuid=str(UUID(int=43)))
+        with self.assertRaisesRegex(ValueError, "different scans"):
+            _snapshot_payload(self.context.repository.id, self.now, tuple(results), commit_sha=COMMIT_SHA)
 
     def test_complete_safe_snapshot_produces_measured_security_score(self) -> None:
         destination = self._write(_complete_results())

@@ -14,6 +14,7 @@ import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Literal
+from uuid import UUID
 
 _SOURCECRAFT_SLUG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 _COMMIT_SHA = re.compile(r"^[0-9a-f]{40}$")
@@ -90,6 +91,9 @@ class AppSecProbeResult:
     # Нужен только безопасному snapshot bridge, чтобы связать сводку с commit,
     # который вернул SourceCraft. В отчёт и payload Security не попадает.
     scan_commit_sha: str | None = field(default=None, repr=False)
+    # Идентификатор завершённого скана нужен только для ссылок на его результаты.
+    # Сырой finding и пользовательский токен в сводку не попадают.
+    scan_uuid: str | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         if self.engine not in APPSEC_ENGINES:
@@ -104,6 +108,15 @@ class AppSecProbeResult:
             raise ValueError("finding_count must not be negative")
         if self.scan_commit_sha is not None and not _COMMIT_SHA.fullmatch(self.scan_commit_sha):
             raise ValueError("AppSec scan commit SHA must be 40 lowercase hexadecimal characters")
+        if self.scan_uuid is not None:
+            if not isinstance(self.scan_uuid, str):
+                raise TypeError("AppSec scan UUID must be a string or None")
+            try:
+                parsed_uuid = UUID(self.scan_uuid)
+            except ValueError as error:
+                raise ValueError("AppSec scan UUID is invalid") from error
+            if str(parsed_uuid) != self.scan_uuid or parsed_uuid.int == 0:
+                raise ValueError("AppSec scan UUID is invalid")
         if not isinstance(self.severities, tuple):
             raise TypeError("severities must be a tuple")
         if not all(isinstance(severity, str) for severity in self.severities):

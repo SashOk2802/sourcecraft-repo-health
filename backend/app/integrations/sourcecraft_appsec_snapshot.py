@@ -6,9 +6,10 @@ findings, а CLI не подтверждает постраничный обхо
 процесс создаёт короткоживущий обезличенный snapshot, а worker читает его из
 отдельного каталога, смонтированного только для чтения.
 
-Snapshot содержит только уже разрешённые агрегаты ``severity/status/count``.
-В нём нет токена, slug репозитория, пути файла, текста правила, фрагмента кода
-или значения секрета. Он привязан к repository id через SHA-256 и к commit SHA.
+Snapshot содержит только разрешённые агрегаты ``severity/status/count`` и
+идентификатор подтверждённого скана для исторических ссылок. В нём нет токена,
+slug репозитория, пути файла, текста правила, фрагмента кода или значения
+секрета. Он привязан к repository id через SHA-256 и к commit SHA.
 """
 
 from __future__ import annotations
@@ -26,6 +27,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Protocol
+from uuid import UUID
 
 from backend.app.analyzers.security import SecurityFacts, build_facts
 from backend.app.contracts import AnalysisContext
@@ -36,7 +38,7 @@ from backend.app.integrations.sourcecraft_appsec_probe import (
     AppSecProbeResult,
 )
 
-SNAPSHOT_SCHEMA_VERSION = 2
+SNAPSHOT_SCHEMA_VERSION = 3
 SNAPSHOT_DIRECTORY_ENV = "SOURCECRAFT_APPSEC_SNAPSHOT_DIR"
 SNAPSHOT_MAX_AGE_ENV = "SOURCECRAFT_APPSEC_SNAPSHOT_MAX_AGE_SECONDS"
 DEFAULT_SNAPSHOT_MAX_AGE_SECONDS = 3600
@@ -311,7 +313,7 @@ class SourceCraftAppSecSnapshotStore:
             return build_facts(None)
 
         try:
-            results = _parse_snapshot(
+            results, scan_uuid = _parse_snapshot(
                 raw_snapshot,
                 repository_id=context.repository.id,
                 commit_sha=context.commit_sha,
@@ -322,7 +324,7 @@ class SourceCraftAppSecSnapshotStore:
             return build_facts(None)
         except SourceCraftAppSecSnapshotError:
             return build_facts(None, source_error="sourcecraft_appsec_snapshot_invalid")
-        return build_security_facts_from_results(results)
+        return build_security_facts_from_results(results, scan_uuid=scan_uuid)
 
 
 class _StaleOrMismatchedSnapshot(SourceCraftAppSecSnapshotError):
@@ -363,6 +365,7 @@ def _snapshot_payload(
     if not _has_exact_engine_set(results):
         raise ValueError("SourceCraft AppSec snapshot must contain every engine exactly once")
     sourcecraft_commit_sha = _confirmed_scan_commit(results, expected_commit_sha=commit_sha)
+    scan_uuid = _confirmed_scan_uuid(results)
     ordered_results = tuple(
         next(result for result in results if result.engine == engine) for engine in APPSEC_ENGINES
     )
@@ -370,6 +373,7 @@ def _snapshot_payload(
         "schema_version": SNAPSHOT_SCHEMA_VERSION,
         "repository_id_sha256": repository_fingerprint(repository_id),
         "commit_sha": sourcecraft_commit_sha,
+        "scan_uuid": scan_uuid,
         "collected_at": _as_utc(collected_at).isoformat(),
         "engines": [result.as_dict() for result in ordered_results],
     }
@@ -418,7 +422,7 @@ def _parse_snapshot(
     commit_sha: str,
     now: datetime,
     max_age: timedelta,
-) -> tuple[AppSecProbeResult, ...]:
+) -> tuple[tuple[AppSecProbeResult, ...], str | None]:
     expected_fields = {
         "schema_version",
         "repository_id_sha256",
@@ -430,13 +434,20 @@ def _parse_snapshot(
     if type(schema_version) is int and schema_version == 1:
         # Старая схема могла считать head ветки commit'ом пустого AppSec scan.
         raise _StaleOrMismatchedSnapshot("legacy AppSec snapshot has no proven scan commit")
-    if (
-        set(payload) != expected_fields
-        or not isinstance(schema_version, int)
-        or isinstance(schema_version, bool)
-        or schema_version != SNAPSHOT_SCHEMA_VERSION
-    ):
+    if type(schema_version) is not int or schema_version not in {2, SNAPSHOT_SCHEMA_VERSION}:
         raise SourceCraftAppSecSnapshotError("snapshot schema is not supported")
+    if set(payload) != (expected_fields | ({"scan_uuid"} if schema_version == 3 else set())):
+        raise SourceCraftAppSecSnapshotError("snapshot schema is not supported")
+    scan_uuid = payload.get("scan_uuid") if schema_version == 3 else None
+    if scan_uuid is not None:
+        if not isinstance(scan_uuid, str):
+            raise SourceCraftAppSecSnapshotError("snapshot scan UUID is invalid")
+        try:
+            parsed_uuid = UUID(scan_uuid)
+        except ValueError as error:
+            raise SourceCraftAppSecSnapshotError("snapshot scan UUID is invalid") from error
+        if str(parsed_uuid) != scan_uuid or parsed_uuid.int == 0:
+            raise SourceCraftAppSecSnapshotError("snapshot scan UUID is invalid")
 
     fingerprint = payload.get("repository_id_sha256")
     if (
@@ -468,7 +479,7 @@ def _parse_snapshot(
     results = tuple(_parse_engine(raw_engine) for raw_engine in raw_engines)
     if not _has_exact_engine_set(results):
         raise SourceCraftAppSecSnapshotError("snapshot must contain every engine exactly once")
-    return results
+    return results, scan_uuid
 
 
 def _parse_engine(payload: object) -> AppSecProbeResult:
@@ -620,6 +631,19 @@ def _confirmed_scan_commit(
     if normalized_expected is not None and not hmac.compare_digest(normalized_expected, commit_sha):
         raise ValueError("explicit AppSec snapshot commit must match the SourceCraft scan commit")
     return commit_sha
+
+
+def _confirmed_scan_uuid(results: tuple[AppSecProbeResult, ...]) -> str | None:
+    """Сохраняет ссылку лишь когда все доступные движки относятся к одному скану."""
+
+    available = tuple(result for result in results if result.availability == "available")
+    scan_ids = {result.scan_uuid for result in available}
+    if scan_ids == {None}:
+        # Legacy CLI отдаёт commit групп, но не идентификатор самого скана.
+        return None
+    if len(scan_ids) != 1 or None in scan_ids:
+        raise ValueError("SourceCraft AppSec results belong to different scans")
+    return next(iter(scan_ids))
 
 
 def _parse_repository(repository: str) -> tuple[str, str]:

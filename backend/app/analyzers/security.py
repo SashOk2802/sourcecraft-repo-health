@@ -10,6 +10,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import quote
+from uuid import UUID
 
 from backend.app.contracts import (
     AnalysisContext,
@@ -78,9 +79,21 @@ class SecurityFacts:
     # Содержимое AppSec и ошибок может включать секреты: исключаем его из repr.
     payload: dict[str, Any] | list[Any] | None = field(repr=False)
     source_error: str | None = field(default=None, repr=False)
+    scan_uuid: str | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         _validate_payload(self.payload)
+        if self.scan_uuid is not None:
+            if not isinstance(self.scan_uuid, str):
+                raise TypeError("AppSec scan UUID must be a string or None")
+            try:
+                parsed_uuid = UUID(self.scan_uuid)
+            except ValueError as error:
+                raise ValueError("AppSec scan UUID is invalid") from error
+            if str(parsed_uuid) != self.scan_uuid or parsed_uuid.int == 0:
+                raise ValueError("AppSec scan UUID is invalid")
+            if self.payload is None:
+                raise ValueError("AppSec scan UUID requires a payload")
         if self.source_error is not None:
             if not isinstance(self.source_error, str):
                 raise TypeError("source_error must be a string or None")
@@ -113,10 +126,11 @@ def build_facts(
     payload: dict[str, Any] | list[Any] | None,
     *,
     source_error: str | None = None,
+    scan_uuid: str | None = None,
 ) -> SecurityFacts:
     """Создаёт факты, не смешивая сетевую ошибку с отсутствием данных."""
 
-    return SecurityFacts(payload=payload, source_error=source_error)
+    return SecurityFacts(payload=payload, source_error=source_error, scan_uuid=scan_uuid)
 
 
 def evaluate(facts: SecurityFacts, *, repository: RepositoryRef | None = None) -> CategoryResult:
@@ -156,7 +170,9 @@ def evaluate(facts: SecurityFacts, *, repository: RepositoryRef | None = None) -
 
     assessment = _build_assessment(facts.payload)
     if assessment is None:
-        verified_engines, partial_metrics = _partial_engine_metrics(facts.payload, repository)
+        verified_engines, partial_metrics = _partial_engine_metrics(
+            facts.payload, repository, facts.scan_uuid
+        )
         summary = (
             f"Подтверждён полный результат {', '.join(verified_engines)}, но данных "
             "для общего Security Score недостаточно."
@@ -177,6 +193,7 @@ def evaluate(facts: SecurityFacts, *, repository: RepositoryRef | None = None) -
                     "received",
                     "SourceCraft предоставил результат AppSec, но он не готов для Score.",
                     repository,
+                    facts.scan_uuid,
                 ),
                 *partial_metrics,
             ),
@@ -189,8 +206,8 @@ def evaluate(facts: SecurityFacts, *, repository: RepositoryRef | None = None) -
         score=assessment.score,
         summary=_score_summary(assessment),
         reason="security_score_v1",
-        metrics=_score_metrics(assessment, repository),
-        recommendations=_recommendations(assessment, repository),
+        metrics=_score_metrics(assessment, repository, facts.scan_uuid),
+        recommendations=_recommendations(assessment, repository, facts.scan_uuid),
     )
 
 
@@ -314,6 +331,7 @@ def _build_assessment(payload: dict[str, Any] | list[Any] | None) -> _SecurityAs
 def _partial_engine_metrics(
     payload: dict[str, Any] | list[Any] | None,
     repository: RepositoryRef | None,
+    scan_uuid: str | None,
 ) -> tuple[tuple[str, ...], tuple[MetricResult, ...]]:
     """Показывает полные данные отдельных движков без оценки всей категории."""
 
@@ -357,7 +375,7 @@ def _partial_engine_metrics(
                 value=total,
                 normalized_score=None,
                 summary=f"Полный результат {engine}: {total} открытых групп.",
-                evidence=(_engine_evidence(engine, repository),),
+                evidence=(_engine_evidence(engine, repository, scan_uuid=scan_uuid),),
             )
         )
         for severity in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
@@ -370,7 +388,9 @@ def _partial_engine_metrics(
                     value=count,
                     normalized_score=None,
                     summary=f"Открытые группы {engine} уровня {severity}: {count}.",
-                    evidence=(_engine_evidence(engine, repository, severity=severity),),
+                    evidence=(
+                        _engine_evidence(engine, repository, severity=severity, scan_uuid=scan_uuid),
+                    ),
                 )
             )
     verified_engines = tuple(engine for engine in APPSEC_ENGINES if engine in complete)
@@ -457,26 +477,27 @@ def _score_summary(assessment: _SecurityAssessment) -> str:
 
 
 def _score_metrics(
-    assessment: _SecurityAssessment, repository: RepositoryRef | None
+    assessment: _SecurityAssessment, repository: RepositoryRef | None, scan_uuid: str | None
 ) -> tuple[MetricResult, ...]:
     summary = "Получены полные обезличенные результаты SAST, SCA и secret scanning."
-    overview_url = _security_url(repository)
+    overview_url = _security_url(repository, scan_uuid=scan_uuid)
     evidence = Evidence(
         source=EVIDENCE_SOURCE,
         reference="appsec-defects",
         summary=(
-            f"{summary} Ссылка открывает текущий обзор SourceCraft, который может "
-            "отличаться от снимка отчёта."
+            f"{summary} {_link_context(scan_uuid, 'обзор')}"
             if overview_url is not None
             else summary
         ),
         url=overview_url,
     )
     finding_evidence = tuple(
-        _engine_evidence(engine, repository) for engine in assessment.engines_for()
+        _engine_evidence(engine, repository, scan_uuid=scan_uuid)
+        for engine in assessment.engines_for()
     )
     critical_evidence = tuple(
-        _engine_evidence(engine, repository) for engine in assessment.confirmed_critical_engines
+        _engine_evidence(engine, repository, scan_uuid=scan_uuid)
+        for engine in assessment.confirmed_critical_engines
     )
     return (
         MetricResult(
@@ -504,7 +525,7 @@ def _score_metrics(
 
 
 def _recommendations(
-    assessment: _SecurityAssessment, repository: RepositoryRef | None
+    assessment: _SecurityAssessment, repository: RepositoryRef | None, scan_uuid: str | None
 ) -> tuple[Recommendation, ...]:
     recommendations: list[Recommendation] = []
     for severity, priority in (
@@ -532,7 +553,7 @@ def _recommendations(
                 rationale="Основано на полном обезличенном результате AppSec SourceCraft.",
                 expected_effect="После исправления и нового полного скана штраф Security Score уменьшится.",
                 evidence=tuple(
-                    _engine_evidence(engine, repository, severity=severity)
+                    _engine_evidence(engine, repository, severity=severity, scan_uuid=scan_uuid)
                     for engine in assessment.engines_for(severity)
                 ),
             )
@@ -541,11 +562,12 @@ def _recommendations(
 
 
 def _availability_metric(
-    value: str, summary: str, repository: RepositoryRef | None = None
+    value: str, summary: str, repository: RepositoryRef | None = None,
+    scan_uuid: str | None = None,
 ) -> MetricResult:
     """Создаёт метрику доступности без содержимого findings и потенциальных секретов."""
 
-    overview_url = _security_url(repository)
+    overview_url = _security_url(repository, scan_uuid=scan_uuid)
     return MetricResult(
         code="appsec_data_availability",
         value=value,
@@ -556,8 +578,7 @@ def _availability_metric(
                 source=EVIDENCE_SOURCE,
                 reference="appsec-defects",
                 summary=(
-                    f"{summary} Ссылка открывает текущий обзор SourceCraft, который может "
-                    "отличаться от снимка отчёта."
+                    f"{summary} {_link_context(scan_uuid, 'обзор')}"
                     if overview_url is not None
                     else summary
                 ),
@@ -568,17 +589,15 @@ def _availability_metric(
 
 
 def _engine_evidence(
-    engine: str, repository: RepositoryRef | None, *, severity: str | None = None
+    engine: str, repository: RepositoryRef | None, *,
+    severity: str | None = None, scan_uuid: str | None = None,
 ) -> Evidence:
     summary = f"Открытые findings {engine} учтены в отчёте."
     if severity is not None:
         summary = f"Открытые findings {engine} уровня {severity} учтены в отчёте."
-    url = _security_url(repository, engine)
+    url = _security_url(repository, engine, scan_uuid=scan_uuid)
     if url is not None:
-        summary += (
-            " Ссылка открывает текущий список SourceCraft, который может "
-            "отличаться от снимка отчёта."
-        )
+        summary += f" {_link_context(scan_uuid, 'список')}"
     return Evidence(
         source=EVIDENCE_SOURCE,
         reference=f"appsec-{engine.lower()}-defects",
@@ -587,7 +606,18 @@ def _engine_evidence(
     )
 
 
-def _security_url(repository: RepositoryRef | None, engine: str | None = None) -> str | None:
+def _link_context(scan_uuid: str | None, page: str) -> str:
+    if scan_uuid is not None:
+        return (
+            f"Ссылка открывает {page} результатов того же скана в SourceCraft. "
+            "Статусы находок могли измениться позже."
+        )
+    return f"Ссылка открывает текущий {page} SourceCraft, который может отличаться от снимка отчёта."
+
+
+def _security_url(
+    repository: RepositoryRef | None, engine: str | None = None, *, scan_uuid: str | None = None
+) -> str | None:
     if repository is None:
         return None
     segments = (repository.organization_slug, repository.repository_slug)
@@ -595,21 +625,28 @@ def _security_url(repository: RepositoryRef | None, engine: str | None = None) -
         return None
     base = f"https://sourcecraft.dev/{segments[0]}/{segments[1]}/security"
     if engine is None:
-        return f"{base}/overview"
+        return f"{base}/overview?scanId={scan_uuid}" if scan_uuid else f"{base}/overview"
     page = _ENGINE_PAGES.get(engine)
     if page is None:
         return None
     url = f"{base}/{page}"
-    if engine != "SAST":
+    if engine != "SAST" and scan_uuid is None:
         return url
     # Без явного фильтра страница SourceCraft может открыться с сохранённым
     # ограничением по сканеру и показать лишь часть учтённых SAST-групп.
-    predicates = [
-        {"predicate": {"field": "status", "operator": "OPERATOR_EQ", "stringValue": status}}
-        for status in sorted(SECURITY_ACTIVE_STATUSES)
-    ]
+    operands: list[dict[str, object]] = []
+    if engine == "SAST":
+        predicates = [
+            {"predicate": {"field": "status", "operator": "OPERATOR_EQ", "stringValue": status}}
+            for status in sorted(SECURITY_ACTIVE_STATUSES)
+        ]
+        operands.append({"or": {"operands": predicates}})
+    if scan_uuid is not None:
+        operands.append(
+            {"predicate": {"field": "scan_id", "operator": "OPERATOR_EQ", "stringValue": scan_uuid}}
+        )
     filter_json = json.dumps(
-        {"and": {"operands": [{"or": {"operands": predicates}}]}},
+        {"and": {"operands": operands}},
         separators=(",", ":"),
     )
     # SourceCraft URL кодирует JSON дважды; формат получен через фильтр в UI.
