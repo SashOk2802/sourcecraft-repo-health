@@ -27,11 +27,33 @@ from backend.app.integrations.sourcecraft import SourceCraftClient
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_GIT_TIMEOUT_SECONDS = 60.0
-DEFAULT_MAX_GIT_FILES = 20_000
-DEFAULT_MAX_GIT_BLOB_BYTES = 1_048_576
-DEFAULT_MAX_GIT_TREE_BYTES = 50 * 1024 * 1024
-DEFAULT_MAX_GIT_CHECKOUT_BYTES = 100 * 1024 * 1024
+def _env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name, "").strip()
+    if raw.isdigit():
+        value = int(raw)
+        if value > 0:
+            return value
+    return default
+
+
+def _env_float(name: str, default: float) -> float:
+    raw = os.environ.get(name, "").strip()
+    try:
+        val = float(raw)
+        if val > 0:
+            return val
+    except ValueError:
+        pass
+    return default
+
+
+# Лимиты для безопасной работы с репозиториями, удовлетворяющие критерию
+# крупного репозитория по ТЗ (>= 500 МБ рабочей копии, >= 20 000 коммитов, >= 10 000 файлов)
+DEFAULT_GIT_TIMEOUT_SECONDS = _env_float("SOURCECRAFT_GIT_TIMEOUT_SECONDS", 120.0)
+DEFAULT_MAX_GIT_FILES = _env_int("SOURCECRAFT_MAX_GIT_FILES", 50_000)
+DEFAULT_MAX_GIT_BLOB_BYTES = _env_int("SOURCECRAFT_MAX_GIT_BLOB_BYTES", 50 * 1024 * 1024)
+DEFAULT_MAX_GIT_TREE_BYTES = _env_int("SOURCECRAFT_MAX_GIT_TREE_BYTES", 600 * 1024 * 1024)
+DEFAULT_MAX_GIT_CHECKOUT_BYTES = _env_int("SOURCECRAFT_MAX_GIT_CHECKOUT_BYTES", 750 * 1024 * 1024)
 DEFAULT_GIT_WORKSPACE_POLL_SECONDS = 0.01
 WINDOWS_PROCESS_TREE_KILL_TIMEOUT_SECONDS = 5.0
 _WINDOWS_NEW_PROCESS_GROUP = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0x00000200)

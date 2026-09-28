@@ -222,6 +222,13 @@ class BoundedGitRepositoryTest(unittest.TestCase):
                     repository._validate_tree("FETCH_HEAD", limits)
                 self.assertTrue(process.killed)
 
+    def test_default_git_checkout_limits_satisfy_large_repository_specification(self) -> None:
+        limits = GitCheckoutLimits()
+        # По разделу 9.2 ТЗ крупный репозиторий: >= 10 000 файлов, >= 500 МБ рабочей копии
+        self.assertGreaterEqual(limits.max_files, 10_000)
+        self.assertGreaterEqual(limits.max_tree_bytes, 500 * 1024 * 1024)
+        self.assertGreaterEqual(limits.max_checkout_bytes, 500 * 1024 * 1024)
+
     def test_workspace_limit_stops_git_while_download_is_still_running(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             repository = LocalGitRepository(CLONE_URL, limits=GitCheckoutLimits())

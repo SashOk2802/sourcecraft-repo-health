@@ -12,6 +12,7 @@ merge requests, релизы и число участников. Сырой об
 from __future__ import annotations
 
 import logging
+import os
 import urllib.parse
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
@@ -53,11 +54,31 @@ MERGED_MR_CAP = 3
 RELEASE_CAP = 3
 CONTRIBUTOR_CAP = 3
 
+def _env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name, "").strip()
+    if raw.isdigit():
+        value = int(raw)
+        if value > 0:
+            return value
+    return default
+
+
+def _env_float(name: str, default: float) -> float:
+    raw = os.environ.get(name, "").strip()
+    try:
+        val = float(raw)
+        if val > 0:
+            return val
+    except ValueError:
+        pass
+    return default
+
+
 # Восемь активных недель за период достаточно показывают регулярную работу.
 # Число коммитов не повышает оценку само по себе.
 ACTIVE_WEEKS_CAP = 8
-COMMIT_HISTORY_LIMIT = 20_000
-COMMIT_HISTORY_TIMEOUT_SECONDS = 90.0
+COMMIT_HISTORY_LIMIT = _env_int("SOURCECRAFT_COMMIT_HISTORY_LIMIT", 50_000)
+COMMIT_HISTORY_TIMEOUT_SECONDS = _env_float("SOURCECRAFT_COMMIT_HISTORY_TIMEOUT_SECONDS", 120.0)
 
 METRIC_WEIGHTS = {
     "last_activity_days": 40.0,
