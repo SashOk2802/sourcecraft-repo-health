@@ -217,6 +217,27 @@ class BoundedGitRepositoryTest(unittest.TestCase):
                     repository._validate_tree("FETCH_HEAD", limits)
                 self.assertTrue(process.killed)
 
+    def test_workspace_limit_stops_git_while_download_is_still_running(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repository = LocalGitRepository(CLONE_URL, limits=GitCheckoutLimits())
+            repository.temp_dir = directory
+            process = GrowingWorkspaceProcess(Path(directory))
+
+            with (
+                patch(
+                    "backend.app.integrations.git_repository.subprocess.Popen",
+                    return_value=process,
+                ),
+                self.assertRaisesRegex(GitCloneError, "workspace превышает лимит"),
+            ):
+                repository._run_git(
+                    ["clone", "--no-checkout", CLONE_URL, directory],
+                    workspace_limit_bytes=8,
+                )
+
+            self.assertTrue(process.killed)
+            self.assertFalse(process.completed_before_kill)
+
     def test_authenticated_git_log_never_contains_pat_or_private_url(self) -> None:
         repository = LocalGitRepository(CLONE_URL, auth_token=PERSONAL_PAT)
         failure = subprocess.CalledProcessError(
@@ -269,3 +290,31 @@ class FakeProcess:
 
     def kill(self) -> None:
         self.killed = True
+
+
+class GrowingWorkspaceProcess:
+    def __init__(self, workspace: Path) -> None:
+        self._workspace = workspace
+        self._grew = False
+        self.killed = False
+        self.completed_before_kill = False
+        self._return_code: int | None = None
+
+    def poll(self) -> int | None:
+        if not self._grew:
+            pack = self._workspace / ".git" / "objects" / "pack"
+            pack.mkdir(parents=True)
+            (pack / "incoming.pack").write_bytes(b"x" * 9)
+            self._grew = True
+        return self._return_code
+
+    def wait(self, timeout: float | None = None) -> int:
+        del timeout
+        if not self.killed:
+            self.completed_before_kill = True
+            self._return_code = 0
+        return self._return_code or 0
+
+    def kill(self) -> None:
+        self.killed = True
+        self._return_code = -9

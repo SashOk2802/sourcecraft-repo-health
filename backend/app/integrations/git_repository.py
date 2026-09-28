@@ -11,6 +11,7 @@ import logging
 import os
 import re
 import shutil
+import signal
 import stat
 import subprocess
 import tempfile
@@ -30,6 +31,7 @@ DEFAULT_MAX_GIT_FILES = 20_000
 DEFAULT_MAX_GIT_BLOB_BYTES = 1_048_576
 DEFAULT_MAX_GIT_TREE_BYTES = 50 * 1024 * 1024
 DEFAULT_MAX_GIT_CHECKOUT_BYTES = 100 * 1024 * 1024
+DEFAULT_GIT_WORKSPACE_POLL_SECONDS = 0.01
 _NO_SHALLOW_COMMITS = "no commits selected for shallow requests"
 _FULL_COMMIT_SHA = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$", re.IGNORECASE)
 
@@ -167,7 +169,8 @@ class LocalGitRepository:
                 "--no-checkout",
                 self.repo_url,
                 self.temp_dir,
-            ]
+            ],
+            workspace_limit_bytes=limits.max_checkout_bytes,
         )
         self._validate_checkout_size(limits.max_checkout_bytes)
 
@@ -185,7 +188,8 @@ class LocalGitRepository:
                     filter_spec,
                     "origin",
                     ref,
-                ]
+                ],
+                workspace_limit_bytes=limits.max_checkout_bytes,
             )
             target = "FETCH_HEAD"
 
@@ -193,6 +197,7 @@ class LocalGitRepository:
         self._run_git(
             ["-C", self.temp_dir, "checkout", "--quiet", "--detach", target],
             no_lazy_fetch=True,
+            workspace_limit_bytes=limits.max_checkout_bytes,
         )
         self._validate_checkout_size(limits.max_checkout_bytes)
 
@@ -257,10 +262,80 @@ class LocalGitRepository:
             for name in files:
                 try:
                     total += os.path.getsize(os.path.join(root, name))
+                except FileNotFoundError:
+                    # Git переименовывает временные pack/index-файлы во время
+                    # записи. Исчезнувший между os.walk и getsize путь уже не
+                    # занимает место и не должен давать ложную ошибку.
+                    continue
                 except OSError as error:
                     raise GitCloneError("Не удалось проверить размер Git workspace.") from error
                 if total > max_bytes:
                     raise GitCloneError("Git workspace превышает лимит размера.")
+
+    @staticmethod
+    def _kill_process_tree(process: subprocess.Popen[str]) -> None:
+        """Останавливает git и дочерние transport/index-pack процессы."""
+
+        try:
+            process_id = process.pid
+        except AttributeError:
+            process.kill()
+            return
+        if os.name != "nt":
+            try:
+                os.killpg(os.getpgid(process_id), signal.SIGKILL)
+                return
+            except ProcessLookupError:
+                return
+            except OSError:
+                pass
+        process.kill()
+
+    def _run_git_with_workspace_limit(
+        self,
+        command: list[str],
+        *,
+        env: dict[str, str],
+        max_bytes: int,
+    ) -> subprocess.CompletedProcess[str]:
+        """Запускает git и ограничивает workspace во время скачивания/checkout.
+
+        Проверка после ``clone`` недостаточна: один допустимый blob может быть мал,
+        но pack из тысяч blob способен занять весь диск. Поэтому процесс запускается
+        отдельно, а временный каталог измеряется, пока transport/index-pack ещё
+        работают. При превышении бюджета завершается вся группа процессов.
+        """
+
+        process_options: dict[str, object] = {}
+        if os.name != "nt":
+            process_options["start_new_session"] = True
+        process = subprocess.Popen(
+            command,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            env=env,
+            **process_options,
+        )
+        deadline = time.monotonic() + self._timeout_seconds
+        try:
+            while process.poll() is None:
+                self._validate_checkout_size(max_bytes)
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise subprocess.TimeoutExpired(command, self._timeout_seconds)
+                time.sleep(min(DEFAULT_GIT_WORKSPACE_POLL_SECONDS, remaining))
+
+            self._validate_checkout_size(max_bytes)
+            return_code = process.wait()
+            if return_code != 0:
+                raise subprocess.CalledProcessError(return_code, command)
+            return subprocess.CompletedProcess(command, return_code, "", "")
+        except BaseException:
+            if process.poll() is None:
+                self._kill_process_tree(process)
+                process.wait()
+            raise
 
     def _clone_shallow_with_ref(self, ref: str) -> None:
         try:
@@ -281,6 +356,7 @@ class LocalGitRepository:
         arguments: list[str],
         *,
         no_lazy_fetch: bool = False,
+        workspace_limit_bytes: int | None = None,
     ) -> subprocess.CompletedProcess[str]:
         command = ["git"]
         command += arguments
@@ -291,6 +367,12 @@ class LocalGitRepository:
         env = self._git_environment(use_auth=use_auth, no_lazy_fetch=no_lazy_fetch)
 
         try:
+            if workspace_limit_bytes is not None:
+                return self._run_git_with_workspace_limit(
+                    command,
+                    env=env,
+                    max_bytes=workspace_limit_bytes,
+                )
             output_options = (
                 {"stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
                 if self._auth_token
