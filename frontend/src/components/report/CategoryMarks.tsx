@@ -103,7 +103,7 @@ function CategoryCard({ category, order }: { category: ReportCategory; order: nu
       {metrics.length > 0 && (
         <ul className="category-card__metrics">
           {metrics.map((metric) => (
-            <MetricRow key={metric.code} metric={metric} />
+            <MetricRow key={metric.code} metric={metric} siblings={category.evidence} />
           ))}
         </ul>
       )}
@@ -112,9 +112,9 @@ function CategoryCard({ category, order }: { category: ReportCategory; order: nu
   );
 }
 
-function MetricRow({ metric }: { metric: CategoryMetric }) {
+function MetricRow({ metric, siblings }: { metric: CategoryMetric; siblings: CategoryMetric[] }) {
   const tone = metricTone(metric);
-  const evidence = metricEvidence(metric);
+  const evidence = metricEvidence(metric, siblings);
 
   return (
     <li className="category-card__metric">

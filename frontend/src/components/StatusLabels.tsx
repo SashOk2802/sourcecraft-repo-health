@@ -1,6 +1,7 @@
 import { Label, Tooltip } from "@gravity-ui/uikit";
 
 import type { CategoryStatus } from "../api/common";
+import { formatPoints } from "../lib/format";
 import { categoryStatusLabels } from "../lib/labels";
 
 /** Неполная оценка: часть применимых категорий без данных. */
@@ -23,7 +24,7 @@ export function PreliminaryLabel({ hint, size = "m" }: { hint?: string; size?: "
 export function ScoreLimitLabel({ value, size = "m" }: { value: number; size?: "xs" | "s" | "m" }) {
   return (
     <Label theme="danger" size={size}>
-      Ограничено: не выше {value}
+      Ограничено: не выше {formatPoints(value)}
     </Label>
   );
 }

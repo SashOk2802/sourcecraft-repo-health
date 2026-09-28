@@ -1,6 +1,6 @@
 import type { Evidence } from "../../api/common";
 import type { CategoryMetric, ReportCategory } from "../../api/report";
-import { formatPoints, formatScore } from "../../lib/format";
+import { formatBytes, formatPoints, formatScore, formatShare } from "../../lib/format";
 import { getScoreBand } from "../../lib/scoreBands";
 
 /*
@@ -96,21 +96,70 @@ export function isPresenceMetric(metric: CategoryMetric): boolean {
   return metric.code in presenceLabels && (metric.value === 0 || metric.value === 1);
 }
 
-/** Подпись метрики: у признака «есть/нет» — своя, у остальных — summary backend. */
+/*
+ * Метрики Security Score (backend/app/analyzers/security.py). Их summary — правила методики
+ * («Открытые findings учитываются по severity и статусу SourceCraft»), а не подписи, а
+ * normalizedScore открытых находок повторяет оценку всей категории. Поэтому подпись своя,
+ * справа — число находок, а цвет точки остаётся по оценке.
+ */
+const securityLabels: Record<string, string> = {
+  appsec_data_coverage: "Результаты SAST, SCA и secret scanning",
+  appsec_open_findings: "Открытые находки сканеров",
+  appsec_confirmed_open_critical_findings: "Из них подтверждённые критичные",
+};
+
+/*
+ * Code health (backend/app/analyzers/code_health.py). Доля файлов с пометками — число от 0 до 1
+ * без оценки, а summary backend с формулой в скобках: подпись своя, значение — в процентах.
+ * Возраст пометок backend не считает (value null), а summary объясняет это словами «клон
+ * shallow» и «blame» — подпись тоже своя.
+ */
+const shareLabels: Record<string, string> = {
+  "code_health.debt_file_ratio": "Доля файлов с TODO или FIXME",
+};
+
+const codeHealthLabels: Record<string, string> = {
+  "code_health.marker_age": "Возраст пометок не считаем: анализ берёт снимок кода без истории",
+};
+
+/** Объём прочитанного при остановке по лимиту — в байтах, показываем в мегабайтах. */
+const byteMetrics = new Set(["partial_bytes_read"]);
+
+/**
+ * Подпись метрики: у признака «есть/нет», метрик безопасности и Code health — своя, у остальных —
+ * summary backend с заглавной буквы: Activity пишет его со строчной («последняя активность…»).
+ */
 export function metricLabel(metric: CategoryMetric): string {
-  return isPresenceMetric(metric) ? presenceLabels[metric.code] : metric.summary;
+  if (isPresenceMetric(metric)) {
+    return presenceLabels[metric.code];
+  }
+  return securityLabels[metric.code] ?? shareLabels[metric.code] ?? codeHealthLabels[metric.code] ?? upperFirst(metric.summary);
+}
+
+function upperFirst(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 /**
  * Значение справа от метрики: её оценка 0–100; у признака — «есть» или «нет»; у справочной
  * метрики без оценки — само число, если оно есть: так Code health присылает, сколько
- * найдено TODO и FIXME и сколько файлов проверено.
+ * найдено TODO и FIXME и сколько файлов проверено. У находок безопасности — их число,
+ * у доли — проценты, у прочитанного объёма — мегабайты.
  */
 export function metricValueText(metric: CategoryMetric): string {
   if (isPresenceMetric(metric)) {
     return metric.value === 1 ? "есть" : "нет";
   }
-  if (metric.normalizedScore !== null) {
+  if (metric.code === "appsec_data_coverage") {
+    return metric.value === "complete" ? "полные" : "—";
+  }
+  if (metric.code in shareLabels && typeof metric.value === "number" && Number.isFinite(metric.value)) {
+    return formatShare(metric.value);
+  }
+  if (byteMetrics.has(metric.code) && typeof metric.value === "number" && Number.isFinite(metric.value)) {
+    return formatBytes(metric.value);
+  }
+  if (metric.normalizedScore !== null && !(metric.code in securityLabels)) {
     return formatScore(metric.normalizedScore);
   }
   if (typeof metric.value === "number" && Number.isFinite(metric.value)) {
@@ -150,10 +199,31 @@ export function evidenceSummaryText(item: Evidence): string {
   return marker && item.reference === `${marker[3]}:${marker[2]}` ? marker[1] : item.summary;
 }
 
-/** Факты метрики без повтора её же текста: у служебных фактов описание совпадает с метрикой. */
-export function metricEvidence(metric: CategoryMetric): Evidence[] {
-  const summary = metric.summary.trim();
-  return metric.evidence.filter((item) => item.url !== null || item.summary.trim() !== summary);
+/** Текст ссылки вместо описания, которое повторило бы саму метрику. */
+const referenceLinkTexts: Record<string, string> = {
+  "commit-history": "история коммитов",
+};
+
+/**
+ * Факты метрики без повтора текста — её собственного или соседних метрик той же категории:
+ * у служебных фактов описание совпадает с метрикой, а Security кладёт один и тот же факт
+ * «Получены полные… результаты» во все свои метрики. Ссылку такого факта оставляем, но
+ * без повтора: Activity даёт к «за период коммиты были в 5 неделях» ссылку с тем же текстом.
+ */
+export function metricEvidence(metric: CategoryMetric, siblings: CategoryMetric[] = []): Evidence[] {
+  const repeated = new Set([metric, ...siblings].map((item) => item.summary.trim()));
+  return metric.evidence.flatMap((item) => {
+    if (!repeated.has(item.summary.trim())) {
+      return [item];
+    }
+    if (item.url === null) {
+      return [];
+    }
+    const summary = isTechnicalReference(item.reference)
+      ? (referenceLinkTexts[item.reference] ?? "открыть в SourceCraft")
+      : "";
+    return [{ ...item, summary }];
+  });
 }
 
 /**

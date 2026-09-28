@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from datetime import UTC, datetime
 from pathlib import Path
+from unittest.mock import patch
 
 from backend.app.analyzers import code_health, documentation
 from backend.app.contracts import AnalysisContext, DataStatus, RepositoryRef
@@ -65,6 +66,34 @@ class CodeHealthCollectionTest(unittest.TestCase):
             result = code_health.evaluate(analysis_context(), facts)
 
         self.assertTrue(facts["truncated"])
+        self.assertEqual(result.status, DataStatus.INSUFFICIENT_SAMPLE)
+        self.assertIsNone(result.score)
+
+    def test_default_file_budget_stops_before_scoring_a_large_repository(self) -> None:
+        """20 001-й кандидат должен остановить анализ без частичного Score.
+
+        Тест моделирует список файлов вместо создания 20 тысяч файлов на диске.
+        Так он фиксирует production-границу для крупных репозиториев и остаётся
+        быстрым на CI-раннерах.
+        """
+        repository = LocalGitRepository("https://example.invalid/repo.git")
+        repository.temp_dir = "/prepared/repository"
+        candidate_files = [f"module_{index:05}.py" for index in range(20_001)]
+
+        with patch(
+            "backend.app.analyzers.code_health.os.walk",
+            return_value=[("/prepared/repository", [], candidate_files)],
+        ), patch(
+            "backend.app.analyzers.code_health.os.path.getsize", return_value=0
+        ), patch.object(repository, "read_file_safe", return_value="") as read_file:
+            facts = code_health.collect(repository)
+
+        result = code_health.evaluate(analysis_context(), facts)
+
+        self.assertTrue(facts["truncated"])
+        self.assertEqual(facts["candidate_files"], code_health.DEFAULT_MAX_SOURCE_FILES + 1)
+        self.assertEqual(facts["total_files"], code_health.DEFAULT_MAX_SOURCE_FILES)
+        self.assertEqual(read_file.call_count, code_health.DEFAULT_MAX_SOURCE_FILES)
         self.assertEqual(result.status, DataStatus.INSUFFICIENT_SAMPLE)
         self.assertIsNone(result.score)
 
