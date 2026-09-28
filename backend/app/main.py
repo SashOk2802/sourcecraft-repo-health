@@ -30,6 +30,10 @@ from backend.app.analysis import (
     normalize_analysis_id,
 )
 from backend.app.analysis.dispatch import AnalysisPrincipal
+from backend.app.analysis.personal_sourcecraft import (
+    PersonalOrPublicAnalysisPlanner,
+    SourceCraftConnectionRequiredError,
+)
 from backend.app.analysis.providers import sourcecraft_analyzer_provider
 from backend.app.analyzers.registration import project_life_analyzer_provider
 from backend.app.contracts import AnalysisContext
@@ -125,7 +129,11 @@ def create_app(
     )
     effective_analysis_dispatcher = analysis_dispatcher
     if effective_analysis_dispatcher is None and analysis_store is None and job_store is None:
-        effective_analysis_dispatcher = _create_default_analysis_dispatcher(store, jobs)
+        effective_analysis_dispatcher = _create_default_analysis_dispatcher(
+            store,
+            jobs,
+            sourcecraft_connection_service,
+        )
     effective_repository_catalog = repository_catalog
     if effective_repository_catalog is None and configure_public_repository_catalog:
         effective_repository_catalog = _create_default_public_repository_catalog()
@@ -509,6 +517,16 @@ def create_app(
                     status_code=503,
                     detail="SourceCraft repository catalog is unavailable.",
                 ) from error
+            except SourceCraftConnectionRequiredError as error:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Connect SourceCraft to analyze this repository.",
+                ) from error
+            except SourceCraftConnectionUnavailableError as error:
+                raise HTTPException(
+                    status_code=503,
+                    detail="SourceCraft connection is unavailable.",
+                ) from error
             except LookupError as error:
                 raise HTTPException(status_code=404, detail="Repository not found.") from error
             except AnalysisLaunchError as error:
@@ -743,24 +761,23 @@ def _yandex_principal_provider(
 def _create_default_analysis_dispatcher(
     store: AnalysisStore,
     jobs: AnalysisJobStore,
+    connection_service: SourceCraftConnectionService | None,
 ) -> AnalysisDispatcher | None:
-    """Создаёт production worker только для явно настроенного public-каталога.
-
-    Личные SourceCraft-подключения собирает `create_sourcecraft_app()`. Пока
-    каталог не сконфигурирован, endpoint остаётся fail-closed с 503; сервисный
-    токен не используется для private/internal репозиториев произвольного пользователя.
-    """
+    """Создаёт единый worker с server-side выбором personal/public режима."""
 
     resolver = create_sourcecraft_public_repository_resolver_from_environment()
-    if resolver is None:
+    if resolver is None and connection_service is None:
         return None
     return InProcessAnalysisDispatcher(
         execution_service=AnalysisExecutionService(
             job_store=jobs,
             snapshot_store=store,
         ),
-        context_resolver=resolver,
-        analyzer_provider=sourcecraft_analyzer_provider,
+        analysis_planner=PersonalOrPublicAnalysisPlanner(
+            connection_service=connection_service,
+            public_resolver=resolver,
+            public_analyzer_provider=sourcecraft_analyzer_provider,
+        ),
     )
 
 
