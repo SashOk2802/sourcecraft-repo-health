@@ -12,7 +12,7 @@ ARG VITE_DATA_SOURCE=api
 ENV VITE_DATA_SOURCE=${VITE_DATA_SOURCE}
 RUN npm run build
 
-FROM nginxinc/nginx-unprivileged:1.30-alpine@sha256:4714e0b1b2577eaa1a6131d07c958b67f0eb68e6d0521e90c6e5287db8cf0bc5
+FROM nginxinc/nginx-unprivileged:1.30-alpine@sha256:ed04ec1ff34502c339ee5c3ae3f855442398edc1d05591e2b98981dcbbd20b1e
 
 ENV API_PROXY_TARGET=http://backend:8000 \
     NGINX_RESOLVER=127.0.0.11
