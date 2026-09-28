@@ -13,6 +13,7 @@ services:
       # Кнопка входа включается только вместе с настроенными Yandex OAuth
       # переменными backend. Без них она остаётся выключенной.
       VITE_YANDEX_AUTH: "${VITE_YANDEX_AUTH:-false}"
+      VITE_HMR_CLIENT_PORT: "${VITE_HMR_CLIENT_PORT:-}"
     ports: ["5173:5173"]
     volumes:
       - ./frontend:/app
