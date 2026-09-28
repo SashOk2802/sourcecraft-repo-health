@@ -25,6 +25,11 @@ Security требует дополнительно подтвердить вып
 | `GET /v1/scans/{uuid}` | `gitRepo` | `uuid`, `status=FINISHED`, `commitHash`, `gitRepo`, `timeFinished`, `isLatest`, `totalDefectGroups` |
 | `GET /v1/defect-groups` | `gitRepo`, `scanUuid`, `type`, `pageSize`, `pageToken` | `data`, `totalSize`, `nextPageToken`; группа содержит `uuid`, `latestCommit`, `gitRepo`, `engineType`, `severity`, `status` |
 
+Каждый `src api` вызов использует фиксированную `--jq`-проекцию. SourceCraft CLI
+отбрасывает `codeBlock`, имена файлов и правил, ссылки и другие raw-поля
+до передачи stdout Python-exporter'у. В процесс попадают только поля из таблицы
+выше, нужные для пагинации, привязки scan/commit и агрегации severity/status.
+
 `gitRepo` в запросе принимает UUID из публичного API репозитория. В ответах
 AppSec это другой внутренний идентификатор: поставщик сравнивает его между
 scan detail и группами, но не записывает в snapshot.
