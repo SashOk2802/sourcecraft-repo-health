@@ -117,6 +117,8 @@ Production web-worker никогда не запускает локальный 
    `sourcecraft_appsec_commit_unavailable`, а Security останется
    `insufficient_sample`. Если все ответы пустые и commit неизвестен, snapshot
    не создаётся и Security остаётся `unavailable`.
+   Snapshot'ы прежней схемы необходимо создать заново: worker отклоняет их,
+   поскольку они могли быть привязаны к head ветки без commit от AppSec.
 
 2. В стандартном `compose.yaml` этот каталог уже монтируется в `backend` как
    `/run/sourcecraft-appsec:ro`. Docker добавляет backend-пользователя `app`

@@ -158,6 +158,17 @@ class SourceCraftAppSecSnapshotTest(unittest.TestCase):
 
                 self.assertEqual(facts.source_error, "sourcecraft_appsec_snapshot_invalid")
 
+    def test_legacy_snapshot_is_unavailable_even_if_commit_matches(self) -> None:
+        destination = self._write(_complete_results())
+        payload = json.loads(destination.read_text(encoding="utf-8"))
+        payload["schema_version"] = 1
+        destination.write_text(json.dumps(payload), encoding="utf-8")
+
+        facts = self.store.collect(self.context)
+        self.assertIsNone(facts.payload)
+        self.assertIsNone(facts.source_error)
+        self.assertEqual(evaluate(facts).status, DataStatus.UNAVAILABLE)
+
     def test_oversized_or_symlink_snapshot_is_never_read(self) -> None:
         destination = self.snapshot_directory / snapshot_filename(self.context.repository.id)
         destination.write_bytes(b"x" * (MAX_SNAPSHOT_BYTES + 1))

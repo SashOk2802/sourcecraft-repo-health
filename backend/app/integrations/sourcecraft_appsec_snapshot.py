@@ -36,7 +36,7 @@ from backend.app.integrations.sourcecraft_appsec_probe import (
     AppSecProbeResult,
 )
 
-SNAPSHOT_SCHEMA_VERSION = 1
+SNAPSHOT_SCHEMA_VERSION = 2
 SNAPSHOT_DIRECTORY_ENV = "SOURCECRAFT_APPSEC_SNAPSHOT_DIR"
 SNAPSHOT_MAX_AGE_ENV = "SOURCECRAFT_APPSEC_SNAPSHOT_MAX_AGE_SECONDS"
 DEFAULT_SNAPSHOT_MAX_AGE_SECONDS = 3600
@@ -427,6 +427,9 @@ def _parse_snapshot(
         "engines",
     }
     schema_version = payload.get("schema_version")
+    if type(schema_version) is int and schema_version == 1:
+        # Старая схема могла считать head ветки commit'ом пустого AppSec scan.
+        raise _StaleOrMismatchedSnapshot("legacy AppSec snapshot has no proven scan commit")
     if (
         set(payload) != expected_fields
         or not isinstance(schema_version, int)
