@@ -109,6 +109,30 @@ const securityLabels: Record<string, string> = {
 };
 
 /*
+ * Частичные данные AppSec: один сканер вернул полный результат, остальные — нет, и оценки
+ * безопасности нет. Backend показывает открытые группы находок этого сканера и разбивку по
+ * критичности: appsec_sast_open_findings, appsec_sast_open_high. Summary у них с числом
+ * («Полный результат SAST: 23 открытых групп.»), а число и так стоит справа.
+ */
+const engineNames: Record<string, string> = { sast: "SAST", sca: "SCA", secrets: "Поиск секретов" };
+const severityNames: Record<string, string> = {
+  critical: "критическая",
+  high: "высокая",
+  medium: "средняя",
+  low: "низкая",
+  info: "информационная",
+};
+
+function partialAppsecLabel(code: string): string | null {
+  const total = /^appsec_(sast|sca|secrets)_open_findings$/.exec(code);
+  if (total) {
+    return `${engineNames[total[1]]} — открытые группы находок`;
+  }
+  const bySeverity = /^appsec_(sast|sca|secrets)_open_(critical|high|medium|low|info)$/.exec(code);
+  return bySeverity ? `${engineNames[bySeverity[1]]} — ${severityNames[bySeverity[2]]} критичность` : null;
+}
+
+/*
  * Code health (backend/app/analyzers/code_health.py). Доля файлов с пометками — число от 0 до 1
  * без оценки, а summary backend с формулой в скобках: подпись своя, значение — в процентах.
  * Возраст пометок backend не считает (value null), а summary объясняет это словами «клон
@@ -133,7 +157,13 @@ export function metricLabel(metric: CategoryMetric): string {
   if (isPresenceMetric(metric)) {
     return presenceLabels[metric.code];
   }
-  return securityLabels[metric.code] ?? shareLabels[metric.code] ?? codeHealthLabels[metric.code] ?? upperFirst(metric.summary);
+  return (
+    securityLabels[metric.code] ??
+    partialAppsecLabel(metric.code) ??
+    shareLabels[metric.code] ??
+    codeHealthLabels[metric.code] ??
+    upperFirst(metric.summary)
+  );
 }
 
 function upperFirst(text: string): string {
@@ -199,16 +229,49 @@ export function evidenceSummaryText(item: Evidence): string {
   return marker && item.reference === `${marker[3]}:${marker[2]}` ? marker[1] : item.summary;
 }
 
-/** Текст ссылки вместо описания, которое повторило бы саму метрику. */
-const referenceLinkTexts: Record<string, string> = {
-  "commit-history": "история коммитов",
+export interface SourceLink {
+  /** Короткая подпись ссылки — название страницы SourceCraft. */
+  label: string;
+  /** Пояснение после ссылки; null — не нужно. */
+  note: string | null;
+}
+
+const engineLinkLabels: Record<string, string> = {
+  sast: "находки SAST",
+  sca: "находки SCA",
+  secrets: "найденные секреты",
 };
+
+/**
+ * Ссылки на страницы SourceCraft анализаторы присылают со служебной ссылкой факта и длинным
+ * описанием: «История CI/CD доступна, но запусков в ней нет. Ссылка открывает текущую историю
+ * SourceCraft; она может отличаться от периода отчёта». В отчёте такая ссылка подписана коротко,
+ * названием страницы, а описание остаётся подсказкой при наведении. null — ссылка незнакомая.
+ */
+export function sourceLink(reference: string): SourceLink | null {
+  switch (reference) {
+    case "ci-runs":
+      return { label: "история запусков CI/CD", note: null };
+    case "commit-history":
+      return { label: "история коммитов", note: null };
+    case "appsec-defects":
+      return { label: "обзор безопасности", note: null };
+  }
+  const run = /^ci-run-(.+)$/.exec(reference);
+  if (run) {
+    const slug = run[1].length > 12 ? `${run[1].slice(0, 12)}…` : run[1];
+    return { label: `запуск ${slug}`, note: "ошибка или тайм-аут" };
+  }
+  const engine = /^appsec-(sast|sca|secrets)-defects$/.exec(reference);
+  return engine ? { label: engineLinkLabels[engine[1]], note: null } : null;
+}
 
 /**
  * Факты метрики без повтора текста — её собственного или соседних метрик той же категории:
  * у служебных фактов описание совпадает с метрикой, а Security кладёт один и тот же факт
  * «Получены полные… результаты» во все свои метрики. Ссылку такого факта оставляем, но
- * без повтора: Activity даёт к «за период коммиты были в 5 неделях» ссылку с тем же текстом.
+ * без повтора: Activity даёт к «за период коммиты были в 5 неделях» ссылку с тем же текстом —
+ * знакомую подписывает sourceLink, незнакомую — «открыть в SourceCraft».
  */
 export function metricEvidence(metric: CategoryMetric, siblings: CategoryMetric[] = []): Evidence[] {
   const repeated = new Set([metric, ...siblings].map((item) => item.summary.trim()));
@@ -219,11 +282,45 @@ export function metricEvidence(metric: CategoryMetric, siblings: CategoryMetric[
     if (item.url === null) {
       return [];
     }
-    const summary = isTechnicalReference(item.reference)
-      ? (referenceLinkTexts[item.reference] ?? "открыть в SourceCraft")
-      : "";
+    if (sourceLink(item.reference)) {
+      return [item];
+    }
+    const summary = isTechnicalReference(item.reference) ? "открыть в SourceCraft" : "";
     return [{ ...item, summary }];
   });
+}
+
+/**
+ * Одна и та же страница под несколькими метриками карточки — только у первой. CI/CD кладёт
+ * ссылку на историю запусков в обе свои метрики, Security — обзор безопасности во все три.
+ */
+export function withoutRepeatedLinks(lists: Evidence[][]): Evidence[][] {
+  const shown = new Set<string>();
+  return lists.map((items) =>
+    items.filter((item) => {
+      if (item.url === null) {
+        return true;
+      }
+      if (shown.has(item.url)) {
+        return false;
+      }
+      shown.add(item.url);
+      return true;
+    }),
+  );
+}
+
+/**
+ * Ссылки категории без оценки. Служебную метрику доступности (cicd_data_availability,
+ * appsec_data_availability) карточка не показывает — её текст повторяет summary, — но ссылка
+ * из неё на историю запусков или обзор безопасности помогает самому посмотреть в источник.
+ */
+export function unmeasuredLinks(category: ReportCategory): Evidence[] {
+  const links = category.evidence
+    .filter((metric) => metric.code.endsWith("_data_availability"))
+    .flatMap((metric) => metric.evidence)
+    .filter((item) => item.url !== null);
+  return withoutRepeatedLinks([links])[0];
 }
 
 /**
