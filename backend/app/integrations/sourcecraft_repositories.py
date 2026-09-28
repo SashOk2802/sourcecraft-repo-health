@@ -65,7 +65,7 @@ class SourceCraftRepository:
 
 
 class SourceCraftRepositoryCatalogClient:
-    """Читает доступные репозитории одной организации через REST API."""
+    """Читает доступные репозитории через REST API SourceCraft."""
 
     def __init__(self, sourcecraft_client: SourceCraftClient) -> None:
         self._sourcecraft_client = sourcecraft_client
@@ -90,11 +90,27 @@ class SourceCraftRepositoryCatalogClient:
         _validate_unique_repositories(repositories)
         return repositories
 
+    def list_personal_repositories(self) -> tuple[SourceCraftRepository, ...]:
+        """Возвращает все репозитории, доступные текущему PAT через ``/me/repos``."""
+
+        payloads = self._sourcecraft_client.get_paginated_objects(
+            "/me/repos",
+            items_field="repositories",
+            page_size=REPOSITORY_PAGE_SIZE,
+            max_pages=REPOSITORY_MAX_PAGES,
+        )
+        repositories = tuple(
+            _parse_repository(payload, expected_organization_slug=None)
+            for payload in payloads
+        )
+        _validate_unique_repositories(repositories)
+        return repositories
+
 
 def _parse_repository(
     payload: dict[str, Any],
     *,
-    expected_organization_slug: str,
+    expected_organization_slug: str | None,
 ) -> SourceCraftRepository:
     repository_id = _require_string(payload, "id")
     name = _require_string(payload, "name")
@@ -106,7 +122,10 @@ def _parse_repository(
         raise SourceCraftResponseError("SourceCraft repository must contain an organization")
     organization_slug = _require_string(organization, "slug")
     _validate_response_slug(organization_slug, "organization slug")
-    if organization_slug != expected_organization_slug:
+    if (
+        expected_organization_slug is not None
+        and organization_slug != expected_organization_slug
+    ):
         raise SourceCraftResponseError(
             "SourceCraft repository belongs to an unexpected organization"
         )

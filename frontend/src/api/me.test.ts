@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { toCurrentUser, toMyRepositories, yandexSignInUrl } from "./me";
+import { repositoryVisibilityLabel, toCurrentUser, toMyRepositories, yandexSignInUrl } from "./me";
 
 describe("toCurrentUser", () => {
   it("показывает логин, когда backend отдаёт только id и login", () => {
@@ -129,6 +129,23 @@ describe("toMyRepositories", () => {
     });
     expect(items[0].repository).toMatchObject({ id: "r-1", visibility: "private" });
     expect(items[0].activeAnalysisId).toBe("analysis-3");
+  });
+
+  it("сохраняет internal отдельно от private и показывает разные метки", () => {
+    const { items } = toMyRepositories({
+      items: [
+        { id: "r-internal", name: "team/internal", visibility: "internal" },
+        { id: "r-private", name: "team/private", visibility: "private" },
+        { id: "r-public", name: "team/public", visibility: "public" },
+      ],
+    });
+
+    expect(items.map((item) => item.repository.visibility)).toEqual(["internal", "private", "public"]);
+    expect(items.map((item) => repositoryVisibilityLabel(item.repository.visibility))).toEqual([
+      "внутренний",
+      "закрытый",
+      null,
+    ]);
   });
 
   it("запись без id пропускает: анализ запускается только по id из каталога", () => {

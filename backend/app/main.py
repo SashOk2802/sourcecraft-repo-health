@@ -415,29 +415,45 @@ def create_app(
 
     @app.get("/api/v1/me/repositories", tags=["repositories"])
     async def get_my_repositories(request: Request) -> dict[str, object]:
-        """Возвращает безопасный список публичных репозиториев для выбора анализа."""
+        """Возвращает личный каталог либо разрешённый public fallback."""
 
         auth = _require_yandex_auth(yandex_auth_service)
-        await _require_yandex_user(auth, request)
-        if effective_repository_catalog is None:
-            raise HTTPException(
-                status_code=503,
-                detail="SourceCraft repository catalog is not configured.",
-            )
+        user = await _require_yandex_user(auth, request)
 
-        try:
-            repositories = await effective_repository_catalog.list_repositories()
-        except SourceCraftRepositoryUnavailableError as error:
-            raise HTTPException(
-                status_code=503,
-                detail="SourceCraft repository catalog is unavailable.",
-            ) from error
+        repositories = None
+        if sourcecraft_connection_service is not None:
+            try:
+                repositories = await sourcecraft_connection_service.list_repositories(user.id)
+            except SourceCraftConnectionRejectedError as error:
+                raise HTTPException(
+                    status_code=401,
+                    detail="SourceCraft connection must be renewed.",
+                ) from error
+            except SourceCraftConnectionUnavailableError as error:
+                raise HTTPException(
+                    status_code=503,
+                    detail="SourceCraft repository catalog is unavailable.",
+                ) from error
 
-        if any(repository.visibility != "public" for repository in repositories):
-            raise HTTPException(
-                status_code=503,
-                detail="SourceCraft repository catalog is unavailable.",
-            )
+        if repositories is None:
+            if effective_repository_catalog is None:
+                raise HTTPException(
+                    status_code=503,
+                    detail="SourceCraft repository catalog is not configured.",
+                )
+            try:
+                repositories = await effective_repository_catalog.list_repositories()
+            except SourceCraftRepositoryUnavailableError as error:
+                raise HTTPException(
+                    status_code=503,
+                    detail="SourceCraft repository catalog is unavailable.",
+                ) from error
+
+            if any(repository.visibility != "public" for repository in repositories):
+                raise HTTPException(
+                    status_code=503,
+                    detail="SourceCraft repository catalog is unavailable.",
+                )
         repositories = tuple(
             sorted(
                 repositories,
@@ -450,7 +466,7 @@ def create_app(
         )
 
         return {
-            "repositories": [_public_repository_payload(repository) for repository in repositories],
+            "repositories": [_repository_payload(repository) for repository in repositories],
             "total": len(repositories),
         }
 
@@ -730,8 +746,8 @@ async def _require_yandex_user(
         raise HTTPException(status_code=401, detail="Authentication required.") from error
 
 
-def _public_repository_payload(repository: SourceCraftRepository) -> dict[str, object]:
-    """Строит публичную проекцию каталога без служебных полей SourceCraft."""
+def _repository_payload(repository: SourceCraftRepository) -> dict[str, object]:
+    """Строит безопасную проекцию каталога без служебных полей SourceCraft."""
 
     return {
         "id": repository.id,
@@ -740,6 +756,7 @@ def _public_repository_payload(repository: SourceCraftRepository) -> dict[str, o
         "name": f"{repository.organization_slug}/{repository.slug}",
         "url": repository.web_url,
         "defaultBranch": repository.default_branch or None,
+        "visibility": repository.visibility,
         "language": repository.language,
         "isEmpty": repository.is_empty,
     }
