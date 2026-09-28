@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { describeStartError } from "./analyses";
-import { ApiError, describeError } from "./http";
+import { ApiError, describeError, isCatalogNotConfigured } from "./http";
 
 describe("describeStartError", () => {
   it("объясняет отказы запуска по кодам контракта", () => {
@@ -67,5 +67,24 @@ describe("describeError и личное подключение SourceCraft", () 
       "не может проверить токен",
     );
     expect(describeError(new ApiError(404, "SourceCraft connection is not configured."))).toContain("не настроено");
+  });
+});
+
+describe("describeError и ненастроенные разделы", () => {
+  it("503 «не настроено» не выдаёт за поломку сервера", () => {
+    // Так сейчас отвечает стенд без каталога открытых репозиториев (backend/app/main.py).
+    expect(describeError(new ApiError(503, "Leaderboard is not configured."))).toContain("Рейтинг на этом сервере");
+    const catalog = new ApiError(503, "SourceCraft repository catalog is not configured.");
+    expect(describeError(catalog)).toContain("не настроен");
+    expect(describeError(catalog)).not.toContain("сломалось");
+    expect(isCatalogNotConfigured(catalog)).toBe(true);
+    expect(isCatalogNotConfigured(new ApiError(503, "SourceCraft repository catalog is unavailable."))).toBe(false);
+    expect(describeError(new ApiError(503, "SourceCraft repository catalog is unavailable."))).toContain(
+      "не отдаёт список",
+    );
+  });
+
+  it("незнакомая 500 — по-прежнему общими словами", () => {
+    expect(describeError(new ApiError(500, "Internal Server Error"))).toContain("сломалось");
   });
 });
