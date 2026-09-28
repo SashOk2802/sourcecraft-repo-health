@@ -17,8 +17,11 @@ import {
   metricValueText,
   splitHighlights,
   summarizeBands,
+  sourceLink,
   summaryWithoutScore,
+  unmeasuredLinks,
   visibleMetrics,
+  withoutRepeatedLinks,
 } from "./reportHelpers";
 
 function measured(code: string, score: number, weight: number, measuredWeight: number): ReportCategory {
@@ -337,7 +340,12 @@ describe("подписи метрик Activity", () => {
       summary,
       evidence: [history],
     };
-    expect(metricEvidence(activeWeeks)).toEqual([{ ...history, summary: "история коммитов" }]);
+    // Знакомая страница остаётся как есть: EvidenceLinks подпишет её «история коммитов».
+    expect(metricEvidence(activeWeeks)).toEqual([history]);
+    expect(sourceLink(history.reference)?.label).toBe("история коммитов");
+    // Незнакомая служебная ссылка с тем же текстом — «открыть в SourceCraft».
+    const unknown: Evidence = { ...history, reference: "some-page" };
+    expect(metricEvidence({ ...activeWeeks, evidence: [unknown] })).toEqual([{ ...unknown, summary: "открыть в SourceCraft" }]);
     // Ссылка на релиз с повтором текста остаётся ссылкой, но без повтора.
     const release: Evidence = { ...history, reference: "v2.14.0" };
     expect(metricEvidence({ ...activeWeeks, evidence: [release] })).toEqual([{ ...release, summary: "" }]);
@@ -432,5 +440,76 @@ describe("ссылки фактов", () => {
     expect(evidenceSummaryText(todo)).toBe("TODO");
     expect(evidenceSummaryText({ ...todo, reference: "src/other.py:42" })).toBe(todo.summary);
     expect(evidenceSummaryText({ ...todo, summary: "142 дня без движения" })).toBe("142 дня без движения");
+  });
+});
+
+describe("ссылки на страницы SourceCraft", () => {
+  const runs: Evidence = {
+    source: "sourcecraft-cicd",
+    reference: "ci-runs",
+    summary: "История запусков CI/CD в SourceCraft.",
+    url: "https://sourcecraft.dev/team/api/cicd/runs",
+  };
+
+  it("подписывает знакомые страницы коротко", () => {
+    expect(sourceLink("ci-runs")).toEqual({ label: "история запусков CI/CD", note: null });
+    expect(sourceLink("ci-run-4821")).toEqual({ label: "запуск 4821", note: "ошибка или тайм-аут" });
+    expect(sourceLink("ci-run-0b5c3c1e-9a7f-4f0e")?.label).toBe("запуск 0b5c3c1e-9a7…");
+    expect(sourceLink("appsec-defects")?.label).toBe("обзор безопасности");
+    expect(sourceLink("appsec-sast-defects")?.label).toBe("находки SAST");
+    expect(sourceLink("appsec-secrets-defects")?.label).toBe("найденные секреты");
+    expect(sourceLink("v2.14.0")).toBeNull();
+  });
+
+  it("одну и ту же страницу в карточке показывает у первой метрики", () => {
+    // Так backend/app/analyzers/cicd.py кладёт историю запусков в обе метрики CI/CD.
+    const failedRun: Evidence = {
+      ...runs,
+      reference: "ci-run-4821",
+      summary: "Неуспешный запуск CI/CD: ошибка или тайм-аут.",
+      url: `${runs.url}/4821`,
+    };
+    const note: Evidence = { ...runs, reference: "ci-note", url: null };
+    expect(withoutRepeatedLinks([[runs], [runs, failedRun, note]])).toEqual([[runs], [failedRun, note]]);
+  });
+
+  it("у категории без оценки берёт ссылку из метрики доступности", () => {
+    const availability: CategoryMetric = {
+      code: "cicd_data_availability",
+      value: "empty",
+      normalizedScore: null,
+      summary: "История CI/CD доступна, но запусков в ней нет.",
+      evidence: [runs],
+    };
+    const cicd: ReportCategory = {
+      ...cicdUnavailable,
+      status: "insufficient_sample",
+      summary: "История CI/CD доступна, но запусков в ней нет.",
+      reason: "cicd_no_runs",
+    };
+    expect(unmeasuredLinks({ ...cicd, evidence: [availability] })).toEqual([runs]);
+    // Без адреса ссылки нет — и показывать нечего.
+    expect(unmeasuredLinks({ ...cicd, evidence: [{ ...availability, evidence: [{ ...runs, url: null }] }] })).toEqual([]);
+    // Сама метрика доступности в карточке не показывается: её текст повторяет summary.
+    expect(visibleMetrics({ ...cicd, evidence: [availability] })).toEqual([]);
+  });
+});
+
+describe("частичные данные AppSec", () => {
+  it("подписывает открытые группы сканера и разбивку по критичности", () => {
+    // backend PR #96: полный результат одного сканера при недоступных остальных.
+    const total: CategoryMetric = {
+      code: "appsec_sast_open_findings",
+      value: 23,
+      normalizedScore: null,
+      summary: "Полный результат SAST: 23 открытых групп.",
+      evidence: [],
+    };
+    const high: CategoryMetric = { ...total, code: "appsec_secrets_open_high", value: 6, summary: "Открытые группы SECRETS уровня HIGH: 6." };
+    expect(metricLabel(total)).toBe("SAST — открытые группы находок");
+    expect(metricValueText(total)).toBe("23");
+    expect(metricLabel(high)).toBe("Поиск секретов — высокая критичность");
+    expect(metricValueText(high)).toBe("6");
+    expect(metricTone(high)).toBe("info");
   });
 });

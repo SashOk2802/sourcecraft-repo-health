@@ -150,19 +150,28 @@ function detailsFor(repository: MockRepository): ReportDetails {
       return {
         analyzedMinutesAgo: 25,
         categories: {
+          // Как backend/app/analyzers/security.py: у категории без данных — метрика доступности со ссылкой на обзор.
           security: {
             summary: "Результаты AppSec не получены.",
             reason: "appsec_not_available",
+            metrics: [
+              metric("appsec_data_availability", "unavailable", null, "SourceCraft вернул отсутствие результатов AppSec.", [
+                securityOverview(base, "SourceCraft вернул отсутствие результатов AppSec."),
+              ]),
+            ],
           },
           // docs/scoring-methodology.md, §4.1: оценка — доля успешных автоматических прогонов, 23 из 40 ≈ 58.
-          // Детали job backend в отчёт не выводит, поэтому и демо ссылается только на историю CI.
+          // Как backend/app/analyzers/cicd.py: история запусков в обеих метриках и ссылки на последние упавшие.
           cicd: {
             summary: "Успешно прошли 23 из 40 автоматических прогонов CI за полгода.",
             metrics: [
               metric("automated_ci_outcome_runs", 40, null, "Автоматических прогонов CI с итогом за полгода: 40.", [
-                ciHistory(base, "push, merge request и расписание; ручные запуски не считаются"),
+                ciHistory(base),
               ]),
-              metric("automated_ci_success_rate", 57.5, 57.5, "Успешно 23 из 40 автоматических прогонов CI.", []),
+              metric("automated_ci_success_rate", 57.5, 57.5, "Успешно 23 из 40 автоматических прогонов CI.", [
+                ciHistory(base),
+                ...failedRuns(base, [4821, 4817, 4809]),
+              ]),
             ],
           },
           // backend/app/analyzers/documentation.py: нет только CODEOWNERS, 100 − 15 = 85.
@@ -217,7 +226,7 @@ function detailsFor(repository: MockRepository): ReportDetails {
             rationale: "Нестабильная автоматическая проверка замедляет выпуск изменений и снижает доверие к результатам сборки.",
             expectedEffect: "CI/CD поднимется примерно с 58 до 80.",
             expectedScoreDelta: 5.9,
-            evidence: [ciHistory(base, "17 неуспешных прогонов за полгода")],
+            evidence: failedRuns(base, [4821, 4817, 4809]),
           },
           {
             code: "issues-triage-stale",
@@ -695,8 +704,33 @@ export function sourceCraftUrl(repository: MockRepository): string {
   return `https://sourcecraft.dev/${repository.organizationSlug}/${repository.repositorySlug}`;
 }
 
-function ciHistory(base: string, summary: string): Evidence {
-  return { source: "sourcecraft-cicd", reference: "история CI", summary, url: `${base}/ci` };
+/* Ссылки на страницы SourceCraft — как их строят backend/app/analyzers/cicd.py и security.py. */
+function ciHistory(base: string): Evidence {
+  return {
+    source: "sourcecraft-cicd",
+    reference: "ci-runs",
+    summary:
+      "История запусков CI/CD в SourceCraft. Страница показывает текущее состояние, а отчёт рассчитан за указанный период.",
+    url: `${base}/cicd/runs`,
+  };
+}
+
+function failedRuns(base: string, runs: number[]): Evidence[] {
+  return runs.map((run) => ({
+    source: "sourcecraft-cicd",
+    reference: `ci-run-${run}`,
+    summary: "Неуспешный запуск CI/CD: ошибка или тайм-аут.",
+    url: `${base}/cicd/runs/${run}`,
+  }));
+}
+
+function securityOverview(base: string, summary: string): Evidence {
+  return {
+    source: "sourcecraft-appsec",
+    reference: "appsec-defects",
+    summary: `${summary} Ссылка открывает текущий обзор SourceCraft, который может отличаться от снимка отчёта.`,
+    url: `${base}/security/overview`,
+  };
 }
 
 function issue(base: string, id: number, summary: string): Evidence {
