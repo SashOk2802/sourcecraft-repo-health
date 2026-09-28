@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import os
 import shutil
+import subprocess
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -160,6 +161,24 @@ class LiveScriptMainTest(unittest.TestCase):
             "https://sourcecraft.dev/team/platform-api.git",
         )
         self.assertEqual(captured["remote_url"], captured["repo_url"])
+
+    def test_remote_head_failure_does_not_keep_the_token_in_the_exception_chain(self) -> None:
+        script = self.script
+        command = ["git", "-c", "http.extraheader=AUTHORIZATION: Bearer SECRET", "ls-remote"]
+
+        def fail(*args: object, **kwargs: object) -> None:
+            raise subprocess.CalledProcessError(128, command)
+
+        original = script.subprocess.run
+        script.subprocess.run = fail
+        try:
+            with self.assertRaises(SystemExit) as caught:
+                script.remote_head_sha("https://sourcecraft.dev/team/platform-api.git", "SECRET")
+        finally:
+            script.subprocess.run = original
+
+        self.assertIsNone(caught.exception.__cause__)
+        self.assertNotIn("SECRET", str(caught.exception))
 
 
 def analysis_context() -> AnalysisContext:

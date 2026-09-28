@@ -84,6 +84,12 @@ class FileAnalyzersTest(unittest.TestCase):
         self.assertEqual(with_command.score, 50)
         self.assertNotIn("doc_missing_has_shortcuts", recommendation_codes(with_command))
 
+        with_crlf = evaluate_documentation(
+            {"README.md": "# Demo\r\n\r\n```bash\r\npytest\r\n```\r\n"}
+        )
+        self.assertEqual(with_crlf.score, 50)
+        self.assertNotIn("doc_missing_has_shortcuts", recommendation_codes(with_crlf))
+
     def test_missing_regulations_are_a_low_score_not_missing_data(self) -> None:
         result = evaluate_documentation({})
 
@@ -100,7 +106,10 @@ class FileAnalyzersTest(unittest.TestCase):
         )
         by_code = {item.code: item for item in result.recommendations}
         expected = {
-            "doc_missing_has_readme": (RecommendationPriority.P1, documentation.PENALTY_README),
+            "doc_missing_has_readme": (
+                RecommendationPriority.P1,
+                documentation.PENALTY_README - documentation.PENALTY_INSTRUCTIONS,
+            ),
             "doc_missing_has_contributing": (
                 RecommendationPriority.P2,
                 documentation.PENALTY_CONTRIBUTING,
@@ -117,6 +126,16 @@ class FileAnalyzersTest(unittest.TestCase):
             self.assertEqual(recommendation.expected_score_delta, penalty)
             self.assertEqual(recommendation.evidence[0].reference, "main")
             self.assertTrue(recommendation.evidence[0].summary)
+
+    def test_readme_recommendation_delta_matches_a_file_without_instructions(self) -> None:
+        empty = evaluate_documentation({})
+        bare = evaluate_documentation({"README.md": "# Demo\n"})
+        with_instructions = evaluate_documentation({"README.md": "# Demo\n\n## Запуск\n"})
+        readme = next(item for item in empty.recommendations if item.code == "doc_missing_has_readme")
+
+        self.assertEqual(bare.score - empty.score, 20)
+        self.assertEqual(readme.expected_score_delta, bare.score - empty.score)
+        self.assertEqual(with_instructions.score - empty.score, documentation.PENALTY_README)
 
     def test_missing_readme_does_not_add_a_second_instructions_penalty(self) -> None:
         result = evaluate_documentation({"CONTRIBUTING.md": "# Правила\n", "LICENSE": "MIT\n"})

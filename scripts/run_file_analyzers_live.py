@@ -68,8 +68,9 @@ def remote_head_sha(repo_url: str, token: str) -> str:
             text=True,
             timeout=30,
         )
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
-        raise SystemExit("Не удалось прочитать SHA ветки по умолчанию.") from error
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        # Без цепочки: текст CalledProcessError содержит argv с Bearer-токеном.
+        raise SystemExit("Не удалось прочитать SHA ветки по умолчанию.")
     fields = completed.stdout.split()
     if not fields:
         raise SystemExit("У репозитория нет SHA ветки по умолчанию.")
