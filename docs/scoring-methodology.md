@@ -10,6 +10,8 @@
 | Категория Security | `backend/app/analyzers/security.py` |
 | Категория Issues | `backend/app/analyzers/issues.py` |
 | Категория Activity | `backend/app/analyzers/activity.py` |
+| Категория Documentation | `backend/app/analyzers/documentation.py` |
+| Категория Code health | `backend/app/analyzers/code_health.py` |
 | Общие статусы и контракты | `backend/app/contracts.py` |
 
 Версия методики: **v2**.
@@ -347,7 +349,7 @@ score = linear(min(count, 3), best=3, worst=0)
 | --- | --- | --- |
 | Issues | Описана в §2 | Роль 3 |
 | Activity | Описана в §3 | Роль 3 |
-| Documentation | Ожидает анализатор | Роль 1 |
+| Documentation | Описана в §4.4 | Роль 1 |
 | Code health | Описана в §4.3 | Роль 1 |
 | CI/CD | Ожидает анализатор | Роль 2 |
 | Security | Ожидает анализатор | Роль 2 |
@@ -485,6 +487,72 @@ expected_score_delta = score_после_устранения - score_до
 P1/P2 закрепляет тест `test_code_health_fixme_critical_count_boundary`
 (единичный FIXME — P2, от `FIXME_CRITICAL_COUNT` включительно — P1). Тесты
 доказывают стабильность поведения, а не корректность самих чисел.
+
+Контрольные сценарии, помимо порогов выше, зафиксированы в `backend/tests/test_file_analyzers.py`:
+
+| Сценарий | Ожидание |
+| --- | --- |
+| Нет файлов поддерживаемых языков | `not_applicable`, score = `null`. TODO в README кодом не считается |
+| Маркеры только в `node_modules` или `vendor` | в плотность не входят |
+| 15 TODO | рекомендации нет |
+| 16 TODO | P3 `code_health_clear_todos` |
+| Факт `error` или клон не подготовлен | score = `null`, это не ноль баллов |
+| FIXME в исходнике | evidence ссылается на `путь:строка` |
+
+Живой прогон Documentation и Code health — один скрипт, см. §4.4.
+
+### 4.4. Documentation — полнота регламентов
+
+Категория проверяет, есть ли в репозитории файлы, без которых проект трудно запустить и сопровождать. Длина текста не оценивается. Отсутствие файла — плохой результат, а не отсутствие данных.
+
+`collect` читает уже склонированную рабочую область и не хранит токен. `evaluate` на одних и тех же фактах всегда даёт один результат.
+
+Файл засчитывается только если он реально есть в рабочей области. Путь, который лишь остаётся внутри каталога клона, наличием файла не является.
+
+| Проверка | Какие пути подходят |
+| --- | --- |
+| `has_readme` | `README.md`, `README.rst` |
+| `has_contributing` | `CONTRIBUTING.md` |
+| `has_license` | `LICENSE`, `LICENSE.md`, `LICENSE.txt`, `COPYING`, `LICENCE` |
+| `has_codeowners` | `CODEOWNERS`, `.github/CODEOWNERS`, `docs/CODEOWNERS` |
+| `has_shortcuts` | инструкции запуска или тестов в первом непустом README из списка выше |
+
+Инструкция — это тематический заголовок Markdown либо fenced code block с командой запуска или тестов (`pytest`, `npm test`, `docker compose up` и другие команды из анализатора). Ключевое слово может быть первым словом заголовка: «Запуск», «Testing». Подстроки `latest` и `runtime` сами по себе инструкцией не являются.
+
+```text
+score = max(0, 100 - сумма штрафов за отсутствующие применимые проверки)
+```
+
+| Проверка | Штраф | Приоритет рекомендации | Код |
+| --- | ---: | --- | --- |
+| README | 35 | P1 | `doc_missing_has_readme` |
+| CONTRIBUTING | 20 | P2 | `doc_missing_has_contributing` |
+| LICENSE | 15 | P2 | `doc_missing_has_license` |
+| CODEOWNERS | 15 | P3 | `doc_missing_has_codeowners` |
+| Инструкции запуска и тестов | 15 | P2 | `doc_missing_has_shortcuts` |
+
+Проверка инструкций применима только при наличии README. Если README нет, отдельный штраф за инструкции не начисляется: одна и та же причина не считается дважды.
+
+`normalized_score` метрики равен 100, если проверка пройдена, и 0, если нет. Оценка категории — не среднее этих метрик, а 100 минус штрафы. `expected_score_delta` рекомендации равен её штрафу.
+
+| Условие | Статус | Score |
+| --- | --- | --- |
+| В фактах есть `error` | `error` | `null` |
+| Рабочая область не подготовлена | сбор прерывается, до оценки дело не доходит | `null` |
+| Файлы прочитаны, части регламентов нет | `measured` | штраф, не `unavailable` |
+| Все применимые проверки найдены | `measured` | 100 |
+
+Пустой репозиторий получает 15 баллов: 35 + 20 + 15 + 15. Штраф за инструкции в этот набор не входит.
+
+Контрольные сценарии лежат в `backend/tests/test_file_analyzers.py`: полный набор на 100; пустой набор — `measured` и 15 без рекомендации про инструкции; README со словами `latest`/`runtime` инструкции не доказывает; заголовок «## Запуск» или команда в блоке кода — доказывает; подходят `README.rst`, `LICENSE.txt` и `.github/CODEOWNERS`.
+
+Живой прогон без сохранения в git:
+
+```text
+python scripts/run_file_analyzers_live.py org/repo
+```
+
+Токен читается только из окружения или `.env` (`SOURCECRAFT_TOKEN`). Скрипт клонирует репозиторий на время прогона, печатает обе категории и удаляет временную копию. Это первая опубликованная формула Documentation. Веса шести категорий не менялись, `methodologyVersion` остаётся v2.
 
 ## 5. Как менять методику
 

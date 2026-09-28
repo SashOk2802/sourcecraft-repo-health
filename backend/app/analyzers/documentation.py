@@ -27,7 +27,7 @@ CODEOWNERS_PATHS = ("CODEOWNERS", ".github/CODEOWNERS", "docs/CODEOWNERS")
 LICENSE_PATHS = ("LICENSE", "LICENSE.md", "LICENSE.txt", "COPYING", "LICENCE")
 
 # Штрафы за отсутствие регламентов (источник правды для «Как считаем» —
-# docs/scoring-methodology.md §5; здесь значения должны совпадать).
+# docs/scoring-methodology.md §4.4; здесь значения должны совпадать).
 PENALTY_README = 35.0
 PENALTY_CONTRIBUTING = 20.0
 PENALTY_LICENSE = 15.0
@@ -37,7 +37,7 @@ PENALTY_INSTRUCTIONS = 15.0
 # Заголовки, посвящённые запуску/тестированию проекта: настоящий сигнал раздела,
 # а не подстрока в тексте ("test" внутри "latest", "run" внутри "runtime").
 _SECTION_HEADING = re.compile(
-    r"^\s{0,3}#{1,6}\s+.+\b("
+    r"^\s{0,3}#{1,6}\s+.*\b("
     r"how\s+to\s+(run|test|start)"
     r"|getting\s+started"
     r"|quick\s+start"
