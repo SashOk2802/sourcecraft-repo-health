@@ -1,3 +1,4 @@
+import { ThemeProvider } from "@gravity-ui/uikit";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
@@ -73,7 +74,11 @@ describe("BadgeSnippet", () => {
   });
 
   it("renders opened modal with preview and all three copy sections", () => {
-    const html = renderToStaticMarkup(<BadgeSnippet report={sampleReport} defaultOpen />);
+    const html = renderToStaticMarkup(
+      <ThemeProvider theme="light">
+        <BadgeSnippet report={sampleReport} defaultOpen />
+      </ThemeProvider>,
+    );
 
     expect(html).toContain("Бейдж для README");
     expect(html).toContain("Предпросмотр:");
