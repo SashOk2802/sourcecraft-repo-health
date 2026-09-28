@@ -222,6 +222,32 @@ class BoundedGitRepositoryTest(unittest.TestCase):
                     repository._validate_tree("FETCH_HEAD", limits)
                 self.assertTrue(process.killed)
 
+    def test_default_git_checkout_limits_satisfy_large_repository_specification(self) -> None:
+        limits = GitCheckoutLimits()
+        # По разделу 9.2 ТЗ крупный репозиторий: >= 10 000 файлов, >= 500 МБ рабочей копии
+        self.assertGreaterEqual(limits.max_files, 10_000)
+        self.assertGreaterEqual(limits.max_tree_bytes, 500 * 1024 * 1024)
+        self.assertGreaterEqual(limits.max_checkout_bytes, 500 * 1024 * 1024)
+
+    def test_git_checkout_limits_override_from_environment(self) -> None:
+        env_overrides = {
+            "SOURCECRAFT_MAX_GIT_FILES": "12345",
+            "SOURCECRAFT_MAX_GIT_BLOB_BYTES": "67108864",
+            "SOURCECRAFT_MAX_GIT_TREE_BYTES": "838860800",
+            "SOURCECRAFT_MAX_GIT_CHECKOUT_BYTES": "943718400",
+            "SOURCECRAFT_GIT_TIMEOUT_SECONDS": "240.5",
+        }
+        with patch.dict(os.environ, env_overrides):
+            limits = GitCheckoutLimits()
+            self.assertEqual(limits.max_files, 12345)
+            self.assertEqual(limits.max_blob_bytes, 67108864)
+            self.assertEqual(limits.max_tree_bytes, 838860800)
+            self.assertEqual(limits.max_checkout_bytes, 943718400)
+
+            repository = LocalGitRepository(CLONE_URL)
+            self.assertEqual(repository._timeout_seconds, 240.5)
+
+
     def test_workspace_limit_stops_git_while_download_is_still_running(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             repository = LocalGitRepository(CLONE_URL, limits=GitCheckoutLimits())

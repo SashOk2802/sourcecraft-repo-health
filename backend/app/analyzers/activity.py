@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
+from backend.app._env import env_float, env_int
 from backend.app.contracts import (
     AnalysisContext,
     CategoryResult,
@@ -56,8 +57,8 @@ CONTRIBUTOR_CAP = 3
 # Восемь активных недель за период достаточно показывают регулярную работу.
 # Число коммитов не повышает оценку само по себе.
 ACTIVE_WEEKS_CAP = 8
-COMMIT_HISTORY_LIMIT = 20_000
-COMMIT_HISTORY_TIMEOUT_SECONDS = 90.0
+COMMIT_HISTORY_LIMIT = env_int("SOURCECRAFT_COMMIT_HISTORY_LIMIT", 50_000)
+COMMIT_HISTORY_TIMEOUT_SECONDS = env_float("SOURCECRAFT_COMMIT_HISTORY_TIMEOUT_SECONDS", 120.0)
 
 METRIC_WEIGHTS = {
     "last_activity_days": 40.0,
