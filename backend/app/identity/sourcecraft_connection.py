@@ -7,11 +7,12 @@ SourceCraft PAT приходит от браузера только в моме�
 from __future__ import annotations
 
 import asyncio
+import hmac
 import os
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
 import asyncpg
@@ -26,6 +27,7 @@ from backend.app.integrations.sourcecraft import (
 _CONTROL_CHARACTERS = re.compile(r"[\x00-\x1f\x7f-\x9f]")
 _MAX_TOKEN_LENGTH = 4096
 _MAX_LOGIN_LENGTH = 256
+_CREDENTIAL_LEASE_TTL = timedelta(minutes=10)
 
 
 class SourceCraftConnectionError(RuntimeError):
@@ -61,6 +63,27 @@ class SourceCraftConnectionStatus:
     def __post_init__(self) -> None:
         if self.connected != (self.login is not None and self.connected_at is not None):
             raise ValueError("SourceCraft connection status fields are inconsistent")
+
+
+@dataclass(frozen=True, slots=True)
+class SourceCraftCredentialLease:
+    """Короткоживущая in-memory capability без открытого PAT.
+
+    Lease не сериализуется и не входит в AnalysisContext/AnalysisJob. Даже его
+    ``repr`` скрывает ciphertext, чтобы диагностический вывод не превращался в
+    переносимую копию пользовательского credential.
+    """
+
+    owner_subject: str
+    expires_at: datetime
+    encrypted_token: bytes = field(repr=False)
+
+    def __post_init__(self) -> None:
+        _validate_user_id(self.owner_subject)
+        if self.expires_at.tzinfo is None:
+            raise ValueError("SourceCraft credential lease expiry must be timezone-aware")
+        if not isinstance(self.encrypted_token, bytes) or not self.encrypted_token:
+            raise ValueError("SourceCraft credential lease is invalid")
 
 
 class SourceCraftConnectionStore(Protocol):
@@ -265,6 +288,47 @@ class SourceCraftConnectionService:
 
     async def disconnect(self, user_id: str) -> None:
         await self._store.delete(_validate_user_id(user_id))
+
+    async def issue_lease(self, user_id: str) -> SourceCraftCredentialLease | None:
+        """Возвращает только ephemeral ciphertext capability для текущего subject."""
+
+        safe_user_id = _validate_user_id(user_id)
+        record = await self._store.get(safe_user_id)
+        if record is None:
+            return None
+        return SourceCraftCredentialLease(
+            owner_subject=safe_user_id,
+            expires_at=self._clock() + _CREDENTIAL_LEASE_TTL,
+            encrypted_token=record.encrypted_token,
+        )
+
+    def open_client(
+        self,
+        lease: SourceCraftCredentialLease,
+        user_id: str,
+    ) -> SourceCraftClient:
+        """Расшифровывает PAT только на время создания короткоживущего API-клиента."""
+
+        safe_user_id = _validate_user_id(user_id)
+        if not isinstance(lease, SourceCraftCredentialLease):
+            raise TypeError("SourceCraft credential lease is required")
+        if not hmac.compare_digest(
+            lease.owner_subject.encode("utf-8"),
+            safe_user_id.encode("utf-8"),
+        ):
+            raise PermissionError("SourceCraft credential lease belongs to another user")
+        if self._clock() >= lease.expires_at:
+            raise SourceCraftConnectionUnavailableError("SourceCraft credential lease expired")
+
+        token = self._vault.decrypt(lease.encrypted_token)
+        try:
+            return self._sourcecraft_client_factory(token)
+        except (TypeError, ValueError):
+            raise SourceCraftConnectionUnavailableError(
+                "SourceCraft connection client could not be created"
+            ) from None
+        finally:
+            token = ""
 
     def _verify_token(self, token: str) -> str:
         client = self._sourcecraft_client_factory(token)

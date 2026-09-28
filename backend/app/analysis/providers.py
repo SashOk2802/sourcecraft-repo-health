@@ -10,13 +10,14 @@ from __future__ import annotations
 
 import logging
 import os
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import replace
 from pathlib import Path
 
 from backend.app.analysis.runner import AnalyzerRegistration
 from backend.app.analyzers import activity, cicd, code_health, documentation, issues, security
 from backend.app.contracts import AnalysisContext, CategoryResult, DataStatus
+from backend.app.identity.sourcecraft_connection import SourceCraftConnectionError
 from backend.app.integrations.git_repository import GitCloneError, LocalGitRepository
 from backend.app.integrations.sourcecraft import SourceCraftClient, SourceCraftClientError
 from backend.app.integrations.sourcecraft_appsec_snapshot import (
@@ -109,6 +110,109 @@ def sourcecraft_analyzer_provider(context: AnalysisContext) -> Iterable[Analyzer
         AnalyzerRegistration("cicd", _cicd_evaluator(token)),
         *repo_content_analyzer_provider(context),
         AnalyzerRegistration("security", _security_evaluator()),
+    )
+
+
+def personal_sourcecraft_analyzer_provider(
+    context: AnalysisContext,
+    open_client: Callable[[], SourceCraftClient],
+) -> Iterable[AnalyzerRegistration]:
+    """Все категории personal-запуска без сохранения plaintext PAT в плане/job.
+
+    Activity, Issues и CI/CD открывают отдельный клиент только на время своего
+    API-сбора. Git-категории остаются unavailable до отдельного credential helper.
+    Security использует существующий read-only snapshot bridge и PAT не получает.
+    """
+
+    del context
+    return (
+        AnalyzerRegistration("activity", _personal_activity_evaluator(open_client)),
+        AnalyzerRegistration(
+            "issues",
+            _personal_client_evaluator("issues", open_client, issues),
+        ),
+        AnalyzerRegistration("cicd", _personal_cicd_evaluator(open_client)),
+        AnalyzerRegistration(
+            "documentation",
+            _personal_git_unavailable_evaluator("documentation"),
+        ),
+        AnalyzerRegistration(
+            "code_health",
+            _personal_git_unavailable_evaluator("code_health"),
+        ),
+        AnalyzerRegistration("security", _security_evaluator()),
+    )
+
+
+def _personal_activity_evaluator(open_client: Callable[[], SourceCraftClient]):
+    def evaluate(ctx: AnalysisContext) -> CategoryResult:
+        try:
+            client = open_client()
+        except SourceCraftConnectionError:
+            return _personal_connection_error("activity")
+        try:
+            facts = activity.collect(client, ctx.repository)
+            return activity.evaluate(facts, ctx)
+        finally:
+            client.close()
+
+    return evaluate
+
+
+def _personal_client_evaluator(
+    category_code: str,
+    open_client: Callable[[], SourceCraftClient],
+    module: object,
+):
+    def evaluate(ctx: AnalysisContext) -> CategoryResult:
+        try:
+            client = open_client()
+        except SourceCraftConnectionError:
+            return _personal_connection_error(category_code)
+        try:
+            facts = module.collect(client, ctx.repository)  # type: ignore[attr-defined]
+            return module.evaluate(facts, ctx)  # type: ignore[attr-defined]
+        finally:
+            client.close()
+
+    return evaluate
+
+
+def _personal_cicd_evaluator(open_client: Callable[[], SourceCraftClient]):
+    def evaluate(ctx: AnalysisContext) -> CategoryResult:
+        try:
+            client = open_client()
+        except SourceCraftConnectionError:
+            return _personal_connection_error("cicd")
+        try:
+            facts_provider = make_cicd_facts_provider(SourceCraftCicdClient(client))
+            return cicd.make_analyzer(facts_provider)(ctx)
+        finally:
+            client.close()
+
+    return evaluate
+
+
+def _personal_git_unavailable_evaluator(category_code: str):
+    def evaluate(_: AnalysisContext) -> CategoryResult:
+        return CategoryResult(
+            category=category_code,
+            status=DataStatus.UNAVAILABLE,
+            score=None,
+            summary="Безопасный Git-доступ к личному репозиторию ещё не настроен.",
+            reason="personal_git_transport_unavailable",
+        )
+
+    return evaluate
+
+
+def _personal_connection_error(category_code: str) -> CategoryResult:
+    return CategoryResult(
+        category=category_code,
+        status=DataStatus.ERROR,
+        score=None,
+        summary="Не удалось получить данные из личного подключения SourceCraft.",
+        reason="personal_sourcecraft_connection_unavailable",
     )
 
 

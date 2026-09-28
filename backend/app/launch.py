@@ -119,16 +119,18 @@ class SourceCraftRepositoryContextResolver:
         open_client: Callable[[], SourceCraftClient],
         *,
         clock: Callable[[], datetime] | None = None,
+        principal_guard: Callable[[AnalysisPrincipal], None] | None = None,
     ) -> None:
         self._open_client = open_client
         self._clock = clock or _utc_now
+        self._principal_guard = principal_guard or _require_bound_principal
 
     async def resolve(
         self,
         repository_id: str,
         principal: AnalysisPrincipal,
     ) -> AnalysisContext:
-        _require_bound_principal(principal)
+        self._principal_guard(principal)
         return await asyncio.to_thread(self._resolve_sync, repository_id)
 
     def _resolve_sync(self, repository_id: str) -> AnalysisContext:

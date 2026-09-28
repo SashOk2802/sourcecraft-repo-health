@@ -7,6 +7,7 @@ from backend.app.identity.sourcecraft_connection import (
     SourceCraftConnectionService,
     SourceCraftConnectionStatus,
     SourceCraftConnectionUnavailableError,
+    SourceCraftCredentialLease,
     SourceCraftTokenVault,
     create_sourcecraft_connection_service_from_environment,
 )
@@ -31,6 +32,7 @@ __all__ = [
     "SourceCraftConnectionService",
     "SourceCraftConnectionStatus",
     "SourceCraftConnectionUnavailableError",
+    "SourceCraftCredentialLease",
     "SourceCraftTokenVault",
     "YandexAuthService",
     "YandexAuthSettings",

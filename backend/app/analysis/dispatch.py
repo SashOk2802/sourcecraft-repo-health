@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable, Iterable
 from contextlib import suppress
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Protocol
 from uuid import uuid4
@@ -41,6 +41,42 @@ class RepositoryContextResolver(Protocol):
 AnalyzerProvider = Callable[[AnalysisContext], Iterable[AnalyzerRegistration]]
 
 
+@dataclass(frozen=True, slots=True)
+class AnalysisPlan:
+    """Неперсистентный план одного запуска; analyzer closures могут хранить capability."""
+
+    context: AnalysisContext
+    analyzers: tuple[AnalyzerRegistration, ...] = field(repr=False)
+
+
+class AnalysisPlanner(Protocol):
+    """Выбирает источник данных только по server-side principal и состоянию сервера."""
+
+    async def plan(
+        self,
+        repository_id: str,
+        principal: AnalysisPrincipal,
+    ) -> AnalysisPlan: ...
+
+
+class _ResolvedAnalysisPlanner:
+    def __init__(
+        self,
+        context_resolver: RepositoryContextResolver,
+        analyzer_provider: AnalyzerProvider,
+    ) -> None:
+        self._context_resolver = context_resolver
+        self._analyzer_provider = analyzer_provider
+
+    async def plan(
+        self,
+        repository_id: str,
+        principal: AnalysisPrincipal,
+    ) -> AnalysisPlan:
+        context = await self._context_resolver.resolve(repository_id, principal)
+        return AnalysisPlan(context, tuple(self._analyzer_provider(context)))
+
+
 class AnalysisDispatcher(Protocol):
     """Ставит запуск в фоновую обработку и завершает фоновые задачи при остановке."""
 
@@ -74,8 +110,9 @@ class InProcessAnalysisDispatcher:
         self,
         *,
         execution_service: AnalysisExecutionService,
-        context_resolver: RepositoryContextResolver,
-        analyzer_provider: AnalyzerProvider,
+        context_resolver: RepositoryContextResolver | None = None,
+        analyzer_provider: AnalyzerProvider | None = None,
+        analysis_planner: AnalysisPlanner | None = None,
         analysis_id_factory: Callable[[], str] | None = None,
         worker_id: str | None = None,
         heartbeat_interval: timedelta = timedelta(seconds=10),
@@ -83,8 +120,13 @@ class InProcessAnalysisDispatcher:
         if heartbeat_interval <= timedelta():
             raise ValueError("heartbeat_interval must be positive")
         self._execution_service = execution_service
-        self._context_resolver = context_resolver
-        self._analyzer_provider = analyzer_provider
+        if analysis_planner is None:
+            if context_resolver is None or analyzer_provider is None:
+                raise ValueError("context_resolver and analyzer_provider are required")
+            analysis_planner = _ResolvedAnalysisPlanner(context_resolver, analyzer_provider)
+        elif context_resolver is not None or analyzer_provider is not None:
+            raise ValueError("analysis_planner cannot be combined with static resolver/provider")
+        self._analysis_planner = analysis_planner
         self._analysis_id_factory = analysis_id_factory or _new_analysis_id
         self._worker_id = worker_id or _new_worker_id()
         self._heartbeat_interval = heartbeat_interval
@@ -116,11 +158,11 @@ class InProcessAnalysisDispatcher:
         """Проверяет доступ, создаёт или возвращает задание и запускает worker."""
 
         await self.start()
-        context = await self._context_resolver.resolve(repository_id, principal)
+        plan = await self._analysis_planner.plan(repository_id, principal)
+        context = plan.context
         if context.repository.id != repository_id:
             raise ValueError("resolved context does not match repository_id")
 
-        analyzers = tuple(self._analyzer_provider(context))
         job, created = await self._execution_service.create_or_get_job(
             context,
             analysis_id or self._analysis_id_factory(),
@@ -129,7 +171,7 @@ class InProcessAnalysisDispatcher:
         )
         if created:
             task = asyncio.create_task(
-                self._execute(job.analysis_id, context, analyzers),
+                self._execute(job.analysis_id, context, plan.analyzers),
                 name=f"analysis-{job.analysis_id}",
             )
             self._tasks.add(task)

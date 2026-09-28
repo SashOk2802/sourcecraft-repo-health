@@ -2,6 +2,8 @@
 
 from backend.app.analysis.dispatch import (
     AnalysisDispatcher,
+    AnalysisPlan,
+    AnalysisPlanner,
     AnalysisPrincipal,
     AnalyzerProvider,
     InProcessAnalysisDispatcher,
@@ -41,6 +43,8 @@ __all__ = [
     "AnalysisJobStatus",
     "AnalysisJobStore",
     "AnalysisJobTransitionError",
+    "AnalysisPlan",
+    "AnalysisPlanner",
     "AnalysisPrincipal",
     "AnalysisSnapshot",
     "AnalysisStore",
