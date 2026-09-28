@@ -1,0 +1,35 @@
+{
+  "engines": [
+    {
+      "engine": "SAST",
+      "availability": "available",
+      "finding_count": 23,
+      "severities": ["HIGH", "LOW", "MEDIUM"],
+      "reason": null,
+      "finding_groups": [
+        {"severity": "HIGH", "status": "OPEN", "count": 6},
+        {"severity": "MEDIUM", "status": "OPEN", "count": 12},
+        {"severity": "LOW", "status": "OPEN", "count": 5}
+      ],
+      "completeness": "complete"
+    },
+    {
+      "engine": "SCA",
+      "availability": "unavailable",
+      "finding_count": null,
+      "severities": [],
+      "reason": "sourcecraft_appsec_unavailable",
+      "finding_groups": null,
+      "completeness": null
+    },
+    {
+      "engine": "SECRETS",
+      "availability": "unavailable",
+      "finding_count": null,
+      "severities": [],
+      "reason": "sourcecraft_appsec_unavailable",
+      "finding_groups": null,
+      "completeness": null
+    }
+  ]
+}

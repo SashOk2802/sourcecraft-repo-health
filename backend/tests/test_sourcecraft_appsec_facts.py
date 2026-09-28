@@ -10,13 +10,43 @@ from unittest.mock import Mock
 from backend.app.analyzers.security import make_analyzer
 from backend.app.contracts import AnalysisContext, DataStatus, RepositoryRef
 from backend.app.integrations.sourcecraft_appsec_facts import (
+    build_security_facts_from_results,
     collect_security_facts,
     make_security_facts_provider,
 )
-from backend.app.integrations.sourcecraft_appsec_probe import AppSecProbeResult
+from backend.app.integrations.sourcecraft_appsec_probe import AppSecFindingGroup, AppSecProbeResult
 
 
 class SourceCraftAppSecFactsTest(unittest.TestCase):
+    def test_complete_sast_passes_safe_partial_counts_to_analyzer(self) -> None:
+        facts = build_security_facts_from_results(
+            (
+                AppSecProbeResult(
+                    "SAST",
+                    "available",
+                    2,
+                    severities=("HIGH",),
+                    finding_groups=(AppSecFindingGroup("HIGH", "OPEN", 2),),
+                    completeness="complete",
+                ),
+                AppSecProbeResult(
+                    "SCA", "unavailable", None, reason="sourcecraft_appsec_unavailable"
+                ),
+                AppSecProbeResult(
+                    "SECRETS", "unavailable", None, reason="sourcecraft_appsec_unavailable"
+                ),
+            )
+        )
+
+        result = make_analyzer(lambda _: facts)(_context())
+
+        self.assertEqual(result.status, DataStatus.INSUFFICIENT_SAMPLE)
+        self.assertIsNone(result.score)
+        self.assertEqual(
+            [(metric.code, metric.value) for metric in result.metrics[1:]],
+            [("appsec_sast_open_findings", 2), ("appsec_sast_open_high", 2)],
+        )
+
     def test_available_engine_becomes_safe_insufficient_sample(self) -> None:
         probe = Mock()
         probe.probe_all.return_value = (

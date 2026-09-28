@@ -62,6 +62,67 @@ class SecurityAnalyzerTest(unittest.TestCase):
         self.assertNotIn("LOW", repr(result))
         self.assertNotIn("MEDIUM", repr(result))
 
+    def test_verified_sast_is_visible_while_other_engines_remain_unavailable(self) -> None:
+        fixture = Path(__file__).parent / "fixtures/sourcecraft/appsec_partial_complete.json"
+        payload = json.loads(fixture.read_text(encoding="utf-8"))
+
+        result = evaluate(build_facts(payload), repository=_context().repository)
+
+        self.assertEqual(result.status, DataStatus.INSUFFICIENT_SAMPLE)
+        self.assertIsNone(result.score)
+        self.assertEqual(result.reason, "appsec_coverage_not_confirmed")
+        self.assertIn("SAST", result.summary)
+        self.assertEqual(
+            [(metric.code, metric.value) for metric in result.metrics],
+            [
+                ("appsec_data_availability", "received"),
+                ("appsec_sast_open_findings", 23),
+                ("appsec_sast_open_high", 6),
+                ("appsec_sast_open_medium", 12),
+                ("appsec_sast_open_low", 5),
+            ],
+        )
+        self.assertTrue(all(metric.normalized_score is None for metric in result.metrics))
+        self.assertEqual(result.recommendations, ())
+        sast_url = result.metrics[1].evidence[0].url
+        self.assertIsNotNone(sast_url)
+        assert sast_url is not None
+        self.assertTrue(
+            sast_url.startswith(
+                "https://sourcecraft.dev/example-org/example-repo/security/sast?filter="
+            )
+        )
+        self.assertTrue(all(metric.evidence[0].url == sast_url for metric in result.metrics[1:]))
+
+    def test_partial_metrics_reject_unverified_groups_and_duplicate_engines(self) -> None:
+        fixture = Path(__file__).parent / "fixtures/sourcecraft/appsec_partial_complete.json"
+        payload = json.loads(fixture.read_text(encoding="utf-8"))
+        payload["engines"][0]["finding_groups"][0]["status"] = None
+        self.assertEqual(len(evaluate(build_facts(payload)).metrics), 1)
+
+        payload = json.loads(fixture.read_text(encoding="utf-8"))
+        payload["engines"][2]["engine"] = "SCA"
+        self.assertEqual(len(evaluate(build_facts(payload)).metrics), 1)
+
+        payload = json.loads(fixture.read_text(encoding="utf-8"))
+        payload["engines"][0]["completeness"] = "unknown"
+        self.assertEqual(len(evaluate(build_facts(payload)).metrics), 1)
+
+    def test_partial_confirmed_critical_does_not_cap_overall_score(self) -> None:
+        fixture = Path(__file__).parent / "fixtures/sourcecraft/appsec_partial_complete.json"
+        payload = json.loads(fixture.read_text(encoding="utf-8"))
+        payload["engines"][0] = _complete_engine(
+            "SAST", [{"severity": "CRITICAL", "status": "TRIAGED_TP", "count": 1}]
+        )
+
+        result = evaluate(build_facts(payload))
+        execution = _execution_with_security(result)
+
+        self.assertEqual(result.status, DataStatus.INSUFFICIENT_SAMPLE)
+        self.assertIsNone(result.score)
+        self.assertEqual(result.metrics[2].code, "appsec_sast_open_critical")
+        self.assertIsNone(execution.score_summary.score_limit)
+
     def test_complete_appsec_payload_without_open_findings_scores_100(self) -> None:
         result = evaluate(build_facts(_complete_payload()))
 

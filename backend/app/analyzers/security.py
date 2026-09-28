@@ -156,14 +156,21 @@ def evaluate(facts: SecurityFacts, *, repository: RepositoryRef | None = None) -
 
     assessment = _build_assessment(facts.payload)
     if assessment is None:
+        verified_engines, partial_metrics = _partial_engine_metrics(facts.payload, repository)
+        summary = (
+            f"Подтверждён полный результат {', '.join(verified_engines)}, но данных "
+            "для общего Security Score недостаточно."
+            if verified_engines
+            else (
+                "Результат AppSec получен, но полнота сканов или безопасная схема "
+                "severity/status пока не подтверждены."
+            )
+        )
         return CategoryResult(
             category=CATEGORY_CODE,
             status=DataStatus.INSUFFICIENT_SAMPLE,
             score=None,
-            summary=(
-                "Результат AppSec получен, но полнота сканов или безопасная схема "
-                "severity/status пока не подтверждены."
-            ),
+            summary=summary,
             reason="appsec_coverage_not_confirmed",
             metrics=(
                 _availability_metric(
@@ -171,6 +178,7 @@ def evaluate(facts: SecurityFacts, *, repository: RepositoryRef | None = None) -
                     "SourceCraft предоставил результат AppSec, но он не готов для Score.",
                     repository,
                 ),
+                *partial_metrics,
             ),
             recommendations=(),
         )
@@ -301,6 +309,72 @@ def _build_assessment(payload: dict[str, Any] | list[Any] | None) -> _SecurityAs
             engine for engine in APPSEC_ENGINES if engine in confirmed_critical_engines
         ),
     )
+
+
+def _partial_engine_metrics(
+    payload: dict[str, Any] | list[Any] | None,
+    repository: RepositoryRef | None,
+) -> tuple[tuple[str, ...], tuple[MetricResult, ...]]:
+    """Показывает полные данные отдельных движков без оценки всей категории."""
+
+    if not isinstance(payload, dict) or set(payload) != {"engines"}:
+        return (), ()
+    engines = payload["engines"]
+    if not isinstance(engines, list) or len(engines) != len(APPSEC_ENGINES):
+        return (), ()
+
+    complete: dict[str, tuple[dict[str, object], ...]] = {}
+    seen: set[str] = set()
+    for raw_engine in engines:
+        if not isinstance(raw_engine, dict):
+            return (), ()
+        engine = raw_engine.get("engine")
+        if not isinstance(engine, str) or engine not in APPSEC_ENGINES or engine in seen:
+            return (), ()
+        seen.add(engine)
+        parsed = _parse_complete_engine(raw_engine)
+        if parsed is not None:
+            complete[engine] = parsed[1]
+    if not complete or len(complete) == len(APPSEC_ENGINES):
+        return (), ()
+
+    metrics: list[MetricResult] = []
+    for engine in APPSEC_ENGINES:
+        groups = complete.get(engine)
+        if groups is None:
+            continue
+        by_severity: defaultdict[str, int] = defaultdict(int)
+        for group in groups:
+            if group["status"] in SECURITY_ACTIVE_STATUSES:
+                severity, count = group["severity"], group["count"]
+                assert isinstance(severity, str)
+                assert isinstance(count, int)
+                by_severity[severity] += count
+        total = sum(by_severity.values())
+        metrics.append(
+            MetricResult(
+                code=f"appsec_{engine.lower()}_open_findings",
+                value=total,
+                normalized_score=None,
+                summary=f"Полный результат {engine}: {total} открытых групп.",
+                evidence=(_engine_evidence(engine, repository),),
+            )
+        )
+        for severity in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
+            count = by_severity.get(severity, 0)
+            if not count:
+                continue
+            metrics.append(
+                MetricResult(
+                    code=f"appsec_{engine.lower()}_open_{severity.lower()}",
+                    value=count,
+                    normalized_score=None,
+                    summary=f"Открытые группы {engine} уровня {severity}: {count}.",
+                    evidence=(_engine_evidence(engine, repository, severity=severity),),
+                )
+            )
+    verified_engines = tuple(engine for engine in APPSEC_ENGINES if engine in complete)
+    return verified_engines, tuple(metrics)
 
 
 def _parse_complete_engine(
