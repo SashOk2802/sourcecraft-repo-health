@@ -9,6 +9,7 @@ from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import Mock
+from urllib.parse import parse_qs, unquote, urlsplit
 
 from backend.app.analysis.runner import AnalyzerRegistration, run_analysis
 from backend.app.analyzers.security import (
@@ -86,16 +87,43 @@ class SecurityAnalyzerTest(unittest.TestCase):
 
         self.assertEqual(result.status, DataStatus.MEASURED)
         self.assertEqual(result.metrics[0].evidence[0].url, f"{base}/overview")
-        self.assertIn(
-            "может отличаться от снимка отчёта", result.metrics[0].evidence[0].summary
+        self.assertIn("может отличаться от снимка отчёта", result.metrics[0].evidence[0].summary)
+        sast_url = result.metrics[1].evidence[1].url
+        self.assertIsNotNone(sast_url)
+        assert sast_url is not None
+        self.assertEqual(urlsplit(sast_url).path, "/example-org/example-repo/security/sast")
+        filter_value = parse_qs(urlsplit(sast_url).query)["filter"]
+        self.assertEqual(len(filter_value), 1)
+        self.assertEqual(
+            json.loads(unquote(filter_value[0])),
+            {
+                "and": {
+                    "operands": [
+                        {
+                            "or": {
+                                "operands": [
+                                    {
+                                        "predicate": {
+                                            "field": "status",
+                                            "operator": "OPERATOR_EQ",
+                                            "stringValue": status,
+                                        }
+                                    }
+                                    for status in ("OPEN", "TRIAGED_TP")
+                                ]
+                            }
+                        }
+                    ]
+                }
+            },
         )
         self.assertEqual(
             [item.url for item in result.metrics[1].evidence],
-            [f"{base}/overview", f"{base}/sast", f"{base}/sca", f"{base}/secrets"],
+            [f"{base}/overview", sast_url, f"{base}/sca", f"{base}/secrets"],
         )
         self.assertEqual(
             [item.url for item in result.recommendations[0].evidence],
-            [f"{base}/sast", f"{base}/sca"],
+            [sast_url, f"{base}/sca"],
         )
         self.assertTrue(
             all(

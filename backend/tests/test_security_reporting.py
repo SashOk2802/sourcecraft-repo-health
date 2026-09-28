@@ -46,11 +46,15 @@ class SecurityReportingTest(unittest.IsolatedAsyncioTestCase):
         ]
         report, markdown = await self._reports(Mock(return_value=build_facts({"engines": engines})))
         security = next(item for item in report["categories"] if item["code"] == "security")
-        finding_url = "https://sourcecraft.dev/example-org/example-repo/security/sast"
         open_findings = next(
             item for item in security["evidence"] if item["code"] == "appsec_open_findings"
         )
-        self.assertEqual(open_findings["evidence"][1]["url"], finding_url)
+        finding_url = open_findings["evidence"][1]["url"]
+        self.assertTrue(
+            finding_url.startswith(
+                "https://sourcecraft.dev/example-org/example-repo/security/sast?filter="
+            )
+        )
         recommendation = next(
             item for item in report["recommendations"] if item["code"] == "appsec-open-high"
         )

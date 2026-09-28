@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
+from urllib.parse import quote
 
 from backend.app.contracts import (
     AnalysisContext,
@@ -521,4 +523,20 @@ def _security_url(repository: RepositoryRef | None, engine: str | None = None) -
     if engine is None:
         return f"{base}/overview"
     page = _ENGINE_PAGES.get(engine)
-    return f"{base}/{page}" if page is not None else None
+    if page is None:
+        return None
+    url = f"{base}/{page}"
+    if engine != "SAST":
+        return url
+    # Без явного фильтра страница SourceCraft может открыться с сохранённым
+    # ограничением по сканеру и показать лишь часть учтённых SAST-групп.
+    predicates = [
+        {"predicate": {"field": "status", "operator": "OPERATOR_EQ", "stringValue": status}}
+        for status in sorted(SECURITY_ACTIVE_STATUSES)
+    ]
+    filter_json = json.dumps(
+        {"and": {"operands": [{"or": {"operands": predicates}}]}},
+        separators=(",", ":"),
+    )
+    # SourceCraft URL кодирует JSON дважды; формат получен через фильтр в UI.
+    return f"{url}?filter={quote(quote(filter_json, safe=''), safe='')}"
