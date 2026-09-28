@@ -65,12 +65,12 @@ $env:VITE_USE_MOCKS = "true"; npm run dev
 | Отчёт | `GET /api/v1/analyses/{id}/report` | есть, методика v2. Security — по обезличенной сводке AppSec ([docs/security-analyzer.md](../docs/security-analyzer.md)): без сводки «нет данных», сводка из CLI SourceCraft без подтверждённой полноты — «мало данных» |
 | Markdown | `GET /api/v1/analyses/{id}/report.md` | есть; демо-отчёт собирается в браузере в том же формате |
 | Ход анализа | `GET /api/v1/analyses/{id}` — `queued`, `running`, `completed`, `partial`, `failed` с `error: {code, summary}` | есть |
-| Запуск анализа | `POST /api/v1/repositories/{id}/analyses` | есть: после входа, по внутреннему id репозитория SourceCraft, только публичные репозитории из `SOURCECRAFT_PUBLIC_ORGANIZATIONS`; без неё и `SOURCECRAFT_TOKEN` — 503 |
+| Запуск анализа | `POST /api/v1/repositories/{id}/analyses` | есть: после входа, по внутреннему id репозитория SourceCraft. Без подключения — публичные репозитории из `SOURCECRAFT_PUBLIC_ORGANIZATIONS` (без неё и `SOURCECRAFT_TOKEN` — 503); закрытый или внутренний — по подключению SourceCraft: без него 409, без прав у токена 403 |
 | Методика | `GET /api/v1/methodology` | есть, v2: веса, названия, лимит и формула Security Score — с backend, объяснения и политика пересчёта — в `src/lib/methodologyTexts.ts` |
 | Вход | `/api/v1/auth/yandex/start`, `/callback`, `GET /api/v1/me` (`{id, login}`), `POST /api/v1/auth/logout` | есть; без `YANDEX_CLIENT_ID` и `YANDEX_REDIRECT_URI` backend отвечает 503 — тогда в режиме `api` вход выключен с пояснением, в режиме `auto` работает демо-кабинет |
 | Рейтинг | `GET /api/v1/leaderboard` | есть; места и сортировки по [docs/leaderboard-policy.md](../docs/leaderboard-policy.md), снимки пополняет планировщик backend (`PUBLIC_ANALYSIS_SCHEDULER_ENABLED=true`) |
-| Мои репозитории | `GET /api/v1/me/repositories` | есть: публичные репозитории из организаций `SOURCECRAFT_PUBLIC_ORGANIZATIONS`; последнего анализа в ответе пока нет. У backend без этого маршрута кабинет после входа предлагает проверить публичный репозиторий по идентификатору |
-| Подключение SourceCraft | `GET`, `POST`, `DELETE /api/v1/connections/sourcecraft` | есть (#88): токен хранится на backend зашифрованным, включается ключом `SOURCECRAFT_CONNECTION_ENCRYPTION_KEY`. Без ключа GET отвечает 404 — форма подключения в кабинете скрыта. Список закрытых репозиториев backend добавит следующим этапом |
+| Мои репозитории | `GET /api/v1/me/repositories` | есть: без подключения — публичные репозитории из организаций `SOURCECRAFT_PUBLIC_ORGANIZATIONS`, с подключением — личный каталог: всё, что видит токен, с пометками «закрытый» и «внутренний» (#102). Отозванный токен — 401 «SourceCraft connection must be renewed.»: кабинет просит подключить заново. Последнего анализа в ответе пока нет. У backend без этого маршрута кабинет после входа предлагает проверить публичный репозиторий по идентификатору |
+| Подключение SourceCraft | `GET`, `POST`, `DELETE /api/v1/connections/sourcecraft` | есть (#88): токен хранится на backend зашифрованным, включается ключом `SOURCECRAFT_CONNECTION_ENCRYPTION_KEY`. Без ключа GET отвечает 404 — форма подключения в кабинете скрыта |
 
 Формат ответов описан в [docs/api-contract.md](../docs/api-contract.md); типы лежат в `src/api/*.ts`.
 
@@ -112,7 +112,7 @@ services:
 docker compose -f compose.yaml -f compose.stand.yaml up -d --build
 ~~~
 
-Если стенд всё же запускают на dev-сервере Vite, домен стенда нужно разрешить: `FRONTEND_ALLOWED_HOSTS=repo-health.example.ru` (или `all`), иначе Vite ответит «Blocked request».
+Стенд можно запустить и на dev-сервере Vite за HTTPS-прокси, как в main: любые домены разрешены по умолчанию (ограничить — `FRONTEND_ALLOWED_HOSTS=repo-health.example.ru`), а порт, на котором браузер подключается к HMR, задаёт `VITE_HMR_CLIENT_PORT` (обычно 443).
 
 ## Структура
 
@@ -138,7 +138,7 @@ src/
 - Машинные коды причин (`reason`) переводятся в текст в `src/lib/reasonCodes.ts`; незнакомый код показывается как есть.
 - Пути к API только относительные (`/api/...`): в разработке их проксирует Vite, на стенде — nginx.
 - Отчёт всегда открывается по идентификатору снимка анализа, поэтому ссылка показывает один и тот же результат.
-- Токен SourceCraft для закрытых репозиториев, когда backend добавит подключение, уходит на backend один раз и в браузер не возвращается; в демо-кабинете его не спрашивают.
+- Токен SourceCraft для закрытых и внутренних репозиториев уходит на backend один раз и в браузер не возвращается; в демо-кабинете его не спрашивают. Ошибки подключения (отклонённый или отозванный токен, недоступный SourceCraft) объясняются по тексту backend, а не как выход из Яндекс ID: `describeSourceCraftError` в `src/api/http.ts`.
 - Классы по БЭМ: `block__element_modifier_value`, цвета — токены Gravity UI (`--g-color-*`) и свои `--rh-*` в `src/styles/tokens.css`.
 - PDF — печать страницы отчёта: для неё есть отдельные стили, отчёт печатается светлым в любой теме.
 - Вёрстка проверена на 390 px (телефон), 1024, 1280 и 1440 px: таблицы на узком экране становятся карточками.

@@ -4,21 +4,24 @@ import react from "@vitejs/plugin-react";
 const apiProxyTarget = process.env.API_PROXY_TARGET ?? "http://localhost:8000";
 
 /*
- * Доменные имена, по которым открывают dev-сервер или vite preview на стенде, через запятую;
- * "all" — любые. Без этого Vite отвечает «Blocked request» на всё, кроме localhost и IP.
+ * По каким доменам открывают dev-сервер или vite preview. По умолчанию — любые: стенд работает
+ * на dev-сервере за HTTPS-прокси со своим доменом (как в main). Чтобы пустить только свои
+ * домены, перечислите их через запятую в FRONTEND_ALLOWED_HOSTS.
  */
-function parseAllowedHosts(value: string | undefined): string[] | true | undefined {
-  if (!value) return undefined;
-  if (value.trim() === "all") return true;
+function parseAllowedHosts(value: string | undefined): string[] | true {
+  if (!value || value.trim() === "all") return true;
   const hosts = value
     .split(",")
     .map((host) => host.trim())
     .filter(Boolean);
-  return hosts.length > 0 ? hosts : undefined;
+  return hosts.length > 0 ? hosts : true;
 }
 
 const allowedHosts = parseAllowedHosts(process.env.FRONTEND_ALLOWED_HOSTS);
 const proxy = { "/api": { target: apiProxyTarget, changeOrigin: true } };
+
+// Порт, на котором браузер подключается к HMR, когда dev-сервер стоит за HTTPS-прокси (например, 443).
+const hmrClientPort = process.env.VITE_HMR_CLIENT_PORT ? Number(process.env.VITE_HMR_CLIENT_PORT) : undefined;
 
 /*
  * Источник данных — src/api/dataSource.ts: без флагов настоящий API. Демо-данные включают
@@ -35,6 +38,7 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     allowedHosts,
+    ...(hmrClientPort ? { hmr: { clientPort: hmrClientPort } } : {}),
     proxy,
   },
   // `npm run preview` — собранная версия с тем же proxy: так её можно проверить перед выкладкой.

@@ -132,27 +132,10 @@ export function describeSourceCraftError(error: Error): string | null {
   return sourceCraftDetails.find(([pattern]) => pattern.test(error.message))?.[1] ?? null;
 }
 
-/*
- * 503 «раздел не настроен» и «SourceCraft не отдал каталог» (backend/app/main.py) — это не
- * «на сервере что-то сломалось»: так сейчас отвечает стенд без каталога открытых репозиториев.
- */
-const serviceDetails: Array<[pattern: RegExp, text: string]> = [
-  [/leaderboard is not configured/i, "Рейтинг на этом сервере пока не настроен: не задан каталог открытых репозиториев."],
-  [/repository catalog is not configured/i, "Каталог открытых репозиториев на этом сервере не настроен."],
-  [/repository catalog is unavailable/i, "SourceCraft сейчас не отдаёт список репозиториев. Попробуйте через несколько минут."],
-];
-
-/** 503 «Каталог открытых репозиториев не настроен»: в кабинете тогда помогает только личное подключение. */
-export function isCatalogNotConfigured(error: Error): boolean {
-  return error instanceof ApiError && error.status === 503 && /repository catalog is not configured/i.test(error.message);
-}
-
 /** Понятное человеку объяснение ошибки загрузки. */
 export function describeError(error: Error): string {
   const sourceCraft = describeSourceCraftError(error);
   if (sourceCraft) return sourceCraft;
-  const service = error instanceof ApiError ? serviceDetails.find(([pattern]) => pattern.test(error.message)) : undefined;
-  if (service) return service[1];
   if (error instanceof ApiError) {
     if (error.status === 0) return "Сервер не отвечает. Проверьте подключение и попробуйте ещё раз.";
     if (error.status === 401) return "Нужно войти через Яндекс ID.";

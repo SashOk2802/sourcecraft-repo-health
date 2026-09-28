@@ -9,7 +9,7 @@ import {
 } from "../api/connections";
 import { describeStartError } from "../api/analyses";
 import { ApiError, describeError } from "../api/http";
-import { fetchMyRepositories, type MyRepository } from "../api/me";
+import { fetchMyRepositories, repositoryVisibilityLabel, type MyRepository } from "../api/me";
 import { signInUnavailableHint, useAuth } from "../auth/AuthContext";
 import { DemoNote } from "../components/DemoNote";
 import { ErrorNote, LoadingNote } from "../components/PageNotes";
@@ -88,9 +88,11 @@ function SignInInvite({ unavailable, onSignIn }: { unavailable: boolean; onSignI
 }
 
 /*
- * Сначала — список: на первом этапе это публичные репозитории из каталога сервиса, и подключать
- * для них ничего не нужно. Подключение SourceCraft по токену откроет закрытые репозитории; его
- * предлагаем, только если backend его поддерживает, и список им не загораживаем.
+ * Без подключения в списке публичные репозитории из каталога сервиса — для них подключать ничего
+ * не нужно. С подключением SourceCraft по токену backend отдаёт личный каталог: всё, что видит
+ * токен, включая закрытые и внутренние (PR #102). Форму предлагаем, только если на сервере
+ * настроено хранилище токенов, и список ею не загораживаем; после подключения список
+ * перезагружается.
  */
 function ConnectedArea() {
   const [state, reload] = useAsync(fetchSourceCraftConnection, []);
@@ -189,11 +191,11 @@ function ConnectForm({ onConnected }: { onConnected: () => void }) {
   return (
     <section className="card my-repos__connect">
       <Text variant="subheader-2" as="h2">
-        Закрытые репозитории — через подключение SourceCraft
+        Закрытые и внутренние репозитории — через подключение SourceCraft
       </Text>
       <Text variant="body-2" color="secondary">
-        Открытые репозитории ниже проверяются и так. Чтобы проверить закрытые, нужен личный токен SourceCraft: вход
-        через Яндекс ID доступа к ним не даёт. Создайте токен в настройках профиля SourceCraft и вставьте сюда — он
+        Открытые репозитории ниже проверяются и так. Чтобы проверить закрытые и внутренние, нужен личный токен
+        SourceCraft: вход через Яндекс ID доступа к ним не даёт. Создайте токен в настройках профиля SourceCraft и вставьте сюда — он
         уходит на наш сервер один раз, хранится зашифрованно и обратно в браузер не возвращается.
       </Text>
 
@@ -244,6 +246,7 @@ function ConnectionBar({
   onDisconnected: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
 
   return (
     <div className="my-repos__connection">
@@ -260,13 +263,20 @@ function ConnectionBar({
         loading={busy}
         onClick={() => {
           setBusy(true);
+          setError(null);
           void disconnectSourceCraft()
             .then(onDisconnected)
+            .catch((reason: unknown) => setError(reason instanceof Error ? reason : new Error(String(reason))))
             .finally(() => setBusy(false));
         }}
       >
         Отключить
       </Button>
+      {error && (
+        <Text variant="body-1" color="danger">
+          Не удалось отключить: {describeError(error)}
+        </Text>
+      )}
     </div>
   );
 }
@@ -345,6 +355,7 @@ interface RepositoryRowProps {
 function RepositoryRow({ item, starting, onStart }: RepositoryRowProps) {
   const { repository, lastAnalysis, activeAnalysisId } = item;
   const hasReport = lastAnalysis !== null && (lastAnalysis.status === "completed" || lastAnalysis.status === "partial");
+  const visibilityLabel = repositoryVisibilityLabel(repository.visibility);
 
   return (
     <tr>
@@ -359,9 +370,9 @@ function RepositoryRow({ item, starting, onStart }: RepositoryRowProps) {
               <span className="my-repos__org">{repository.organizationSlug} /</span> {repository.repositorySlug}
             </span>
           )}
-          {repository.visibility === "private" && (
+          {visibilityLabel && (
             <Label size="xs" theme="unknown">
-              закрытый
+              {visibilityLabel}
             </Label>
           )}
         </span>

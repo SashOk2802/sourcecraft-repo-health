@@ -49,6 +49,18 @@ export interface MyRepositoriesResponse {
   items: MyRepository[];
 }
 
+export type RepositoryVisibility = "public" | "internal" | "private";
+
+export function normalizeRepositoryVisibility(visibility?: string): RepositoryVisibility {
+  return visibility === "internal" || visibility === "private" ? visibility : "public";
+}
+
+export function repositoryVisibilityLabel(visibility: RepositoryVisibility): string | null {
+  if (visibility === "internal") return "внутренний";
+  if (visibility === "private") return "закрытый";
+  return null;
+}
+
 export interface MyRepository {
   repository: {
     id: string;
@@ -58,7 +70,7 @@ export interface MyRepository {
     url: string | null;
     description: string | null;
     language: string | null;
-    visibility: "public" | "private";
+    visibility: RepositoryVisibility;
     /** В репозитории ещё нет коммитов: анализировать нечего, запуск не предлагаем. */
     isEmpty: boolean;
   };
@@ -181,7 +193,7 @@ function toMyRepository(row: MyRepositoryPayload): MyRepository {
       url: source.webUrl ?? source.url ?? null,
       description: source.description ?? null,
       language: source.language ?? null,
-      visibility: source.visibility === "private" || source.visibility === "internal" ? "private" : "public",
+      visibility: normalizeRepositoryVisibility(source.visibility),
       isEmpty: source.isEmpty === true,
     },
     lastAnalysis:

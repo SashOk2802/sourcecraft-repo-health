@@ -1,6 +1,6 @@
 import type { AnalysisStatus } from "./common";
 import { usesDemo, withDemoDelay } from "./dataSource";
-import { ApiError, describeError, getJson, postJson } from "./http";
+import { ApiError, describeError, describeSourceCraftError, getJson, postJson } from "./http";
 import { fetchMockAnalysis, startMockAnalysis } from "./mocks/analyses";
 
 /*
@@ -88,10 +88,13 @@ export async function startAnalysis(repositoryId: string): Promise<StartedAnalys
 
 /**
  * Почему не запустился анализ — по кодам POST /api/v1/repositories/{id}/analyses
- * (docs/api-contract.md). Пока без подключения SourceCraft к кабинету backend проверяет
- * только публичные репозитории из настроенного каталога, отсюда отдельные тексты для 403 и 404.
+ * (docs/api-contract.md). Закрытый или внутренний репозиторий backend проверяет по личному
+ * подключению SourceCraft (PR #101): без него — 409, без прав у токена — 403.
  */
 export function describeStartError(error: Error): string {
+  // 409 и недоступное подключение — по тексту backend, как и остальные ошибки SourceCraft.
+  const sourceCraft = describeSourceCraftError(error);
+  if (sourceCraft) return sourceCraft;
   if (error instanceof ApiError) {
     if (error.status === 401) return "Сессия закончилась — войдите через Яндекс ID ещё раз.";
     // Защита от подделки запросов (docs/csrf-protection.md): POST пришёл не с адреса сервиса.
@@ -99,7 +102,7 @@ export function describeStartError(error: Error): string {
       return "Сервер отклонил запрос с этого адреса. Откройте сервис по его основному адресу и попробуйте снова.";
     }
     if (error.status === 403) {
-      return "Сейчас можно проверить только публичный репозиторий: закрытые и внутренние откроются, когда SourceCraft подключат к кабинету.";
+      return "Нет доступа к этому репозиторию. Закрытые и внутренние проверяются по подключению SourceCraft — у токена должны быть права на репозиторий.";
     }
     if (error.status === 404) return "Такого репозитория нет в каталоге, который проверяет сервис.";
     if (error.status === 422) return "Такой идентификатор репозитория не подходит — проверьте, что скопировали его целиком.";
