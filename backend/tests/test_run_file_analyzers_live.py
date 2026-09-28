@@ -158,7 +158,7 @@ class LiveScriptMainTest(unittest.TestCase):
         self.assertEqual(captured["closed"], "yes")
         self.assertEqual(
             captured["repo_url"],
-            "https://sourcecraft.dev/team/platform-api.git",
+            "https://git@git.sourcecraft.dev/team/platform-api.git",
         )
         self.assertEqual(captured["remote_url"], captured["repo_url"])
 
@@ -173,7 +173,9 @@ class LiveScriptMainTest(unittest.TestCase):
         script.subprocess.run = fail
         try:
             with self.assertRaises(SystemExit) as caught:
-                script.remote_head_sha("https://sourcecraft.dev/team/platform-api.git", "SECRET")
+                script.remote_head_sha(
+                    "https://git@git.sourcecraft.dev/team/platform-api.git", "SECRET"
+                )
         finally:
             script.subprocess.run = original
 

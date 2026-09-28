@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import os
 import subprocess
 import sys
@@ -29,7 +30,7 @@ OWNER = "user-owner"
 OTHER_USER = "user-other"
 PERSONAL_PAT = "synthetic-personal-pat"
 COMMIT_SHA = "a" * 40
-CLONE_URL = "https://sourcecraft.dev/sample-org/sample-private.git"
+CLONE_URL = "https://git@git.sourcecraft.dev/sample-org/sample-private.git"
 
 
 class PersonalGitCredentialTest(unittest.IsolatedAsyncioTestCase):
@@ -175,7 +176,8 @@ class BoundedGitRepositoryTest(unittest.TestCase):
         self.assertNotIn(PERSONAL_PAT, repr(clone_call.args[0]))
         self.assertEqual(
             clone_call.kwargs["env"]["GIT_CONFIG_VALUE_0"],
-            f"AUTHORIZATION: Bearer {PERSONAL_PAT}",
+            "AUTHORIZATION: Basic "
+            + base64.b64encode(f"git:{PERSONAL_PAT}".encode()).decode("ascii"),
         )
         self.assertNotIn("GIT_CONFIG_VALUE_0", checkout_call.kwargs["env"])
 

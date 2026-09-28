@@ -10,7 +10,11 @@ from pathlib import Path
 
 from backend.app.analyzers import code_health, documentation
 from backend.app.contracts import AnalysisContext, CategoryResult, RepositoryRef
-from backend.app.integrations.git_repository import GitCloneError, LocalGitRepository
+from backend.app.integrations.git_repository import (
+    GitCloneError,
+    LocalGitRepository,
+    sourcecraft_git_http_authorization,
+)
 from backend.app.integrations.sourcecraft import SourceCraftClient, SourceCraftClientError
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -52,14 +56,12 @@ def read_token() -> str:
 def remote_head_sha(repo_url: str, token: str) -> str:
     """SHA текущего HEAD. Токен уходит только в заголовок git и не печатается."""
 
-    command = [
-        "git",
-        "-c",
-        f"http.extraheader=AUTHORIZATION: Bearer {token}",
-        "ls-remote",
-        repo_url,
-        "HEAD",
-    ]
+    command = ["git", "ls-remote", repo_url, "HEAD"]
+    env = os.environ.copy()
+    env["GIT_TERMINAL_PROMPT"] = "0"
+    env["GIT_CONFIG_COUNT"] = "1"
+    env["GIT_CONFIG_KEY_0"] = "http.extraheader"
+    env["GIT_CONFIG_VALUE_0"] = sourcecraft_git_http_authorization(token)
     try:
         completed = subprocess.run(
             command,
@@ -67,9 +69,10 @@ def remote_head_sha(repo_url: str, token: str) -> str:
             capture_output=True,
             text=True,
             timeout=30,
+            env=env,
         )
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
-        # Без цепочки: текст CalledProcessError содержит argv с Bearer-токеном.
+        # Без цепочки: текст CalledProcessError не должен попасть в CLI-вывод.
         raise SystemExit("Не удалось прочитать SHA ветки по умолчанию.")
     fields = completed.stdout.split()
     if not fields:

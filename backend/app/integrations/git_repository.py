@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import base64
 import logging
 import os
 import re
@@ -36,6 +37,20 @@ WINDOWS_PROCESS_TREE_KILL_TIMEOUT_SECONDS = 5.0
 _WINDOWS_NEW_PROCESS_GROUP = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0x00000200)
 _NO_SHALLOW_COMMITS = "no commits selected for shallow requests"
 _FULL_COMMIT_SHA = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$", re.IGNORECASE)
+
+
+def sourcecraft_git_http_authorization(token: str) -> str:
+    """Возвращает Basic-заголовок Git Smart HTTP для SourceCraft PAT.
+
+    SourceCraft принимает PAT как пароль HTTPS Git-подключения. Заголовок
+    формируется только для короткоживущего окружения git-процесса, а не для URL
+    или аргументов команды.
+    """
+
+    if not isinstance(token, str) or not token:
+        raise ValueError("SourceCraft Git token must not be blank")
+    credentials = base64.b64encode(f"git:{token}".encode()).decode("ascii")
+    return f"AUTHORIZATION: Basic {credentials}"
 
 
 class GitCloneError(RuntimeError):
@@ -93,8 +108,8 @@ class LocalGitRepository:
         """Принимает URL, ссылку для checkout и токен аутентификации.
 
         ``ref`` может быть именем ветки, тегом или полным commit SHA.
-        ``auth_token`` передаётся в git как Bearer-заголовок (тот же
-        механизм, что у SourceCraftClient), поэтому не попадает в URL.
+        ``auth_token`` передаётся в Git Smart HTTP как Basic-пароль SourceCraft
+        только через окружение процесса, поэтому не попадает в URL или argv.
         """
         self.repo_url = repo_url
         self.ref = ref
@@ -450,7 +465,9 @@ class LocalGitRepository:
             # операции и не виден в URL или argv процесса.
             env["GIT_CONFIG_COUNT"] = "1"
             env["GIT_CONFIG_KEY_0"] = "http.extraheader"
-            env["GIT_CONFIG_VALUE_0"] = f"AUTHORIZATION: Bearer {self._auth_token}"
+            env["GIT_CONFIG_VALUE_0"] = sourcecraft_git_http_authorization(
+                self._auth_token
+            )
         if no_lazy_fetch:
             env["GIT_NO_LAZY_FETCH"] = "1"
         return env
@@ -722,12 +739,18 @@ def _run_history_git(
     repo_url: str,
     timeout_seconds: float,
 ) -> subprocess.CompletedProcess[str]:
-    command = ["git"]
-    if auth_token:
-        command += ["-c", f"http.extraheader=AUTHORIZATION: Bearer {auth_token}"]
-    command += arguments
+    command = ["git", *arguments]
     env = os.environ.copy()
+    for key in tuple(env):
+        if key == "GIT_CONFIG_COUNT" or key.startswith(
+            ("GIT_CONFIG_KEY_", "GIT_CONFIG_VALUE_")
+        ):
+            env.pop(key, None)
     env["GIT_TERMINAL_PROMPT"] = "0"
+    if auth_token:
+        env["GIT_CONFIG_COUNT"] = "1"
+        env["GIT_CONFIG_KEY_0"] = "http.extraheader"
+        env["GIT_CONFIG_VALUE_0"] = sourcecraft_git_http_authorization(auth_token)
 
     try:
         return subprocess.run(

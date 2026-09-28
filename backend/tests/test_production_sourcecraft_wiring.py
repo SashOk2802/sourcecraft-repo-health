@@ -179,7 +179,21 @@ class SourceCraftPublicRepositoryResolverTest(unittest.IsolatedAsyncioTestCase):
                 "platform-api",
                 "https://sourcecraft.dev/team/platform-api",
             ),
-            "https://sourcecraft.dev/team/platform-api.git",
+            "https://git@git.sourcecraft.dev/team/platform-api.git",
+        )
+        self.assertEqual(
+            SourceCraftClient.resolve_git_clone_url("team", "platform-api", None),
+            "https://git@git.sourcecraft.dev/team/platform-api.git",
+        )
+        self.assertTrue(
+            SourceCraftClient.is_official_git_clone_url(
+                "https://git@git.sourcecraft.dev/team/platform-api.git"
+            )
+        )
+        self.assertFalse(
+            SourceCraftClient.is_official_git_clone_url(
+                "https://sourcecraft.dev/team/platform-api.git"
+            )
         )
         for web_url in (
             "https://attacker.example/team/platform-api",

@@ -129,7 +129,7 @@ class ActivityHistoryCollectionTest(unittest.TestCase):
             ),
         )
         reader.assert_called_once_with(
-            "https://sourcecraft.dev/team/platform.git",
+            "https://git@git.sourcecraft.dev/team/platform.git",
             since=CONTEXT.period_start,
             until=CONTEXT.period_end,
             revision=CONTEXT.commit_sha,
