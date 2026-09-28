@@ -404,7 +404,17 @@ class SourceCraftAppSecSnapshotTest(unittest.TestCase):
         self.assertEqual(probe.probe_all.call_args.args, ("example-org/example-repo",))
         self.assertEqual(
             commands,
-            [["/safe/path/src", "api", "-X", "GET", "repos/example-org/example-repo", "--json"]],
+            [
+                [
+                    "/safe/path/src",
+                    "api",
+                    "-X",
+                    "GET",
+                    "repos/example-org/example-repo",
+                    "--jq",
+                    "{id: .id, visibility: .visibility}",
+                ]
+            ],
         )
         self.assertEqual(payload["commit_sha"], COMMIT_SHA)
         self.assertEqual(payload["repository_id_sha256"], repository_fingerprint("repository-id-redacted"))
@@ -453,7 +463,15 @@ class SourceCraftAppSecSnapshotTest(unittest.TestCase):
             )
         self.assertEqual(
             runner.call_args.args[0],
-            ["src", "api", "-X", "GET", "repos/example-org/example-repo", "--json"],
+            [
+                "src",
+                "api",
+                "-X",
+                "GET",
+                "repos/example-org/example-repo",
+                "--jq",
+                "{id: .id, visibility: .visibility}",
+            ],
         )
 
         result = evaluate(self.store.collect(self.context))
@@ -546,6 +564,58 @@ class SourceCraftAppSecSnapshotTest(unittest.TestCase):
 
         self.assertNotIn(private_marker, str(raised.exception))
         self.assertEqual(list(self.snapshot_directory.iterdir()), [])
+
+    def test_cli_exporter_batch_mode_requires_sourcecraft_public_visibility(self) -> None:
+        for visibility in (None, "internal", "private"):
+            with self.subTest(visibility=visibility):
+                probe = Mock()
+                probe.probe_all.return_value = _complete_results()
+                metadata = {"id": "repository-id-redacted"}
+                if visibility is not None:
+                    metadata["visibility"] = visibility
+                runner = Mock(
+                    return_value=subprocess.CompletedProcess(
+                        args=[], returncode=0, stdout=json.dumps(metadata)
+                    )
+                )
+                exporter = SourceCraftAppSecCliSnapshotExporter(probe, runner=runner)
+                with (
+                    patch(
+                        "backend.app.integrations.sourcecraft_appsec_snapshot.write_snapshot"
+                    ) as write,
+                    self.assertRaisesRegex(
+                        SourceCraftAppSecSnapshotExportError, "not confirmed public"
+                    ),
+                ):
+                    exporter.export(
+                        "example-org/example-repo",
+                        self.snapshot_directory,
+                        public_only=True,
+                    )
+                write.assert_not_called()
+                probe.probe_all.assert_not_called()
+
+        probe = Mock()
+        probe.probe_all.return_value = _complete_results()
+        public_runner = Mock(
+            return_value=subprocess.CompletedProcess(
+                args=[],
+                returncode=0,
+                stdout='{"id":"repository-id-redacted","visibility":"public"}',
+            )
+        )
+        exporter = SourceCraftAppSecCliSnapshotExporter(probe, runner=public_runner)
+        with patch(
+            "backend.app.integrations.sourcecraft_appsec_snapshot.write_snapshot",
+            return_value=self.snapshot_directory / "safe.json",
+        ) as write:
+            destination = exporter.export(
+                "example-org/example-repo",
+                self.snapshot_directory,
+                public_only=True,
+            )
+        self.assertEqual(destination.name, "safe.json")
+        write.assert_called_once()
 
     def test_manual_commit_cannot_disagree_with_sourcecraft_commit(self) -> None:
         with self.assertRaisesRegex(ValueError, "must match"):

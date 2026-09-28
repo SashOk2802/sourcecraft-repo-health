@@ -12,7 +12,11 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 from backend.app.integrations.sourcecraft_appsec_snapshot import DEFAULT_SNAPSHOT_READER_GID
-from scripts.export_sourcecraft_appsec_snapshot import main
+from scripts.export_sourcecraft_appsec_snapshot import (
+    MAX_REPOSITORIES,
+    MAX_REPOSITORIES_FILE_BYTES,
+    main,
+)
 
 
 class ExportSourceCraftAppSecSnapshotTest(unittest.TestCase):
@@ -88,7 +92,7 @@ class ExportSourceCraftAppSecSnapshotTest(unittest.TestCase):
             )
             self.assertEqual(
                 exporter.export.call_args.kwargs,
-                {"reader_gid": DEFAULT_SNAPSHOT_READER_GID},
+                {"reader_gid": DEFAULT_SNAPSHOT_READER_GID, "public_only": False},
             )
             self.assertNotIn("example-org", output.getvalue())
             self.assertIn("safe-snapshot.json", output.getvalue())
@@ -119,3 +123,140 @@ class ExportSourceCraftAppSecSnapshotTest(unittest.TestCase):
         self.assertEqual(exit_code, 2)
         self.assertEqual(output.getvalue(), "")
         self.assertNotIn("synthetic-secret-marker", errors.getvalue())
+
+    def test_batch_refresh_validates_deduplicates_and_redacts_repositories(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            repositories_file = root / "repositories.txt"
+            repositories_file.write_text(
+                "# public repositories\nexample-org/first\nexample-org/second\nexample-org/first\n",
+                encoding="utf-8",
+            )
+            output = io.StringIO()
+            exporter = Mock()
+            exporter.export.side_effect = [root / "first.json", root / "second.json"]
+            with (
+                patch("scripts.export_sourcecraft_appsec_snapshot.SourceCraftAppSecApiProbe"),
+                patch(
+                    "scripts.export_sourcecraft_appsec_snapshot.SourceCraftAppSecCliSnapshotExporter",
+                    return_value=exporter,
+                ),
+                redirect_stdout(output),
+            ):
+                exit_code = main(
+                    [
+                        "--repositories-file",
+                        str(repositories_file),
+                        "--output-dir",
+                        str(root),
+                        "--appsec-env",
+                        "AppSecRead",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(exporter.export.call_count, 2)
+        self.assertEqual(
+            [call.args[0] for call in exporter.export.call_args_list],
+            ["example-org/first", "example-org/second"],
+        )
+        self.assertTrue(all(call.kwargs["public_only"] for call in exporter.export.call_args_list))
+        self.assertIn("обновлены: 2; ошибок: 0", output.getvalue())
+        self.assertNotIn("example-org", output.getvalue())
+
+    def test_batch_refresh_continues_after_failure_without_exposing_details(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            repositories_file = root / "repositories.txt"
+            repositories_file.write_text(
+                "private-owner/first\nprivate-owner/second\n",
+                encoding="utf-8",
+            )
+            output = io.StringIO()
+            errors = io.StringIO()
+            exporter = Mock()
+            exporter.export.side_effect = [
+                OSError("private-owner/first synthetic-secret-marker"),
+                root / "safe.json",
+            ]
+            with (
+                patch("scripts.export_sourcecraft_appsec_snapshot.SourceCraftAppSecApiProbe"),
+                patch(
+                    "scripts.export_sourcecraft_appsec_snapshot.SourceCraftAppSecCliSnapshotExporter",
+                    return_value=exporter,
+                ),
+                redirect_stdout(output),
+                redirect_stderr(errors),
+            ):
+                exit_code = main(
+                    [
+                        "--repositories-file",
+                        str(repositories_file),
+                        "--output-dir",
+                        str(root),
+                        "--appsec-env",
+                        "AppSecRead",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 2)
+        self.assertEqual(exporter.export.call_count, 2)
+        combined = output.getvalue() + errors.getvalue()
+        self.assertIn("обновлены: 1; ошибок: 1", combined)
+        self.assertNotIn("private-owner", combined)
+        self.assertNotIn("synthetic-secret-marker", combined)
+
+    def test_batch_refresh_requires_complete_source_before_reading_file(self) -> None:
+        errors = io.StringIO()
+        marker = "private-owner/private-repository"
+        with (
+            patch("pathlib.Path.open", side_effect=AssertionError(marker)),
+            redirect_stderr(errors),
+        ):
+            exit_code = main(
+                [
+                    "--repositories-file",
+                    str(Path.cwd() / "repositories.txt"),
+                    "--output-dir",
+                    str(Path.cwd()),
+                ]
+            )
+
+        self.assertEqual(exit_code, 2)
+        self.assertNotIn(marker, errors.getvalue())
+
+    def test_batch_refresh_rejects_oversized_or_excessive_input_before_export(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            cases = {
+                "oversized": b"a" * (MAX_REPOSITORIES_FILE_BYTES + 1),
+                "too-many": "".join(
+                    f"example-org/repository-{index}\n" for index in range(MAX_REPOSITORIES + 1)
+                ).encode(),
+                "invalid": b"https://sourcecraft.invalid/private-owner/private-repository\n",
+            }
+            for name, content in cases.items():
+                with self.subTest(name=name):
+                    repositories_file = root / f"{name}.txt"
+                    repositories_file.write_bytes(content)
+                    exporter = Mock()
+                    with (
+                        patch("scripts.export_sourcecraft_appsec_snapshot.SourceCraftAppSecApiProbe"),
+                        patch(
+                            "scripts.export_sourcecraft_appsec_snapshot.SourceCraftAppSecCliSnapshotExporter",
+                            return_value=exporter,
+                        ),
+                        redirect_stderr(io.StringIO()),
+                    ):
+                        exit_code = main(
+                            [
+                                "--repositories-file",
+                                str(repositories_file),
+                                "--output-dir",
+                                str(root),
+                                "--appsec-env",
+                                "AppSecRead",
+                            ]
+                        )
+                    self.assertEqual(exit_code, 2)
+                    exporter.assert_not_called()
