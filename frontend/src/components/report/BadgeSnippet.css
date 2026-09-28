@@ -1,0 +1,51 @@
+.badge-modal {
+  padding: 24px;
+  max-width: 580px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.badge-modal__header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.badge-modal__preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: var(--g-color-base-generic);
+  border-radius: 8px;
+  border: 1px solid var(--g-color-line-generic);
+}
+
+.badge-modal__preview img {
+  height: 20px;
+  display: block;
+}
+
+.badge-modal__section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.badge-modal__input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.badge-modal__input-row input {
+  font-family: var(--g-font-family-monospace);
+  font-size: 13px;
+}
+
+.badge-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}

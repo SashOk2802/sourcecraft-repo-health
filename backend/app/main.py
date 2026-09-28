@@ -73,6 +73,7 @@ from backend.app.leaderboard import (
     LeaderboardSort,
 )
 from backend.app.leaderboard.sourcecraft_catalog import SourceCraftLeaderboardRepositoryCatalog
+from backend.app.reporting import render_score_badge
 from backend.app.scheduling.runner import (
     PostgresAnalysisScheduleStore,
     PublicAnalysisScheduler,
@@ -590,6 +591,57 @@ def create_app(
         snapshot = await _require_snapshot(store, normalized_id)
         return PlainTextResponse(snapshot.markdown, media_type="text/markdown")
 
+    @app.get(
+        "/api/v1/analyses/{analysis_id}/badge.svg",
+        tags=["badges"],
+        response_class=Response,
+    )
+    async def get_analysis_badge(analysis_id: str) -> Response:
+        """Возвращает публичный SVG-бейдж для встраивания в README."""
+
+        try:
+            normalized_id = normalize_analysis_id(analysis_id)
+        except ValueError:
+            return _badge_response(
+                render_score_badge(value_override="not found", color_override="#6a737d")
+            )
+
+        snapshot = await store.get(normalized_id)
+        if snapshot is None:
+            return _badge_response(
+                render_score_badge(value_override="not found", color_override="#6a737d")
+            )
+
+        score = snapshot.report.get("score")
+        int_score = int(score) if isinstance(score, (int, float)) else None
+        analysis_meta = snapshot.report.get("analysis")
+        is_preliminary = bool(
+            isinstance(analysis_meta, dict) and analysis_meta.get("isPreliminary")
+        )
+        return _badge_response(render_score_badge(int_score, is_preliminary=is_preliminary))
+
+    @app.get(
+        "/api/v1/repositories/{organization_slug}/{repository_slug}/badge.svg",
+        tags=["badges"],
+        response_class=Response,
+    )
+    async def get_repository_badge(organization_slug: str, repository_slug: str) -> Response:
+        """Возвращает публичный SVG-бейдж последнего анализа репозитория."""
+
+        latest = await store.get_latest_for_repository_slug(organization_slug, repository_slug)
+        if latest is None:
+            return _badge_response(
+                render_score_badge(value_override="unknown", color_override="#6a737d")
+            )
+
+        score = latest.snapshot.report.get("score")
+        int_score = int(score) if isinstance(score, (int, float)) else None
+        analysis_meta = latest.snapshot.report.get("analysis")
+        is_preliminary = bool(
+            isinstance(analysis_meta, dict) and analysis_meta.get("isPreliminary")
+        )
+        return _badge_response(render_score_badge(int_score, is_preliminary=is_preliminary))
+
     return app
 
 
@@ -895,10 +947,24 @@ def _apply_http_security_headers(response: Response, path: str) -> None:
     for name, value in _COMMON_SECURITY_HEADERS.items():
         response.headers.setdefault(name, value)
 
+    if path.endswith("/badge.svg"):
+        response.headers["Cross-Origin-Resource-Policy"] = "cross-origin"
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers.setdefault("Cache-Control", "public, max-age=300, s-maxage=300")
+        return
+
     if path.startswith("/api/") or path in _API_DOCUMENT_PATHS:
         response.headers.setdefault("Content-Security-Policy", _API_CONTENT_SECURITY_POLICY)
     if path.startswith(_SENSITIVE_RESPONSE_PREFIXES):
         response.headers["Cache-Control"] = "no-store"
+
+
+def _badge_response(svg: str) -> Response:
+    response = Response(content=svg, media_type="image/svg+xml")
+    response.headers["Cache-Control"] = "public, max-age=300, s-maxage=300"
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Cross-Origin-Resource-Policy"] = "cross-origin"
+    return response
 
 
 def _normalize_analysis_id(analysis_id: str) -> str:

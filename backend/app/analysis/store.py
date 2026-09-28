@@ -56,6 +56,13 @@ class AnalysisStore(Protocol):
     ) -> tuple[StoredAnalysisSnapshot, ...]:
         """Возвращает последний снимок каждой пары «репозиторий + методика»."""
 
+    async def get_latest_for_repository_slug(
+        self,
+        organization_slug: str,
+        repository_slug: str,
+    ) -> StoredAnalysisSnapshot | None:
+        """Возвращает последний снимок репозитория по его org и repo слагам."""
+
 
 class InMemoryAnalysisStore:
     """Временное хранилище для разработки и HTTP-тестов без PostgreSQL."""
@@ -99,6 +106,27 @@ class InMemoryAnalysisStore:
                 if _snapshot_repository_id(snapshot) in identifiers
             )
         return _latest_snapshots(snapshots)
+
+    async def get_latest_for_repository_slug(
+        self,
+        organization_slug: str,
+        repository_slug: str,
+    ) -> StoredAnalysisSnapshot | None:
+        org_normalized = organization_slug.strip().lower()
+        repo_normalized = repository_slug.strip().lower()
+        if not org_normalized or not repo_normalized:
+            return None
+
+        with self._lock:
+            matches = [
+                StoredAnalysisSnapshot(analysis_id, _copy_snapshot(snapshot))
+                for analysis_id, snapshot in self._snapshots.items()
+                if _snapshot_org_slug(snapshot).lower() == org_normalized
+                and _snapshot_repo_slug(snapshot).lower() == repo_normalized
+            ]
+        if not matches:
+            return None
+        return _latest_snapshots(matches)[0]
 
 
 class PostgresAnalysisStore:
@@ -192,6 +220,38 @@ class PostgresAnalysisStore:
             for row in rows
         )
         return _latest_snapshots(snapshots)
+
+    async def get_latest_for_repository_slug(
+        self,
+        organization_slug: str,
+        repository_slug: str,
+    ) -> StoredAnalysisSnapshot | None:
+        org_normalized = organization_slug.strip().lower()
+        repo_normalized = repository_slug.strip().lower()
+        if not org_normalized or not repo_normalized:
+            return None
+
+        row = await self._require_pool().fetchrow(
+            """
+            SELECT analysis_id, report, markdown
+            FROM analysis_snapshots
+            WHERE lower(report #>> '{repository,organizationSlug}') = $1
+              AND lower(report #>> '{repository,repositorySlug}') = $2
+            ORDER BY (report #>> '{analysis,analyzedAt}')::timestamptz DESC
+            LIMIT 1
+            """,
+            org_normalized,
+            repo_normalized,
+        )
+        if row is None:
+            return None
+        return StoredAnalysisSnapshot(
+            analysis_id=str(row["analysis_id"]),
+            snapshot=AnalysisSnapshot(
+                report=_json_object(row["report"]),
+                markdown=str(row["markdown"]),
+            ),
+        )
 
     @property
     def database_url(self) -> str:
@@ -322,6 +382,14 @@ def _latest_snapshots(
 
 def _snapshot_repository_id(snapshot: AnalysisSnapshot) -> str:
     return _snapshot_string(snapshot, "repository", "id")
+
+
+def _snapshot_org_slug(snapshot: AnalysisSnapshot) -> str:
+    return _snapshot_string(snapshot, "repository", "organizationSlug")
+
+
+def _snapshot_repo_slug(snapshot: AnalysisSnapshot) -> str:
+    return _snapshot_string(snapshot, "repository", "repositorySlug")
 
 
 def _snapshot_methodology_version(snapshot: AnalysisSnapshot) -> str:

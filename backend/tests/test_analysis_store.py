@@ -101,3 +101,21 @@ class InMemoryAnalysisStoreTest(unittest.IsolatedAsyncioTestCase):
 
         with self.assertRaisesRegex(ValueError, "analysis_id already exists"):
             await store.save("analysis-42", self.execution)
+
+    async def test_get_latest_for_repository_slug(self) -> None:
+        store = InMemoryAnalysisStore()
+        await store.save(
+            "analysis-old",
+            self._execution("repo-42", self.timestamp - timedelta(days=1)),
+        )
+        await store.save(
+            "analysis-new",
+            self._execution("repo-42", self.timestamp),
+        )
+
+        result = await store.get_latest_for_repository_slug("team", "repository-repo-42")
+        self.assertIsNotNone(result)
+        self.assertEqual(result.analysis_id, "analysis-new")
+
+        missing = await store.get_latest_for_repository_slug("unknown-org", "unknown-repo")
+        self.assertIsNone(missing)
