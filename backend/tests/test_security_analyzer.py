@@ -10,6 +10,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import Mock
 from urllib.parse import parse_qs, unquote, urlsplit
+from uuid import UUID
 
 from backend.app.analysis.runner import AnalyzerRegistration, run_analysis
 from backend.app.analyzers.security import (
@@ -24,6 +25,47 @@ from backend.app.contracts import AnalysisContext, CategoryResult, DataStatus, R
 
 
 class SecurityAnalyzerTest(unittest.TestCase):
+    def test_scan_bound_evidence_opens_the_reported_scan(self) -> None:
+        scan_uuid = str(UUID(int=42))
+        payload = _complete_payload({"severity": "HIGH", "status": "OPEN", "count": 1})
+        result = evaluate(build_facts(payload, scan_uuid=scan_uuid), repository=_context().repository)
+        overview, sast = (item.url for item in result.metrics[1].evidence[:2])
+
+        self.assertEqual(
+            overview,
+            f"https://sourcecraft.dev/example-org/example-repo/security/overview?scanId={scan_uuid}",
+        )
+        assert sast is not None
+        predicates = json.loads(unquote(parse_qs(urlsplit(sast).query)["filter"][0]))
+        self.assertIn(
+            {"predicate": {"field": "scan_id", "operator": "OPERATOR_EQ", "stringValue": scan_uuid}},
+            predicates["and"]["operands"],
+        )
+        self.assertIn("status", json.dumps(predicates))
+        self.assertIn("того же скана", result.metrics[1].evidence[1].summary)
+        self.assertNotIn("текущий", result.metrics[1].evidence[1].summary)
+
+        for engine in ("SCA", "SECRETS"):
+            engine_payload = payload["engines"]
+            assert isinstance(engine_payload, list)
+            engine_payload[1 if engine == "SCA" else 2] = _complete_engine(
+                engine, [{"severity": "HIGH", "status": "OPEN", "count": 1}]
+            )
+        result = evaluate(build_facts(payload, scan_uuid=scan_uuid), repository=_context().repository)
+        for evidence in result.metrics[1].evidence[2:]:
+            assert evidence.url is not None
+            predicates = json.loads(unquote(parse_qs(urlsplit(evidence.url).query)["filter"][0]))
+            self.assertEqual(
+                predicates,
+                {"and": {"operands": [
+                    {"predicate": {"field": "scan_id", "operator": "OPERATOR_EQ", "stringValue": scan_uuid}}
+                ]}},
+            )
+
+    def test_invalid_scan_uuid_is_rejected_before_url_construction(self) -> None:
+        with self.assertRaises(ValueError):
+            build_facts(_complete_payload(), scan_uuid="../wrong-scan")
+
     def test_null_payload_is_unavailable_and_never_gets_a_score(self) -> None:
         result = evaluate(build_facts(None))
 

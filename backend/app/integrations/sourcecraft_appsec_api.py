@@ -256,6 +256,7 @@ class SourceCraftAppSecApiProbe:
             finding_groups=groups,
             completeness="complete",
             scan_commit_sha=scan.commit,
+            scan_uuid=scan.uuid,
         )
 
 
