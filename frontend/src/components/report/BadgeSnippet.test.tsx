@@ -12,6 +12,7 @@ const sampleReport: RepositoryReport = {
     name: "test-org/test-repo",
     url: "https://sourcecraft.dev/test-org/test-repo",
   },
+  badgeAvailable: true,
   analysis: {
     id: "analysis-99",
     status: "completed",
@@ -36,6 +37,16 @@ describe("BadgeSnippet", () => {
     const html = renderToStaticMarkup(<BadgeSnippet report={sampleReport} />);
 
     expect(html).toContain("Бейдж для README");
+  });
+
+  it("does not offer a badge for a non-public repository", () => {
+    const html = renderToStaticMarkup(
+      <BadgeSnippet report={{ ...sampleReport, badgeAvailable: false }} />,
+    );
+
+    expect(html).toContain("Бейдж доступен только для публичных репозиториев.");
+    expect(html).not.toContain("<button");
+    expect(html).not.toContain("badge.svg");
   });
 
   it("builds correct badge URLs and markdown/HTML snippets with baseUrl", () => {

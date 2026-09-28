@@ -49,6 +49,14 @@ export function BadgeSnippet({ report, defaultOpen = false }: BadgeSnippetProps)
 
   const { repoBadgeUrl, markdownSnippet, htmlSnippet } = buildBadgeSnippets(report);
 
+  if (!report.badgeAvailable) {
+    return (
+      <Text variant="body-1" color="secondary" className="badge-snippet__unavailable">
+        Бейдж доступен только для публичных репозиториев.
+      </Text>
+    );
+  }
+
   async function copyToClipboard(text: string, key: string): Promise<void> {
     try {
       await navigator.clipboard.writeText(text);

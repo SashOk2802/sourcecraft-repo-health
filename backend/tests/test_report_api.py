@@ -16,6 +16,7 @@ from backend.app.analysis import (
 )
 from backend.app.analysis.dispatch import AnalysisPrincipal
 from backend.app.contracts import AnalysisContext, CategoryResult, DataStatus, RepositoryRef
+from backend.app.integrations.sourcecraft_repositories import SourceCraftRepository
 from backend.app.main import create_app
 
 OWNER_TOKEN = "report-owner-token"
@@ -54,10 +55,12 @@ class ReportApiTest(unittest.IsolatedAsyncioTestCase):
             finished_at=timestamp,
         )
         self.headers = {"Authorization": f"Bearer {OWNER_TOKEN}"}
+        self.catalog = _Catalog((_public_repository(),))
         self.app = create_app(
             analysis_store=self.store,
             job_store=self.job_store,
             principal_provider=_session_principal,
+            repository_catalog=self.catalog,
         )
 
     async def test_returns_status_for_saved_analysis(self) -> None:
@@ -107,6 +110,19 @@ class ReportApiTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.json()["analysis"]["id"], "analysis-42")
         self.assertEqual(response.json()["analysis"]["status"], "partial")
         self.assertEqual(response.json()["score"], 80)
+        self.assertTrue(response.json()["badgeAvailable"])
+
+    async def test_disables_badge_when_repository_is_not_public(self) -> None:
+        self.catalog.repositories = ()
+
+        async with api_client(self.app) as client:
+            response = await client.get(
+                "/api/v1/analyses/analysis-42/report",
+                headers=self.headers,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.json()["badgeAvailable"])
 
     async def test_returns_markdown_from_the_same_snapshot(self) -> None:
         async with api_client(self.app) as client:
@@ -211,4 +227,27 @@ def api_client(app):
     return httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
         base_url="http://testserver",
+    )
+
+
+class _Catalog:
+    def __init__(self, repositories: tuple[SourceCraftRepository, ...]) -> None:
+        self.repositories = repositories
+
+    async def list_repositories(self) -> tuple[SourceCraftRepository, ...]:
+        return self.repositories
+
+
+def _public_repository() -> SourceCraftRepository:
+    return SourceCraftRepository(
+        id="repo-42",
+        name="platform-api",
+        organization_slug="team",
+        slug="platform-api",
+        default_branch="main",
+        visibility="public",
+        is_empty=False,
+        language=None,
+        branch_count=1,
+        web_url=None,
     )

@@ -12,6 +12,8 @@ import { renderReportMarkdown } from "../lib/reportMarkdown";
 
 export interface RepositoryReport {
   repository: ReportRepository;
+  /** README-бейдж доступен только для репозитория, подтверждённого как публичный. */
+  badgeAvailable: boolean;
   analysis: ReportAnalysis;
   /** 0–100 или null. Ограничение Score, если оно есть, уже применено. */
   score: number | null;

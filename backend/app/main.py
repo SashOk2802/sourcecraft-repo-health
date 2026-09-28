@@ -583,7 +583,12 @@ def create_app(
         normalized_id = _normalize_analysis_id(analysis_id)
         await _authorized_job(request, jobs, effective_principal_provider, normalized_id)
         snapshot = await _require_snapshot(store, normalized_id)
-        return snapshot.report
+        report = dict(snapshot.report)
+        report["badgeAvailable"] = (
+            await _public_badge_snapshot(snapshot, effective_repository_catalog)
+            is not None
+        )
+        return report
 
     @app.get(
         "/api/v1/analyses/{analysis_id}/report.md",
