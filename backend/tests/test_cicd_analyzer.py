@@ -122,6 +122,7 @@ class CicdAnalyzerTest(unittest.TestCase):
         runs_url = "https://sourcecraft.dev/example-org/example-repo/cicd/runs"
         failed_url = f"{runs_url}/5"
         self.assertEqual(result.metrics[0].evidence[0].url, runs_url)
+        self.assertIn("текущее состояние", result.metrics[0].evidence[0].summary)
         self.assertEqual(
             tuple(evidence.url for evidence in result.metrics[1].evidence),
             (runs_url, failed_url),
@@ -178,6 +179,9 @@ class CicdAnalyzerTest(unittest.TestCase):
         self.assertEqual(safe_repository_result.recommendations[0].evidence, ())
         self.assertIsNone(unsafe_repository_result.metrics[0].evidence[0].url)
         self.assertEqual(unsafe_repository_result.recommendations[0].evidence, ())
+        self.assertIsNone(
+            evaluate(build_facts(()), unsafe_repository).metrics[0].evidence[0].url
+        )
 
     def test_marks_low_success_rate_as_p1(self) -> None:
         result = evaluate(
@@ -212,6 +216,11 @@ class CicdAnalyzerTest(unittest.TestCase):
         self.assertEqual(result.status, DataStatus.INSUFFICIENT_SAMPLE)
         self.assertEqual(result.reason, "cicd_no_runs")
         self.assertIsNone(result.score)
+        self.assertEqual(
+            result.metrics[0].evidence[0].url,
+            "https://sourcecraft.dev/example-org/example-repo/cicd/runs",
+        )
+        self.assertIn("может отличаться", result.metrics[0].evidence[0].summary)
 
     def test_manual_or_unfinished_runs_are_not_a_reliability_sample(self) -> None:
         facts = build_facts(
@@ -275,6 +284,10 @@ class CicdAnalyzerTest(unittest.TestCase):
                 self.assertEqual(result.reason, "cicd_runs_unavailable")
                 self.assertIsNone(result.score)
                 self.assertNotIn("synthetic-token-marker", repr(result))
+                self.assertEqual(
+                    result.metrics[0].evidence[0].url,
+                    "https://sourcecraft.dev/example-org/example-repo/cicd/runs",
+                )
 
     def test_truncated_history_is_not_scored(self) -> None:
         result = evaluate(build_facts((_run("1", "success"),), truncated=True), _context())

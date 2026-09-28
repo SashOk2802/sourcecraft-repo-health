@@ -151,6 +151,7 @@ def evaluate(facts: CicdFacts, context: AnalysisContext) -> CategoryResult:
             "Не удалось получить историю запусков CI/CD.",
             "cicd_runs_unavailable",
             "unavailable",
+            context.repository,
         )
 
     if facts.truncated:
@@ -159,6 +160,7 @@ def evaluate(facts: CicdFacts, context: AnalysisContext) -> CategoryResult:
             "История запусков CI/CD прочитана не полностью.",
             "cicd_runs_truncated",
             "partial",
+            context.repository,
         )
 
     period_runs = tuple(
@@ -173,6 +175,7 @@ def evaluate(facts: CicdFacts, context: AnalysisContext) -> CategoryResult:
             "История CI/CD доступна, но запусков в ней нет.",
             "cicd_no_runs",
             "empty",
+            context.repository,
         )
     if not automated_runs:
         return _unmeasured_result(
@@ -180,6 +183,7 @@ def evaluate(facts: CicdFacts, context: AnalysisContext) -> CategoryResult:
             "За период нет автоматических запусков CI/CD.",
             "cicd_no_automated_runs_in_period",
             "insufficient",
+            context.repository,
         )
     if len(outcome_runs) < MINIMUM_AUTOMATED_RUNS:
         return _unmeasured_result(
@@ -191,6 +195,7 @@ def evaluate(facts: CicdFacts, context: AnalysisContext) -> CategoryResult:
             ),
             "cicd_too_few_outcome_runs",
             "insufficient",
+            context.repository,
         )
 
     successful_count = sum(run.is_successful for run in outcome_runs)
@@ -198,7 +203,8 @@ def evaluate(facts: CicdFacts, context: AnalysisContext) -> CategoryResult:
     success_rate = successful_count / len(outcome_runs) * 100
     history_evidence = _evidence(
         "ci-runs",
-        "История запусков CI/CD в SourceCraft.",
+        "История запусков CI/CD в SourceCraft. Страница показывает текущее состояние, "
+        "а отчёт рассчитан за указанный период.",
         url=_runs_url(context.repository),
     )
     failed_evidence = _failed_run_evidence(outcome_runs, context.repository)
@@ -251,7 +257,9 @@ def _unmeasured_result(
     summary: str,
     reason: str,
     availability: str,
+    repository: RepositoryRef,
 ) -> CategoryResult:
+    runs_url = _runs_url(repository)
     return CategoryResult(
         category=CATEGORY_CODE,
         status=status,
@@ -264,7 +272,18 @@ def _unmeasured_result(
                 value=availability,
                 normalized_score=None,
                 summary=summary,
-                evidence=(_evidence("ci-runs", summary),),
+                evidence=(
+                    _evidence(
+                        "ci-runs",
+                        (
+                            f"{summary} Ссылка открывает текущую историю SourceCraft; "
+                            "она может отличаться от периода отчёта."
+                            if runs_url is not None
+                            else summary
+                        ),
+                        url=runs_url,
+                    ),
+                ),
             ),
         ),
         recommendations=(),
