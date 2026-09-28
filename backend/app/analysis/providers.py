@@ -67,7 +67,7 @@ def repo_content_analyzer_provider(context: AnalysisContext) -> Iterable[Analyze
     """Регистрирует категории Documentation и Code health (анализ файлов репозитория).
 
     Git-remot URL резолвится через ``SourceCraftClient.resolve_git_clone_url`` —
-    тот же источник каталога и тот же Bearer-PAT, что у API-клиента. Один
+    тот же источник каталога и тот же PAT, что у API-клиента. Один
     аутентифицированный ``LocalGitRepository`` передаётся обоим коллекторам:
     clone выполняется один раз, cleanup — после возврата результата последней
     категории, поэтому временная директория не переживает запуск.

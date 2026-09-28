@@ -10,11 +10,8 @@ from urllib.parse import quote, urlsplit
 import httpx
 
 _SOURCECRAFT_API_HOST = "api.sourcecraft.tech"
-
-# REST API принимает Bearer-PAT только на api.sourcecraft.tech. Git-клоны
-# дополнительно разрешены для официального sourcecraft.dev; этот набор используют
-# только resolve_git_clone_url, чтобы web_url не мог подменить host назначения.
-_SOURCECRAFT_GIT_HOSTS = frozenset({_SOURCECRAFT_API_HOST, "sourcecraft.dev"})
+_SOURCECRAFT_WEB_HOSTS = frozenset({_SOURCECRAFT_API_HOST, "sourcecraft.dev"})
+_SOURCECRAFT_GIT_HOST = "git.sourcecraft.dev"
 
 
 class SourceCraftClientError(RuntimeError):
@@ -118,23 +115,19 @@ class SourceCraftClient:
     ) -> str:
         """Возвращает URL git-remota для клонирования репозитория.
 
-        Git-хост выводится из каталога SourceCraft (host страницы репозитория),
-        а не придумывается заново; аутентификация — тот же Bearer-PAT клиента,
-        который git получает через ``http.extraheader`` (см. LocalGitRepository).
-        Если каталог не отдал страницу, используется официальный API-host.
-        Хост из web_url не доверяется вслепую: он обязан входить в
-        ``_SOURCECRAFT_GIT_HOSTS``, иначе URL клона не конструируется вовсе.
+        API и web-интерфейс SourceCraft не обслуживают Git smart HTTP. Для
+        клонирования SourceCraft документирует отдельный ``git.sourcecraft.dev``
+        и URL с безопасным фиксированным пользователем ``git``. ``web_url``
+        используется только как проверка, что каталог не подменил внешний хост.
         Метод чистый и не требует экземпляра клиента: сам URL секретов не несёт.
         """
 
         parsed = urlsplit(web_url or "")
-        if not web_url:
-            host = _SOURCECRAFT_API_HOST
-        else:
+        if web_url:
             try:
                 is_allowed = (
                     parsed.scheme == "https"
-                    and parsed.hostname in _SOURCECRAFT_GIT_HOSTS
+                    and parsed.hostname in _SOURCECRAFT_WEB_HOSTS
                     and parsed.port in (None, 443)
                     and parsed.username is None
                     and parsed.password is None
@@ -143,16 +136,15 @@ class SourceCraftClient:
                 is_allowed = False
             if not is_allowed:
                 raise SourceCraftRequestError(
-                    "SourceCraft git clone URL must use an official SourceCraft host"
+                    "SourceCraft repository web URL must use an official SourceCraft host"
                 )
-            host = parsed.hostname
         org = quote(organization_slug, safe="")
         slug = quote(repository_slug, safe="")
-        return f"https://{host}/{org}/{slug}.git"
+        return f"https://git@{_SOURCECRAFT_GIT_HOST}/{org}/{slug}.git"
 
     @staticmethod
     def is_official_git_clone_url(clone_url: str) -> bool:
-        """Проверяет, что адрес git-клона безопасен для Bearer-PAT.
+        """Проверяет, что адрес git-клона безопасен для SourceCraft PAT.
 
         Метод используется перед тем, как git получит заголовок авторизации.
         В отличие от URL страницы репозитория, у clone URL запрещены query и
@@ -163,9 +155,9 @@ class SourceCraftClient:
             parsed = urlsplit(clone_url)
             return (
                 parsed.scheme == "https"
-                and parsed.hostname in _SOURCECRAFT_GIT_HOSTS
+                and parsed.hostname == _SOURCECRAFT_GIT_HOST
                 and parsed.port in (None, 443)
-                and parsed.username is None
+                and parsed.username == "git"
                 and parsed.password is None
                 and parsed.path.startswith("/")
                 and parsed.path.endswith(".git")
