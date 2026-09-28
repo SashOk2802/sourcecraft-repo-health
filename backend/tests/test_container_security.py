@@ -30,6 +30,12 @@ class ContainerSecurityTest(unittest.TestCase):
         self.assertIn("chown -R app:app /app", dockerfile)
         self.assertEqual(_last_user(dockerfile), "app")
 
+    def test_backend_image_contains_alembic_configuration_for_startup_migrations(self) -> None:
+        dockerfile = _read("backend/Dockerfile")
+
+        self.assertIn("COPY pyproject.toml README.md alembic.ini ./", dockerfile)
+        self.assertIn("COPY backend ./backend", dockerfile)
+
     def test_appsec_snapshot_mount_is_read_only_for_the_backend_user(self) -> None:
         compose = _read("compose.yaml")
 

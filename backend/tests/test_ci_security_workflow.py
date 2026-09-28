@@ -8,6 +8,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SECURITY_WORKFLOW = PROJECT_ROOT / ".github" / "workflows" / "security.yml"
+CI_WORKFLOW = PROJECT_ROOT / ".github" / "workflows" / "ci.yml"
 PYPROJECT = PROJECT_ROOT / "pyproject.toml"
 
 
@@ -65,7 +66,26 @@ class CiSecurityWorkflowTest(unittest.TestCase):
         self.assertIn('GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"', workflow)
         self.assertIn('GITLEAKS_ENABLE_SUMMARY: "false"', workflow)
 
+    def test_ci_starts_a_clean_stack_and_always_removes_its_resources(self) -> None:
+        workflow = self._read_ci_workflow()
+
+        self.assertIn("name: Docker Compose", workflow)
+        self.assertIn("docker compose -p repo-health-ci up --build --wait", workflow)
+        self.assertIn("curl --fail --silent --show-error http://localhost:8000/health", workflow)
+        self.assertIn("curl --fail --silent --show-error http://localhost:8000/api/v1/health", workflow)
+        self.assertIn("curl --fail --silent --show-error http://localhost:8000/api/v1/methodology", workflow)
+        self.assertIn("if: always()", workflow)
+        self.assertIn(
+            "docker compose -p repo-health-ci down --volumes --remove-orphans",
+            workflow,
+        )
+
     def _read_security_workflow(self) -> str:
         if not SECURITY_WORKFLOW.is_file():
             self.skipTest("GitHub workflow is intentionally absent from the runtime image")
         return SECURITY_WORKFLOW.read_text(encoding="utf-8")
+
+    def _read_ci_workflow(self) -> str:
+        if not CI_WORKFLOW.is_file():
+            self.skipTest("GitHub workflow is intentionally absent from the runtime image")
+        return CI_WORKFLOW.read_text(encoding="utf-8")

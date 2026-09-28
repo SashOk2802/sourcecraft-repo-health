@@ -15,7 +15,10 @@ RUN apt-get update \
 RUN groupadd --gid 10001 app \
     && useradd --uid 10001 --gid app --no-create-home --home-dir /app --shell /usr/sbin/nologin app
 
-COPY pyproject.toml README.md ./
+# Compose применяет миграции до запуска API. Конфигурация Alembic живёт в
+# корне репозитория, поэтому она должна попасть в runtime-образ вместе с
+# пакетом backend; иначе `alembic upgrade head` завершится до старта FastAPI.
+COPY pyproject.toml README.md alembic.ini ./
 COPY backend ./backend
 
 RUN python -m pip install --upgrade pip \

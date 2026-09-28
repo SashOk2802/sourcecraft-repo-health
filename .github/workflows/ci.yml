@@ -81,7 +81,7 @@ jobs:
         run: npm run build
 
   compose:
-    name: Docker Compose config
+    name: Docker Compose
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -89,6 +89,19 @@ jobs:
           persist-credentials: false
       - name: Check Compose configuration
         run: docker compose config --quiet
+      # `config --quiet` проверяет только синтаксис. Поднимаем чистый стек,
+      # чтобы Dockerfile, миграции Alembic и healthcheck'и действительно были
+      # совместимы на новой машине до попадания изменения в main.
+      - name: Start clean application stack
+        run: docker compose -p repo-health-ci up --build --wait
+      - name: Verify application endpoints
+        run: |
+          curl --fail --silent --show-error http://localhost:8000/health
+          curl --fail --silent --show-error http://localhost:8000/api/v1/health
+          curl --fail --silent --show-error http://localhost:8000/api/v1/methodology
+      - name: Stop clean application stack
+        if: always()
+        run: docker compose -p repo-health-ci down --volumes --remove-orphans
       - name: Test frontend upgrade from a root-owned node_modules volume
         run: bash scripts/test_frontend_volume_upgrade.sh
       - name: Test AppSec snapshot read-only mount across Docker users
