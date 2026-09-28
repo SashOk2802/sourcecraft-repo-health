@@ -52,12 +52,12 @@ $env:VITE_USE_MOCKS = "true"; npm run dev
 | Отчёт | `GET /api/v1/analyses/{id}/report` — есть |
 | Markdown | `GET /api/v1/analyses/{id}/report.md` — есть |
 | Ход анализа | `GET /api/v1/analyses/{id}` — есть, этапы сбора предложены |
-| Запуск анализа | `POST /api/v1/repositories/{id}/analyses` — есть; id берётся из списка репозиториев |
+| Запуск анализа | `POST /api/v1/repositories/{id}/analyses` — есть; id берётся из списка репозиториев. Закрытый или внутренний репозиторий проверяется по подключению SourceCraft: без него backend отвечает 409, без прав у токена — 403 |
 | Вход | `/api/v1/auth/yandex/start`, `/callback`, `GET /api/v1/me`, `POST /api/v1/auth/logout` — есть |
-| Мои репозитории | `GET /api/v1/me/repositories` — есть: публичные репозитории из организаций `SOURCECRAFT_PUBLIC_ORGANIZATIONS`; последнего анализа в ответе пока нет |
+| Мои репозитории | `GET /api/v1/me/repositories` — есть: без подключения — публичные репозитории из организаций `SOURCECRAFT_PUBLIC_ORGANIZATIONS`, с подключением — личный каталог: всё, что видит токен, с пометками «закрытый» и «внутренний» (#102). Отозванный токен — 401 «SourceCraft connection must be renewed.»: кабинет просит подключить заново. Последнего анализа в ответе пока нет |
 | Методика | `GET /api/v1/methodology` — есть, v2: веса, ограничение Score и формула Security Score |
 | Рейтинг | `GET /api/v1/leaderboard` — есть: public-репозитории того же каталога; снимки пополняет планировщик backend (`PUBLIC_ANALYSIS_SCHEDULER_ENABLED=true`) |
-| Подключение SourceCraft | `GET`, `POST`, `DELETE /api/v1/connections/sourcecraft` — есть (#88): токен хранится на backend зашифрованным, включается ключом `SOURCECRAFT_CONNECTION_ENCRYPTION_KEY`. Без ключа GET отвечает 404 — форма подключения в кабинете скрыта. Список закрытых репозиториев backend добавит следующим этапом |
+| Подключение SourceCraft | `GET`, `POST`, `DELETE /api/v1/connections/sourcecraft` — есть (#88): токен хранится на backend зашифрованным, включается ключом `SOURCECRAFT_CONNECTION_ENCRYPTION_KEY`. Без ключа GET отвечает 404 — форма подключения в кабинете скрыта |
 
 Формат ответов описан в [docs/api-contract.md](../docs/api-contract.md); типы лежат в `src/api/*.ts`.
 
@@ -84,7 +84,7 @@ src/
 - Машинные коды причин (`reason`) переводятся в текст в `src/lib/reasonCodes.ts`: готовая фраза анализатора показывается как есть, ошибка клиента SourceCraft — по-русски, незнакомый код — как есть.
 - Пути к API только относительные (`/api/...`): Vite проксирует их в backend.
 - Отчёт всегда открывается по идентификатору снимка анализа, поэтому ссылка показывает один и тот же результат.
-- Токен SourceCraft для закрытых репозиториев, когда backend добавит подключение, уходит на backend один раз и в браузер не возвращается.
+- Токен SourceCraft для закрытых и внутренних репозиториев уходит на backend один раз и в браузер не возвращается. Ошибки подключения (отклонённый или отозванный токен, недоступный SourceCraft) объясняются по тексту backend, а не как выход из Яндекс ID: `describeSourceCraftError` в `src/api/http.ts`.
 - Классы по БЭМ: `block__element_modifier_value`, цвета — токены Gravity UI (`--g-color-*`).
 - PDF — печать страницы отчёта: для неё есть отдельные стили.
 

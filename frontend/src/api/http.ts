@@ -69,8 +69,37 @@ async function readErrorMessage(response: Response): Promise<string> {
   return response.statusText || `HTTP ${response.status}`;
 }
 
+/*
+ * Ошибки личного подключения SourceCraft (backend PR #88, #101, #102) узнаём по тексту detail:
+ * статус у них общий с другими причинами. 401 значит и «сессия Яндекс ID закончилась», и
+ * «SourceCraft отклонил токен», а 503 — и «сервис не настроен», и «SourceCraft не ответил».
+ */
+const sourceCraftDetails: Array<[pattern: RegExp, text: string]> = [
+  [
+    /connection must be renewed/i,
+    "Токен SourceCraft больше не действует. Отключите SourceCraft и подключите заново с новым токеном.",
+  ],
+  [/rejected the token/i, "SourceCraft не принял токен: проверьте, что он скопирован целиком и не отозван."],
+  [/token has an invalid format/i, "Это не похоже на токен SourceCraft — проверьте, что скопировали его целиком."],
+  [/token could not be verified/i, "SourceCraft сейчас не может проверить токен. Попробуйте через несколько минут."],
+  [/connection is not configured/i, "Подключение SourceCraft на этом сервере не настроено."],
+  [
+    /connect SourceCraft to analyze/i,
+    "Это закрытый или внутренний репозиторий: чтобы его проверить, подключите SourceCraft по личному токену.",
+  ],
+  [/connection is unavailable/i, "SourceCraft сейчас не отвечает по вашему подключению. Попробуйте через несколько минут."],
+];
+
+/** Объяснение ошибки личного подключения SourceCraft; null — ошибка другая. */
+export function describeSourceCraftError(error: Error): string | null {
+  if (!(error instanceof ApiError)) return null;
+  return sourceCraftDetails.find(([pattern]) => pattern.test(error.message))?.[1] ?? null;
+}
+
 /** Понятное человеку объяснение ошибки загрузки. */
 export function describeError(error: Error): string {
+  const sourceCraft = describeSourceCraftError(error);
+  if (sourceCraft) return sourceCraft;
   if (error instanceof ApiError) {
     if (error.status === 0) return "Сервер не отвечает. Проверьте, что backend запущен, и попробуйте ещё раз.";
     if (error.status === 401) return "Нужно войти через Яндекс ID.";
