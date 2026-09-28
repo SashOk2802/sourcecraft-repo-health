@@ -192,7 +192,7 @@ class BadgeApiTest(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("92/100", by_repository.text)
 
     async def test_badge_rounds_score_like_frontend(self) -> None:
-        execution = _sample_execution(score=75.5)
+        execution = _sample_execution(score=76.5)
         await self.store.save("analysis-1", execution)
         self.catalog.repositories = (_public_repository("repo-42", "test-org", "test-repo"),)
 
@@ -201,8 +201,8 @@ class BadgeApiTest(unittest.IsolatedAsyncioTestCase):
         ) as client:
             response = await client.get("/api/v1/analyses/analysis-1/badge.svg")
 
-        self.assertIn("76/100", response.text)
-        self.assertNotIn("75/100", response.text)
+        self.assertIn("77/100", response.text)
+        self.assertNotIn("76/100", response.text)
 
     async def test_missing_repository_badge_returns_unknown_svg(self) -> None:
         async with httpx.AsyncClient(
