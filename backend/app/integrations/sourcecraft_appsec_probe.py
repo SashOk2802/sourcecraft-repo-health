@@ -29,6 +29,7 @@ APPSEC_STATUSES = frozenset({"OPEN", "TRIAGED_TP", "RESOLVED_FP", "RESOLVED_TOLE
 _SAFE_REASONS = frozenset(
     {
         "sourcecraft_appsec_unavailable",
+        "sourcecraft_appsec_commit_unavailable",
         "sourcecraft_cli_timeout",
         "sourcecraft_cli_unavailable",
         "sourcecraft_cli_error",

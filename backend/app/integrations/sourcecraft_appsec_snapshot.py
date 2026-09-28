@@ -233,6 +233,7 @@ class SourceCraftAppSecCliSnapshotExporter:
             raise SourceCraftAppSecSnapshotExportError("SourceCraft AppSec probe failed") from error
         if not _has_exact_engine_set(results):
             raise SourceCraftAppSecSnapshotExportError("SourceCraft AppSec probe returned an invalid engine set")
+        results = _drop_unbound_empty_engine_results(results)
 
         # Обычно SourceCraft возвращает ``latestCommit`` вместе с finding'ами.
         # Пустой ответ ``[]`` не содержит finding и поэтому не содержит этого
@@ -623,6 +624,47 @@ def _is_clean_available_scan(results: tuple[AppSecProbeResult, ...]) -> bool:
 
     available_results = tuple(result for result in results if result.availability == "available")
     return bool(available_results) and all(result.finding_count == 0 for result in available_results)
+
+
+def _drop_unbound_empty_engine_results(
+    results: tuple[AppSecProbeResult, ...],
+) -> tuple[AppSecProbeResult, ...]:
+    """Не выдаёт нулевой ответ без commit за результат текущего снимка.
+
+    SourceCraft CLI возвращает ``[]`` без ``latestCommit``. Когда все три
+    движка пусты, exporter отдельно получает head default-ветки и может
+    связать подтверждённо чистый scan с ним. Но если другой движок уже отдал
+    findings с commit, пустой ответ без commit нельзя честно считать нулём для
+    того же commit: он мог относиться к другому запуску. Сохраняем связанную
+    часть и явно делаем несвязанную недоступной. Это даёт отчёту
+    ``insufficient_sample``, а не ложный Security Score.
+    """
+
+    has_bound_findings = any(
+        result.availability == "available"
+        and result.finding_count is not None
+        and result.finding_count > 0
+        and result.scan_commit_sha is not None
+        for result in results
+    )
+    if not has_bound_findings:
+        return results
+
+    return tuple(
+        AppSecProbeResult(
+            engine=result.engine,
+            availability="unavailable",
+            finding_count=None,
+            reason="sourcecraft_appsec_commit_unavailable",
+        )
+        if (
+            result.availability == "available"
+            and result.finding_count == 0
+            and result.scan_commit_sha is None
+        )
+        else result
+        for result in results
+    )
 
 
 def _confirmed_scan_commit(
