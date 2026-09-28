@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import unittest
 from asyncio import CancelledError
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import Mock
@@ -71,6 +72,75 @@ class SecurityAnalyzerTest(unittest.TestCase):
         self.assertEqual(result.metrics[1].code, "appsec_open_findings")
         self.assertEqual(result.metrics[1].value, 0)
         self.assertEqual(result.recommendations, ())
+
+    def test_context_links_recommendations_to_the_engines_with_open_findings(self) -> None:
+        payload = _complete_payload({"severity": "HIGH", "status": "OPEN", "count": 1})
+        engines = payload["engines"]
+        assert isinstance(engines, list)
+        engines[1] = _complete_engine("SCA", [{"severity": "HIGH", "status": "OPEN", "count": 2}])
+        engines[2] = _complete_engine(
+            "SECRETS", [{"severity": "LOW", "status": "OPEN", "count": 1}]
+        )
+        result = make_analyzer(lambda _: build_facts(payload))(_context())
+        base = "https://sourcecraft.dev/example-org/example-repo/security"
+
+        self.assertEqual(result.status, DataStatus.MEASURED)
+        self.assertEqual(result.metrics[0].evidence[0].url, f"{base}/overview")
+        self.assertEqual(
+            [item.url for item in result.metrics[1].evidence],
+            [f"{base}/overview", f"{base}/sast", f"{base}/sca", f"{base}/secrets"],
+        )
+        self.assertEqual(
+            [item.url for item in result.recommendations[0].evidence],
+            [f"{base}/sast", f"{base}/sca"],
+        )
+        self.assertEqual(
+            [item.url for item in result.recommendations[1].evidence],
+            [f"{base}/secrets"],
+        )
+
+    def test_confirmed_critical_metric_only_links_engines_with_confirmed_critical(self) -> None:
+        payload = _complete_payload({"severity": "CRITICAL", "status": "OPEN", "count": 1})
+        engines = payload["engines"]
+        assert isinstance(engines, list)
+        engines[1] = _complete_engine(
+            "SCA", [{"severity": "CRITICAL", "status": "TRIAGED_TP", "count": 1}]
+        )
+        result = make_analyzer(lambda _: build_facts(payload))(_context())
+
+        self.assertEqual(result.metrics[2].value, 1)
+        self.assertEqual(
+            [item.url for item in result.metrics[2].evidence],
+            [
+                "https://sourcecraft.dev/example-org/example-repo/security/overview",
+                "https://sourcecraft.dev/example-org/example-repo/security/sca",
+            ],
+        )
+
+    def test_unverified_facts_only_link_overview_and_unsafe_slug_gets_no_url(self) -> None:
+        base = "https://sourcecraft.dev/example-org/example-repo/security/overview"
+        insufficient = make_analyzer(lambda _: build_facts({"engines": []}))(_context())
+        self.assertEqual(insufficient.status, DataStatus.INSUFFICIENT_SAMPLE)
+        self.assertEqual([x.url for x in insufficient.metrics[0].evidence], [base])
+
+        unsafe_context = replace(
+            _context(),
+            repository=RepositoryRef(
+                "example-id", "example-org", "../evil", "https://evil.example/repository"
+            ),
+        )
+        result = make_analyzer(
+            lambda _: build_facts(
+                _complete_payload({"severity": "HIGH", "status": "OPEN", "count": 1})
+            )
+        )(unsafe_context)
+        self.assertEqual(result.status, DataStatus.MEASURED)
+        self.assertTrue(
+            all(item.url is None for metric in result.metrics for item in metric.evidence)
+        )
+        self.assertTrue(
+            all(item.url is None for rec in result.recommendations for item in rec.evidence)
+        )
 
     def test_confirmed_open_critical_reduces_security_and_caps_overall_score(self) -> None:
         security_result = evaluate(
