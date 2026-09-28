@@ -143,7 +143,7 @@ class BadgeApiTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("92/100", response.text)
         self.assertIn("#2ea44f", response.text)
 
-    async def test_missing_analysis_badge_returns_not_found_svg(self) -> None:
+    async def test_missing_analysis_badge_returns_unknown_svg(self) -> None:
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=self.app), base_url="http://testserver"
         ) as client:
@@ -151,7 +151,7 @@ class BadgeApiTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("image/svg+xml", response.headers.get("content-type", ""))
-        self.assertIn("not found", response.text)
+        self.assertIn("unknown", response.text)
         self.assertIn("#6a737d", response.text)
 
     async def test_repository_badge_returns_latest_score_svg(self) -> None:
