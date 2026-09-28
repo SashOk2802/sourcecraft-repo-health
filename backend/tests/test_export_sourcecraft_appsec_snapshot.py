@@ -16,6 +16,32 @@ from scripts.export_sourcecraft_appsec_snapshot import main
 
 
 class ExportSourceCraftAppSecSnapshotTest(unittest.TestCase):
+    def test_explicit_api_profile_selects_paginated_source(self) -> None:
+        with (
+            patch("scripts.export_sourcecraft_appsec_snapshot.SourceCraftAppSecApiProbe") as api,
+            patch("scripts.export_sourcecraft_appsec_snapshot.SourceCraftAppSecCliProbe") as legacy,
+            patch(
+                "scripts.export_sourcecraft_appsec_snapshot.SourceCraftAppSecCliSnapshotExporter"
+            ) as exporter,
+            redirect_stdout(io.StringIO()),
+        ):
+            exporter.return_value.export.return_value = Path("safe-snapshot.json")
+            result = main(
+                [
+                    "example-org/example-repo",
+                    "--output-dir",
+                    str(Path.cwd()),
+                    "--appsec-env",
+                    "AppSecRead",
+                ]
+            )
+        self.assertEqual(result, 0)
+        api.assert_called_once_with(
+            appsec_environment="AppSecRead", cli_binary="src", timeout_seconds=20
+        )
+        legacy.assert_not_called()
+        self.assertIs(exporter.call_args.args[0], api.return_value)
+
     def test_documented_direct_python_invocation_finds_project_package(self) -> None:
         script = Path(__file__).parents[2] / "scripts" / "export_sourcecraft_appsec_snapshot.py"
 
@@ -56,7 +82,10 @@ class ExportSourceCraftAppSecSnapshotTest(unittest.TestCase):
                 )
 
             self.assertEqual(exit_code, 0)
-            self.assertEqual(exporter.export.call_args.args, ("example-org/example-repo", Path(temporary_directory)))
+            self.assertEqual(
+                exporter.export.call_args.args,
+                ("example-org/example-repo", Path(temporary_directory)),
+            )
             self.assertEqual(
                 exporter.export.call_args.kwargs,
                 {"reader_gid": DEFAULT_SNAPSHOT_READER_GID},
