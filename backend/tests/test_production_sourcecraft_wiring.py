@@ -14,6 +14,7 @@ from backend.app.integrations.sourcecraft import (
     SourceCraftClient,
     SourceCraftNetworkError,
     SourceCraftRequestError,
+    SourceCraftResponseError,
 )
 from backend.app.integrations.sourcecraft_repository import (
     SourceCraftPublicCatalogSettings,
@@ -84,6 +85,64 @@ class SourceCraftPublicRepositoryResolverTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(client.closed)
 
+    async def test_global_discovery_resolves_repository_by_id_without_catalog_scan(self) -> None:
+        client = CatalogClient([repository_payload()])
+        resolver = SourceCraftPublicRepositoryResolver(
+            SourceCraftPublicCatalogSettings("token", discover_all_public=True),
+            client_factory=lambda _: client,
+            clock=lambda: self.now,
+        )
+
+        context = await resolver.resolve("repo-42", self.principal)
+
+        self.assertEqual(context.repository.id, "repo-42")
+        self.assertEqual(
+            client.requests,
+            [
+                ("/repos/id:repo-42", "json", None),
+                ("/repos/team/platform-api/branches", "branches", {"filter": "main"}),
+            ],
+        )
+        self.assertTrue(client.closed)
+
+    async def test_global_discovery_rejects_private_and_maps_not_found(self) -> None:
+        private_client = CatalogClient([repository_payload(visibility="private")])
+        private_resolver = SourceCraftPublicRepositoryResolver(
+            SourceCraftPublicCatalogSettings("token", discover_all_public=True),
+            client_factory=lambda _: private_client,
+            clock=lambda: self.now,
+        )
+        missing_client = CatalogClient([], repository_error_status=404)
+        missing_resolver = SourceCraftPublicRepositoryResolver(
+            SourceCraftPublicCatalogSettings("token", discover_all_public=True),
+            client_factory=lambda _: missing_client,
+            clock=lambda: self.now,
+        )
+
+        with self.assertRaises(PermissionError):
+            await private_resolver.resolve("repo-42", self.principal)
+        with self.assertRaises(LookupError):
+            await missing_resolver.resolve("missing", self.principal)
+
+        self.assertTrue(private_client.closed)
+        self.assertTrue(missing_client.closed)
+
+    async def test_global_discovery_rejects_mismatched_repository_id(self) -> None:
+        client = CatalogClient([repository_payload()])
+        resolver = SourceCraftPublicRepositoryResolver(
+            SourceCraftPublicCatalogSettings("token", discover_all_public=True),
+            client_factory=lambda _: client,
+            clock=lambda: self.now,
+        )
+
+        with self.assertRaisesRegex(
+            SourceCraftRepositoryUnavailableError,
+            "payload is invalid",
+        ):
+            await resolver.resolve("another-repository", self.principal)
+
+        self.assertTrue(client.closed)
+
     async def test_rejects_catalog_url_outside_sourcecraft_before_git_uses_token(self) -> None:
         payload = repository_payload()
         payload["web_url"] = "https://attacker.example/team/platform-api"
@@ -131,14 +190,22 @@ class SourceCraftPublicRepositoryResolverTest(unittest.IsolatedAsyncioTestCase):
 
     def test_environment_requires_token_and_public_organizations_together(self) -> None:
         self.assertIsNone(create_sourcecraft_public_repository_resolver_from_environment({}))
-        with self.assertRaisesRegex(ValueError, "configured together"):
+        with self.assertRaisesRegex(ValueError, "exactly one"):
             create_sourcecraft_public_repository_resolver_from_environment(
                 {"SOURCECRAFT_TOKEN": "token"}
             )
-        with self.assertRaisesRegex(ValueError, "configured together"):
+        with self.assertRaisesRegex(ValueError, "SOURCECRAFT_TOKEN"):
             create_sourcecraft_public_repository_resolver_from_environment(
                 {"SOURCECRAFT_PUBLIC_ORGANIZATIONS": "team"}
             )
+
+        resolver = create_sourcecraft_public_repository_resolver_from_environment(
+            {
+                "SOURCECRAFT_TOKEN": "token",
+                "SOURCECRAFT_DISCOVER_PUBLIC_REPOSITORIES": "true",
+            }
+        )
+        self.assertIsNotNone(resolver)
 
 
 class ProductionAnalysisWiringTest(unittest.IsolatedAsyncioTestCase):
@@ -213,11 +280,29 @@ class CatalogClient:
         repositories: list[dict[str, object]],
         *,
         branches: list[dict[str, object]] | None = None,
+        repository_error_status: int | None = None,
     ) -> None:
         self._repositories = repositories
         self._branches = branches or [{"name": "main", "commit": {"hash": COMMIT_SHA}}]
+        self._repository_error_status = repository_error_status
         self.requests: list[tuple[str, str, dict[str, str | int] | None]] = []
         self.closed = False
+
+    def get_json(
+        self,
+        path: str,
+        *,
+        params: dict[str, str | int] | None = None,
+    ) -> dict[str, object] | list[object] | None:
+        self.requests.append((path, "json", dict(params) if params is not None else None))
+        if self._repository_error_status is not None:
+            raise SourceCraftResponseError(
+                "SourceCraft request failed",
+                status_code=self._repository_error_status,
+            )
+        if path.startswith("/repos/id:") and params is None and len(self._repositories) == 1:
+            return self._repositories[0]
+        raise AssertionError("unexpected SourceCraft repository request")
 
     def get_paginated_objects(
         self,

@@ -72,7 +72,7 @@
 
 `pendingCount` — public-репозитории, у которых нет пригодного снимка текущей методики. `updatedAt` — самый новый `analyzedAt` среди пригодных public-снимков текущей версии или `null`. `languages` строится по таким же проанализированным строкам после `search`, но до фильтра `language`, чтобы селектор языка не исчезал после выбора. `likes` — сумма публичных положительных реакций SourceCraft, `lastActivityAt` — его проверенное поле `last_updated`; если источник не отдал поле, API возвращает `null`, а соответствующая сортировка помещает такую строку после строк с данными.
 
-Если public-каталог не сконфигурирован, endpoint отвечает `503`. При полной паре `SOURCECRAFT_TOKEN` и `SOURCECRAFT_PUBLIC_ORGANIZATIONS` production-приложение собирает рейтинг через тот же каталог, что и список «Мои репозитории».
+Если public-каталог не сконфигурирован, endpoint отвечает `503`. Production-приложение использует `SOURCECRAFT_TOKEN` и ровно один режим: глобальный каталог с `SOURCECRAFT_DISCOVER_PUBLIC_REPOSITORIES=true` либо allowlist `SOURCECRAFT_PUBLIC_ORGANIZATIONS`.
 ## Методика Score
 
 ### GET /api/v1/methodology
@@ -174,8 +174,8 @@ Backend проверяет PAT запросом `GET /user` к официаль�
 Нужна действующая сессия Яндекс ID. Если пользователь подключил SourceCraft,
 endpoint читает `GET /me/repos` его личным PAT и возвращает доступные ему
 `public`, `internal` и `private` репозитории. Если личного подключения нет,
-возвращается только общий public-каталог из организаций, заданных в
-`SOURCECRAFT_PUBLIC_ORGANIZATIONS`.
+возвращается общий public-каталог из глобального discovery либо организаций,
+заданных в `SOURCECRAFT_PUBLIC_ORGANIZATIONS`.
 
 ~~~json
 {
@@ -267,9 +267,10 @@ HTTP-слой передаёт в dispatcher только проверенный
 временный Git-workspace; Security читает только безопасный AppSec snapshot.
 PAT не записывается в context, job, отчёт или базу данных в открытом виде.
 
-Без личного подключения разрешён только public fallback из пары
-`SOURCECRAFT_TOKEN` и `SOURCECRAFT_PUBLIC_ORGANIZATIONS`. Сервисный токен не
-открывает private/internal. Яндекс ID сам по себе права SourceCraft не расширяет.
+Без личного подключения разрешён только public fallback с `SOURCECRAFT_TOKEN` и
+одним режимом каталога: `SOURCECRAFT_DISCOVER_PUBLIC_REPOSITORIES=true` либо
+`SOURCECRAFT_PUBLIC_ORGANIZATIONS`. Сервисный токен не открывает private/internal.
+Яндекс ID сам по себе права SourceCraft не расширяет.
 Конфигурация описана в [документе production-анализатора](sourcecraft-production-analysis.md).
 
 `create_sourcecraft_app()` — отдельный пользовательский запуск Activity и Issues, не вход процесса. Bearer этого запроса читает репозиторий и в subject не копируется. Отказ в доступе — `403`. Чужой id в теле ответа SourceCraft — `502`, не `404`. Чтение статуса и отчёта требует ту же сессию, что создала задание. Чужой subject и неизвестный id отвечают одним `404`. Снимок без строки задания с владельцем не отдаётся.

@@ -111,7 +111,16 @@ OAuth-токен не попадает в браузер, отчёты или л
 
 ~~~dotenv
 SOURCECRAFT_TOKEN=...
-SOURCECRAFT_PUBLIC_ORGANIZATIONS=org-one,org-two
+SOURCECRAFT_DISCOVER_PUBLIC_REPOSITORIES=true
 ~~~
 
-Вторая переменная содержит slug организаций SourceCraft через запятую. Сервисный токен применяется только для этих каталогов, а анализ разрешён лишь для репозиториев с `visibility: public`; private/internal запросы получают `403`. Если одна из переменных не задана, dispatcher не запускается и endpoint анализа вернёт `503`. Чистый `docker compose up` показывает этот ответ backend, а не подменяет его mock-данными. Для офлайн-демо fixtures добавьте в `.env` `VITE_USE_MOCKS=true` и перезапустите Compose. Подробности о категориях и безопасном git-клоне — в [документе production-анализатора](sourcecraft-production-analysis.md).
+Флаг включает официальный глобальный public-каталог SourceCraft. Если нужен
+ограниченный список, оставьте флаг `false` и задайте вместо него
+`SOURCECRAFT_PUBLIC_ORGANIZATIONS=org-one,org-two`. Одновременно включать оба
+режима нельзя. Анализ разрешён лишь для репозиториев с `visibility: public`;
+private/internal запросы получают `403`. При неполной конфигурации dispatcher не
+запускается и endpoint анализа вернёт `503`. Чистый `docker compose up` показывает
+этот ответ backend, а не подменяет его mock-данными. Для офлайн-демо fixtures
+добавьте в `.env` `VITE_USE_MOCKS=true` и перезапустите Compose. Подробности о
+категориях и безопасном git-клоне — в
+[документе production-анализатора](sourcecraft-production-analysis.md).
