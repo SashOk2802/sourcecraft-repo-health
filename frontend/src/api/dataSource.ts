@@ -3,22 +3,21 @@ import { ApiError } from "./http";
 /*
  * Откуда интерфейс берёт данные.
  *
- * auto — настоящий API, а для раздела, которого у backend ещё нет, — демо-данные
- *        с пометкой на странице. Как только backend отдаст раздел, демо пропадёт само,
- *        без пересборки. Так работает стенд.
- * api  — только настоящий API: ошибки показываются как есть.
- * demo — только демо-данные, backend не нужен.
+ * api  — только настоящий API: ошибки показываются как есть. Режим по умолчанию:
+ *        сборка без флагов не подменяет данные backend демо-данными (PR #90).
+ * demo — только демо-данные, backend не нужен. Включается явно: VITE_DATA_SOURCE=demo
+ *        или VITE_USE_MOCKS=true.
+ * auto — настоящий API, а для раздела, которого у backend нет или который не настроен, —
+ *        демо-данные с пометкой «Демо» на странице. Как только backend отдаст раздел, демо
+ *        пропадёт само, без пересборки. Только явно: VITE_DATA_SOURCE=auto.
  *
- * Режим задаёт VITE_DATA_SOURCE при сборке; по умолчанию его выбирает vite.config.ts.
- * Старое VITE_USE_MOCKS=true|false тоже понимается.
+ * Режим задаёт VITE_DATA_SOURCE при сборке.
  */
 export type DataMode = "auto" | "api" | "demo";
 
 export function parseDataMode(source: string | undefined, legacyMocks: string | undefined): DataMode {
   if (source === "auto" || source === "api" || source === "demo") return source;
-  if (legacyMocks === "true") return "demo";
-  if (legacyMocks === "false") return "api";
-  return "auto";
+  return legacyMocks === "true" ? "demo" : "api";
 }
 
 export const dataMode: DataMode = parseDataMode(import.meta.env.VITE_DATA_SOURCE, import.meta.env.VITE_USE_MOCKS);

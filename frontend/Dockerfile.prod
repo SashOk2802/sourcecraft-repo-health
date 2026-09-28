@@ -15,9 +15,9 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
-# auto — настоящий API, а для разделов, которых у backend ещё нет, демо с пометкой.
-# api — только настоящий API; demo — только демо, backend не нужен.
-ARG VITE_DATA_SOURCE=auto
+# api — только настоящий API (по умолчанию: без флага данные не подменяются демо);
+# auto — API, а для разделов, которых у backend нет, демо с пометкой; demo — только демо.
+ARG VITE_DATA_SOURCE=api
 ENV VITE_DATA_SOURCE=${VITE_DATA_SOURCE}
 RUN npm run build
 

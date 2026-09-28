@@ -14,14 +14,20 @@ describe("parseDataMode", () => {
     expect(parseDataMode("demo", undefined)).toBe("demo");
   });
 
-  it("понимает старую переменную VITE_USE_MOCKS", () => {
+  it("демо — только по явному VITE_USE_MOCKS=true, как в PR #90", () => {
     expect(parseDataMode(undefined, "true")).toBe("demo");
     expect(parseDataMode(undefined, "false")).toBe("api");
+    expect(parseDataMode(undefined, "1")).toBe("api");
   });
 
-  it("по умолчанию — auto", () => {
-    expect(parseDataMode(undefined, undefined)).toBe("auto");
-    expect(parseDataMode("что-то", undefined)).toBe("auto");
+  it("по умолчанию — настоящий API", () => {
+    expect(parseDataMode(undefined, undefined)).toBe("api");
+    expect(parseDataMode("что-то", undefined)).toBe("api");
+  });
+
+  it("VITE_DATA_SOURCE важнее VITE_USE_MOCKS", () => {
+    expect(parseDataMode("auto", "true")).toBe("auto");
+    expect(parseDataMode("api", "true")).toBe("api");
   });
 });
 

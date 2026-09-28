@@ -22,23 +22,25 @@ npm run preview  # собранная версия на http://localhost:4173 с
 
 ## Откуда берутся данные
 
-Раздел backend может быть недоступен: не настроен на сервере (503), его нет в этой версии или backend не отвечает. Чтобы стенд не показывал пустых экранов, у интерфейса три режима — переменная `VITE_DATA_SOURCE`:
+По умолчанию интерфейс берёт данные только из backend: сборка без флагов не подменяет их демо-данными. Режим задаёт переменная `VITE_DATA_SOURCE`:
 
-| Режим | Что делает | Когда включается сам |
+| Режим | Что делает | Как включить |
 | --- | --- | --- |
-| `auto` | Настоящий API. Если раздела нет (404 «Not Found», 405, 501), он не настроен (503) или backend не отвечает (502, 504, нет ответа), страница строится на демо-данных и помечена «Демо». Как только backend отдаст раздел, демо пропадёт само, без пересборки | `npm run build`; `npm run dev` рядом с backend (задан `API_PROXY_TARGET`), если режим не задан явно |
-| `api` | Только настоящий API, ошибки показываются как есть | `VITE_USE_MOCKS=false` |
-| `demo` | Только демо-данные из `src/api/mocks/`, backend не нужен | одиночный `npm run dev`; `docker compose up` по умолчанию (`compose.yaml` задаёт `VITE_USE_MOCKS=true`) |
+| `api` | Только настоящий API, ошибки показываются как есть | по умолчанию — `npm run dev`, `npm run build`, `docker compose up`, `Dockerfile.prod` |
+| `demo` | Только демо-данные из `src/api/mocks/`, backend не нужен | `VITE_DATA_SOURCE=demo` или `VITE_USE_MOCKS=true` |
+| `auto` | Настоящий API. Если раздела нет (404 «Not Found», 405, 501), он не настроен (503) или backend не отвечает (502, 504, нет ответа), страница строится на демо-данных и помечена «Демо». Как только backend отдаст раздел, демо пропадёт само, без пересборки | `VITE_DATA_SOURCE=auto` — для показа, где часть backend ещё не настроена |
 
 Настоящие ошибки демо не прячет: 404 конкретного анализа, 403 и 422 показываются как есть. Идентификаторы демо-данных начинаются с `demo-`, поэтому ссылку на демо-отчёт не спутать с настоящей. Демо-страницы закрыты от поисковиков (`noindex`), а репозитории и оценки в них вымышлены.
 
-Задать режим явно:
+Демо без backend:
 
 ~~~powershell
-$env:VITE_DATA_SOURCE = "api"; npm run dev
+$env:VITE_USE_MOCKS = "true"; npm run dev
 ~~~
 
-Старая переменная `VITE_USE_MOCKS=true|false` тоже понимается (как `demo` и `api`). Её задаёт `compose.yaml`: чтобы Docker ходил в настоящий API, укажите в `.env` `VITE_USE_MOCKS=false` вместе с `SOURCECRAFT_TOKEN` и `SOURCECRAFT_PUBLIC_ORGANIZATIONS`, а для входа — `VITE_YANDEX_AUTH=true` и переменные Yandex OAuth backend.
+В Docker без каталога SourceCraft рейтинг и запуск анализа честно ответят 503: для настоящих данных задайте в `.env` `SOURCECRAFT_TOKEN` и `SOURCECRAFT_PUBLIC_ORGANIZATIONS`, для офлайн-демо — `VITE_USE_MOCKS=true`.
+
+Кнопку входа флаг не включает: интерфейс спрашивает `GET /api/v1/me`. Ответ 401 значит, что вход настроен и пользователь просто не вошёл, — кнопка работает; 503 (OAuth не настроен) или отсутствие ответа — кнопка выключена с пояснением. Поэтому `VITE_YANDEX_AUTH` из `compose.yaml` этой версии не нужен.
 
 В демо помогают параметры адреса:
 
@@ -65,10 +67,10 @@ $env:VITE_DATA_SOURCE = "api"; npm run dev
 | Ход анализа | `GET /api/v1/analyses/{id}` — `queued`, `running`, `completed`, `partial`, `failed` с `error: {code, summary}` | есть |
 | Запуск анализа | `POST /api/v1/repositories/{id}/analyses` | есть: после входа, по внутреннему id репозитория SourceCraft, только публичные репозитории из `SOURCECRAFT_PUBLIC_ORGANIZATIONS`; без неё и `SOURCECRAFT_TOKEN` — 503 |
 | Методика | `GET /api/v1/methodology` | есть, v2: веса, названия, лимит и формула Security Score — с backend, объяснения и политика пересчёта — в `src/lib/methodologyTexts.ts` |
-| Вход | `/api/v1/auth/yandex/start`, `/callback`, `GET /api/v1/me` (`{id, login}`), `POST /api/v1/auth/logout` | есть; без `YANDEX_CLIENT_ID` и `YANDEX_REDIRECT_URI` backend отвечает 503 — тогда в режиме `auto` работает демо-кабинет, в режиме `api` вход выключен с пояснением |
+| Вход | `/api/v1/auth/yandex/start`, `/callback`, `GET /api/v1/me` (`{id, login}`), `POST /api/v1/auth/logout` | есть; без `YANDEX_CLIENT_ID` и `YANDEX_REDIRECT_URI` backend отвечает 503 — тогда в режиме `api` вход выключен с пояснением, в режиме `auto` работает демо-кабинет |
 | Рейтинг | `GET /api/v1/leaderboard` | есть; места и сортировки по [docs/leaderboard-policy.md](../docs/leaderboard-policy.md), снимки пополняет планировщик backend (`PUBLIC_ANALYSIS_SCHEDULER_ENABLED=true`) |
 | Мои репозитории | `GET /api/v1/me/repositories` | есть: публичные репозитории из организаций `SOURCECRAFT_PUBLIC_ORGANIZATIONS`; последнего анализа в ответе пока нет. У backend без этого маршрута кабинет после входа предлагает проверить публичный репозиторий по идентификатору |
-| Подключение SourceCraft | `/api/v1/connections/sourcecraft` | позже, для закрытых репозиториев; пока его нет, интерфейс его не предлагает |
+| Подключение SourceCraft | `GET`, `POST`, `DELETE /api/v1/connections/sourcecraft` | есть (#88): токен хранится на backend зашифрованным, включается ключом `SOURCECRAFT_CONNECTION_ENCRYPTION_KEY`. Без ключа GET отвечает 404 — форма подключения в кабинете скрыта. Список закрытых репозиториев backend добавит следующим этапом |
 
 Формат ответов описан в [docs/api-contract.md](../docs/api-contract.md); типы лежат в `src/api/*.ts`.
 
@@ -92,7 +94,7 @@ docker run -p 80:8080 -e API_PROXY_TARGET=http://backend:8000 repo-health-fronte
 - файлы сборки с хэшем в имени кэшируются на год, `index.html` всегда перепроверяется;
 - gzip, заголовки безопасности, `GET /healthz` для healthcheck.
 
-Режим данных задаётся при сборке: `--build-arg VITE_DATA_SOURCE=api`, по умолчанию `auto`.
+Режим данных задаётся при сборке: по умолчанию `api`; показ с демо там, где backend ещё не настроен, — `--build-arg VITE_DATA_SOURCE=auto`.
 
 С compose frontend для стенда подключается файлом-дополнением рядом с `compose.yaml` — сам `compose.yaml` при этом не меняется. Порты и тома dev-сервера заменяются, а не дописываются (`!override` и `!reset` понимает Docker Compose 2.24 и новее):
 
