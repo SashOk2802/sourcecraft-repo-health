@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -25,6 +26,8 @@ from backend.app.contracts import (
 
 CATEGORY_CODE = "cicd"
 EVIDENCE_SOURCE = "sourcecraft-cicd"
+MAX_LINKED_FAILED_RUNS = 3
+_SAFE_URL_SEGMENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 
 MINIMUM_AUTOMATED_RUNS = 5
 AUTOMATED_EVENT_TYPES = frozenset({"push", "pr_update", "schedule"})
@@ -193,15 +196,19 @@ def evaluate(facts: CicdFacts, context: AnalysisContext) -> CategoryResult:
     successful_count = sum(run.is_successful for run in outcome_runs)
     failed_count = len(outcome_runs) - successful_count
     success_rate = successful_count / len(outcome_runs) * 100
+    history_evidence = _evidence(
+        "ci-runs",
+        "История запусков CI/CD в SourceCraft.",
+        url=_runs_url(context.repository),
+    )
+    failed_evidence = _failed_run_evidence(outcome_runs, context.repository)
     metrics = (
         MetricResult(
             code="automated_ci_outcome_runs",
             value=len(outcome_runs),
             normalized_score=None,
             summary=(f"Автоматических запусков CI/CD с итогом за период: {len(outcome_runs)}."),
-            evidence=(
-                _evidence("ci-runs", "Получена история завершённых автоматических запусков."),
-            ),
+            evidence=(history_evidence,),
         ),
         MetricResult(
             code="automated_ci_success_rate",
@@ -210,9 +217,7 @@ def evaluate(facts: CicdFacts, context: AnalysisContext) -> CategoryResult:
             summary=(
                 f"Успешно {successful_count} из {len(outcome_runs)} автоматических запусков CI/CD."
             ),
-            evidence=(
-                _evidence("ci-runs", "Успешные и неуспешные запуски посчитаны без деталей job."),
-            ),
+            evidence=(history_evidence, *failed_evidence),
         ),
     )
     return CategoryResult(
@@ -221,7 +226,7 @@ def evaluate(facts: CicdFacts, context: AnalysisContext) -> CategoryResult:
         score=success_rate,
         summary=(f"Успешность автоматических запусков CI/CD за период — {success_rate:.0f} %."),
         metrics=metrics,
-        recommendations=_recommendations(success_rate, failed_count),
+        recommendations=_recommendations(success_rate, failed_count, failed_evidence),
     )
 
 
@@ -266,7 +271,11 @@ def _unmeasured_result(
     )
 
 
-def _recommendations(success_rate: float, failed_count: int) -> tuple[Recommendation, ...]:
+def _recommendations(
+    success_rate: float,
+    failed_count: int,
+    failed_evidence: tuple[Evidence, ...],
+) -> tuple[Recommendation, ...]:
     if not failed_count:
         return ()
     priority = RecommendationPriority.P1 if success_rate < 80 else RecommendationPriority.P2
@@ -280,12 +289,51 @@ def _recommendations(success_rate: float, failed_count: int) -> tuple[Recommenda
                 "Нестабильная автоматическая проверка замедляет поставку изменений "
                 "и снижает доверие к результатам сборки."
             ),
+            evidence=failed_evidence,
         ),
     )
 
 
-def _evidence(reference: str, summary: str) -> Evidence:
-    return Evidence(source=EVIDENCE_SOURCE, reference=reference, summary=summary)
+def _failed_run_evidence(
+    outcome_runs: tuple[CiRunFact, ...],
+    repository: RepositoryRef,
+) -> tuple[Evidence, ...]:
+    """Даёт ссылки только на последние неуспешные запуски из оцениваемой выборки."""
+
+    failed_runs = sorted(
+        (run for run in outcome_runs if not run.is_successful),
+        key=lambda run: (run.created_at, run.slug),
+        reverse=True,
+    )
+    evidence: list[Evidence] = []
+    for run in failed_runs:
+        url = _runs_url(repository, run.slug)
+        if url is None:
+            continue
+        evidence.append(
+            _evidence(
+                f"ci-run-{run.slug}",
+                "Неуспешный запуск CI/CD: ошибка или тайм-аут.",
+                url=url,
+            )
+        )
+        if len(evidence) == MAX_LINKED_FAILED_RUNS:
+            break
+    return tuple(evidence)
+
+
+def _runs_url(repository: RepositoryRef, run_slug: str | None = None) -> str | None:
+    segments = (repository.organization_slug, repository.repository_slug)
+    if run_slug is not None:
+        segments += (run_slug,)
+    if not all(isinstance(segment, str) and _SAFE_URL_SEGMENT.fullmatch(segment) for segment in segments):
+        return None
+    path = f"https://sourcecraft.dev/{segments[0]}/{segments[1]}/cicd/runs"
+    return f"{path}/{run_slug}" if run_slug is not None else path
+
+
+def _evidence(reference: str, summary: str, *, url: str | None = None) -> Evidence:
+    return Evidence(source=EVIDENCE_SOURCE, reference=reference, summary=summary, url=url)
 
 
 def _validate_unique_slugs(runs: tuple[CiRunFact, ...]) -> None:
