@@ -103,7 +103,7 @@ function UserArea() {
     return (
       <span className="site-header__signin" title={yandexAuthPendingHint}>
         <Button view="outlined" size="m" disabled>
-          Войти через Яндекс ID
+          Войти<span className="site-header__signin-long"> через Яндекс ID</span>
         </Button>
         <Text variant="caption-2" color="secondary" className="site-header__signin-note">
           не настроен
@@ -114,7 +114,7 @@ function UserArea() {
 
   return (
     <Button view="outlined" size="m" onClick={auth.signIn}>
-      Войти через Яндекс ID
+      Войти<span className="site-header__signin-long"> через Яндекс ID</span>
     </Button>
   );
 }

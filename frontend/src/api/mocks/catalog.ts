@@ -6,7 +6,7 @@ import { daysAgo } from "./time";
  * Названия придуманы, чтобы условные оценки не приписывались настоящим проектам SourceCraft.
  */
 
-/** Категории и веса методики v1 (docs/api-contract.md): вес в процентах. */
+/** Категории и веса методики (docs/api-contract.md): вес в процентах, в v2 — те же, что в v1. */
 export const mockCategories = [
   { code: "security", label: "Безопасность", weight: 25 },
   { code: "cicd", label: "CI/CD", weight: 20 },

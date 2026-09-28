@@ -97,7 +97,7 @@ describe("mock-рейтинг", () => {
   it("считает предварительные, даже когда их список не запрошен", () => {
     const response = queryMockLeaderboard(defaultLeaderboardQuery, 100);
     expect(response.preliminaryTotal).toBeGreaterThan(0);
-    expect(response.methodologyVersion).toBe("v1");
+    expect(response.methodologyVersion).toBe("v2");
   });
 
   it("при сортировке по лайкам места не меняются", () => {

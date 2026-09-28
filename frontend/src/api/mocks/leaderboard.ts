@@ -53,7 +53,7 @@ export function queryMockLeaderboard(query: LeaderboardQuery, pageSize: number):
       .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)),
     updatedAt: todayAt(6),
     pendingCount: publicRepositories.filter((repository) => repository.categories === null).length,
-    methodologyVersion: "v1",
+    methodologyVersion: "v2",
   };
 }
 

@@ -118,7 +118,7 @@ export function buildMockReport(repository: MockRepository, details: ReportDetai
       status: scored.status,
       analyzedAt: details.analyzedAt ?? minutesAgo(details.analyzedMinutesAgo ?? 190),
       commitSha: fakeCommitSha(repository.id),
-      methodologyVersion: "v1",
+      methodologyVersion: "v2",
       coverage: scored.coverage,
       isPreliminary: scored.isPreliminary,
       scoreLimit:
@@ -170,11 +170,16 @@ function detailsFor(repository: MockRepository): ReportDetails {
             summary: "Оценка документации: 85/100. Проверены базовые файлы репозитория.",
             metrics: documentationMetrics(["has_codeowners"]),
           },
-          // Метрики и веса — как в docs/scoring-methodology.md, §3: 0,4×94 + 0,25×100 + 0,2×67 + 0,15×100 ≈ 91.
+          // Метрики и веса v2 — docs/scoring-methodology.md, §3:
+          // (0,4×96 + 0,25×87,5 + 0,25×100 + 0,2×67 + 0,15×100) ÷ 1,25 ≈ 91.
           activity: {
-            summary: "Последние изменения 24 дня назад, за полгода смержено 38 merge requests и вышло 2 релиза.",
+            summary:
+              "Последние изменения 20 дней назад, за полгода коммиты были в 7 неделях, смержено 38 merge requests и вышло 2 релиза.",
             metrics: [
-              metric("last_activity_days", 24, 94, "Последняя активность в репозитории — 24 дня назад.", []),
+              metric("last_activity_days", 20, 96, "Последняя активность в репозитории — 20 дней назад.", []),
+              metric("active_weeks_in_period", 7, 87.5, "За полгода коммиты были в 7 неделях.", [
+                { source: "sourcecraft-activity", reference: "commit-history", summary: "За полгода коммиты были в 7 неделях.", url: base },
+              ]),
               metric("merged_mr_in_period", 38, 100, "За полгода смержено 38 merge requests; в оценку идут не больше трёх.", [
                 pull(base, 412, "«Кэш расписаний на границе суток» — смержен"),
               ]),
@@ -200,7 +205,7 @@ function detailsFor(repository: MockRepository): ReportDetails {
           // backend/app/analyzers/code_health.py: 100 − (5 × 7 FIXME + 40 TODO) ÷ 250 файлов × 100 = 70.
           code_health: {
             summary: "Оценка чистоты кода: 70.0/100. Обнаружено TODO: 40, FIXME: 7.",
-            metrics: codeHealthMetrics(250, 40, 7),
+            metrics: codeHealthMetrics(250, 40, 7, 21),
           },
         },
         recommendations: [
@@ -283,7 +288,7 @@ function detailsFor(repository: MockRepository): ReportDetails {
           // 100 − (5 × 5 FIXME + 32 TODO) ÷ 300 файлов × 100 = 81.
           code_health: {
             summary: "Оценка чистоты кода: 81.0/100. Обнаружено TODO: 32, FIXME: 5.",
-            metrics: codeHealthMetrics(300, 32, 5),
+            metrics: codeHealthMetrics(300, 32, 5, 24),
           },
         },
         recommendations: [
@@ -341,7 +346,7 @@ function detailsFor(repository: MockRepository): ReportDetails {
           // 100 − (5 × 3 FIXME + 19 TODO) ÷ 100 файлов × 100 = 66.
           code_health: {
             summary: "Оценка чистоты кода: 66.0/100. Обнаружено TODO: 19, FIXME: 3.",
-            metrics: codeHealthMetrics(100, 19, 3),
+            metrics: codeHealthMetrics(100, 19, 3, 12),
           },
         },
         // Измерены безопасность, документация и Code health — вместе 50% веса.
@@ -636,13 +641,22 @@ function documentationRecommendation(
 
 /*
  * Code health — как backend/app/analyzers/code_health.py: справочные числа без оценки,
- * а оценка категории — 100 минус (5 × FIXME + TODO) на файл кода × 100.
+ * а оценка категории — 100 минус (5 × FIXME + TODO) на файл кода × 100. Возраст пометок
+ * backend не считает: клон без истории, value — null.
  */
-function codeHealthMetrics(files: number, todos: number, fixmes: number): CategoryMetric[] {
+function codeHealthMetrics(files: number, todos: number, fixmes: number, debtFiles: number): CategoryMetric[] {
   return [
     metric("total_analyzed_files", files, null, "Всего проанализировано файлов кода", []),
-    metric("todo_count", todos, null, "Количество меток TODO в коде", []),
-    metric("fixme_count", fixmes, null, "Количество критических меток FIXME", []),
+    metric("todo_count", todos, null, "Количество меток TODO в комментариях кода", []),
+    metric("fixme_count", fixmes, null, "Количество критических меток FIXME в комментариях кода", []),
+    metric(
+      "code_health.debt_file_ratio",
+      debtFiles / files,
+      null,
+      "Доля файлов с техническим долгом (files_with_debt / total_files)",
+      [],
+    ),
+    metric("code_health.marker_age", null, null, "Возраст TODO/FIXME недоступен: клон shallow, истории для blame нет.", []),
   ];
 }
 
