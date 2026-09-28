@@ -94,7 +94,7 @@ function MethodologyBody({ methodology }: { methodology: Methodology }) {
               <tr key={category.code}>
                 <th scope="row">{category.label}</th>
                 <td className="methodology__weight num">{formatPoints(category.weight)}%</td>
-                <td>{category.measures}</td>
+                <td className="methodology__measures">{category.measures}</td>
                 <td className="methodology__caveat">{category.caveat}</td>
               </tr>
             ))}

@@ -38,6 +38,8 @@
 
 .methodology__body {
   display: grid;
+  /* minmax(0, …): таблица не раздвигает колонку шире карточки. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   justify-items: start;
   max-width: 900px;
@@ -145,8 +147,9 @@
 }
 
 @media (max-width: 900px) {
+  /* minmax(0, …): широкое содержимое не растягивает колонку шире карточки. */
   .methodology__section {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .methodology__statuses li {
@@ -155,5 +158,135 @@
 
   .methodology__statuses li > :last-child {
     grid-column: 1 / -1;
+  }
+}
+
+/* Телефон: строка таблицы категорий — карточка: название и вес, ниже что учитываем и чего не делаем. */
+@media (max-width: 720px) {
+  .methodology__section {
+    padding: 18px 18px 20px;
+  }
+
+  .methodology__table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .methodology__table,
+  .methodology__table tbody {
+    display: block;
+  }
+
+  .methodology__table tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "name     weight"
+      "measures measures"
+      "caveat   caveat";
+    gap: 4px 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--g-color-line-generic);
+  }
+
+  .methodology__table th,
+  .methodology__table td {
+    display: block;
+    width: auto;
+    padding: 0;
+    border-bottom: 0;
+  }
+
+  .methodology__table tbody th {
+    grid-area: name;
+    width: auto;
+  }
+
+  .methodology__table .methodology__weight {
+    grid-area: weight;
+    width: auto;
+    padding-right: 0 !important;
+  }
+
+  .methodology__measures {
+    grid-area: measures;
+  }
+
+  .methodology__caveat {
+    grid-area: caveat;
+    font-size: var(--g-text-body-1-font-size);
+  }
+
+  .methodology__statuses li,
+  .methodology__priorities li {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  /*
+   * Пример расчёта: четыре колонки чисел на узком экране не помещаются, а переносить числа нельзя.
+   * Строка становится карточкой: категория, под ней «80 × 25% = 20»; итог — «Итого 75,5 → 76».
+   */
+  .methodology__example thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .methodology__example,
+  .methodology__example caption,
+  .methodology__example tbody,
+  .methodology__example tfoot {
+    display: block;
+  }
+
+  .methodology__example tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 6px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--g-color-line-generic);
+  }
+
+  .methodology__example th,
+  .methodology__example td {
+    display: block;
+    padding: 0;
+    border: 0;
+    white-space: nowrap;
+  }
+
+  .methodology__example tbody th {
+    flex-basis: 100%;
+    white-space: normal;
+  }
+
+  .methodology__example tbody td:last-child::before {
+    content: "= ";
+  }
+
+  .methodology__example td:empty {
+    display: none;
+  }
+
+  .methodology__example tfoot tr {
+    border-bottom: 0;
+  }
+
+  .methodology__example tfoot th,
+  .methodology__example tfoot td {
+    border-top: 0;
+  }
+
+  .methodology__statuses li > :last-child {
+    grid-column: auto;
   }
 }
