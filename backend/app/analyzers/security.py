@@ -384,11 +384,17 @@ def _score_metrics(
     assessment: _SecurityAssessment, repository: RepositoryRef | None
 ) -> tuple[MetricResult, ...]:
     summary = "Получены полные обезличенные результаты SAST, SCA и secret scanning."
+    overview_url = _security_url(repository)
     evidence = Evidence(
         source=EVIDENCE_SOURCE,
         reference="appsec-defects",
-        summary=summary,
-        url=_security_url(repository),
+        summary=(
+            f"{summary} Ссылка открывает текущий обзор SourceCraft, который может "
+            "отличаться от снимка отчёта."
+            if overview_url is not None
+            else summary
+        ),
+        url=overview_url,
     )
     finding_evidence = tuple(
         _engine_evidence(engine, repository) for engine in assessment.engines_for()
@@ -463,6 +469,7 @@ def _availability_metric(
 ) -> MetricResult:
     """Создаёт метрику доступности без содержимого findings и потенциальных секретов."""
 
+    overview_url = _security_url(repository)
     return MetricResult(
         code="appsec_data_availability",
         value=value,
@@ -472,8 +479,13 @@ def _availability_metric(
             Evidence(
                 source=EVIDENCE_SOURCE,
                 reference="appsec-defects",
-                summary=summary,
-                url=_security_url(repository),
+                summary=(
+                    f"{summary} Ссылка открывает текущий обзор SourceCraft, который может "
+                    "отличаться от снимка отчёта."
+                    if overview_url is not None
+                    else summary
+                ),
+                url=overview_url,
             ),
         ),
     )
@@ -482,14 +494,20 @@ def _availability_metric(
 def _engine_evidence(
     engine: str, repository: RepositoryRef | None, *, severity: str | None = None
 ) -> Evidence:
-    summary = f"Открытые findings {engine}."
+    summary = f"Открытые findings {engine} учтены в отчёте."
     if severity is not None:
-        summary = f"Открытые findings {engine} уровня {severity}."
+        summary = f"Открытые findings {engine} уровня {severity} учтены в отчёте."
+    url = _security_url(repository, engine)
+    if url is not None:
+        summary += (
+            " Ссылка открывает текущий список SourceCraft, который может "
+            "отличаться от снимка отчёта."
+        )
     return Evidence(
         source=EVIDENCE_SOURCE,
         reference=f"appsec-{engine.lower()}-defects",
         summary=summary,
-        url=_security_url(repository, engine),
+        url=url,
     )
 
 

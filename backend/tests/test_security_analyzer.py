@@ -86,6 +86,9 @@ class SecurityAnalyzerTest(unittest.TestCase):
 
         self.assertEqual(result.status, DataStatus.MEASURED)
         self.assertEqual(result.metrics[0].evidence[0].url, f"{base}/overview")
+        self.assertIn(
+            "может отличаться от снимка отчёта", result.metrics[0].evidence[0].summary
+        )
         self.assertEqual(
             [item.url for item in result.metrics[1].evidence],
             [f"{base}/overview", f"{base}/sast", f"{base}/sca", f"{base}/secrets"],
@@ -93,6 +96,12 @@ class SecurityAnalyzerTest(unittest.TestCase):
         self.assertEqual(
             [item.url for item in result.recommendations[0].evidence],
             [f"{base}/sast", f"{base}/sca"],
+        )
+        self.assertTrue(
+            all(
+                "может отличаться от снимка отчёта" in item.summary
+                for item in result.recommendations[0].evidence
+            )
         )
         self.assertEqual(
             [item.url for item in result.recommendations[1].evidence],
