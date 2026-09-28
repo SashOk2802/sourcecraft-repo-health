@@ -29,6 +29,38 @@ from backend.app.main import create_app
 
 
 class SecurityReportingTest(unittest.IsolatedAsyncioTestCase):
+    async def test_measured_finding_page_links_survive_json_and_markdown_reports(self) -> None:
+        engines = [
+            {
+                "engine": engine,
+                "availability": "available",
+                "finding_count": 1 if engine == "SAST" else 0,
+                "severities": ["HIGH"] if engine == "SAST" else [],
+                "reason": None,
+                "finding_groups": (
+                    [{"severity": "HIGH", "status": "OPEN", "count": 1}] if engine == "SAST" else []
+                ),
+                "completeness": "complete",
+            }
+            for engine in ("SAST", "SCA", "SECRETS")
+        ]
+        report, markdown = await self._reports(Mock(return_value=build_facts({"engines": engines})))
+        security = next(item for item in report["categories"] if item["code"] == "security")
+        open_findings = next(
+            item for item in security["evidence"] if item["code"] == "appsec_open_findings"
+        )
+        finding_url = open_findings["evidence"][1]["url"]
+        self.assertTrue(
+            finding_url.startswith(
+                "https://sourcecraft.dev/example-org/example-repo/security/sast?filter="
+            )
+        )
+        recommendation = next(
+            item for item in report["recommendations"] if item["code"] == "appsec-open-high"
+        )
+        self.assertEqual(recommendation["evidence"][0]["url"], finding_url)
+        self.assertIn(finding_url, markdown)
+
     async def test_security_states_survive_storage_and_both_http_report_formats(self) -> None:
         fixture = Path(__file__).parent / "fixtures/sourcecraft/appsec_defects_null.json"
         null_payload = json.loads(fixture.read_text(encoding="utf-8"))
@@ -126,6 +158,9 @@ class SecurityReportingTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(security["evidence"][0]["code"], "appsec_data_availability")
         self.assertEqual(security["evidence"][0]["value"], availability)
         self.assertIsNone(security["evidence"][0]["normalizedScore"])
+        security_url = "https://sourcecraft.dev/example-org/example-repo/security/overview"
+        self.assertEqual(security["evidence"][0]["evidence"][0]["url"], security_url)
+        self.assertIn(security_url, markdown)
         self.assertEqual(report["score"], 80)
         self.assertEqual(report["analysis"]["coverage"], 0.15)
         self.assertEqual(report["analysis"]["status"], "partial")

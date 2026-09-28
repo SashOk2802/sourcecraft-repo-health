@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import logging
+import re
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
+from urllib.parse import quote
 
 from backend.app.contracts import (
     AnalysisContext,
@@ -32,7 +35,10 @@ from backend.app.scoring.methodology import (
 
 CATEGORY_CODE = "security"
 EVIDENCE_SOURCE = "sourcecraft-appsec"
+_SAFE_URL_SEGMENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+_ENGINE_PAGES = {"SAST": "sast", "SCA": "sca", "SECRETS": "secrets"}
 logger = logging.getLogger(__name__)
+
 
 @dataclass(frozen=True, slots=True)
 class _SecurityAssessment:
@@ -40,7 +46,9 @@ class _SecurityAssessment:
 
     score: float
     active_by_severity: tuple[tuple[str, int], ...]
+    active_by_engine_severity: tuple[tuple[str, str, int], ...]
     confirmed_open_critical: int
+    confirmed_critical_engines: tuple[str, ...]
 
     @property
     def active_finding_count(self) -> int:
@@ -48,6 +56,14 @@ class _SecurityAssessment:
 
     def count_for(self, severity: str) -> int:
         return dict(self.active_by_severity).get(severity, 0)
+
+    def engines_for(self, severity: str | None = None) -> tuple[str, ...]:
+        active = {
+            engine
+            for engine, group_severity, count in self.active_by_engine_severity
+            if count and (severity is None or severity == group_severity)
+        }
+        return tuple(engine for engine in APPSEC_ENGINES if engine in active)
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,7 +119,7 @@ def build_facts(
     return SecurityFacts(payload=payload, source_error=source_error)
 
 
-def evaluate(facts: SecurityFacts) -> CategoryResult:
+def evaluate(facts: SecurityFacts, *, repository: RepositoryRef | None = None) -> CategoryResult:
     """Считает Security Score только по полному безопасному агрегату AppSec."""
 
     if facts.source_error is not None:
@@ -114,7 +130,9 @@ def evaluate(facts: SecurityFacts) -> CategoryResult:
             summary="Не удалось получить данные AppSec.",
             reason="appsec_source_error",
             metrics=(
-                _availability_metric("error", "Запрос результатов AppSec завершился ошибкой."),
+                _availability_metric(
+                    "error", "Запрос результатов AppSec завершился ошибкой.", repository
+                ),
             ),
             recommendations=(),
         )
@@ -130,6 +148,7 @@ def evaluate(facts: SecurityFacts) -> CategoryResult:
                 _availability_metric(
                     "unavailable",
                     "SourceCraft вернул отсутствие результатов AppSec.",
+                    repository,
                 ),
             ),
             recommendations=(),
@@ -150,6 +169,7 @@ def evaluate(facts: SecurityFacts) -> CategoryResult:
                 _availability_metric(
                     "received",
                     "SourceCraft предоставил результат AppSec, но он не готов для Score.",
+                    repository,
                 ),
             ),
             recommendations=(),
@@ -161,8 +181,8 @@ def evaluate(facts: SecurityFacts) -> CategoryResult:
         score=assessment.score,
         summary=_score_summary(assessment),
         reason="security_score_v1",
-        metrics=_score_metrics(assessment),
-        recommendations=_recommendations(assessment),
+        metrics=_score_metrics(assessment, repository),
+        recommendations=_recommendations(assessment, repository),
     )
 
 
@@ -177,7 +197,7 @@ def make_analyzer(
     """
 
     def analyze(context: AnalysisContext) -> CategoryResult:
-        return _evaluate_provider(lambda: facts_provider(context.repository))
+        return _evaluate_provider(lambda: facts_provider(context.repository), context.repository)
 
     return analyze
 
@@ -193,12 +213,14 @@ def make_context_analyzer(
     """
 
     def analyze(context: AnalysisContext) -> CategoryResult:
-        return _evaluate_provider(lambda: facts_provider(context))
+        return _evaluate_provider(lambda: facts_provider(context), context.repository)
 
     return analyze
 
 
-def _evaluate_provider(load_facts: Callable[[], SecurityFacts]) -> CategoryResult:
+def _evaluate_provider(
+    load_facts: Callable[[], SecurityFacts], repository: RepositoryRef
+) -> CategoryResult:
     try:
         facts = load_facts()
         if not isinstance(facts, SecurityFacts):
@@ -208,7 +230,7 @@ def _evaluate_provider(load_facts: Callable[[], SecurityFacts]) -> CategoryResul
         # BaseException (остановка процесса и отмена) сюда не попадает.
         logger.warning("Не удалось получить корректные данные AppSec.")
         facts = build_facts(None, source_error="appsec_provider_failed")
-    return evaluate(facts)
+    return evaluate(facts, repository=repository)
 
 
 def _validate_payload(payload: object) -> None:
@@ -245,8 +267,10 @@ def _build_assessment(payload: dict[str, Any] | list[Any] | None) -> _SecurityAs
         return None
 
     active_by_severity: defaultdict[str, int] = defaultdict(int)
+    active_by_engine_severity: defaultdict[tuple[str, str], int] = defaultdict(int)
     confirmed_open_critical = 0
-    for groups in by_engine.values():
+    confirmed_critical_engines: set[str] = set()
+    for engine, groups in by_engine.items():
         for group in groups:
             severity = group["severity"]
             status = group["status"]
@@ -256,18 +280,26 @@ def _build_assessment(payload: dict[str, Any] | list[Any] | None) -> _SecurityAs
             assert isinstance(count, int)
             if status in SECURITY_ACTIVE_STATUSES:
                 active_by_severity[severity] += count
+                active_by_engine_severity[(engine, severity)] += count
             if severity == "CRITICAL" and status in SECURITY_CONFIRMED_OPEN_STATUSES:
                 confirmed_open_critical += count
+                confirmed_critical_engines.add(engine)
 
     frozen_counts = tuple(
-        (severity, active_by_severity.get(severity, 0))
-        for severity in sorted(APPSEC_SEVERITIES)
+        (severity, active_by_severity.get(severity, 0)) for severity in sorted(APPSEC_SEVERITIES)
     )
     score = _security_score(dict(frozen_counts))
     return _SecurityAssessment(
         score=score,
         active_by_severity=frozen_counts,
+        active_by_engine_severity=tuple(
+            (engine, severity, count)
+            for (engine, severity), count in sorted(active_by_engine_severity.items())
+        ),
         confirmed_open_critical=confirmed_open_critical,
+        confirmed_critical_engines=tuple(
+            engine for engine in APPSEC_ENGINES if engine in confirmed_critical_engines
+        ),
     )
 
 
@@ -350,12 +382,27 @@ def _score_summary(assessment: _SecurityAssessment) -> str:
     )
 
 
-def _score_metrics(assessment: _SecurityAssessment) -> tuple[MetricResult, ...]:
+def _score_metrics(
+    assessment: _SecurityAssessment, repository: RepositoryRef | None
+) -> tuple[MetricResult, ...]:
     summary = "Получены полные обезличенные результаты SAST, SCA и secret scanning."
+    overview_url = _security_url(repository)
     evidence = Evidence(
         source=EVIDENCE_SOURCE,
         reference="appsec-defects",
-        summary=summary,
+        summary=(
+            f"{summary} Ссылка открывает текущий обзор SourceCraft, который может "
+            "отличаться от снимка отчёта."
+            if overview_url is not None
+            else summary
+        ),
+        url=overview_url,
+    )
+    finding_evidence = tuple(
+        _engine_evidence(engine, repository) for engine in assessment.engines_for()
+    )
+    critical_evidence = tuple(
+        _engine_evidence(engine, repository) for engine in assessment.confirmed_critical_engines
     )
     return (
         MetricResult(
@@ -370,19 +417,21 @@ def _score_metrics(assessment: _SecurityAssessment) -> tuple[MetricResult, ...]:
             value=assessment.active_finding_count,
             normalized_score=assessment.score,
             summary="Открытые findings учитываются по severity и статусу SourceCraft.",
-            evidence=(evidence,),
+            evidence=(evidence, *finding_evidence),
         ),
         MetricResult(
             code=SECURITY_OPEN_CRITICAL_METRIC,
             value=assessment.confirmed_open_critical,
             normalized_score=None,
             summary="Критичные finding'и с подтверждённым открытым статусом ограничивают итоговый Score.",
-            evidence=(evidence,),
+            evidence=(evidence, *critical_evidence),
         ),
     )
 
 
-def _recommendations(assessment: _SecurityAssessment) -> tuple[Recommendation, ...]:
+def _recommendations(
+    assessment: _SecurityAssessment, repository: RepositoryRef | None
+) -> tuple[Recommendation, ...]:
     recommendations: list[Recommendation] = []
     for severity, priority in (
         ("CRITICAL", RecommendationPriority.P0),
@@ -408,21 +457,21 @@ def _recommendations(assessment: _SecurityAssessment) -> tuple[Recommendation, .
                 action=action,
                 rationale="Основано на полном обезличенном результате AppSec SourceCraft.",
                 expected_effect="После исправления и нового полного скана штраф Security Score уменьшится.",
-                evidence=(
-                    Evidence(
-                        source=EVIDENCE_SOURCE,
-                        reference="appsec-defects",
-                        summary=f"Открытые findings уровня {severity}: {count}.",
-                    ),
+                evidence=tuple(
+                    _engine_evidence(engine, repository, severity=severity)
+                    for engine in assessment.engines_for(severity)
                 ),
             )
         )
     return tuple(recommendations)
 
 
-def _availability_metric(value: str, summary: str) -> MetricResult:
+def _availability_metric(
+    value: str, summary: str, repository: RepositoryRef | None = None
+) -> MetricResult:
     """Создаёт метрику доступности без содержимого findings и потенциальных секретов."""
 
+    overview_url = _security_url(repository)
     return MetricResult(
         code="appsec_data_availability",
         value=value,
@@ -432,7 +481,62 @@ def _availability_metric(value: str, summary: str) -> MetricResult:
             Evidence(
                 source=EVIDENCE_SOURCE,
                 reference="appsec-defects",
-                summary=summary,
+                summary=(
+                    f"{summary} Ссылка открывает текущий обзор SourceCraft, который может "
+                    "отличаться от снимка отчёта."
+                    if overview_url is not None
+                    else summary
+                ),
+                url=overview_url,
             ),
         ),
     )
+
+
+def _engine_evidence(
+    engine: str, repository: RepositoryRef | None, *, severity: str | None = None
+) -> Evidence:
+    summary = f"Открытые findings {engine} учтены в отчёте."
+    if severity is not None:
+        summary = f"Открытые findings {engine} уровня {severity} учтены в отчёте."
+    url = _security_url(repository, engine)
+    if url is not None:
+        summary += (
+            " Ссылка открывает текущий список SourceCraft, который может "
+            "отличаться от снимка отчёта."
+        )
+    return Evidence(
+        source=EVIDENCE_SOURCE,
+        reference=f"appsec-{engine.lower()}-defects",
+        summary=summary,
+        url=url,
+    )
+
+
+def _security_url(repository: RepositoryRef | None, engine: str | None = None) -> str | None:
+    if repository is None:
+        return None
+    segments = (repository.organization_slug, repository.repository_slug)
+    if not all(isinstance(item, str) and _SAFE_URL_SEGMENT.fullmatch(item) for item in segments):
+        return None
+    base = f"https://sourcecraft.dev/{segments[0]}/{segments[1]}/security"
+    if engine is None:
+        return f"{base}/overview"
+    page = _ENGINE_PAGES.get(engine)
+    if page is None:
+        return None
+    url = f"{base}/{page}"
+    if engine != "SAST":
+        return url
+    # Без явного фильтра страница SourceCraft может открыться с сохранённым
+    # ограничением по сканеру и показать лишь часть учтённых SAST-групп.
+    predicates = [
+        {"predicate": {"field": "status", "operator": "OPERATOR_EQ", "stringValue": status}}
+        for status in sorted(SECURITY_ACTIVE_STATUSES)
+    ]
+    filter_json = json.dumps(
+        {"and": {"operands": [{"or": {"operands": predicates}}]}},
+        separators=(",", ":"),
+    )
+    # SourceCraft URL кодирует JSON дважды; формат получен через фильтр в UI.
+    return f"{url}?filter={quote(quote(filter_json, safe=''), safe='')}"
