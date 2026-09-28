@@ -28,6 +28,7 @@ APPSEC_API_URL = "https://appsec.sourcecraft.tech"
 PAGE_SIZE = 100
 MAX_ITEMS = 10_000
 MAX_PAGES = 100
+COMMAND_ATTEMPTS = 3
 _COMMIT = re.compile(r"^[0-9a-f]{40}$")
 # Only numeric values independently matched against CLI's named JSON output
 # on 2026-09-28. Unobserved values MUST remain unknown, never guessed.
@@ -112,14 +113,23 @@ class SourceCraftAppSecApiProbe:
             raise _InvalidSource
 
     def _json(self, arguments: list[str]) -> object:
-        completed = self._runner(
-            [self._binary, *arguments],
-            capture_output=True,
-            check=False,
-            text=True,
-            timeout=self._timeout,
-        )
-        if completed.returncode != 0:
+        completed = None
+        for attempt in range(COMMAND_ATTEMPTS):
+            try:
+                completed = self._runner(
+                    [self._binary, *arguments],
+                    capture_output=True,
+                    check=False,
+                    text=True,
+                    timeout=self._timeout,
+                )
+            except subprocess.TimeoutExpired:
+                if attempt + 1 == COMMAND_ATTEMPTS:
+                    raise
+                continue
+            if completed.returncode == 0:
+                break
+        if completed is None or completed.returncode != 0:
             raise _InvalidSource
         # stdout/stderr and exception text must never escape this collector.
         if len(completed.stdout) > 8 * 1024 * 1024:

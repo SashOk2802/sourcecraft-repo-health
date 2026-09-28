@@ -103,6 +103,40 @@ def probe(source) -> tuple:
 
 
 class AppSecApiTest(unittest.TestCase):
+    def test_retries_transient_read_only_cli_failures(self):
+        source = FakeSource()
+        attempts = 0
+
+        def runner(command, **kwargs):
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                return subprocess.CompletedProcess(command, 1, PRIVATE, PRIVATE)
+            return source(command, **kwargs)
+
+        results = probe(runner)
+
+        self.assertEqual(results[0].finding_count, 1)
+        self.assertEqual(attempts, len(source.commands) + 1)
+        self.assertNotIn(PRIVATE, repr(results))
+
+    def test_retries_transient_cli_timeout(self):
+        source = FakeSource()
+        attempts = 0
+
+        def runner(command, **kwargs):
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                raise subprocess.TimeoutExpired(command, kwargs["timeout"], output=PRIVATE)
+            return source(command, **kwargs)
+
+        results = probe(runner)
+
+        self.assertEqual(results[0].finding_count, 1)
+        self.assertEqual(attempts, len(source.commands) + 1)
+        self.assertNotIn(PRIVATE, repr(results))
+
     def test_collects_over_100_items_and_keeps_empty_engines_unavailable(self):
         source = FakeSource(201)
         results = probe(source)
