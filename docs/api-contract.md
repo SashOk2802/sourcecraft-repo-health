@@ -136,6 +136,38 @@
 
 Без действующей сессии возвращает `401`. Если Яндекс ID не сконфигурирован, возвращает `503`.
 
+### Личное подключение SourceCraft
+
+Яндекс ID отвечает только за личность в нашем сервисе. Чтобы пользователь
+добровольно дал доступ к своим private/internal репозиториям, frontend передаёт
+SourceCraft PAT ровно один раз в `POST /api/v1/connections/sourcecraft`.
+Backend проверяет PAT запросом `GET /user` к официальному API SourceCraft,
+сохраняет только ciphertext с authenticated encryption и связывает его с
+`user.id` текущей Яндекс-сессии. Сам PAT, ciphertext и технические детали
+ответа SourceCraft не попадают в HTTP-ответы, логи или `repr` объектов.
+
+`GET /api/v1/connections/sourcecraft` возвращает только безопасное состояние:
+
+~~~json
+{ "connected": true, "login": "artem", "connectedAt": "2026-09-28T12:00:00Z" }
+~~~
+
+Если подключения нет, поля `login` и `connectedAt` равны `null`. `DELETE
+/api/v1/connections/sourcecraft` безвозвратно удаляет ciphertext и возвращает
+`204`; повторный delete безопасен. Все три endpoint требуют действующую
+Яндекс-сессию. POST и DELETE также проходят общую CSRF-проверку `Origin`.
+
+| Статус | Причина |
+| --- | --- |
+| 401 | Нет сессии, либо SourceCraft отклонил переданный PAT |
+| 404 | Vault отключён: не задан `SOURCECRAFT_CONNECTION_ENCRYPTION_KEY` |
+| 422 | Токен имеет недопустимый формат |
+| 503 | SourceCraft недоступен или его ответ нельзя безопасно проверить |
+
+Эта стадия создаёт защищённое подключение. Чтение личного каталога и запуск
+анализа с ним включаются следующим этапом: пока `GET /api/v1/me/repositories`
+по-прежнему возвращает только явно разрешённый public-каталог.
+
 ### GET /api/v1/me/repositories
 
 Возвращает список **публичных** репозиториев из организаций,
@@ -179,6 +211,15 @@ origin из `YANDEX_REDIRECT_URI`; чужой origin получает `403` до
 ### Конфигурация
 
 Для включения входа нужны обе переменные: `YANDEX_CLIENT_ID` и `YANDEX_REDIRECT_URI`. Последний адрес должен в точности совпадать с redirect URI в настройках приложения Яндекс ID и иметь путь `/api/v1/auth/yandex/callback`; для локального Docker это обычно `http://localhost:5173/api/v1/auth/yandex/callback`. `YANDEX_CLIENT_SECRET` добавляют, только если он выдан типу OAuth-клиента. В production используйте HTTPS и `YANDEX_SESSION_COOKIE_SECURE=true`; для локального HTTP Docker compose устанавливает `false`. Значения с секретами хранят только в `.env` или секретах среды развёртывания.
+
+Личный SourceCraft vault включается отдельно переменной
+`SOURCECRAFT_CONNECTION_ENCRYPTION_KEY`: это один 32-байтный ключ Fernet в
+urlsafe-base64, не PAT. Сгенерируйте его один раз в защищённой среде командой
+`python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`
+и храните только в секретах окружения. Потеря или замена ключа делает ранее
+зашифрованные подключения намеренно нечитаемыми; для пользователей нужно
+предложить подключить SourceCraft заново. Ключ нельзя ротировать, просто
+перезаписав переменную: это требует отдельной миграции ciphertext.
 
 ## Запуск и состояние анализа
 

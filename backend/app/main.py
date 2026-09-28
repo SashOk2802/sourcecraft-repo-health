@@ -10,7 +10,10 @@ from datetime import datetime
 
 import httpx
 from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse, Response
+from pydantic import BaseModel
 
 from backend.app.analysis import (
     AnalysisDispatcher,
@@ -31,9 +34,14 @@ from backend.app.analysis.providers import sourcecraft_analyzer_provider
 from backend.app.analyzers.registration import project_life_analyzer_provider
 from backend.app.contracts import AnalysisContext
 from backend.app.identity import (
+    SourceCraftConnectionRejectedError,
+    SourceCraftConnectionService,
+    SourceCraftConnectionStatus,
+    SourceCraftConnectionUnavailableError,
     YandexAuthenticationError,
     YandexAuthService,
     YandexProviderError,
+    create_sourcecraft_connection_service_from_environment,
     create_yandex_auth_service_from_environment,
 )
 from backend.app.integrations.sourcecraft import SourceCraftClient
@@ -85,6 +93,12 @@ _API_DOCUMENT_PATHS = frozenset({"/health", "/openapi.json"})
 _SENSITIVE_RESPONSE_PREFIXES = ("/api/v1/auth/", "/api/v1/me")
 
 
+class SourceCraftConnectionRequest(BaseModel):
+    """PAT принимается только телом POST и никогда не возвращается клиенту."""
+
+    token: str
+
+
 def create_app(
     *,
     analysis_store: AnalysisStore | None = None,
@@ -92,6 +106,7 @@ def create_app(
     analysis_dispatcher: AnalysisDispatcher | None = None,
     principal_provider: PrincipalProvider | None = None,
     yandex_auth_service: YandexAuthService | None = None,
+    sourcecraft_connection_service: SourceCraftConnectionService | None = None,
     bind_sourcecraft_token: bool = False,
     repository_catalog: PublicRepositoryCatalog | None = None,
     configure_public_repository_catalog: bool = True,
@@ -135,6 +150,7 @@ def create_app(
         store_started = False
         jobs_started = False
         auth_started = False
+        sourcecraft_connection_started = False
         dispatcher_started = False
         scheduler_started = False
         try:
@@ -145,6 +161,9 @@ def create_app(
             if yandex_auth_service is not None:
                 await yandex_auth_service.start()
                 auth_started = True
+            if sourcecraft_connection_service is not None:
+                await sourcecraft_connection_service.start()
+                sourcecraft_connection_started = True
             if effective_analysis_dispatcher is not None:
                 await effective_analysis_dispatcher.start()
                 dispatcher_started = True
@@ -157,6 +176,8 @@ def create_app(
                 await effective_analysis_scheduler.close()
             if dispatcher_started:
                 await effective_analysis_dispatcher.close()
+            if sourcecraft_connection_started:
+                await sourcecraft_connection_service.close()
             if auth_started:
                 await yandex_auth_service.close()
             if jobs_started:
@@ -175,6 +196,7 @@ def create_app(
     app.state.analysis_dispatcher = effective_analysis_dispatcher
     app.state.principal_provider = effective_principal_provider
     app.state.yandex_auth_service = yandex_auth_service
+    app.state.sourcecraft_connection_service = sourcecraft_connection_service
     app.state.binds_caller_sourcecraft_token = bind_sourcecraft_token
     app.state.public_repository_catalog = effective_repository_catalog
     app.state.leaderboard_service = effective_leaderboard_service
@@ -187,6 +209,20 @@ def create_app(
         response = PlainTextResponse("Internal Server Error", status_code=500)
         _apply_http_security_headers(response, request.url.path)
         return response
+
+    @app.exception_handler(RequestValidationError)
+    async def safe_request_validation_error(
+        request: Request,
+        error: RequestValidationError,
+    ) -> Response:
+        """Не отражает PAT из Pydantic ``input`` при ошибке тела подключения."""
+
+        if request.method == "POST" and request.url.path == "/api/v1/connections/sourcecraft":
+            return JSONResponse(
+                status_code=422,
+                content={"detail": "SourceCraft token has an invalid format."},
+            )
+        return await request_validation_exception_handler(request, error)
 
     @app.middleware("http")
     async def apply_http_security_headers(
@@ -320,6 +356,54 @@ def create_app(
         auth = _require_yandex_auth(yandex_auth_service)
         user = await _require_yandex_user(auth, request)
         return {"id": user.id, "login": user.login}
+
+    @app.get("/api/v1/connections/sourcecraft", tags=["connections"])
+    async def get_sourcecraft_connection(request: Request) -> dict[str, object]:
+        """Возвращает только безопасное состояние личного SourceCraft-подключения."""
+
+        auth = _require_yandex_auth(yandex_auth_service)
+        user = await _require_yandex_user(auth, request)
+        connection_service = _require_sourcecraft_connection_service(
+            sourcecraft_connection_service,
+        )
+        return _sourcecraft_connection_payload(await connection_service.status(user.id))
+
+    @app.post("/api/v1/connections/sourcecraft", tags=["connections"])
+    async def connect_sourcecraft(
+        connection: SourceCraftConnectionRequest,
+        request: Request,
+    ) -> dict[str, object]:
+        """Проверяет PAT у SourceCraft и сохраняет только зашифрованный контейнер."""
+
+        auth = _require_yandex_auth(yandex_auth_service)
+        user = await _require_yandex_user(auth, request)
+        connection_service = _require_sourcecraft_connection_service(
+            sourcecraft_connection_service,
+        )
+        try:
+            status = await connection_service.connect(user.id, connection.token)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail="SourceCraft token has an invalid format.") from error
+        except SourceCraftConnectionRejectedError as error:
+            raise HTTPException(status_code=401, detail="SourceCraft rejected the token.") from error
+        except SourceCraftConnectionUnavailableError as error:
+            raise HTTPException(
+                status_code=503,
+                detail="SourceCraft token could not be verified right now.",
+            ) from error
+        return _sourcecraft_connection_payload(status)
+
+    @app.delete("/api/v1/connections/sourcecraft", tags=["connections"], status_code=204)
+    async def disconnect_sourcecraft(request: Request) -> Response:
+        """Удаляет ciphertext персонального SourceCraft-подключения."""
+
+        auth = _require_yandex_auth(yandex_auth_service)
+        user = await _require_yandex_user(auth, request)
+        connection_service = _require_sourcecraft_connection_service(
+            sourcecraft_connection_service,
+        )
+        await connection_service.disconnect(user.id)
+        return Response(status_code=204)
 
     @app.get("/api/v1/me/repositories", tags=["repositories"])
     async def get_my_repositories(request: Request) -> dict[str, object]:
@@ -608,6 +692,16 @@ def _require_yandex_auth(auth: YandexAuthService | None) -> YandexAuthService:
     return auth
 
 
+def _require_sourcecraft_connection_service(
+    connection_service: SourceCraftConnectionService | None,
+) -> SourceCraftConnectionService:
+    """Не показывает форму, пока server-side vault не настроен полностью."""
+
+    if connection_service is None:
+        raise HTTPException(status_code=404, detail="SourceCraft connection is not configured.")
+    return connection_service
+
+
 async def _require_yandex_user(
     auth: YandexAuthService,
     request: Request,
@@ -851,8 +945,21 @@ def _format_timestamp(value: datetime | None) -> str | None:
     return value.isoformat().replace("+00:00", "Z")
 
 
+def _sourcecraft_connection_payload(status: SourceCraftConnectionStatus) -> dict[str, object]:
+    """Единый browser-контракт без ciphertext и без SourceCraft PAT."""
+
+    return {
+        "connected": status.connected,
+        "login": status.login,
+        "connectedAt": _format_timestamp(status.connected_at),
+    }
+
+
 app = create_app(
     yandex_auth_service=create_yandex_auth_service_from_environment(
+        os.getenv("DATABASE_URL"),
+    ),
+    sourcecraft_connection_service=create_sourcecraft_connection_service_from_environment(
         os.getenv("DATABASE_URL"),
     ),
 )

@@ -11,9 +11,8 @@ import { mocksEnabled } from "./mockMode";
  * Токен уходит на backend один раз, хранится зашифрованно и в браузер не возвращается.
  *
  * На первом этапе кабинет показывает публичные репозитории из каталога сервиса и без
- * подключения (GET /api/v1/me/repositories). Подключение понадобится для закрытых
- * репозиториев: пока backend его не поддерживает, интерфейс его не предлагает — ни в
- * живом режиме, ни в демо.
+ * подключения (GET /api/v1/me/repositories). Этот API добавляет защищённое подключение;
+ * личный список private/internal репозиториев появится следующим отдельным этапом.
  */
 
 export interface SourceCraftConnection {
@@ -23,7 +22,7 @@ export interface SourceCraftConnection {
   connectedAt: string | null;
 }
 
-/** null — backend подключение SourceCraft к кабинету пока не поддерживает. */
+/** null — server-side vault подключения ещё не настроен в этом окружении. */
 export async function fetchSourceCraftConnection(): Promise<SourceCraftConnection | null> {
   if (mocksEnabled) {
     return null;
