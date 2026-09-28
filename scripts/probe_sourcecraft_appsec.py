@@ -14,6 +14,7 @@ import argparse
 import json
 import sys
 
+from backend.app.integrations.sourcecraft_appsec_api import SourceCraftAppSecApiProbe
 from backend.app.integrations.sourcecraft_appsec_probe import SourceCraftAppSecCliProbe
 
 
@@ -22,6 +23,10 @@ def build_parser() -> argparse.ArgumentParser:
         description="Безопасно проверить доступность SAST, SCA и secret scanning в SourceCraft."
     )
     parser.add_argument("repository", help="репозиторий в формате OWNER/REPOSITORY")
+    parser.add_argument(
+        "--appsec-env",
+        help="локальный профиль src для полного AppSec API (без него — ограниченный CLI-зонд)",
+    )
     parser.add_argument(
         "--src-bin",
         default="src",
@@ -39,10 +44,13 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        results = SourceCraftAppSecCliProbe(
-            cli_binary=args.src_bin,
-            timeout_seconds=args.timeout,
-        ).probe_all(args.repository)
+        options = {"cli_binary": args.src_bin, "timeout_seconds": args.timeout}
+        probe = (
+            SourceCraftAppSecApiProbe(appsec_environment=args.appsec_env, **options)
+            if args.appsec_env
+            else SourceCraftAppSecCliProbe(**options)
+        )
+        results = probe.probe_all(args.repository)
     except (TypeError, ValueError) as error:
         # Это только ошибка локального запуска; CLI-ответы и finding'и сюда не попадают.
         print(f"Ошибка аргументов: {error}", file=sys.stderr)
