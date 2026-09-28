@@ -9,6 +9,8 @@ from unittest.mock import Mock, patch
 from backend.app.analysis.providers import sourcecraft_analyzer_provider
 from backend.app.analyzers.activity import (
     ACTIVE_WEEKS_CAP,
+    COMMIT_HISTORY_LIMIT,
+    COMMIT_HISTORY_TIMEOUT_SECONDS,
     CommitHistoryFacts,
     build_facts,
     collect_commit_history,
@@ -134,8 +136,8 @@ class ActivityHistoryCollectionTest(unittest.TestCase):
             until=CONTEXT.period_end,
             revision=CONTEXT.commit_sha,
             auth_token="token",
-            max_commits=20_000,
-            timeout_seconds=90.0,
+            max_commits=COMMIT_HISTORY_LIMIT,
+            timeout_seconds=COMMIT_HISTORY_TIMEOUT_SECONDS,
         )
 
     @patch(

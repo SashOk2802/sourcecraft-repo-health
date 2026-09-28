@@ -21,6 +21,7 @@ import os
 import re
 import tokenize
 
+from backend.app._env import env_int
 from backend.app.contracts import (
     AnalysisContext,
     CategoryResult,
@@ -67,18 +68,9 @@ EXCLUDED_DIRECTORIES = {
 FIXME_PENALTY_PER_MARKER = 5.0
 TODO_PENALTY_PER_MARKER = 1.0
 DENSITY_SCALE_TO_POINTS = 100.0
-def _env_int(name: str, default: int) -> int:
-    raw = os.environ.get(name, "").strip()
-    if raw.isdigit():
-        value = int(raw)
-        if value > 0:
-            return value
-    return default
-
-
 # Максимум байт, читаемых из одного файла репозитория: файлы больше лимита
 # пропускаются как «большие» (безопасное чтение через read_file_safe).
-MAX_FILE_READ_BYTES = _env_int("SOURCECRAFT_CODE_HEALTH_MAX_FILE_READ_BYTES", 5 * 1024 * 1024)
+MAX_FILE_READ_BYTES = env_int("SOURCECRAFT_CODE_HEALTH_MAX_FILE_READ_BYTES", 5 * 1024 * 1024)
 
 # Порог, после которого рекомендация по TODO считается обоснованной.
 TODO_RECOMMENDATION_THRESHOLD = 15
@@ -94,8 +86,8 @@ MAX_EVIDENCE_ENTRIES = 20
 # Бюджеты ресурсов сканирования (перенесены из codex/rebuild-file-analysis):
 # лимит числа файлов-кандидатов и лимит суммарных прочитанных байт. Превышение
 # бюджета означает insufficient_sample, а не частичный (заниженный) балл.
-DEFAULT_MAX_SOURCE_FILES = _env_int("SOURCECRAFT_CODE_HEALTH_MAX_FILES", 50_000)
-DEFAULT_MAX_TOTAL_SOURCE_BYTES = _env_int("SOURCECRAFT_CODE_HEALTH_MAX_BYTES", 100 * 1024 * 1024)
+DEFAULT_MAX_SOURCE_FILES = env_int("SOURCECRAFT_CODE_HEALTH_MAX_FILES", 50_000)
+DEFAULT_MAX_TOTAL_SOURCE_BYTES = env_int("SOURCECRAFT_CODE_HEALTH_MAX_BYTES", 100 * 1024 * 1024)
 
 TODO_PATTERN = re.compile(r"\btodo\b", re.IGNORECASE)
 FIXME_PATTERN = re.compile(r"\bfixme\b", re.IGNORECASE)

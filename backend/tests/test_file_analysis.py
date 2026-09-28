@@ -78,7 +78,7 @@ class CodeHealthCollectionTest(unittest.TestCase):
         """
         repository = LocalGitRepository("https://example.invalid/repo.git")
         repository.temp_dir = "/prepared/repository"
-        candidate_files = [f"module_{index:05}.py" for index in range(20_001)]
+        candidate_files = [f"module_{index:05}.py" for index in range(code_health.DEFAULT_MAX_SOURCE_FILES + 1)]
 
         with patch(
             "backend.app.analyzers.code_health.os.walk",

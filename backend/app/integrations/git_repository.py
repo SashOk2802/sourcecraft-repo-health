@@ -18,42 +18,27 @@ import subprocess
 import tempfile
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from backend.app._env import env_float, env_int
 from backend.app.integrations.sourcecraft import SourceCraftClient
 
 logger = logging.getLogger(__name__)
 
-def _env_int(name: str, default: int) -> int:
-    raw = os.environ.get(name, "").strip()
-    if raw.isdigit():
-        value = int(raw)
-        if value > 0:
-            return value
-    return default
-
-
-def _env_float(name: str, default: float) -> float:
-    raw = os.environ.get(name, "").strip()
-    try:
-        val = float(raw)
-        if val > 0:
-            return val
-    except ValueError:
-        pass
-    return default
-
 
 # Лимиты для безопасной работы с репозиториями, удовлетворяющие критерию
 # крупного репозитория по ТЗ (>= 500 МБ рабочей копии, >= 20 000 коммитов, >= 10 000 файлов)
-DEFAULT_GIT_TIMEOUT_SECONDS = _env_float("SOURCECRAFT_GIT_TIMEOUT_SECONDS", 120.0)
-DEFAULT_MAX_GIT_FILES = _env_int("SOURCECRAFT_MAX_GIT_FILES", 50_000)
-DEFAULT_MAX_GIT_BLOB_BYTES = _env_int("SOURCECRAFT_MAX_GIT_BLOB_BYTES", 50 * 1024 * 1024)
-DEFAULT_MAX_GIT_TREE_BYTES = _env_int("SOURCECRAFT_MAX_GIT_TREE_BYTES", 600 * 1024 * 1024)
-DEFAULT_MAX_GIT_CHECKOUT_BYTES = _env_int("SOURCECRAFT_MAX_GIT_CHECKOUT_BYTES", 750 * 1024 * 1024)
+DEFAULT_GIT_TIMEOUT_SECONDS = env_float("SOURCECRAFT_GIT_TIMEOUT_SECONDS", 120.0)
+DEFAULT_MAX_GIT_FILES = env_int("SOURCECRAFT_MAX_GIT_FILES", 50_000)
+# Допускаем крупные единичные блобы (vendored-библиотеки, бинарные ассеты, prebuilt bundles)
+# до 50 МБ. Суммарный объём дерева строго ограничен DEFAULT_MAX_GIT_TREE_BYTES (600 МБ),
+# поэтому отдельные большие файлы не приводят к неконтролируемому раздуванию рабочей области.
+DEFAULT_MAX_GIT_BLOB_BYTES = env_int("SOURCECRAFT_MAX_GIT_BLOB_BYTES", 50 * 1024 * 1024)
+DEFAULT_MAX_GIT_TREE_BYTES = env_int("SOURCECRAFT_MAX_GIT_TREE_BYTES", 600 * 1024 * 1024)
+DEFAULT_MAX_GIT_CHECKOUT_BYTES = env_int("SOURCECRAFT_MAX_GIT_CHECKOUT_BYTES", 750 * 1024 * 1024)
 DEFAULT_GIT_WORKSPACE_POLL_SECONDS = 0.01
 WINDOWS_PROCESS_TREE_KILL_TIMEOUT_SECONDS = 5.0
 _WINDOWS_NEW_PROCESS_GROUP = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0x00000200)
@@ -90,10 +75,24 @@ class GitOperationError(GitCloneError):
 class GitCheckoutLimits:
     """Жёсткие бюджеты private-клона до materialization рабочего дерева."""
 
-    max_files: int = DEFAULT_MAX_GIT_FILES
-    max_blob_bytes: int = DEFAULT_MAX_GIT_BLOB_BYTES
-    max_tree_bytes: int = DEFAULT_MAX_GIT_TREE_BYTES
-    max_checkout_bytes: int = DEFAULT_MAX_GIT_CHECKOUT_BYTES
+    max_files: int = field(
+        default_factory=lambda: env_int("SOURCECRAFT_MAX_GIT_FILES", DEFAULT_MAX_GIT_FILES)
+    )
+    max_blob_bytes: int = field(
+        default_factory=lambda: env_int(
+            "SOURCECRAFT_MAX_GIT_BLOB_BYTES", DEFAULT_MAX_GIT_BLOB_BYTES
+        )
+    )
+    max_tree_bytes: int = field(
+        default_factory=lambda: env_int(
+            "SOURCECRAFT_MAX_GIT_TREE_BYTES", DEFAULT_MAX_GIT_TREE_BYTES
+        )
+    )
+    max_checkout_bytes: int = field(
+        default_factory=lambda: env_int(
+            "SOURCECRAFT_MAX_GIT_CHECKOUT_BYTES", DEFAULT_MAX_GIT_CHECKOUT_BYTES
+        )
+    )
 
     def __post_init__(self) -> None:
         if min(
@@ -124,7 +123,7 @@ class LocalGitRepository:
         ref: str | None = None,
         *,
         auth_token: str | None = None,
-        timeout_seconds: float = DEFAULT_GIT_TIMEOUT_SECONDS,
+        timeout_seconds: float | None = None,
         limits: GitCheckoutLimits | None = None,
     ) -> None:
         """Принимает URL, ссылку для checkout и токен аутентификации.
@@ -136,7 +135,11 @@ class LocalGitRepository:
         self.repo_url = repo_url
         self.ref = ref
         self._auth_token = auth_token
-        self._timeout_seconds = timeout_seconds
+        self._timeout_seconds = (
+            timeout_seconds
+            if timeout_seconds is not None
+            else env_float("SOURCECRAFT_GIT_TIMEOUT_SECONDS", DEFAULT_GIT_TIMEOUT_SECONDS)
+        )
         self._limits = limits
         self.temp_dir: str | None = None
 
