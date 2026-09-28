@@ -97,6 +97,32 @@ class SecurityReportingTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(all(record.exc_info is None for record in logs.records))
         self._assert_security_report(report, markdown, "error", "appsec_source_error", "error")
 
+    async def test_partial_sast_counts_survive_json_and_markdown_without_score(self) -> None:
+        fixture = Path(__file__).parent / "fixtures/sourcecraft/appsec_partial_complete.json"
+        payload = json.loads(fixture.read_text(encoding="utf-8"))
+
+        report, markdown = await self._reports(Mock(return_value=build_facts(payload)))
+
+        security = next(item for item in report["categories"] if item["code"] == "security")
+        self.assertEqual(security["status"], "insufficient_sample")
+        self.assertIsNone(security["score"])
+        self.assertEqual(
+            [(metric["code"], metric["value"]) for metric in security["evidence"]],
+            [
+                ("appsec_data_availability", "received"),
+                ("appsec_sast_open_findings", 23),
+                ("appsec_sast_open_high", 6),
+                ("appsec_sast_open_medium", 12),
+                ("appsec_sast_open_low", 5),
+            ],
+        )
+        self.assertTrue(
+            all(metric["normalizedScore"] is None for metric in security["evidence"])
+        )
+        self.assertEqual(report["score"], 80)
+        self.assertIn("appsec_sast_open_findings", markdown)
+        self.assertIn("23", markdown)
+
     def test_unmeasured_security_alone_does_not_create_an_overall_score(self) -> None:
         provider = Mock(return_value=build_facts([]))
         execution = run_analysis(
