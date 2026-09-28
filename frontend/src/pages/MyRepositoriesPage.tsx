@@ -8,7 +8,7 @@ import {
   fetchSourceCraftConnection,
   type SourceCraftConnection,
 } from "../api/connections";
-import { describeError } from "../api/http";
+import { describeError, isCatalogNotConfigured } from "../api/http";
 import { fetchMyRepositories, repositoryVisibilityLabel, type MyRepository } from "../api/me";
 import { useAuth } from "../auth/AuthContext";
 import { ErrorNote, LoadingNote } from "../components/PageNotes";
@@ -94,7 +94,10 @@ function ConnectedArea() {
     <>
       {connection?.connected && <ConnectionBar connection={connection} onDisconnected={reload} />}
       {connection && !connection.connected && <ConnectForm onConnected={reload} />}
-      <RepositoryList key={connection?.connected ? "with-connection" : "catalog"} />
+      <RepositoryList
+        key={connection?.connected ? "with-connection" : "catalog"}
+        canConnect={connection !== null && !connection.connected}
+      />
     </>
   );
 }
@@ -211,13 +214,25 @@ function ConnectionBar({
   );
 }
 
-function RepositoryList() {
+/**
+ * canConnect — над списком есть форма подключения SourceCraft. Тогда сервер без каталога
+ * открытых репозиториев — не ошибка: список появится после подключения.
+ */
+function RepositoryList({ canConnect }: { canConnect: boolean }) {
   const [state, reload] = useAsync(fetchMyRepositories, []);
   const data = dataOf(state);
   const analysis = useStartAnalysis();
   const items = useRecentAnalyses(data?.items);
 
   if (!data) {
+    if (state.status === "error" && canConnect && isCatalogNotConfigured(state.error)) {
+      return (
+        <Text variant="body-2" color="secondary">
+          Открытые репозитории на этом сервере не подключены. Подключите SourceCraft по токену выше — в списке
+          появятся ваши репозитории, включая закрытые и внутренние.
+        </Text>
+      );
+    }
     return state.status === "error" ? (
       <ErrorNote title="Не удалось получить список репозиториев" error={state.error} onRetry={reload} />
     ) : (

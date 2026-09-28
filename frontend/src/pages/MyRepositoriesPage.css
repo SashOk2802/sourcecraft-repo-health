@@ -1,8 +1,16 @@
+/*
+ * Карточки во всю ширину страницы, как список и сообщения под ними: иначе после входа карточка
+ * подключения и ошибка списка разной ширины. Строки текста внутри — удобной для чтения длины.
+ */
 .my-repos__invite,
 .my-repos__connect {
   display: grid;
   justify-items: start;
   gap: 12px;
+}
+
+.my-repos__invite > *,
+.my-repos__connect > * {
   max-width: 760px;
 }
 
