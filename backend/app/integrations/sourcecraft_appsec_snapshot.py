@@ -26,7 +26,6 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Protocol
-from urllib.parse import quote
 
 from backend.app.analyzers.security import SecurityFacts, build_facts
 from backend.app.contracts import AnalysisContext
@@ -190,10 +189,9 @@ class SourceCraftAppSecCliSnapshotExporter:
     """Создаёт commit-bound snapshot через локально авторизованный SourceCraft CLI.
 
     ``repository_id`` не передаётся оператором вручную: exporter читает его из
-    официального API по тому же OWNER/REPOSITORY. Commit тоже не принимается
-    аргументом: непустые scan'ы обязаны вернуть его в ``latestCommit``. У
-    подтверждённо пустого scan'а commit берётся из default branch отдельным
-    API-вызовом. Это не даёт подменить результаты данными другого репозитория.
+    официального API по тому же OWNER/REPOSITORY. Commit не принимается
+    аргументом: каждый доступный scan обязан вернуть его в ``latestCommit``.
+    Пустой ответ CLI без commit не считается результатом для текущего commit.
     """
 
     def __init__(
@@ -235,33 +233,13 @@ class SourceCraftAppSecCliSnapshotExporter:
             raise SourceCraftAppSecSnapshotExportError("SourceCraft AppSec probe returned an invalid engine set")
         results = _drop_unbound_empty_engine_results(results)
 
-        # Обычно SourceCraft возвращает ``latestCommit`` вместе с finding'ами.
-        # Пустой ответ ``[]`` не содержит finding и поэтому не содержит этого
-        # поля. В таком случае берём commit default branch отдельным API-вызовом,
-        # но только если каждый доступный движок действительно сообщил ноль
-        # finding'ов. Непустой или противоречивый scan fallback'ом не исправляем.
         try:
             scan_commit_sha = _confirmed_scan_commit(results)
         except ValueError as error:
-            if not _is_clean_available_scan(results):
-                raise SourceCraftAppSecSnapshotExportError(
-                    "SourceCraft AppSec scan cannot be bound to a commit"
-                ) from error
-            repository_id, default_branch_commit = self._repository_id_and_default_branch_commit(
-                owner,
-                name,
-            )
-            try:
-                scan_commit_sha = _confirmed_scan_commit(
-                    results,
-                    fallback_commit_sha=default_branch_commit,
-                )
-            except ValueError as fallback_error:
-                raise SourceCraftAppSecSnapshotExportError(
-                    "SourceCraft AppSec scan cannot be bound to a commit"
-                ) from fallback_error
-        else:
-            repository_id = self._repository_id(owner, name)
+            raise SourceCraftAppSecSnapshotExportError(
+                "SourceCraft AppSec scan cannot be bound to a commit"
+            ) from error
+        repository_id = self._repository_id(owner, name)
         try:
             return write_snapshot(
                 directory,
@@ -277,38 +255,6 @@ class SourceCraftAppSecCliSnapshotExporter:
     def _repository_id(self, owner: str, name: str) -> str:
         payload = self._api_object(f"repos/{owner}/{name}")
         return _repository_id_from_metadata(payload)
-
-    def _repository_id_and_default_branch_commit(self, owner: str, name: str) -> tuple[str, str]:
-        """Возвращает id и head default branch для подтверждённо чистого scan'а."""
-
-        metadata = self._api_object(f"repos/{owner}/{name}")
-        repository_id = _repository_id_from_metadata(metadata)
-        default_branch = metadata.get("default_branch")
-        if not isinstance(default_branch, str) or not default_branch.strip() or "\x00" in default_branch:
-            raise SourceCraftAppSecSnapshotExportError("SourceCraft repository metadata is invalid")
-        branch_name = default_branch.strip()
-        branch_payload = self._api_object(
-            f"repos/{owner}/{name}/branches?filter={quote(branch_name, safe='')}"
-        )
-        branches = branch_payload.get("branches")
-        if not isinstance(branches, list):
-            raise SourceCraftAppSecSnapshotExportError("SourceCraft default branch is invalid")
-        for branch in branches:
-            if not isinstance(branch, dict) or branch.get("name") != branch_name:
-                continue
-            commit = branch.get("commit")
-            if not isinstance(commit, dict):
-                break
-            digest = commit.get("hash")
-            try:
-                _validate_commit_sha(digest)
-            except ValueError as error:
-                raise SourceCraftAppSecSnapshotExportError(
-                    "SourceCraft default branch is invalid"
-                ) from error
-            assert isinstance(digest, str)
-            return repository_id, digest.lower()
-        raise SourceCraftAppSecSnapshotExportError("SourceCraft default branch is unavailable")
 
     def _api_object(self, path: str) -> dict[str, object]:
         """Запрашивает один безопасно сформированный JSON-объект через ``src``."""
@@ -416,7 +362,7 @@ def _snapshot_payload(
         raise ValueError("SourceCraft AppSec snapshot collection time must include a timezone")
     if not _has_exact_engine_set(results):
         raise ValueError("SourceCraft AppSec snapshot must contain every engine exactly once")
-    sourcecraft_commit_sha = _confirmed_scan_commit(results, fallback_commit_sha=commit_sha)
+    sourcecraft_commit_sha = _confirmed_scan_commit(results, expected_commit_sha=commit_sha)
     ordered_results = tuple(
         next(result for result in results if result.engine == engine) for engine in APPSEC_ENGINES
     )
@@ -619,36 +565,15 @@ def _repository_id_from_metadata(payload: dict[str, object]) -> str:
     return repository_id
 
 
-def _is_clean_available_scan(results: tuple[AppSecProbeResult, ...]) -> bool:
-    """Проверяет, что доступный ответ каждого движка действительно пустой."""
-
-    available_results = tuple(result for result in results if result.availability == "available")
-    return bool(available_results) and all(result.finding_count == 0 for result in available_results)
-
-
 def _drop_unbound_empty_engine_results(
     results: tuple[AppSecProbeResult, ...],
 ) -> tuple[AppSecProbeResult, ...]:
     """Не выдаёт нулевой ответ без commit за результат текущего снимка.
 
-    SourceCraft CLI возвращает ``[]`` без ``latestCommit``. Когда все три
-    движка пусты, exporter отдельно получает head default-ветки и может
-    связать подтверждённо чистый scan с ним. Но если другой движок уже отдал
-    findings с commit, пустой ответ без commit нельзя честно считать нулём для
-    того же commit: он мог относиться к другому запуску. Сохраняем связанную
-    часть и явно делаем несвязанную недоступной. Это даёт отчёту
-    ``insufficient_sample``, а не ложный Security Score.
+    SourceCraft CLI возвращает ``[]`` без ``latestCommit``. Такой ответ мог
+    относиться к другому запуску независимо от состояния default-ветки.
+    Сохраняем только связанную часть; если её нет, exporter не создаст snapshot.
     """
-
-    has_bound_findings = any(
-        result.availability == "available"
-        and result.finding_count is not None
-        and result.finding_count > 0
-        and result.scan_commit_sha is not None
-        for result in results
-    )
-    if not has_bound_findings:
-        return results
 
     return tuple(
         AppSecProbeResult(
@@ -670,46 +595,28 @@ def _drop_unbound_empty_engine_results(
 def _confirmed_scan_commit(
     results: tuple[AppSecProbeResult, ...],
     *,
-    fallback_commit_sha: str | None = None,
+    expected_commit_sha: str | None = None,
 ) -> str:
-    """Связывает результаты с одним commit, не подменяя непустой scan.
+    """Требует commit от каждого доступного AppSec-движка и их совпадения."""
 
-    ``latestCommit`` надёжно связывает finding с commit. Единственное
-    исключение — подтверждённо чистый ответ ``[]``: в нём нет finding и самого
-    поля commit. Тогда exporter передаёт ``fallback_commit_sha`` — текущий head
-    default branch, полученный отдельным API-вызовом SourceCraft.
-    """
-
-    normalized_fallback: str | None = None
-    if fallback_commit_sha is not None:
-        _validate_commit_sha(fallback_commit_sha)
-        normalized_fallback = fallback_commit_sha.lower()
+    normalized_expected: str | None = None
+    if expected_commit_sha is not None:
+        _validate_commit_sha(expected_commit_sha)
+        normalized_expected = expected_commit_sha.lower()
 
     available_results = tuple(result for result in results if result.availability == "available")
     if not available_results:
         raise ValueError("SourceCraft AppSec snapshot requires an available scan")
-    commits = {result.scan_commit_sha for result in available_results if result.scan_commit_sha is not None}
-    if len(commits) > 1:
+    if any(result.scan_commit_sha is None for result in available_results):
+        raise ValueError("SourceCraft AppSec snapshot requires a commit from every available scan")
+    commits = {result.scan_commit_sha for result in available_results}
+    if len(commits) != 1:
         raise ValueError("SourceCraft available AppSec scans must report the same commit")
-    if commits:
-        commit_sha = next(iter(commits))
-        assert commit_sha is not None
-        if any(result.scan_commit_sha is None for result in available_results) and not _is_clean_available_scan(
-            results
-        ):
-            raise ValueError("SourceCraft AppSec snapshot requires a commit from every non-empty scan")
-        if normalized_fallback is not None and not hmac.compare_digest(
-            normalized_fallback,
-            commit_sha,
-        ):
-            raise ValueError("explicit AppSec snapshot commit must match the SourceCraft scan commit")
-        return commit_sha
-
-    if not _is_clean_available_scan(results):
-        raise ValueError("SourceCraft AppSec snapshot requires a commit from every non-empty scan")
-    if normalized_fallback is None:
-        raise ValueError("SourceCraft clean AppSec scan requires a default branch commit")
-    return normalized_fallback
+    commit_sha = next(iter(commits))
+    assert commit_sha is not None
+    if normalized_expected is not None and not hmac.compare_digest(normalized_expected, commit_sha):
+        raise ValueError("explicit AppSec snapshot commit must match the SourceCraft scan commit")
+    return commit_sha
 
 
 def _parse_repository(repository: str) -> tuple[str, str]:

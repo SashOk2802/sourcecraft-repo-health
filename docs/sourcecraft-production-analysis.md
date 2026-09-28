@@ -36,10 +36,10 @@ snapshot без world-readable прав и без возможности backend
 `SOURCECRAFT_APPSEC_SNAPSHOT_MAX_AGE_SECONDS` ограничивает срок свежести
 (по умолчанию 3600 секунд).
 
-Exporter сам получает repository id через SourceCraft API. Непустой AppSec scan
-принимается только с единым `latestCommit`; для подтверждённо пустого ответа
-`[]`, где commit отсутствует, exporter отдельно читает head default-ветки.
-Непустой, частичный или противоречивый результат fallback'ом не исправляется.
+Exporter сам получает repository id через SourceCraft API. Каждый доступный
+AppSec scan принимается только с единым `latestCommit` от AppSec-источника.
+Пустой ответ `[]` не содержит commit, поэтому отмечается как недоступный для
+текущего снимка. Если других привязанных результатов нет, snapshot не создаётся.
 Snapshot обязан совпасть по SHA-256 отпечатку repository id и по commit SHA
 задания. Неверный, старый, слишком большой файл или symlink не используется;
 корневой каталог и файл не могут быть symlink'ами. Без свежего snapshot'а

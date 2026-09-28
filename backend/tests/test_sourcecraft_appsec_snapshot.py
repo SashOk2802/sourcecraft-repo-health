@@ -407,49 +407,42 @@ class SourceCraftAppSecSnapshotTest(unittest.TestCase):
 
                 runner.assert_not_called()
 
-    def test_cli_exporter_binds_clean_scan_to_default_branch_commit(self) -> None:
+    def test_cli_exporter_does_not_bind_empty_scan_to_default_branch_head(self) -> None:
         commands: list[list[str]] = []
 
         def runner(command: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
             commands.append(command)
             if command[1:4] == ["appsec", "defect", "list"]:
-                # Реальный наблюдаемый ответ SourceCraft CLI: пустой список
-                # валиден, но не несёт ``latestCommit``.
                 return subprocess.CompletedProcess(command, 0, stdout="[]")
-            responses = {
-                "repos/example-org/example-repo": '{"id":"repository-id-redacted","default_branch":"main"}',
-                "repos/example-org/example-repo/branches?filter=main": (
-                    '{"branches":[{"name":"main","commit":{"hash":"' + COMMIT_SHA + '"}}]}'
-                ),
-            }
-            return subprocess.CompletedProcess(command, 0, stdout=responses[command[4]])
+            self.fail("Commit ветки и метаданные не могут привязать пустой AppSec scan")
 
         probe = SourceCraftAppSecCliProbe(cli_binary="/safe/path/src", runner=runner)
-        destination = SourceCraftAppSecCliSnapshotExporter(
+        exporter = SourceCraftAppSecCliSnapshotExporter(
             probe,
             cli_binary="/safe/path/src",
             runner=runner,
             clock=lambda: self.now,
-        ).export("example-org/example-repo", self.snapshot_directory)
-        payload = json.loads(destination.read_text(encoding="utf-8"))
-
-        self.assertEqual(len(commands), 5)
-        self.assertEqual(
-            commands[-2:],
-            [
-                ["/safe/path/src", "api", "-X", "GET", "repos/example-org/example-repo", "--json"],
-                [
-                    "/safe/path/src",
-                    "api",
-                    "-X",
-                    "GET",
-                    "repos/example-org/example-repo/branches?filter=main",
-                    "--json",
-                ],
-            ],
         )
-        self.assertEqual(payload["commit_sha"], COMMIT_SHA)
-        self.assertEqual(payload["repository_id_sha256"], repository_fingerprint("repository-id-redacted"))
+        with self.assertRaisesRegex(SourceCraftAppSecSnapshotExportError, "cannot be bound"):
+            exporter.export("example-org/example-repo", self.snapshot_directory)
+
+        self.assertEqual(len(commands), 3)
+        self.assertEqual(list(self.snapshot_directory.iterdir()), [])
+
+    def test_explicit_commit_cannot_bind_empty_appsec_results(self) -> None:
+        empty_results = tuple(
+            AppSecProbeResult(engine, "available", 0, finding_groups=(), completeness="unknown")
+            for engine in ("SAST", "SCA", "SECRETS")
+        )
+        with self.assertRaisesRegex(ValueError, "commit from every available scan"):
+            write_snapshot(
+                self.snapshot_directory,
+                repository_id=self.context.repository.id,
+                commit_sha=COMMIT_SHA,
+                collected_at=self.now,
+                results=empty_results,
+            )
+        self.assertEqual(list(self.snapshot_directory.iterdir()), [])
 
     def test_cli_exporter_rejects_unsafe_repository_before_calling_sourcecraft(self) -> None:
         probe = Mock()
