@@ -21,10 +21,10 @@ npm run build    # проверка типов и сборка
 
 ## Настоящий API и mock-режим
 
-Откуда брать данные, решает `VITE_USE_MOCKS`: `false` — настоящий backend, иначе mock-данные из `src/api/mocks/` для вёрстки без backend (репозитории и оценки в них вымышлены). В Docker по умолчанию включены mock-данные (`compose.yaml`): без каталога SourceCraft настоящий рейтинг и запуск анализа ответят 503. Чтобы Docker ходил в настоящий API, задайте в `.env` `VITE_USE_MOCKS=false` вместе с `SOURCECRAFT_TOKEN` и `SOURCECRAFT_PUBLIC_ORGANIZATIONS`. Настоящий API без Docker:
+По умолчанию интерфейс ходит в настоящий backend — и в `npm run dev`, и в сборке, и в Docker. Mock-данные из `src/api/mocks/` (репозитории и оценки в них вымышлены) включаются только явно, `VITE_USE_MOCKS=true`: так сборка без флага не подменяет данные backend. В Docker без каталога SourceCraft рейтинг и запуск анализа честно ответят 503; для настоящих данных задайте в `.env` `SOURCECRAFT_TOKEN` и `SOURCECRAFT_PUBLIC_ORGANIZATIONS`, для офлайн-демо — `VITE_USE_MOCKS=true`. Демо без backend:
 
 ~~~powershell
-$env:VITE_USE_MOCKS = "false"; npm run dev
+$env:VITE_USE_MOCKS = "true"; npm run dev
 ~~~
 
 Кнопки входа включает `VITE_YANDEX_AUTH=true` (в Docker по умолчанию `false`) — только там, где у backend заданы `YANDEX_CLIENT_ID`, `YANDEX_CLIENT_SECRET` и `YANDEX_REDIRECT_URI`. Без них вход выключен с пояснением, а не ведёт на ответ 503. Открывать сервис нужно по адресу из `YANDEX_REDIRECT_URI`: запуск анализа и выход с другого адреса (например, `127.0.0.1` вместо `localhost`) защита от подделки запросов отклонит — интерфейс так и скажет.
@@ -57,7 +57,7 @@ $env:VITE_USE_MOCKS = "false"; npm run dev
 | Мои репозитории | `GET /api/v1/me/repositories` — есть: публичные репозитории из организаций `SOURCECRAFT_PUBLIC_ORGANIZATIONS`; последнего анализа в ответе пока нет |
 | Методика | `GET /api/v1/methodology` — есть, v2: веса, ограничение Score и формула Security Score |
 | Рейтинг | `GET /api/v1/leaderboard` — есть: public-репозитории того же каталога; снимки пополняет планировщик backend (`PUBLIC_ANALYSIS_SCHEDULER_ENABLED=true`) |
-| Подключение SourceCraft | `/api/v1/connections/sourcecraft` — позже, для закрытых репозиториев; пока его нет, интерфейс его не предлагает |
+| Подключение SourceCraft | `GET`, `POST`, `DELETE /api/v1/connections/sourcecraft` — есть (#88): токен хранится на backend зашифрованным, включается ключом `SOURCECRAFT_CONNECTION_ENCRYPTION_KEY`. Без ключа GET отвечает 404 — форма подключения в кабинете скрыта. Список закрытых репозиториев backend добавит следующим этапом |
 
 Формат ответов описан в [docs/api-contract.md](../docs/api-contract.md); типы лежат в `src/api/*.ts`.
 
