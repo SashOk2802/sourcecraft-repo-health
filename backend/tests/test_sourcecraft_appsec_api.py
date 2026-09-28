@@ -103,6 +103,57 @@ def probe(source) -> tuple:
 
 
 class AppSecApiTest(unittest.TestCase):
+    def test_cli_projects_raw_appsec_fields_before_they_reach_python(self):
+        source = FakeSource()
+
+        results = probe(source)
+
+        self.assertEqual(results[0].finding_count, 1)
+        api_commands = [command for command in source.commands if "api" in command]
+        self.assertTrue(api_commands)
+        self.assertTrue(all("--jq" in command for command in api_commands))
+
+        projections = [command[command.index("--jq") + 1] for command in api_commands]
+        combined = " ".join(projections)
+        for raw_field in ("codeBlock", "fileName", "ruleName", "publicId", "links"):
+            with self.subTest(raw_field=raw_field):
+                self.assertNotIn(raw_field, combined)
+
+        expected_by_path = {
+            "repos/example-org/example-repo": "{id: .id}",
+            "v1/scans": (
+                "{data: [.data[] | {uuid, isLatest, scanType, commitHash, "
+                "totalDefectGroups}], nextPageToken, totalSize}"
+            ),
+            f"v1/scans/{SCAN_ID}": (
+                "{uuid, isLatest, status, commitHash, gitRepo, timeFinished, "
+                "totalDefectGroups}"
+            ),
+            "v1/defect-groups": (
+                "{data: [.data[] | {uuid, gitRepo, latestCommit, engineType, severity, "
+                "status}], nextPageToken, totalSize}"
+            ),
+        }
+        for command in api_commands:
+            path = command[command.index("GET") + 1]
+            with self.subTest(path=path):
+                self.assertEqual(command[command.index("--jq") + 1], expected_by_path[path])
+
+        defect_commands = [command for command in api_commands if "v1/defect-groups" in command]
+        self.assertEqual(len(defect_commands), 3)
+        for command in defect_commands:
+            projection = command[command.index("--jq") + 1]
+            for safe_field in (
+                "uuid",
+                "gitRepo",
+                "latestCommit",
+                "engineType",
+                "severity",
+                "status",
+            ):
+                with self.subTest(safe_field=safe_field):
+                    self.assertIn(safe_field, projection)
+
     def test_retries_transient_read_only_cli_failures(self):
         source = FakeSource()
         attempts = 0

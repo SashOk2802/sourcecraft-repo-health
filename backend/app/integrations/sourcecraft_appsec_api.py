@@ -35,6 +35,23 @@ _COMMIT = re.compile(r"^[0-9a-f]{40}$")
 _SEVERITIES = {1: "LOW", 2: "MEDIUM", 3: "HIGH"}
 _STATUSES = {0: "OPEN"}
 
+# Apply these fixed jq projections inside the trusted SourceCraft CLI process.
+# Raw AppSec responses may contain source fragments, file names, rule names and
+# links. The Python exporter needs none of them and must not receive them on
+# stdout, even temporarily.
+_REPOSITORY_PROJECTION = "{id: .id}"
+_SCAN_PAGE_PROJECTION = (
+    "{data: [.data[] | {uuid, isLatest, scanType, commitHash, totalDefectGroups}], "
+    "nextPageToken, totalSize}"
+)
+_SCAN_DETAIL_PROJECTION = (
+    "{uuid, isLatest, status, commitHash, gitRepo, timeFinished, totalDefectGroups}"
+)
+_DEFECT_PAGE_PROJECTION = (
+    "{data: [.data[] | {uuid, gitRepo, latestCommit, engineType, severity, status}], "
+    "nextPageToken, totalSize}"
+)
+
 
 class _InvalidSource(ValueError):
     pass
@@ -77,7 +94,16 @@ class SourceCraftAppSecApiProbe:
         _validate_repository(repository)
         try:
             self._check_environment()
-            metadata = self._json(["api", "-X", "GET", f"repos/{repository}"])
+            metadata = self._json(
+                [
+                    "api",
+                    "-X",
+                    "GET",
+                    f"repos/{repository}",
+                    "--jq",
+                    _REPOSITORY_PROJECTION,
+                ]
+            )
             repository_id = _uuid(metadata.get("id")) if isinstance(metadata, dict) else None
             if repository_id is None:
                 raise _InvalidSource
@@ -136,13 +162,14 @@ class SourceCraftAppSecApiProbe:
             raise _InvalidSource
         return json.loads(completed.stdout)
 
-    def _api(self, path: str, fields: dict[str, str]) -> object:
+    def _api(self, path: str, fields: dict[str, str], projection: str) -> object:
         arguments = ["--env", self._environment, "api", "-X", "GET", path]
         for key, value in fields.items():
             arguments.extend(["-f", f"{key}={value}"])
+        arguments.extend(["--jq", projection])
         return self._json(arguments)
 
-    def _pages(self, path: str, fields: dict[str, str]) -> Iterator[dict]:
+    def _pages(self, path: str, fields: dict[str, str], projection: str) -> Iterator[dict]:
         token = ""
         tokens: set[str] = set()
         identities: set[str] = set()
@@ -152,7 +179,7 @@ class SourceCraftAppSecApiProbe:
             query = {**fields, "pageSize": str(PAGE_SIZE)}
             if token:
                 query["pageToken"] = token
-            page = self._api(path, query)
+            page = self._api(path, query, projection)
             if not isinstance(page, dict):
                 raise _InvalidSource
             items, next_token, size = (
@@ -196,7 +223,11 @@ class SourceCraftAppSecApiProbe:
     def _latest_scan(self, repository_id: str) -> _Scan | None:
         latest = [
             x
-            for x in self._pages("v1/scans", {"gitRepo": repository_id})
+            for x in self._pages(
+                "v1/scans",
+                {"gitRepo": repository_id},
+                _SCAN_PAGE_PROJECTION,
+            )
             if x.get("isLatest") is True
         ]
         if not latest:
@@ -204,7 +235,11 @@ class SourceCraftAppSecApiProbe:
         if len(latest) != 1 or latest[0].get("scanType") != "SCAN_TYPE_DEFAULT":
             raise _InvalidSource
         scan_id = _uuid(latest[0]["uuid"])
-        detail = self._api(f"v1/scans/{scan_id}", {"gitRepo": repository_id})
+        detail = self._api(
+            f"v1/scans/{scan_id}",
+            {"gitRepo": repository_id},
+            _SCAN_DETAIL_PROJECTION,
+        )
         if not isinstance(detail, dict) or detail.get("uuid") != scan_id:
             raise _InvalidSource
         if detail.get("status") != "FINISHED":
@@ -237,6 +272,7 @@ class SourceCraftAppSecApiProbe:
                 "scanUuid": scan.uuid,
                 "type": engine,
             },
+            _DEFECT_PAGE_PROJECTION,
         ):
             if item.get("latestCommit") != scan.commit or item.get("gitRepo") != scan.repository:
                 raise _InvalidSource
