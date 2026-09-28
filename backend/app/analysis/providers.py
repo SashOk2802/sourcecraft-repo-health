@@ -116,6 +116,7 @@ def sourcecraft_analyzer_provider(context: AnalysisContext) -> Iterable[Analyzer
 def personal_sourcecraft_analyzer_provider(
     context: AnalysisContext,
     open_client: Callable[[], SourceCraftClient],
+    prepare_git_repository: Callable[[], LocalGitRepository],
 ) -> Iterable[AnalyzerRegistration]:
     """Все категории personal-запуска без сохранения plaintext PAT в плане/job.
 
@@ -125,6 +126,7 @@ def personal_sourcecraft_analyzer_provider(
     """
 
     del context
+    workspace = _SharedCloneWorkspace(repository_factory=prepare_git_repository)
     return (
         AnalyzerRegistration("activity", _personal_activity_evaluator(open_client)),
         AnalyzerRegistration(
@@ -134,11 +136,11 @@ def personal_sourcecraft_analyzer_provider(
         AnalyzerRegistration("cicd", _personal_cicd_evaluator(open_client)),
         AnalyzerRegistration(
             "documentation",
-            _personal_git_unavailable_evaluator("documentation"),
+            _workspace_evaluator("documentation", documentation, workspace),
         ),
         AnalyzerRegistration(
             "code_health",
-            _personal_git_unavailable_evaluator("code_health"),
+            _workspace_evaluator("code_health", code_health, workspace),
         ),
         AnalyzerRegistration("security", _security_evaluator()),
     )
@@ -189,19 +191,6 @@ def _personal_cicd_evaluator(open_client: Callable[[], SourceCraftClient]):
             return cicd.make_analyzer(facts_provider)(ctx)
         finally:
             client.close()
-
-    return evaluate
-
-
-def _personal_git_unavailable_evaluator(category_code: str):
-    def evaluate(_: AnalysisContext) -> CategoryResult:
-        return CategoryResult(
-            category=category_code,
-            status=DataStatus.UNAVAILABLE,
-            score=None,
-            summary="Безопасный Git-доступ к личному репозиторию ещё не настроен.",
-            reason="personal_git_transport_unavailable",
-        )
 
     return evaluate
 
@@ -328,7 +317,7 @@ def _workspace_evaluator(
             repository = workspace.acquire()
             facts = module.collect(repository)  # type: ignore[attr-defined]
             return module.evaluate(ctx, facts)  # type: ignore[attr-defined]
-        except GitCloneError as error:
+        except (GitCloneError, SourceCraftConnectionError) as error:
             # Ошибка git/clone отделена от внутренних ошибок (I.6); текст
             # исключения GitCloneError по контракту чист, но на всякий случай
             # URL и токен вырезаются ещё раз перед сохранением (2.2).
@@ -337,7 +326,7 @@ def _workspace_evaluator(
                 status=DataStatus.ERROR,
                 score=None,
                 summary="Не удалось получить содержимое репозитория.",
-                reason=workspace.repository.redact(str(error)),
+                reason=workspace.redact_error(str(error)),
             )
         except Exception:
             logger.exception("Внутренняя ошибка анализатора %s.", category_code)
@@ -363,19 +352,31 @@ class _SharedCloneWorkspace:
     cleanup не пробрасывается наружу (I.3 — cleanup сам по себе безопасен).
     """
 
-    def __init__(self, repository: LocalGitRepository, users: int = 2) -> None:
+    def __init__(
+        self,
+        repository: LocalGitRepository | None = None,
+        users: int = 2,
+        *,
+        repository_factory: Callable[[], LocalGitRepository] | None = None,
+    ) -> None:
+        if (repository is None) == (repository_factory is None):
+            raise ValueError("exactly one git repository source is required")
         self._repository = repository
+        self._repository_factory = repository_factory
         self._remaining_users = users
         self._clone_error: Exception | None = None
-
-    @property
-    def repository(self) -> LocalGitRepository:
-        return self._repository
 
     def acquire(self) -> LocalGitRepository:
         """Клонирует репозиторий при первом использовании и возвращает его."""
         if self._clone_error is not None:
             raise self._clone_error
+        if self._repository is None:
+            try:
+                assert self._repository_factory is not None
+                self._repository = self._repository_factory()
+            except Exception as error:
+                self._clone_error = error
+                raise
         if self._repository.temp_dir is None:
             try:
                 self._repository.clone()
@@ -384,8 +385,13 @@ class _SharedCloneWorkspace:
                 raise
         return self._repository
 
+    def redact_error(self, value: str) -> str:
+        if self._repository is None:
+            return "git_workspace_unavailable"
+        return self._repository.redact(value)
+
     def release(self) -> None:
         """Освобождает использование; после последнего — удаляет временную папку."""
         self._remaining_users -= 1
-        if self._remaining_users <= 0:
+        if self._remaining_users <= 0 and self._repository is not None:
             self._repository.cleanup()
