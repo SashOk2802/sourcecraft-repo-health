@@ -324,7 +324,7 @@ public-каталогом. Для private/internal, неизвестного и�
 
 ## Формат JSON-отчёта
 
-JSON-модель строится в `backend/app/reporting/builder.py`; endpoint возвращает её без дополнительного преобразования.
+JSON-модель строится в `backend/app/reporting/builder.py`; endpoint добавляет к ней `badgeAvailable`. Флаг равен `true` только для репозитория, который сервер подтвердил как публичный; при ошибке каталога значение безопасно остаётся `false`.
 
 ~~~json
 {
@@ -335,6 +335,7 @@ JSON-модель строится в `backend/app/reporting/builder.py`; endpoi
     "name": "team/platform-api",
     "url": "https://sourcecraft.example/team/platform-api"
   },
+  "badgeAvailable": true,
   "analysis": {
     "id": "analysis-2026-09-15",
     "status": "partial",

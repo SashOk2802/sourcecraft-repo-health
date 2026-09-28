@@ -11,6 +11,7 @@ const report: RepositoryReport = {
     name: "team/platform-api",
     url: "https://sourcecraft.dev/team/platform-api",
   },
+  badgeAvailable: true,
   analysis: {
     id: "analysis-2026-09-15",
     status: "partial",

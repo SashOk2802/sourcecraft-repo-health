@@ -113,6 +113,7 @@ export function buildMockReport(repository: MockRepository, details: ReportDetai
       name: `${repository.organizationSlug}/${repository.repositorySlug}`,
       url: sourceCraftUrl(repository),
     },
+    badgeAvailable: repository.visibility === "public",
     analysis: {
       id: details.analysisId ?? mockAnalysisId(repository),
       status: scored.status,
