@@ -309,6 +309,17 @@ PAT не записывается в context, job, отчёт или базу д
 
 Возвращает Markdown для того же снимка и также отвечает `404`, пока результат не сохранён.
 
+### SVG-бейджи
+
+`GET /api/v1/analyses/{analysis_id}/badge.svg` и
+`GET /api/v1/repositories/{organization_slug}/{repository_slug}/badge.svg`
+возвращают SVG с округлённым Score для встраивания в README. Они не требуют
+сессии и разрешены только для репозиториев, которые прямо сейчас подтверждены
+public-каталогом. Для private/internal, неизвестного или временно недоступного
+каталога оба endpoint возвращают нейтральный бейдж `unknown` без данных
+репозитория. Ответы имеют `Cache-Control: public, max-age=300, s-maxage=300`,
+`Access-Control-Allow-Origin: *` и `Cross-Origin-Resource-Policy: cross-origin`.
+
 При заданной переменной DATABASE_URL снимки и задания хранятся в PostgreSQL и доступны после перезапуска backend. Без DATABASE_URL используется временное хранилище в памяти только для локальных тестов. Подробнее — в docs/postgres-analysis-store.md.
 
 ## Формат JSON-отчёта

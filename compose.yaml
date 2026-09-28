@@ -75,6 +75,7 @@ services:
       - ./frontend:/app/frontend:ro
       - ./scripts:/app/scripts:ro
       - ./.github:/app/.github:ro
+      - ./.sourcecraft:/app/.sourcecraft:ro
       - ./compose.yaml:/app/compose.yaml:ro
 
   postgres:

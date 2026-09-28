@@ -15,6 +15,7 @@ import { useAuth } from "../auth/AuthContext";
 import { ErrorNote, LoadingNote } from "../components/PageNotes";
 import { AnalysisFacts } from "../components/report/AnalysisFacts";
 import { AnalysisFailed, AnalysisProgress } from "../components/report/AnalysisProgress";
+import { BadgeSnippet } from "../components/report/BadgeSnippet";
 import { CategoryMarks } from "../components/report/CategoryMarks";
 import { MarkdownExport } from "../components/report/MarkdownExport";
 import { ProjectHighlights } from "../components/report/ProjectHighlights";
@@ -151,6 +152,7 @@ function ReportView({ report }: { report: RepositoryReport }) {
             Печать / сохранить PDF
           </Button>
           <MarkdownExport report={report} />
+          <BadgeSnippet report={report} />
         </div>
       </header>
 
