@@ -80,6 +80,18 @@ class CiSecurityWorkflowTest(unittest.TestCase):
             workflow,
         )
 
+    def test_ci_runs_real_bounded_git_process_tree_tests_on_windows(self) -> None:
+        workflow = self._read_ci_workflow()
+
+        self.assertIn("name: Windows Git safety", workflow)
+        self.assertIn("runs-on: windows-latest", workflow)
+        self.assertIn("timeout-minutes: 10", workflow)
+        self.assertIn(
+            "backend.tests.test_personal_git_analysis.BoundedGitRepositoryTest",
+            workflow,
+        )
+        self.assertNotIn("continue-on-error", workflow)
+
     def _read_security_workflow(self) -> str:
         if not SECURITY_WORKFLOW.is_file():
             self.skipTest("GitHub workflow is intentionally absent from the runtime image")
