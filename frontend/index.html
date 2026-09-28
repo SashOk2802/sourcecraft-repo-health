@@ -22,14 +22,8 @@
     />
     <meta name="twitter:card" content="summary" />
 
-    <!-- Фон до загрузки приложения: без белой вспышки у тех, кто выбрал тёмную тему. -->
-    <script>
-      try {
-        var theme = localStorage.getItem("rh-theme");
-        var dark = theme === "dark" || (theme !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-        document.documentElement.style.background = dark ? "#121214" : "#f2f3f5";
-      } catch (error) {}
-    </script>
+    <!-- Фон до загрузки приложения; отдельным файлом из-за CSP script-src 'self'. -->
+    <script src="/theme-boot.js"></script>
   </head>
   <body>
     <div id="root"></div>

@@ -26,7 +26,7 @@ npm run preview  # собранная версия на http://localhost:4173 с
 
 | Режим | Что делает | Как включить |
 | --- | --- | --- |
-| `api` | Только настоящий API, ошибки показываются как есть | по умолчанию — `npm run dev`, `npm run build`, `docker compose up`, `Dockerfile.prod` |
+| `api` | Только настоящий API, ошибки показываются как есть | по умолчанию — `npm run dev`, `npm run build`, `docker compose up`, продакшн-образ |
 | `demo` | Только демо-данные из `src/api/mocks/`, backend не нужен | `VITE_DATA_SOURCE=demo` или `VITE_USE_MOCKS=true` |
 | `auto` | Настоящий API. Если раздела нет (404 «Not Found», 405, 501), он не настроен (503) или backend не отвечает (502, 504, нет ответа), страница строится на демо-данных и помечена «Демо». Как только backend отдаст раздел, демо пропадёт само, без пересборки | `VITE_DATA_SOURCE=auto` — для показа, где часть backend ещё не настроена |
 
@@ -78,41 +78,13 @@ $env:VITE_USE_MOCKS = "true"; npm run dev
 
 ## Выкладка на стенд
 
-Для стенда есть отдельный образ: `Dockerfile.prod` собирает приложение и отдаёт его через nginx. Обычный `Dockerfile` остаётся для разработки — его запускает `compose.yaml` с Vite и перезагрузкой на лету.
+Продакшн-образ frontend — `frontend/Dockerfile.prod` и `compose.production.yaml` (PR #117): Vite собирает статику, nginx без root отдаёт её, проксирует `/api` в backend и добавляет заголовки безопасности, в том числе CSP `script-src 'self'`. Поэтому в `index.html` нет встроенных скриптов: фон до загрузки приложения задаёт `public/theme-boot.js`.
 
-Как и остальные контейнеры проекта, nginx в этом образе работает не от root: образ `nginxinc/nginx-unprivileged` запускается пользователем с uid 101 и слушает порт **8080**.
+Режим данных задаётся при сборке аргументом `VITE_DATA_SOURCE`: по умолчанию `api`; показ с демо там, где backend ещё не настроен, — `--build-arg VITE_DATA_SOURCE=auto`.
 
-~~~bash
-docker build -f frontend/Dockerfile.prod -t repo-health-frontend frontend
-docker run -p 80:8080 -e API_PROXY_TARGET=http://backend:8000 repo-health-frontend
-~~~
+Собранную версию можно проверить и без Docker: `npm run build && npm run preview` — на http://localhost:4173 с тем же proxy `/api`.
 
-Что делает nginx (`nginx/default.conf.template`):
-
-- `/api/` проксирует в `API_PROXY_TARGET` (по умолчанию `http://backend:8000`); имя резолвится на каждый запрос через `NGINX_RESOLVER` (по умолчанию `127.0.0.11` — DNS Docker), поэтому перезапуск backend не ломает proxy. Вне Docker задайте свой DNS;
-- адреса страниц (`/analyses/…`, `/me/repositories`) отдают `index.html` — маршрутами занимается приложение;
-- файлы сборки с хэшем в имени кэшируются на год, `index.html` всегда перепроверяется;
-- gzip, заголовки безопасности, `GET /healthz` для healthcheck.
-
-Режим данных задаётся при сборке: по умолчанию `api`; показ с демо там, где backend ещё не настроен, — `--build-arg VITE_DATA_SOURCE=auto`.
-
-С compose frontend для стенда подключается файлом-дополнением рядом с `compose.yaml` — сам `compose.yaml` при этом не меняется. Порты и тома dev-сервера заменяются, а не дописываются (`!override` и `!reset` понимает Docker Compose 2.24 и новее):
-
-~~~yaml
-# compose.stand.yaml
-services:
-  frontend:
-    build:
-      dockerfile: Dockerfile.prod
-    ports: !override ["80:8080"]
-    volumes: !reset []
-~~~
-
-~~~bash
-docker compose -f compose.yaml -f compose.stand.yaml up -d --build
-~~~
-
-Стенд можно запустить и на dev-сервере Vite за HTTPS-прокси, как в main: любые домены разрешены по умолчанию (ограничить — `FRONTEND_ALLOWED_HOSTS=repo-health.example.ru`), а порт, на котором браузер подключается к HMR, задаёт `VITE_HMR_CLIENT_PORT` (обычно 443).
+Стенд можно запустить и на dev-сервере Vite за HTTPS-прокси: любые домены разрешены по умолчанию (ограничить — `FRONTEND_ALLOWED_HOSTS=repo-health.example.ru`), а порт, на котором браузер подключается к HMR, задаёт `VITE_HMR_CLIENT_PORT` (обычно 443). Dev-сервер отдаёт исходники модулями по одному — около 180 запросов на страницу, поэтому первое открытие медленнее, чем у собранной версии.
 
 ## Структура
 
