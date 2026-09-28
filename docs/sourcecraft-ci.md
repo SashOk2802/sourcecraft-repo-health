@@ -15,6 +15,9 @@ Docker-образы закреплены по digest. Конфигурация �
 SAST, SCA и secret scanning SourceCraft продолжают работать отдельно от этого
 workflow.
 
+Checkout выполняется с `remove_credentials: true`: SourceCraft удаляет CI-ключ из
+`.git/config` до запуска любого кода из pull request.
+
 Проверки PostgreSQL и Docker Compose остаются в GitHub Actions: им нужны service
 containers и Docker daemon. SourceCraft CI дополняет их и проверяет те части,
 которые воспроизводятся в обычных контейнерных cubes.

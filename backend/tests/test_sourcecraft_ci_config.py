@@ -40,6 +40,17 @@ class SourceCraftCiConfigTest(unittest.TestCase):
             with self.subTest(command=command):
                 self.assertIn(command, self.config)
 
+    def test_removes_checkout_credentials_before_running_pull_request_code(self) -> None:
+        self.assertRegex(
+            self.config,
+            re.compile(
+                r"quality-and-security:\n"
+                r" {4}checkout:\n"
+                r" {6}remove_credentials: true\n"
+                r" {4}settings:"
+            ),
+        )
+
     def test_pins_images_and_does_not_embed_credentials_or_private_locations(self) -> None:
         image_lines = [
             line.strip() for line in self.config.splitlines() if line.strip().startswith("image:")

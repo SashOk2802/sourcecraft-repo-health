@@ -14,6 +14,8 @@ on:
 
 workflows:
   quality-and-security:
+    checkout:
+      remove_credentials: true
     settings:
       max_cube_duration: 15m
     tasks:
