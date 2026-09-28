@@ -59,6 +59,8 @@ class ContainerSecurityTest(unittest.TestCase):
         for line in from_lines:
             self.assertRegex(line, r"@sha256:[0-9a-f]{64}(?: AS build)?$")
         self.assertIn("RUN npm run build", dockerfile)
+        self.assertIn("ARG VITE_YANDEX_AUTH=false", dockerfile)
+        self.assertIn("VITE_YANDEX_AUTH=${VITE_YANDEX_AUTH}", dockerfile)
         self.assertIn("COPY --from=build /app/dist /usr/share/nginx/html", dockerfile)
         self.assertNotIn("npm run dev", dockerfile)
         self.assertEqual(_last_user(dockerfile), "101")
@@ -81,6 +83,7 @@ class ContainerSecurityTest(unittest.TestCase):
 
         self.assertIn("dockerfile: Dockerfile.prod", compose)
         self.assertIn("VITE_DATA_SOURCE: api", compose)
+        self.assertIn('VITE_YANDEX_AUTH: "${VITE_YANDEX_AUTH:-false}"', compose)
         self.assertIn("APP_ENV: production", compose)
         self.assertIn('YANDEX_SESSION_COOKIE_SECURE: "true"', compose)
         self.assertIn("127.0.0.1:${FRONTEND_PORT:-5173}:8080", compose)

@@ -17,6 +17,8 @@ docker compose -f compose.production.yaml up -d --build
 
 Обязательны `DATABASE_URL`, `POSTGRES_PASSWORD` и `SOURCECRAFT_TOKEN`. Для личного
 кабинета также нужны настройки Яндекс ID и `SOURCECRAFT_CONNECTION_ENCRYPTION_KEY`.
+После настройки OAuth задайте `VITE_YANDEX_AUTH=true` перед сборкой frontend;
+без этого флага кнопка входа намеренно остаётся выключенной.
 PAT и ключ Fernet нельзя добавлять в Compose, логи или pull request.
 
 Репозиторный CI проверяет сборку и чистый Docker Compose, но не подтверждает, что
