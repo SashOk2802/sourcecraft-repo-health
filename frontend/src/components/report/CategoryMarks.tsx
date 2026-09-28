@@ -1,7 +1,7 @@
 import { Text } from "@gravity-ui/uikit";
 import type { CSSProperties } from "react";
 
-import type { CategoryStatus } from "../../api/common";
+import type { CategoryStatus, Evidence } from "../../api/common";
 import type { CategoryMetric, ReportCategory } from "../../api/report";
 import { describeCategory } from "../../lib/categoryMeaning";
 import { cn } from "../../lib/classNames";
@@ -17,7 +17,9 @@ import {
   metricTone,
   metricValueText,
   summaryWithoutScore,
+  unmeasuredLinks,
   visibleMetrics,
+  withoutRepeatedLinks,
 } from "./reportHelpers";
 import "./CategoryMarks.css";
 
@@ -55,9 +57,11 @@ function CategoryCard({ category, order }: { category: ReportCategory; order: nu
   const band = score !== null ? getScoreBand(score) : null;
   const meaning = describeCategory(category.code);
   const metrics = visibleMetrics(category);
+  const evidence = withoutRepeatedLinks(metrics.map((metric) => metricEvidence(metric, category.evidence)));
   // Оценка уже стоит в шапке карточки: «Оценка документации: 85/100.» из summary не повторяем.
   const summary = score === null ? category.summary : summaryWithoutScore(category.summary);
   const detail = score === null ? reasonDetail(category.summary, category.reason) : null;
+  const links = score === null ? unmeasuredLinks(category) : [];
 
   return (
     <article id={`category-${category.code}`} className="category-card" style={{ "--rh-step": order } as CSSProperties}>
@@ -100,10 +104,12 @@ function CategoryCard({ category, order }: { category: ReportCategory; order: nu
         </p>
       )}
 
+      {links.length > 0 && <EvidenceLinks items={links} />}
+
       {metrics.length > 0 && (
         <ul className="category-card__metrics">
-          {metrics.map((metric) => (
-            <MetricRow key={metric.code} metric={metric} siblings={category.evidence} />
+          {metrics.map((metric, index) => (
+            <MetricRow key={metric.code} metric={metric} evidence={evidence[index]} />
           ))}
         </ul>
       )}
@@ -112,9 +118,8 @@ function CategoryCard({ category, order }: { category: ReportCategory; order: nu
   );
 }
 
-function MetricRow({ metric, siblings }: { metric: CategoryMetric; siblings: CategoryMetric[] }) {
+function MetricRow({ metric, evidence }: { metric: CategoryMetric; evidence: Evidence[] }) {
   const tone = metricTone(metric);
-  const evidence = metricEvidence(metric, siblings);
 
   return (
     <li className="category-card__metric">
