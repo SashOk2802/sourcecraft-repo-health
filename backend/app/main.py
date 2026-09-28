@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hmac
 import os
+from math import floor
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -958,7 +959,8 @@ def _badge_response(svg: str) -> Response:
 
 def _render_score_badge(snapshot: AnalysisSnapshot) -> str:
     score = snapshot.report.get("score")
-    rounded_score = round(score) if isinstance(score, (int, float)) else None
+    # Score лежит в диапазоне 0..100; floor(x + .5) совпадает с Math.round на .5.
+    rounded_score = floor(score + 0.5) if isinstance(score, (int, float)) else None
     analysis_meta = snapshot.report.get("analysis")
     is_preliminary = bool(
         isinstance(analysis_meta, dict) and analysis_meta.get("isPreliminary")
