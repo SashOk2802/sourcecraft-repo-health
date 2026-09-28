@@ -24,13 +24,13 @@ COMMIT = "a" * 40
 PRIVATE = "synthetic-private-marker"
 
 
-def finding(index: int) -> dict:
+def finding(index: int, *, engine_type: int = 3, severity: int = 3) -> dict:
     return {
         "uuid": str(UUID(int=index + 100)),
         "gitRepo": "internal-repository",
         "latestCommit": COMMIT,
-        "engineType": 3,
-        "severity": 3,
+        "engineType": engine_type,
+        "severity": severity,
         "status": 0,
         "codeBlock": PRIVATE,
         "fileName": PRIVATE,
@@ -41,6 +41,7 @@ def finding(index: int) -> dict:
 class FakeSource:
     def __init__(self, count: int = 1):
         self.items = [finding(i) for i in range(count)]
+        self.engine_items = {"SAST": self.items, "SCA": [], "SECRETS": []}
         self.scan = {
             "uuid": SCAN_ID,
             "isLatest": True,
@@ -84,7 +85,7 @@ class FakeSource:
             else:
                 assert path == "v1/defect-groups"
                 assert fields["scanUuid"] == SCAN_ID
-                items = self.items if fields["type"] == "SAST" else []
+                items = self.engine_items[fields["type"]]
                 start = int(fields.get("pageToken", 0))
                 end = start + int(fields["pageSize"])
                 payload = {
@@ -213,6 +214,38 @@ class AppSecApiTest(unittest.TestCase):
         self.assertEqual(result.status, "insufficient_sample")
         self.assertIsNone(result.score)
         self.assertIn("scan_id", result.metrics[1].evidence[0].url or "")
+
+    def test_maps_observed_numeric_engine_types_for_all_three_engines(self):
+        source = FakeSource(0)
+        source.engine_items = {
+            "SAST": [finding(0, engine_type=3, severity=3)],
+            "SCA": [finding(1, engine_type=2, severity=2)],
+            "SECRETS": [finding(2, engine_type=1, severity=1)],
+        }
+        source.items = source.engine_items["SAST"]
+        source.scan["totalDefectGroups"] = 3
+
+        sast, sca, secrets = probe(source)
+
+        summary = [
+            (result.engine, result.availability, result.finding_count)
+            for result in (sast, sca, secrets)
+        ]
+        self.assertEqual(
+            summary,
+            [("SAST", "available", 1), ("SCA", "available", 1), ("SECRETS", "available", 1)],
+        )
+        self.assertEqual(sast.finding_groups[0].severity, "HIGH")
+        self.assertEqual(sca.finding_groups[0].severity, "MEDIUM")
+        self.assertEqual(secrets.finding_groups[0].severity, "LOW")
+        self.assertTrue(all(result.completeness == "complete" for result in (sast, sca, secrets)))
+        assessment = security.evaluate(
+            build_security_facts_from_results((sast, sca, secrets)),
+            repository=RepositoryRef(REPOSITORY_ID, "example-org", "example-repo"),
+        )
+        self.assertEqual(assessment.status, "measured")
+        self.assertEqual(assessment.score, 79)
+        self.assertEqual(assessment.reason, "security_score_v1")
 
     def test_snapshot_bridge_uses_source_commit_for_complete_nonempty_data(self):
         results = probe(FakeSource())

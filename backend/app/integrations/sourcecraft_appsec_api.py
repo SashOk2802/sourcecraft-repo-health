@@ -32,6 +32,7 @@ COMMAND_ATTEMPTS = 3
 _COMMIT = re.compile(r"^[0-9a-f]{40}$")
 # Only numeric values independently matched against CLI's named JSON output
 # on 2026-09-28. Unobserved values MUST remain unknown, never guessed.
+_ENGINES = {1: "SECRETS", 2: "SCA", 3: "SAST"}
 _SEVERITIES = {1: "LOW", 2: "MEDIUM", 3: "HIGH"}
 _STATUSES = {0: "OPEN"}
 
@@ -276,10 +277,7 @@ class SourceCraftAppSecApiProbe:
         ):
             if item.get("latestCommit") != scan.commit or item.get("gitRepo") != scan.repository:
                 raise _InvalidSource
-            raw_engine = item.get("engineType")
-            if raw_engine != engine and not (
-                engine == "SAST" and type(raw_engine) is int and raw_engine == 3
-            ):
+            if _enum(item.get("engineType"), _ENGINES, APPSEC_ENGINES) != engine:
                 raise _InvalidSource
             safe_findings.append(
                 {
