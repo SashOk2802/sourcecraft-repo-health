@@ -56,6 +56,7 @@ compose.yaml         единый локальный запуск
 - [Политика регулярного пересчёта](docs/scheduling-policy.md)
 - [Правила публичного рейтинга](docs/leaderboard-policy.md)
 - [Production-анализ SourceCraft](docs/sourcecraft-production-analysis.md)
+- [Регулярное обновление AppSec snapshot](docs/appsec-snapshot-refresh.md)
 
 ## Работа в команде
 

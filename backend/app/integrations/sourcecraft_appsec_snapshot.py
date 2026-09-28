@@ -52,6 +52,7 @@ MAX_FUTURE_CLOCK_SKEW = timedelta(minutes=5)
 _SHA256_HEX_LENGTH = 64
 _SOURCECRAFT_SLUG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 _COMMIT_SHA = re.compile(r"^[0-9a-fA-F]{40}$")
+_REPOSITORY_METADATA_PROJECTION = "{id: .id, visibility: .visibility}"
 
 
 class AppSecProbe(Protocol):
@@ -223,10 +224,16 @@ class SourceCraftAppSecCliSnapshotExporter:
         directory: Path,
         *,
         reader_gid: int | None = None,
+        public_only: bool = False,
     ) -> Path:
         """Собирает safe агрегаты и записывает snapshot без raw AppSec-данных."""
 
+        if type(public_only) is not bool:
+            raise TypeError("public_only must be a boolean")
         owner, name = _parse_repository(repository)
+        repository_id = (
+            self._repository_id(owner, name, public_only=True) if public_only else None
+        )
         try:
             results = tuple(self._probe.probe_all(repository))
         except Exception as error:
@@ -241,7 +248,8 @@ class SourceCraftAppSecCliSnapshotExporter:
             raise SourceCraftAppSecSnapshotExportError(
                 "SourceCraft AppSec scan cannot be bound to a commit"
             ) from error
-        repository_id = self._repository_id(owner, name)
+        if repository_id is None:
+            repository_id = self._repository_id(owner, name, public_only=False)
         try:
             return write_snapshot(
                 directory,
@@ -254,14 +262,26 @@ class SourceCraftAppSecCliSnapshotExporter:
         except (OSError, TypeError, ValueError) as error:
             raise SourceCraftAppSecSnapshotExportError("SourceCraft AppSec snapshot cannot be bound safely") from error
 
-    def _repository_id(self, owner: str, name: str) -> str:
+    def _repository_id(self, owner: str, name: str, *, public_only: bool) -> str:
         payload = self._api_object(f"repos/{owner}/{name}")
+        if public_only and payload.get("visibility") != "public":
+            raise SourceCraftAppSecSnapshotExportError(
+                "SourceCraft repository is not confirmed public"
+            )
         return _repository_id_from_metadata(payload)
 
     def _api_object(self, path: str) -> dict[str, object]:
         """Запрашивает один безопасно сформированный JSON-объект через ``src``."""
 
-        command = [self._cli_binary, "api", "-X", "GET", path, "--json"]
+        command = [
+            self._cli_binary,
+            "api",
+            "-X",
+            "GET",
+            path,
+            "--jq",
+            _REPOSITORY_METADATA_PROJECTION,
+        ]
         try:
             completed = self._runner(
                 command,
