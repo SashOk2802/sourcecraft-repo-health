@@ -94,7 +94,13 @@ _API_CONTENT_SECURITY_POLICY = (
     "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 )
 _API_DOCUMENT_PATHS = frozenset({"/health", "/openapi.json"})
-_SENSITIVE_RESPONSE_PREFIXES = ("/api/v1/auth/", "/api/v1/me")
+_SENSITIVE_RESPONSE_PREFIXES = (
+    "/api/v1/auth/",
+    "/api/v1/me",
+    "/api/v1/connections/",
+    "/api/v1/repositories/",
+    "/api/v1/analyses/",
+)
 
 
 class SourceCraftConnectionRequest(BaseModel):

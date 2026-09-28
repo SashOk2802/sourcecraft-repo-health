@@ -70,6 +70,23 @@ class HttpSecurityTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 503)
         self.assertEqual(response.headers["cache-control"], "no-store")
 
+    async def test_personal_analysis_responses_are_never_cacheable(self) -> None:
+        requests = (
+            ("GET", "/api/v1/me"),
+            ("GET", "/api/v1/connections/sourcecraft"),
+            ("GET", "/api/v1/me/repositories"),
+            ("POST", "/api/v1/repositories/repo-1/analyses"),
+            ("GET", "/api/v1/analyses/an-1"),
+            ("GET", "/api/v1/analyses/an-1/report"),
+            ("GET", "/api/v1/analyses/an-1/report.md"),
+        )
+
+        for method, path in requests:
+            with self.subTest(method=method, path=path):
+                response = await self.client.request(method, path)
+
+                self.assertEqual(response.headers["cache-control"], "no-store")
+
     async def test_cross_origin_site_is_not_given_api_access(self) -> None:
         response = await self.client.get(
             "/api/v1/health",
