@@ -8,7 +8,7 @@ import {
   fetchSourceCraftConnection,
   type SourceCraftConnection,
 } from "../api/connections";
-import { describeError } from "../api/http";
+import { describeError, isCatalogNotConfigured } from "../api/http";
 import { fetchMyRepositories, repositoryVisibilityLabel, type MyRepository } from "../api/me";
 import { useAuth } from "../auth/AuthContext";
 import { ErrorNote, LoadingNote } from "../components/PageNotes";
@@ -80,9 +80,11 @@ function SignInInvite({ unavailable, onSignIn }: { unavailable: boolean; onSignI
 }
 
 /*
- * Сначала — список: на первом этапе это публичные репозитории из каталога сервиса, и подключать
- * для них ничего не нужно. Подключение SourceCraft по токену откроет закрытые репозитории; его
- * предлагаем, только если backend его поддерживает, и список им не загораживаем.
+ * Без подключения в списке публичные репозитории из каталога сервиса — для них подключать ничего
+ * не нужно. С подключением SourceCraft по токену backend отдаёт личный каталог: всё, что видит
+ * токен, включая закрытые и внутренние (PR #102). Форму предлагаем, только если на сервере
+ * настроено хранилище токенов, и список ею не загораживаем; после подключения список
+ * перезагружается.
  */
 function ConnectedArea() {
   const [state, reload] = useAsync(fetchSourceCraftConnection, []);
@@ -92,7 +94,10 @@ function ConnectedArea() {
     <>
       {connection?.connected && <ConnectionBar connection={connection} onDisconnected={reload} />}
       {connection && !connection.connected && <ConnectForm onConnected={reload} />}
-      <RepositoryList key={connection?.connected ? "with-connection" : "catalog"} />
+      <RepositoryList
+        key={connection?.connected ? "with-connection" : "catalog"}
+        canConnect={connection !== null && !connection.connected}
+      />
     </>
   );
 }
@@ -119,11 +124,11 @@ function ConnectForm({ onConnected }: { onConnected: () => void }) {
   return (
     <section className="card my-repos__connect">
       <Text variant="subheader-2" as="h2">
-        Закрытые репозитории — через подключение SourceCraft
+        Закрытые и внутренние репозитории — через подключение SourceCraft
       </Text>
       <Text variant="body-2" color="secondary">
-        Открытые репозитории ниже проверяются и так. Чтобы проверить закрытые, нужен личный токен SourceCraft: вход
-        через Яндекс ID доступа к ним не даёт. Создайте токен в настройках профиля SourceCraft и вставьте сюда — он
+        Открытые репозитории ниже проверяются и так. Чтобы проверить закрытые и внутренние, нужен личный токен
+        SourceCraft: вход через Яндекс ID доступа к ним не даёт. Создайте токен в настройках профиля SourceCraft и вставьте сюда — он
         уходит на наш сервер один раз, хранится зашифрованно и обратно в браузер не возвращается.
       </Text>
 
@@ -174,6 +179,7 @@ function ConnectionBar({
   onDisconnected: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
 
   return (
     <div className="my-repos__connection">
@@ -190,24 +196,43 @@ function ConnectionBar({
         loading={busy}
         onClick={() => {
           setBusy(true);
+          setError(null);
           void disconnectSourceCraft()
             .then(onDisconnected)
+            .catch((reason: unknown) => setError(reason instanceof Error ? reason : new Error(String(reason))))
             .finally(() => setBusy(false));
         }}
       >
         Отключить
       </Button>
+      {error && (
+        <Text variant="body-1" color="danger">
+          Не удалось отключить: {describeError(error)}
+        </Text>
+      )}
     </div>
   );
 }
 
-function RepositoryList() {
+/**
+ * canConnect — над списком есть форма подключения SourceCraft. Тогда сервер без каталога
+ * открытых репозиториев — не ошибка: список появится после подключения.
+ */
+function RepositoryList({ canConnect }: { canConnect: boolean }) {
   const [state, reload] = useAsync(fetchMyRepositories, []);
   const data = dataOf(state);
   const analysis = useStartAnalysis();
   const items = useRecentAnalyses(data?.items);
 
   if (!data) {
+    if (state.status === "error" && canConnect && isCatalogNotConfigured(state.error)) {
+      return (
+        <Text variant="body-2" color="secondary">
+          Открытые репозитории на этом сервере не подключены. Подключите SourceCraft по токену выше — в списке
+          появятся ваши репозитории, включая закрытые и внутренние.
+        </Text>
+      );
+    }
     return state.status === "error" ? (
       <ErrorNote title="Не удалось получить список репозиториев" error={state.error} onRetry={reload} />
     ) : (
