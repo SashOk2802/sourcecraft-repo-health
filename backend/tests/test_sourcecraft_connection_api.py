@@ -131,6 +131,37 @@ class SourceCraftConnectionApiTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.profile_client_factory.tokens, [rejected_token])
         self.assertIsNone(await self.connection_store.get(self.alex.user_id))
 
+    async def test_invalid_pat_never_appears_in_validation_response(self) -> None:
+        cases = (
+            ("overlong", {"token": "long-pat-secret-marker-" + "x" * 4096}, "long-pat-secret-marker-"),
+            ("wrong type", {"token": ["nested-pat-secret-marker"]}, "nested-pat-secret-marker"),
+        )
+        async with api_client(self.app) as client:
+            self._set_session(client, self.alex)
+            for name, payload, secret_marker in cases:
+                with self.subTest(name=name):
+                    response = await client.post(
+                        "/api/v1/connections/sourcecraft",
+                        json=payload,
+                        headers=trusted_browser_headers(self.settings),
+                    )
+                    self.assertEqual(response.status_code, 422)
+                    self.assertFalse(secret_marker in response.text, "PAT leaked in 422 response")
+                    self.assertEqual(
+                        response.json(),
+                        {"detail": "SourceCraft token has an invalid format."},
+                    )
+
+        self.assertEqual(self.profile_client_factory.tokens, [])
+        self.assertIsNone(await self.connection_store.get(self.alex.user_id))
+
+    async def test_unrelated_endpoint_keeps_standard_validation_response(self) -> None:
+        async with api_client(self.app) as client:
+            response = await client.get("/api/v1/leaderboard?page=0")
+
+        self.assertEqual(response.status_code, 422)
+        self.assertIsInstance(response.json()["detail"], list)
+
     async def test_cross_site_request_is_rejected_before_token_is_checked(self) -> None:
         secret = "sourcecraft-pat-secret-42"
         async with api_client(self.app) as client:

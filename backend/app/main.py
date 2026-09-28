@@ -10,8 +10,10 @@ from datetime import datetime
 
 import httpx
 from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse, Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from backend.app.analysis import (
     AnalysisDispatcher,
@@ -94,7 +96,7 @@ _SENSITIVE_RESPONSE_PREFIXES = ("/api/v1/auth/", "/api/v1/me")
 class SourceCraftConnectionRequest(BaseModel):
     """PAT принимается только телом POST и никогда не возвращается клиенту."""
 
-    token: str = Field(min_length=1, max_length=4096)
+    token: str
 
 
 def create_app(
@@ -207,6 +209,20 @@ def create_app(
         response = PlainTextResponse("Internal Server Error", status_code=500)
         _apply_http_security_headers(response, request.url.path)
         return response
+
+    @app.exception_handler(RequestValidationError)
+    async def safe_request_validation_error(
+        request: Request,
+        error: RequestValidationError,
+    ) -> Response:
+        """Не отражает PAT из Pydantic ``input`` при ошибке тела подключения."""
+
+        if request.method == "POST" and request.url.path == "/api/v1/connections/sourcecraft":
+            return JSONResponse(
+                status_code=422,
+                content={"detail": "SourceCraft token has an invalid format."},
+            )
+        return await request_validation_exception_handler(request, error)
 
     @app.middleware("http")
     async def apply_http_security_headers(
