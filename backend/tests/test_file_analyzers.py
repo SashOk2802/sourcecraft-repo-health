@@ -13,7 +13,7 @@ from backend.app.contracts import (
     RecommendationPriority,
     RepositoryRef,
 )
-from backend.app.integrations.git_repository import LocalGitRepository
+from backend.app.integrations.git_repository import GitCloneError, LocalGitRepository
 
 
 class FileAnalyzersTest(unittest.TestCase):
@@ -58,6 +58,88 @@ class FileAnalyzersTest(unittest.TestCase):
             {metric.code for metric in code_health_result.metrics},
             {"total_analyzed_files", "todo_count", "fixme_count"},
         )
+
+    def test_run_instruction_heading_may_start_with_the_keyword(self) -> None:
+        """Заголовок «## Запуск» — инструкция, а «latest runtime» — нет."""
+        with_heading = evaluate_documentation({"README.md": "# Demo\n\n## Запуск\n"})
+        with_prefix = evaluate_documentation({"README.md": "# Demo\n\n## Как запустить проект\n"})
+        false_positive = evaluate_documentation(
+            {"README.md": "# Demo\n\nThe latest runtime is already documented.\n"}
+        )
+        with_command = evaluate_documentation(
+            {"README.md": "# Demo\n\n```bash\npytest\n```\n"}
+        )
+
+        self.assertEqual(with_heading.score, 50)
+        self.assertEqual(with_prefix.score, 50)
+        self.assertNotIn("doc_missing_has_shortcuts", recommendation_codes(with_heading))
+        self.assertEqual(false_positive.score, 35)
+        self.assertIn("doc_missing_has_shortcuts", recommendation_codes(false_positive))
+        self.assertEqual(with_command.score, 50)
+        self.assertNotIn("doc_missing_has_shortcuts", recommendation_codes(with_command))
+
+    def test_missing_regulations_are_a_low_score_not_missing_data(self) -> None:
+        result = evaluate_documentation({})
+
+        self.assertIs(result.status, DataStatus.MEASURED)
+        self.assertEqual(result.score, 15)
+        self.assertEqual(
+            recommendation_codes(result),
+            {
+                "doc_missing_has_readme",
+                "doc_missing_has_contributing",
+                "doc_missing_has_license",
+                "doc_missing_has_codeowners",
+            },
+        )
+        readme = next(item for item in result.recommendations if item.code == "doc_missing_has_readme")
+        self.assertIs(readme.priority, RecommendationPriority.P1)
+        self.assertEqual(readme.expected_score_delta, documentation.PENALTY_README)
+        self.assertTrue(readme.evidence)
+
+    def test_missing_readme_does_not_add_a_second_instructions_penalty(self) -> None:
+        result = evaluate_documentation({"CONTRIBUTING.md": "# Правила\n", "LICENSE": "MIT\n"})
+
+        self.assertEqual(result.score, 50)
+        self.assertNotIn("doc_missing_has_shortcuts", recommendation_codes(result))
+        self.assertNotIn("has_shortcuts", {metric.code for metric in result.metrics})
+
+    def test_alternate_regulation_paths_score_full_marks(self) -> None:
+        result = evaluate_documentation(
+            {
+                "README.rst": "Demo\n\n## Testing\n",
+                "CONTRIBUTING.md": "# Правила\n",
+                "LICENSE.txt": "MIT\n",
+                ".github/CODEOWNERS": "* @team\n",
+            }
+        )
+
+        self.assertEqual(result.score, 100)
+        self.assertEqual(result.recommendations, ())
+
+    def test_documentation_error_fact_is_not_a_zero_score(self) -> None:
+        result = documentation.evaluate(analysis_context(), {"error": "clone failed"})
+
+        self.assertIs(result.status, DataStatus.ERROR)
+        self.assertIsNone(result.score)
+        self.assertEqual(result.reason, "clone failed")
+
+    def test_file_exists_requires_a_real_file_inside_the_workspace(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            (root / "README.md").write_text("ok\n", encoding="utf-8")
+            repository = LocalGitRepository("https://sourcecraft.dev/team/platform-api.git")
+            repository.temp_dir = temporary_directory
+
+            self.assertTrue(repository.file_exists("README.md"))
+            self.assertFalse(repository.file_exists("LICENSE"))
+            self.assertFalse(repository.file_exists("../outside.txt"))
+
+    def test_documentation_collect_refuses_an_unprepared_workspace(self) -> None:
+        repository = LocalGitRepository("https://sourcecraft.dev/team/platform-api.git")
+
+        with self.assertRaises(GitCloneError):
+            documentation.collect(repository)
 
     def test_code_health_small_repo_single_marker_density_semantics(self) -> None:
         """Одинокий FIXME в репозитории из 1–5 файлов обнуляет категорию (V.1).
@@ -127,6 +209,98 @@ class FileAnalyzersTest(unittest.TestCase):
         above_threshold = recommendation_for(code_health.FIXME_CRITICAL_COUNT + 1)
         self.assertEqual(above_threshold.priority, RecommendationPriority.P1)
         self.assertIn("опасный", above_threshold.rationale)
+
+    def test_repository_without_source_files_is_not_applicable(self) -> None:
+        result = evaluate_code_health({"README.md": "TODO: this is not source code\n"})
+
+        self.assertIs(result.status, DataStatus.NOT_APPLICABLE)
+        self.assertIsNone(result.score)
+        self.assertEqual(result.recommendations, ())
+
+    def test_vendor_and_dependencies_do_not_create_debt(self) -> None:
+        result = evaluate_code_health(
+            {
+                "node_modules/left-pad.js": "// TODO: ignore\n// FIXME: ignore\n",
+                "vendor/lib.go": "// TODO: ignore\n",
+                "app.py": "print('ok')\n",
+            }
+        )
+
+        self.assertIs(result.status, DataStatus.MEASURED)
+        self.assertEqual(result.score, 100)
+        self.assertEqual(result.recommendations, ())
+        todo_count = next(metric for metric in result.metrics if metric.code == "todo_count")
+        total_files = next(metric for metric in result.metrics if metric.code == "total_analyzed_files")
+        self.assertEqual(todo_count.value, 0)
+        self.assertEqual(total_files.value, 1)
+
+    def test_todo_recommendation_starts_above_fifteen_markers(self) -> None:
+        context = analysis_context()
+
+        def result_for(todo_count: int):
+            return code_health.evaluate(
+                context,
+                {
+                    "total_files": 100,
+                    "todo_count": todo_count,
+                    "fixme_count": 0,
+                    "files_with_debt": 1,
+                },
+            )
+
+        at_threshold = result_for(code_health.TODO_RECOMMENDATION_THRESHOLD)
+        above_threshold = result_for(code_health.TODO_RECOMMENDATION_THRESHOLD + 1)
+
+        self.assertEqual(recommendation_codes(at_threshold), set())
+        self.assertEqual(recommendation_codes(above_threshold), {"code_health_clear_todos"})
+        self.assertIs(above_threshold.recommendations[0].priority, RecommendationPriority.P3)
+
+    def test_fixme_evidence_points_at_the_source_line(self) -> None:
+        result = evaluate_code_health({"src/app.py": "x = 1\n# FIXME: retry\n"})
+        recommendation = result.recommendations[0]
+
+        self.assertEqual(recommendation.code, "code_health_resolve_fixme")
+        self.assertEqual(recommendation.evidence[0].reference, "src/app.py:2")
+
+    def test_code_health_error_fact_is_not_a_zero_score(self) -> None:
+        result = code_health.evaluate(analysis_context(), {"error": "clone failed"})
+
+        self.assertIs(result.status, DataStatus.ERROR)
+        self.assertIsNone(result.score)
+        self.assertEqual(result.reason, "clone failed")
+
+    def test_code_health_collect_refuses_an_unprepared_workspace(self) -> None:
+        repository = LocalGitRepository("https://sourcecraft.dev/team/platform-api.git")
+
+        with self.assertRaises(GitCloneError):
+            code_health.collect(repository)
+
+
+def evaluate_documentation(files: dict[str, str]):
+    with tempfile.TemporaryDirectory() as temporary_directory:
+        repository = repository_from_files(temporary_directory, files)
+        return documentation.evaluate(analysis_context(), documentation.collect(repository))
+
+
+def evaluate_code_health(files: dict[str, str]):
+    with tempfile.TemporaryDirectory() as temporary_directory:
+        repository = repository_from_files(temporary_directory, files)
+        return code_health.evaluate(analysis_context(), code_health.collect(repository))
+
+
+def recommendation_codes(result) -> set[str]:
+    return {recommendation.code for recommendation in result.recommendations}
+
+
+def repository_from_files(temporary_directory: str, files: dict[str, str]) -> LocalGitRepository:
+    root = Path(temporary_directory)
+    for relative, content in files.items():
+        path = root.joinpath(*relative.split("/"))
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+    repository = LocalGitRepository("https://sourcecraft.dev/team/platform-api.git")
+    repository.temp_dir = temporary_directory
+    return repository
 
 
 def analysis_context() -> AnalysisContext:

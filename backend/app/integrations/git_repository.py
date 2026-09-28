@@ -155,10 +155,16 @@ class LocalGitRepository:
             raise
 
     def file_exists(self, relative_path: str) -> bool:
-        """Проверяет наличие файла по относительному пути от корня репозитория."""
+        """Проверяет наличие файла по относительному пути от корня репозитория.
+
+        Путь внутри рабочей области сам по себе не означает, что файл есть:
+        отсутствующий README или LICENSE — это плохая документация, а не
+        скрытое совпадение.
+        """
         if not self.temp_dir:
             return False
-        return self._resolve_within_temp(relative_path) is not None
+        full_path = self._resolve_within_temp(relative_path)
+        return full_path is not None and os.path.isfile(full_path)
 
     def read_file(self, relative_path: str) -> str | None:
         """Безопасно читает содержимое файла (делегирует read_file_safe).

@@ -52,7 +52,7 @@ EXCLUDED_DIRECTORIES = {
 }
 
 # Плотность долга: штрафные баллы за маркер, нормированные на число файлов.
-# Величины задокументированы в docs/scoring-methodology.md §5 (источник правды
+# Величины задокументированы в docs/scoring-methodology.md §4.3 (источник правды
 # для экрана «Как считаем» — этот документ, а не только код).
 FIXME_PENALTY_PER_MARKER = 5.0
 TODO_PENALTY_PER_MARKER = 1.0
