@@ -27,7 +27,7 @@ CODEOWNERS_PATHS = ("CODEOWNERS", ".github/CODEOWNERS", "docs/CODEOWNERS")
 LICENSE_PATHS = ("LICENSE", "LICENSE.md", "LICENSE.txt", "COPYING", "LICENCE")
 
 # Штрафы за отсутствие регламентов (источник правды для «Как считаем» —
-# docs/scoring-methodology.md §5; здесь значения должны совпадать).
+# docs/scoring-methodology.md §4.4; здесь значения должны совпадать).
 PENALTY_README = 35.0
 PENALTY_CONTRIBUTING = 20.0
 PENALTY_LICENSE = 15.0
@@ -37,7 +37,7 @@ PENALTY_INSTRUCTIONS = 15.0
 # Заголовки, посвящённые запуску/тестированию проекта: настоящий сигнал раздела,
 # а не подстрока в тексте ("test" внутри "latest", "run" внутри "runtime").
 _SECTION_HEADING = re.compile(
-    r"^\s{0,3}#{1,6}\s+.+\b("
+    r"^\s{0,3}#{1,6}\s+.*\b("
     r"how\s+to\s+(run|test|start)"
     r"|getting\s+started"
     r"|quick\s+start"
@@ -116,8 +116,10 @@ def _has_run_instructions(readme_content: str) -> bool:
 
     Сигналом считается тематический заголовок или fenced code block с командой
     запуска/тестов. Голое слово «latest» или «runtime» в тексте сигналом
-    не является.
+    не является. Перед поиском переводы строк Windows приводятся к LF:
+    иначе шаблон fenced-блока не видит команду после метки языка.
     """
+    readme_content = readme_content.replace("\r\n", "\n").replace("\r", "\n")
     if not readme_content.strip():
         return False
     if _SECTION_HEADING.search(readme_content):
@@ -207,6 +209,12 @@ def evaluate(context: AnalysisContext, raw_data: dict) -> CategoryResult:
 
         if not has_file:
             score -= penalty
+            # Пока README нет, штраф за инструкции не начисляется. Файл без
+            # раздела запуска сразу включает этот штраф, поэтому обещанный
+            # прирост меньше штрафа за README на PENALTY_INSTRUCTIONS.
+            expected_delta = penalty
+            if key == "has_readme":
+                expected_delta = PENALTY_README - PENALTY_INSTRUCTIONS
             recommendations.append(
                 Recommendation(
                     code=f"doc_missing_{key}",
@@ -214,7 +222,7 @@ def evaluate(context: AnalysisContext, raw_data: dict) -> CategoryResult:
                     problem=f"В репозитории проекта отсутствует или не заполнен {label}.",
                     action=rec_msg,
                     rationale="Качественная техническая документация и прозрачные правила снижают TTM и упрощают онбординг.",
-                    expected_score_delta=penalty,
+                    expected_score_delta=expected_delta,
                     evidence=evidence,
                 )
             )
