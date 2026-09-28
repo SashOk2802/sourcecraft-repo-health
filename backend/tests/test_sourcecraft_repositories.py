@@ -1,4 +1,4 @@
-"""Проверяет каталог SourceCraft без сети и приватных репозиториев."""
+"""Проверяет публичный и личный каталоги SourceCraft без сети."""
 
 from __future__ import annotations
 
@@ -77,6 +77,33 @@ class SourceCraftRepositoryCatalogClientTest(unittest.TestCase):
         self.assertEqual(requests[0].url.params["page_size"], str(REPOSITORY_PAGE_SIZE))
         self.assertNotIn("page_token", requests[0].url.params)
         self.assertEqual(requests[1].url.params["page_token"], "page-2")
+
+    def test_personal_catalog_uses_me_endpoint_and_accepts_multiple_organizations(self) -> None:
+        client = Mock(spec=SourceCraftClient)
+        first = _repository_payload("repository-1", "first")
+        second = _repository_payload("repository-2", "second")
+        second["organization"] = {"id": "organization-2", "slug": "another-org"}
+        second["web_url"] = "https://sourcecraft.dev/another-org/second"
+        client.get_paginated_objects.return_value = [first, second]
+
+        repositories = SourceCraftRepositoryCatalogClient(
+            client
+        ).list_personal_repositories()
+
+        self.assertEqual(
+            [(repository.organization_slug, repository.slug) for repository in repositories],
+            [("example-org", "first"), ("another-org", "second")],
+        )
+        self.assertEqual(
+            {repository.visibility for repository in repositories},
+            {"private"},
+        )
+        client.get_paginated_objects.assert_called_once_with(
+            "/me/repos",
+            items_field="repositories",
+            page_size=REPOSITORY_PAGE_SIZE,
+            max_pages=REPOSITORY_MAX_PAGES,
+        )
 
     def test_observed_fixture_maps_only_required_catalog_fields(self) -> None:
         payload = json.loads(_FIXTURE.read_text(encoding="utf-8"))

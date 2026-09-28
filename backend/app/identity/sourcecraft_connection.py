@@ -23,6 +23,10 @@ from backend.app.integrations.sourcecraft import (
     SourceCraftClient,
     SourceCraftClientError,
 )
+from backend.app.integrations.sourcecraft_repositories import (
+    SourceCraftRepository,
+    SourceCraftRepositoryCatalogClient,
+)
 
 _CONTROL_CHARACTERS = re.compile(r"[\x00-\x1f\x7f-\x9f]")
 _MAX_TOKEN_LENGTH = 4096
@@ -327,6 +331,49 @@ class SourceCraftConnectionService:
             raise SourceCraftConnectionUnavailableError(
                 "SourceCraft connection client could not be created"
             ) from None
+        finally:
+            token = ""
+
+    async def list_repositories(
+        self,
+        user_id: str,
+    ) -> tuple[SourceCraftRepository, ...] | None:
+        """Читает личный каталог, не возвращая PAT за пределы сервиса."""
+
+        record = await self._store.get(_validate_user_id(user_id))
+        if record is None:
+            return None
+        return await asyncio.to_thread(
+            self._list_repositories,
+            record.encrypted_token,
+        )
+
+    def _list_repositories(
+        self,
+        encrypted_token: bytes,
+    ) -> tuple[SourceCraftRepository, ...]:
+        token = self._vault.decrypt(encrypted_token)
+        try:
+            try:
+                client = self._sourcecraft_client_factory(token)
+            except (TypeError, ValueError):
+                raise SourceCraftConnectionUnavailableError(
+                    "SourceCraft personal repository catalog is unavailable"
+                ) from None
+            try:
+                return SourceCraftRepositoryCatalogClient(
+                    client
+                ).list_personal_repositories()
+            except SourceCraftAuthenticationError as error:
+                raise SourceCraftConnectionRejectedError(
+                    "SourceCraft rejected the stored token"
+                ) from error
+            except SourceCraftClientError as error:
+                raise SourceCraftConnectionUnavailableError(
+                    "SourceCraft personal repository catalog is unavailable"
+                ) from error
+            finally:
+                client.close()
         finally:
             token = ""
 
