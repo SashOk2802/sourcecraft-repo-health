@@ -59,14 +59,14 @@ subject сессии инициатора (`owner_subject`), статус, вр�
 `POST /api/v1/repositories/{repository_id}/analyses` принимает запрос только
 при настроенной аутентификации. HTTP-слой получает проверенный
 `AnalysisPrincipal` и передаёт его в dispatcher; в principal нет токенов и иных
-секретов: subject сессии Яндекс ID. Resolver до чтения репозитория требует
-Bearer SourceCraft в этом запросе и не сверяет его с subject. Отказ SourceCraft
-403 — `403`. Нет сессии — `401` с текстом `Authentication required.`. Нет Bearer
-на пользовательском запуске — `401` с текстом `SourceCraft token is required.`.
-Отклонённый токен SourceCraft — `401` с текстом `SourceCraft rejected the token.`.
-Ограничение частоты — `429`,
-непригодный снимок, включая чужой id репозитория, — `502`, недоступный
-SourceCraft — `503`.
+секретов: subject сессии Яндекс ID. Planner на сервере проверяет, есть ли у
+этого subject личное подключение SourceCraft. При наличии подключения он
+выпускает короткоживущий зашифрованный lease и проверяет доступ к репозиторию
+личным PAT. Браузер передаёт только `repository_id`. Нет сессии — `401` с
+текстом `Authentication required.`. Отклонённый сохранённый PAT — `401` с
+текстом `SourceCraft rejected the token.`. Нет подключения и нет доступа через
+public fallback — `409`. Ограничение частоты — `429`, непригодный снимок —
+`502`, недоступный SourceCraft или повреждённое подключение — `503`.
 
 `GET /api/v1/analyses/{analysis_id}` даёт frontend возможность опрашивать
 queued, running и terminal-состояния.
@@ -80,23 +80,23 @@ FastAPI. Он получает авторизованный контекст р�
 блокирует event loop и endpoint состояния продолжает отвечать.
 
 `create_app()` без dispatcher и без аутентификации отвечает `503`. Рабочий
-процесс вызывает `create_app()`: при заданных `SOURCECRAFT_TOKEN` и
-`SOURCECRAFT_PUBLIC_ORGANIZATIONS` он ставит public-resolver и все шесть
-категорий. Private и internal этот путь не анализирует, даже если сервисный
-токен их видит. `create_sourcecraft_app()` остаётся отдельной сборкой
-пользовательского Bearer для Activity и Issues и входом процесса не является.
-Жизненный цикл FastAPI сам вызывает `dispatcher.start()` и `dispatcher.close()`.
+процесс вызывает `create_app()` и выбирает personal/public режим только по
+server-side состоянию. Сервисный токен public fallback не открывает
+private/internal, даже если сам имеет к ним доступ. `create_sourcecraft_app()`
+остаётся отдельной тестовой сборкой старого Bearer-пути и входом процесса не
+является. Жизненный цикл FastAPI сам вызывает `dispatcher.start()` и
+`dispatcher.close()`.
 
-Principal — это `user.id` сессии Яндекс ID. На пользовательском пути
-`Authorization: Bearer` несёт только токен SourceCraft и в subject не копируется.
-`SourceCraftRepositoryContextResolver` проверяет, что Bearer привязан к запросу,
-затем читает `GET /repos/id:{repository_id}` и commit ветки по умолчанию:
-`filter` по имени ветки и не больше 100 страниц. Период анализа — 180 дней.
-Сервисный токен процесса для этого пути не используется.
+Principal — это `user.id` сессии Яндекс ID. Personal planner сверяет владельца
+lease с этим subject, затем читает `GET /repos/id:{repository_id}` и commit
+ветки по умолчанию: `filter` по имени ветки и не больше 100 страниц. Период
+анализа — 180 дней. Activity, Issues и CI/CD открывают личный API-клиент только
+на время сбора. Documentation и Code health используют один ограниченный
+временный Git-workspace. Security получает только безопасный AppSec snapshot.
+Plaintext PAT не сохраняется в principal, context, job, отчёт или PostgreSQL.
 
-На пользовательском пути подключены категории activity и issues. Рабочий
-процесс регистрирует все шесть категорий. Незарегистрированная категория
-по-прежнему получает `analyzer_not_configured`.
+После рестарта незавершённое personal-задание завершается с
+`worker_interrupted`: worker не восстанавливает его через сохранённый PAT.
 При переходе к отдельному worker или очереди нужно сохранить HTTP-контракт,
 передавать проверенный principal или безопасную ссылку на него и заменить
 recovery на requeue с устойчивой доставкой.
