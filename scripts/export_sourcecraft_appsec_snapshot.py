@@ -22,6 +22,7 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from backend.app.integrations.sourcecraft_appsec_api import SourceCraftAppSecApiProbe
 from backend.app.integrations.sourcecraft_appsec_probe import SourceCraftAppSecCliProbe
 from backend.app.integrations.sourcecraft_appsec_snapshot import (
     DEFAULT_SNAPSHOT_READER_GID,
@@ -35,6 +36,10 @@ def build_parser() -> argparse.ArgumentParser:
         description="Создать безопасный AppSec snapshot для SourceCraft Repo Health."
     )
     parser.add_argument("repository", help="репозиторий в формате OWNER/REPOSITORY")
+    parser.add_argument(
+        "--appsec-env",
+        help="локальный профиль src для полного AppSec API (без него — ограниченный CLI-зонд)",
+    )
     parser.add_argument(
         "--output-dir",
         required=True,
@@ -67,9 +72,11 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        probe = SourceCraftAppSecCliProbe(
-            cli_binary=args.src_bin,
-            timeout_seconds=args.timeout,
+        options = {"cli_binary": args.src_bin, "timeout_seconds": args.timeout}
+        probe = (
+            SourceCraftAppSecApiProbe(appsec_environment=args.appsec_env, **options)
+            if args.appsec_env
+            else SourceCraftAppSecCliProbe(**options)
         )
         destination = SourceCraftAppSecCliSnapshotExporter(
             probe,
