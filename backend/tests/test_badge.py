@@ -5,6 +5,7 @@ from __future__ import annotations
 import unittest
 from dataclasses import replace
 from datetime import UTC, datetime
+from unittest import mock
 
 import httpx
 
@@ -13,7 +14,7 @@ from backend.app.analysis.runner import AnalysisExecution
 from backend.app.analysis.store import InMemoryAnalysisStore
 from backend.app.contracts import AnalysisContext, RepositoryRef
 from backend.app.main import create_app
-from backend.app.reporting.badge import render_score_badge
+from backend.app.reporting.badge import _estimate_text_width, render_score_badge
 
 
 def _sample_execution(
@@ -22,6 +23,7 @@ def _sample_execution(
     organization_slug: str = "test-org",
     repository_slug: str = "test-repo",
     score: int | None = 85,
+    is_preliminary: bool = False,
 ) -> AnalysisExecution:
     analyzed_at = datetime(2026, 9, 28, 12, 0, tzinfo=UTC)
     context = AnalysisContext(
@@ -35,6 +37,7 @@ def _sample_execution(
     return replace(
         execution,
         analysis=replace(execution.analysis, score=score),
+        score_summary=replace(execution.score_summary, is_preliminary=is_preliminary),
     )
 
 
@@ -61,6 +64,17 @@ class ScoreBadgeTest(unittest.TestCase):
         svg = render_score_badge(None, is_preliminary=True)
         self.assertIn("#0969da", svg)
         self.assertIn("preliminary", svg)
+
+    def test_preliminary_takes_precedence_over_score(self) -> None:
+        svg = render_score_badge(85, is_preliminary=True)
+        self.assertIn("#0969da", svg)
+        self.assertIn("preliminary", svg)
+        self.assertNotIn("85/100", svg)
+
+    def test_estimate_text_width_with_unicode(self) -> None:
+        ascii_width = _estimate_text_width("status")
+        cyrillic_width = _estimate_text_width("статус")
+        self.assertGreater(cyrillic_width, ascii_width)
 
     def test_no_data_badge_is_gray(self) -> None:
         svg = render_score_badge(None, is_preliminary=False)
@@ -141,3 +155,24 @@ class BadgeApiTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("image/svg+xml", response.headers.get("content-type", ""))
         self.assertIn("unknown", response.text)
         self.assertIn("#6a737d", response.text)
+
+    async def test_badge_cache_control_not_overwritten_by_sensitive_prefixes(self) -> None:
+        execution = _sample_execution(score=92)
+        await self.store.save("analysis-1", execution)
+
+        sensitive_with_badges = (
+            "/api/v1/auth/",
+            "/api/v1/me",
+            "/api/v1/connections/",
+            "/api/v1/repositories/",
+            "/api/v1/analyses/",
+        )
+        with mock.patch("backend.app.main._SENSITIVE_RESPONSE_PREFIXES", sensitive_with_badges):
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=self.app), base_url="http://testserver"
+            ) as client:
+                response = await client.get("/api/v1/analyses/analysis-1/badge.svg")
+
+            self.assertEqual(response.status_code, 200)
+            self.assertIn("public, max-age=300", response.headers.get("cache-control", ""))
+            self.assertNotIn("no-store", response.headers.get("cache-control", ""))

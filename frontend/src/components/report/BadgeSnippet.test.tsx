@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import type { RepositoryReport } from "../../api/report";
-import { BadgeSnippet } from "./BadgeSnippet";
+import { BadgeSnippet, buildBadgeSnippets } from "./BadgeSnippet";
 
 const sampleReport: RepositoryReport = {
   repository: {
@@ -36,5 +36,51 @@ describe("BadgeSnippet", () => {
     const html = renderToStaticMarkup(<BadgeSnippet report={sampleReport} />);
 
     expect(html).toContain("Бейдж для README");
+  });
+
+  it("builds correct badge URLs and markdown/HTML snippets with baseUrl", () => {
+    const snippets = buildBadgeSnippets(sampleReport, "https://repo-health.example.com");
+
+    expect(snippets.repoBadgeUrl).toBe(
+      "https://repo-health.example.com/api/v1/repositories/test-org/test-repo/badge.svg",
+    );
+    expect(snippets.analysisPageUrl).toBe(
+      "https://repo-health.example.com/analyses/analysis-99",
+    );
+    expect(snippets.markdownSnippet).toBe(
+      "[![Repo Health](https://repo-health.example.com/api/v1/repositories/test-org/test-repo/badge.svg)](https://repo-health.example.com/analyses/analysis-99)",
+    );
+    expect(snippets.htmlSnippet).toBe(
+      '<a href="https://repo-health.example.com/analyses/analysis-99"><img src="https://repo-health.example.com/api/v1/repositories/test-org/test-repo/badge.svg" alt="Repo Health"></a>',
+    );
+  });
+
+  it("properly URI-encodes special characters in slugs", () => {
+    const specialReport: RepositoryReport = {
+      ...sampleReport,
+      repository: {
+        ...sampleReport.repository,
+        organizationSlug: "team/alpha",
+        repositorySlug: "project space",
+      },
+    };
+
+    const snippets = buildBadgeSnippets(specialReport, "https://example.com");
+
+    expect(snippets.repoBadgeUrl).toBe(
+      "https://example.com/api/v1/repositories/team%2Falpha/project%20space/badge.svg",
+    );
+  });
+
+  it("renders opened modal with preview and all three copy sections", () => {
+    const html = renderToStaticMarkup(<BadgeSnippet report={sampleReport} defaultOpen />);
+
+    expect(html).toContain("Бейдж для README");
+    expect(html).toContain("Предпросмотр:");
+    expect(html).toContain("Markdown (рекомендуется для README.md)");
+    expect(html).toContain("HTML");
+    expect(html).toContain("Прямая ссылка на SVG");
+    expect(html).toContain("test-org/test-repo/badge.svg");
+    expect(html).toContain("Копировать");
   });
 });

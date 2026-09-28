@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from unittest import mock
 
 from backend.app.analysis import InMemoryAnalysisStore, run_analysis
 from backend.app.contracts import AnalysisContext, RepositoryRef
@@ -119,3 +120,7 @@ class InMemoryAnalysisStoreTest(unittest.IsolatedAsyncioTestCase):
 
         missing = await store.get_latest_for_repository_slug("unknown-org", "unknown-repo")
         self.assertIsNone(missing)
+
+        with mock.patch("backend.app.analysis.store._latest_snapshots", return_value=()):
+            empty_result = await store.get_latest_for_repository_slug("team", "repository-repo-42")
+            self.assertIsNone(empty_result)

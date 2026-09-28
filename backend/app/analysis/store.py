@@ -126,7 +126,8 @@ class InMemoryAnalysisStore:
             ]
         if not matches:
             return None
-        return _latest_snapshots(matches)[0]
+        result = _latest_snapshots(matches)
+        return max(result, key=_snapshot_order_key) if result else None
 
 
 class PostgresAnalysisStore:

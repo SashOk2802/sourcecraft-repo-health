@@ -13,10 +13,18 @@ _COLOR_UNKNOWN = "#6a737d"  # Нет данных / неизвестно
 
 
 def _estimate_text_width(text: str) -> int:
-    """Приблизительная ширина текста при шрифте 11px Verdana/DejaVu."""
+    """Приблизительная ширина текста при шрифте 11px Verdana/DejaVu.
+
+    Эвристика оптимизирована для латинских символов (стиль Shields.io).
+    Не-ASCII символы (например, кириллица) имеют более широкие глифы (~9-11px),
+    поэтому для них используется ширина 10px. Для кастомных label рекомендуется
+    использовать латиницу.
+    """
     width = 0
     for char in text:
-        if char in "mwMW":
+        if ord(char) > 127:
+            width += 10
+        elif char in "mwMW":
             width += 9
         elif char in "ijltI.: ":
             width += 4
@@ -40,6 +48,9 @@ def render_score_badge(
     if value_override is not None:
         value = value_override
         color = color_override or _COLOR_UNKNOWN
+    elif is_preliminary:
+        value = "preliminary"
+        color = _COLOR_PRELIMINARY
     elif score is not None:
         value = f"{score}/100"
         if score >= 80:
@@ -48,9 +59,6 @@ def render_score_badge(
             color = _COLOR_WARNING
         else:
             color = _COLOR_DANGER
-    elif is_preliminary:
-        value = "preliminary"
-        color = _COLOR_PRELIMINARY
     else:
         value = "no data"
         color = _COLOR_UNKNOWN

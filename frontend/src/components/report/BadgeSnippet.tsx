@@ -5,16 +5,23 @@ import { useState } from "react";
 import type { RepositoryReport } from "../../api/report";
 import "./BadgeSnippet.css";
 
-interface BadgeSnippetProps {
-  report: RepositoryReport;
+export function getAppOrigin(): string {
+  const envOrigin =
+    (typeof import.meta !== "undefined" &&
+      (import.meta.env?.VITE_API_BASE_URL || import.meta.env?.VITE_PUBLIC_URL)) ||
+    "";
+  if (envOrigin) {
+    return envOrigin.replace(/\/+$/, "");
+  }
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return window.location.origin;
+  }
+  return "";
 }
 
-export function BadgeSnippet({ report }: BadgeSnippetProps) {
-  const [open, setOpen] = useState(false);
-  const [copiedKey, setCopiedKey] = useState<string | null>(null);
-
+export function buildBadgeSnippets(report: RepositoryReport, baseUrl?: string) {
   const { repository, analysis } = report;
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const origin = baseUrl !== undefined ? baseUrl.replace(/\/+$/, "") : getAppOrigin();
   const repoBadgeUrl = `${origin}/api/v1/repositories/${encodeURIComponent(
     repository.organizationSlug,
   )}/${encodeURIComponent(repository.repositorySlug)}/badge.svg`;
@@ -22,6 +29,25 @@ export function BadgeSnippet({ report }: BadgeSnippetProps) {
 
   const markdownSnippet = `[![Repo Health](${repoBadgeUrl})](${analysisPageUrl})`;
   const htmlSnippet = `<a href="${analysisPageUrl}"><img src="${repoBadgeUrl}" alt="Repo Health"></a>`;
+
+  return {
+    repoBadgeUrl,
+    analysisPageUrl,
+    markdownSnippet,
+    htmlSnippet,
+  };
+}
+
+export interface BadgeSnippetProps {
+  report: RepositoryReport;
+  defaultOpen?: boolean;
+}
+
+export function BadgeSnippet({ report, defaultOpen = false }: BadgeSnippetProps) {
+  const [open, setOpen] = useState(defaultOpen);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  const { repoBadgeUrl, markdownSnippet, htmlSnippet } = buildBadgeSnippets(report);
 
   async function copyToClipboard(text: string, key: string): Promise<void> {
     try {

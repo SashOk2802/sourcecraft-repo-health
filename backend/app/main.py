@@ -950,21 +950,17 @@ def _apply_http_security_headers(response: Response, path: str) -> None:
     if path.endswith("/badge.svg"):
         response.headers["Cross-Origin-Resource-Policy"] = "cross-origin"
         response.headers["Access-Control-Allow-Origin"] = "*"
-        response.headers.setdefault("Cache-Control", "public, max-age=300, s-maxage=300")
+        response.headers["Cache-Control"] = "public, max-age=300, s-maxage=300"
         return
 
     if path.startswith("/api/") or path in _API_DOCUMENT_PATHS:
         response.headers.setdefault("Content-Security-Policy", _API_CONTENT_SECURITY_POLICY)
-    if path.startswith(_SENSITIVE_RESPONSE_PREFIXES):
+    if path.startswith(_SENSITIVE_RESPONSE_PREFIXES) and not path.endswith("/badge.svg"):
         response.headers["Cache-Control"] = "no-store"
 
 
 def _badge_response(svg: str) -> Response:
-    response = Response(content=svg, media_type="image/svg+xml")
-    response.headers["Cache-Control"] = "public, max-age=300, s-maxage=300"
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Cross-Origin-Resource-Policy"] = "cross-origin"
-    return response
+    return Response(content=svg, media_type="image/svg+xml")
 
 
 def _normalize_analysis_id(analysis_id: str) -> str:
