@@ -1,0 +1,58 @@
+# SourceCraft CI mirrors the portable checks from GitHub Actions. PostgreSQL
+# integration and Docker Compose checks stay in GitHub Actions because they need
+# service containers and a Docker daemon.
+on:
+  pull_request:
+    - workflows: [quality-and-security]
+      filter:
+        source_branches: ["**"]
+        target_branches: ["main"]
+  push:
+    - workflows: [quality-and-security]
+      filter:
+        branches: ["main"]
+
+workflows:
+  quality-and-security:
+    checkout:
+      remove_credentials: true
+    settings:
+      max_cube_duration: 15m
+    tasks:
+      - name: backend
+        cubes:
+          - name: backend-tests-and-ruff
+            image: python:3.12-slim@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83de48e70534b94cd8ebbe06a9
+            script:
+              - python -m pip install --disable-pip-version-check --no-cache-dir -e ".[dev]"
+              - python -m unittest discover -s backend/tests -v
+              - ruff check backend --ignore EXE002
+
+      - name: frontend
+        cubes:
+          - name: frontend-tests-and-build
+            image: node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402
+            script:
+              - cd frontend
+              - npm ci
+              - npm run check
+              - npm test
+              - npm run build
+
+      - name: python-security
+        cubes:
+          - name: sast-and-dependency-audit
+            image: python:3.12-slim@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83de48e70534b94cd8ebbe06a9
+            script:
+              - python -m pip install --disable-pip-version-check --no-cache-dir pip==26.2.1 bandit==1.9.4 pip-audit==2.10.1
+              - python -m pip install --disable-pip-version-check --no-cache-dir -e ".[dev]"
+              - bandit -r backend/app --severity-level medium --confidence-level medium --ignore-nosec
+              - python -m pip_audit --local --skip-editable
+
+      - name: frontend-security
+        cubes:
+          - name: dependency-audit
+            image: node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402
+            script:
+              - cd frontend
+              - npm audit --package-lock-only --audit-level=high

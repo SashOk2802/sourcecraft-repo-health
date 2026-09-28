@@ -43,6 +43,8 @@ compose.yaml         единый локальный запуск
 
 ## Документация
 
+- [CI в SourceCraft](docs/sourcecraft-ci.md)
+
 - [Архитектура](docs/architecture-proposal.md)
 - [Методика Score v2](docs/scoring-methodology.md)
 - [Распределение ролей backend-команды](docs/backend-team-roles.md)
