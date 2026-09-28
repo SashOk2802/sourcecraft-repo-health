@@ -119,7 +119,65 @@ class CicdAnalyzerTest(unittest.TestCase):
         self.assertEqual(result.metrics[1].value, 80)
         self.assertEqual(result.metrics[1].normalized_score, 80)
         self.assertEqual(result.recommendations[0].priority.value, "p2")
+        runs_url = "https://sourcecraft.dev/example-org/example-repo/cicd/runs"
+        failed_url = f"{runs_url}/5"
+        self.assertEqual(result.metrics[0].evidence[0].url, runs_url)
+        self.assertEqual(
+            tuple(evidence.url for evidence in result.metrics[1].evidence),
+            (runs_url, failed_url),
+        )
+        self.assertEqual(result.recommendations[0].evidence[0].url, failed_url)
         self.assertNotIn("1", result.summary)
+
+    def test_links_only_recent_failed_automated_outcomes_in_period(self) -> None:
+        context = _context()
+        facts = build_facts(
+            (
+                _run("success", "success"),
+                _run("older", "failed", created_at=_timestamp() - timedelta(days=1)),
+                _run("timeout", "timeout", created_at=_timestamp() + timedelta(days=1)),
+                _run("failed-a", "failed", created_at=_timestamp() + timedelta(days=2)),
+                _run("failed-b", "failed", created_at=_timestamp() + timedelta(days=3)),
+                _run("manual", "failed", event_type="manual"),
+                _run("outside", "failed", created_at=context.period_start - timedelta(days=1)),
+                _run("unfinished", "processing"),
+            )
+        )
+
+        result = evaluate(facts, context)
+
+        self.assertEqual(result.status, DataStatus.MEASURED)
+        self.assertEqual(result.score, 20)
+        self.assertEqual(
+            tuple(evidence.reference for evidence in result.recommendations[0].evidence),
+            ("ci-run-failed-b", "ci-run-failed-a", "ci-run-timeout"),
+        )
+        self.assertEqual(len(result.metrics[1].evidence), 4)
+        self.assertNotIn("manual", repr(result.recommendations[0].evidence))
+        self.assertNotIn("outside", repr(result.recommendations[0].evidence))
+
+    def test_unsafe_url_segments_do_not_produce_links(self) -> None:
+        context = _context()
+        unsafe_repository = AnalysisContext(
+            repository=RepositoryRef("id", "example-org", "repo/../other"),
+            commit_sha=context.commit_sha,
+            analyzed_at=context.analyzed_at,
+            period_start=context.period_start,
+            period_end=context.period_end,
+        )
+        facts = build_facts(
+            (
+                *(_run(str(index), "success") for index in range(1, 5)),
+                _run("bad/slug", "failed"),
+            )
+        )
+
+        safe_repository_result = evaluate(facts, context)
+        unsafe_repository_result = evaluate(facts, unsafe_repository)
+
+        self.assertEqual(safe_repository_result.recommendations[0].evidence, ())
+        self.assertIsNone(unsafe_repository_result.metrics[0].evidence[0].url)
+        self.assertEqual(unsafe_repository_result.recommendations[0].evidence, ())
 
     def test_marks_low_success_rate_as_p1(self) -> None:
         result = evaluate(
