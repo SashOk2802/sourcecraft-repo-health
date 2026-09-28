@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import tempfile
 import unittest
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -38,6 +39,7 @@ REPOSITORY_ID = "repo-private"
 OWNER = "user-owner"
 OTHER_USER = "user-other"
 OWNER_PAT = "test-personal-pat-owner"
+OWNER_SESSION = "owner-yandex-session"
 
 
 class PersonalSourceCraftAnalysisTest(unittest.IsolatedAsyncioTestCase):
@@ -201,6 +203,109 @@ class PersonalSourceCraftAnalysisTest(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn(OWNER_PAT, response.text)
 
 
+class PersonalSourceCraftUserJourneyTest(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self) -> None:
+        self.snapshot_store = InMemoryAnalysisStore()
+        self.job_store = InMemoryAnalysisJobStore()
+        self.connection_store = InMemorySourceCraftConnectionStore()
+        self.client_factory = SourceCraftApiClientFactory()
+        self.connections = SourceCraftConnectionService(
+            SourceCraftTokenVault(Fernet.generate_key().decode("ascii")),
+            self.connection_store,
+            sourcecraft_client_factory=self.client_factory,
+            clock=lambda: NOW,
+        )
+
+        def prepare_git_repository(*_):
+            directory = Path(tempfile.mkdtemp(prefix="personal-flow-git-test-"))
+            (directory / "README.md").write_text(
+                "# Example\n\n## Running\n\n```bash\npython -m pytest\n```\n",
+                encoding="utf-8",
+            )
+            (directory / "service.py").write_text("# TODO: example\n", encoding="utf-8")
+            repository = LocalGitRepository(
+                "https://sourcecraft.dev/sample-org/sample-private.git"
+            )
+            repository.temp_dir = str(directory)
+            return repository
+
+        self.connections.prepare_git_repository = prepare_git_repository  # type: ignore[method-assign]
+        planner = PersonalOrPublicAnalysisPlanner(
+            connection_service=self.connections,
+            public_resolver=None,
+            public_analyzer_provider=lambda _: (),
+            clock=lambda: NOW,
+        )
+        self.dispatcher = InProcessAnalysisDispatcher(
+            execution_service=AnalysisExecutionService(
+                job_store=self.job_store,
+                snapshot_store=self.snapshot_store,
+                clock=lambda: NOW,
+            ),
+            analysis_planner=planner,
+            analysis_id_factory=lambda: "analysis-user-journey",
+        )
+        self.auth = FakeYandexAuth()
+        self.app = create_app(
+            analysis_store=self.snapshot_store,
+            job_store=self.job_store,
+            analysis_dispatcher=self.dispatcher,
+            yandex_auth_service=self.auth,  # type: ignore[arg-type]
+            sourcecraft_connection_service=self.connections,
+            configure_public_repository_catalog=False,
+        )
+
+    async def asyncTearDown(self) -> None:
+        await self.dispatcher.close()
+        self.client_factory.close()
+
+    async def test_connect_catalog_analyze_and_download_report_without_pat_leaks(self) -> None:
+        headers = {
+            "Cookie": f"repo_health_session={OWNER_SESSION}",
+            "Origin": self.auth.settings.callback_origin,
+        }
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=self.app),
+            base_url="http://testserver",
+            headers=headers,
+        ) as client:
+            connected = await client.post(
+                "/api/v1/connections/sourcecraft",
+                json={"token": OWNER_PAT},
+            )
+            catalog = await client.get("/api/v1/me/repositories")
+            created = await client.post(f"/api/v1/repositories/{REPOSITORY_ID}/analyses")
+            completed = await wait_for_terminal_status(client, "analysis-user-journey")
+            report = await client.get("/api/v1/analyses/analysis-user-journey/report")
+            markdown = await client.get("/api/v1/analyses/analysis-user-journey/report.md")
+
+        self.assertEqual(connected.status_code, 200)
+        self.assertEqual(connected.json()["connected"], True)
+        self.assertEqual(catalog.status_code, 200)
+        self.assertEqual(catalog.json()["repositories"][0]["id"], REPOSITORY_ID)
+        self.assertEqual(catalog.json()["repositories"][0]["visibility"], "private")
+        self.assertEqual(created.status_code, 202)
+        self.assertEqual(completed.status_code, 200)
+        self.assertEqual(completed.json()["status"], "partial")
+        self.assertEqual(report.status_code, 200)
+        self.assertEqual(markdown.status_code, 200)
+
+        categories = {item["code"]: item for item in report.json()["categories"]}
+        self.assertEqual(categories["activity"]["status"], "measured")
+        self.assertEqual(categories["issues"]["status"], "measured")
+        self.assertEqual(categories["cicd"]["status"], "measured")
+        self.assertEqual(categories["documentation"]["status"], "measured")
+        self.assertEqual(categories["code_health"]["status"], "measured")
+        self.assertEqual(categories["security"]["status"], "unavailable")
+
+        stored = await self.connection_store.get(OWNER)
+        self.assertIsNotNone(stored)
+        assert stored is not None
+        self.assertNotIn(OWNER_PAT, repr(stored))
+        for response in (connected, catalog, created, completed, report, markdown):
+            self.assertNotIn(OWNER_PAT, response.text)
+
+
 class PersonalAnalysisFallbackAndRestartTest(unittest.IsolatedAsyncioTestCase):
     async def test_user_without_connection_uses_allowed_public_fallback(self) -> None:
         snapshot_store = InMemoryAnalysisStore()
@@ -313,6 +418,8 @@ def sourcecraft_response(request: httpx.Request) -> httpx.Response:
     path = request.url.path
     if path == "/user":
         return httpx.Response(200, json={"username": "owner"})
+    if path == "/me/repos":
+        return paginated("repositories", [repository_payload()])
     if path == f"/repos/id:{REPOSITORY_ID}":
         return httpx.Response(200, json=repository_payload())
     if path == f"/repos/id:{REPOSITORY_ID}/branches":
@@ -363,14 +470,44 @@ def sourcecraft_response(request: httpx.Request) -> httpx.Response:
 def repository_payload() -> dict[str, object]:
     return {
         "id": REPOSITORY_ID,
+        "name": "sample-private",
         "slug": "sample-private",
         "visibility": "private",
         "web_url": "https://sourcecraft.dev/sample-org/sample-private",
         "default_branch": "main",
         "is_empty": False,
+        "language": {"name": "Python"},
+        "counters": {"branches": "1"},
         "last_updated": iso_days_ago(1),
         "organization": {"id": "org-example", "slug": "sample-org"},
     }
+
+
+@dataclass(frozen=True, slots=True)
+class FakeYandexUser:
+    id: str
+    login: str
+
+
+@dataclass(frozen=True, slots=True)
+class FakeYandexSettings:
+    cookie_name: str = "repo_health_session"
+    callback_origin: str = "http://testserver"
+
+
+class FakeYandexAuth:
+    settings = FakeYandexSettings()
+
+    async def require_user(self, token: str | None) -> FakeYandexUser:
+        if token != OWNER_SESSION:
+            raise PermissionError("authentication required")
+        return FakeYandexUser(OWNER, "owner")
+
+    async def start(self) -> None:
+        return None
+
+    async def close(self) -> None:
+        return None
 
 
 def paginated(field: str, items: list[dict[str, object]]) -> httpx.Response:
