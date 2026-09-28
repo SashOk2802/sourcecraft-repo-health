@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import importlib.util
+import os
+import shutil
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from datetime import UTC, datetime
+from io import StringIO
 from pathlib import Path
 from types import ModuleType
 
@@ -71,6 +75,91 @@ class LiveScriptMainTest(unittest.TestCase):
         self.assertEqual(self.script.main(["script"]), 2)
         self.assertEqual(self.script.main(["script", "platform-api"]), 2)
         self.assertEqual(self.script.main(["script", "org/team/platform-api"]), 2)
+
+    def test_main_passes_the_api_token_to_git(self) -> None:
+        """Git получает ту же строку, что и API-клиент, без accessor на клиенте."""
+
+        script = self.script
+        token = "pat-test-token"
+        captured: dict[str, str] = {}
+        resolve = script.SourceCraftClient.resolve_git_clone_url
+        real_repository = script.LocalGitRepository
+
+        class RecordingClient:
+            resolve_git_clone_url = staticmethod(resolve)
+
+            def __init__(self, received: str) -> None:
+                captured["client_token"] = received
+
+            def get_json(self, path: str) -> dict[str, object]:
+                captured["path"] = path
+                return {"id": "9", "web_url": "https://sourcecraft.dev/team/platform-api"}
+
+            def close(self) -> None:
+                captured["closed"] = "yes"
+
+        class RecordingRepository(real_repository):
+            def __init__(
+                self,
+                repo_url: str,
+                ref: str | None = None,
+                *,
+                auth_token: str | None = None,
+            ) -> None:
+                super().__init__(repo_url, ref, auth_token=auth_token)
+                captured["auth_token"] = auth_token or ""
+                captured["ref"] = ref or ""
+                captured["repo_url"] = repo_url
+
+            def clone(self) -> str:
+                self.temp_dir = captured["workspace"]
+                return self.temp_dir
+
+        def remote_head_sha(repo_url: str, received: str) -> str:
+            captured["remote_token"] = received
+            captured["remote_url"] = repo_url
+            return "abc123"
+
+        originals = (
+            script.read_token,
+            script.SourceCraftClient,
+            script.LocalGitRepository,
+            script.remote_head_sha,
+        )
+        workspace = tempfile.mkdtemp()
+        try:
+            root = Path(workspace)
+            (root / "README.md").write_text("# Demo\n\n## Запуск\n", encoding="utf-8")
+            (root / "service.py").write_text("def run() -> None:\n    return None\n", encoding="utf-8")
+            captured["workspace"] = workspace
+            script.read_token = lambda: token
+            script.SourceCraftClient = RecordingClient
+            script.LocalGitRepository = RecordingRepository
+            script.remote_head_sha = remote_head_sha
+            with redirect_stdout(StringIO()):
+                code = script.main(["script", "team/platform-api"])
+        finally:
+            (
+                script.read_token,
+                script.SourceCraftClient,
+                script.LocalGitRepository,
+                script.remote_head_sha,
+            ) = originals
+            if os.path.isdir(workspace):
+                shutil.rmtree(workspace)
+
+        self.assertEqual(code, 0)
+        self.assertEqual(captured["path"], "/repos/team/platform-api")
+        self.assertEqual(captured["client_token"], token)
+        self.assertEqual(captured["remote_token"], token)
+        self.assertEqual(captured["auth_token"], token)
+        self.assertEqual(captured["ref"], "abc123")
+        self.assertEqual(captured["closed"], "yes")
+        self.assertEqual(
+            captured["repo_url"],
+            "https://sourcecraft.dev/team/platform-api.git",
+        )
+        self.assertEqual(captured["remote_url"], captured["repo_url"])
 
 
 def analysis_context() -> AnalysisContext:

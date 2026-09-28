@@ -90,7 +90,10 @@ def main(argv: list[str] | None = None) -> int:
     client: SourceCraftClient | None = None
     workspace: LocalGitRepository | None = None
     try:
-        client = SourceCraftClient(read_token())
+        # На main у SourceCraftClient нет отдельного accessor: тот же секрет,
+        # что ушёл в API-клиент, передаётся в git строкой.
+        token = read_token()
+        client = SourceCraftClient(token)
         payload = client.get_json(f"/repos/{organization}/{slug}")
         if not isinstance(payload, dict):
             print("метаданные репозитория — не объект", file=sys.stderr)
@@ -110,7 +113,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         context = AnalysisContext(
             repository=repository,
-            commit_sha=remote_head_sha(repo_url, client.git_bearer_token()),
+            commit_sha=remote_head_sha(repo_url, token),
             analyzed_at=analyzed_at,
             period_start=analyzed_at - timedelta(days=180),
             period_end=analyzed_at,
@@ -118,7 +121,7 @@ def main(argv: list[str] | None = None) -> int:
         workspace = LocalGitRepository(
             repo_url,
             ref=context.commit_sha,
-            auth_token=client.git_bearer_token(),
+            auth_token=token,
         )
         workspace.clone()
         documentation_result, code_health_result = analyze_workspace(workspace, context)

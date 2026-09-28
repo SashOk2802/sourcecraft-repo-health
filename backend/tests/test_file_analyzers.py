@@ -98,10 +98,25 @@ class FileAnalyzersTest(unittest.TestCase):
                 "doc_missing_has_codeowners",
             },
         )
-        readme = next(item for item in result.recommendations if item.code == "doc_missing_has_readme")
-        self.assertIs(readme.priority, RecommendationPriority.P1)
-        self.assertEqual(readme.expected_score_delta, documentation.PENALTY_README)
-        self.assertTrue(readme.evidence)
+        by_code = {item.code: item for item in result.recommendations}
+        expected = {
+            "doc_missing_has_readme": (RecommendationPriority.P1, documentation.PENALTY_README),
+            "doc_missing_has_contributing": (
+                RecommendationPriority.P2,
+                documentation.PENALTY_CONTRIBUTING,
+            ),
+            "doc_missing_has_license": (RecommendationPriority.P2, documentation.PENALTY_LICENSE),
+            "doc_missing_has_codeowners": (
+                RecommendationPriority.P3,
+                documentation.PENALTY_CODEOWNERS,
+            ),
+        }
+        for code, (priority, penalty) in expected.items():
+            recommendation = by_code[code]
+            self.assertIs(recommendation.priority, priority)
+            self.assertEqual(recommendation.expected_score_delta, penalty)
+            self.assertEqual(recommendation.evidence[0].reference, "main")
+            self.assertTrue(recommendation.evidence[0].summary)
 
     def test_missing_readme_does_not_add_a_second_instructions_penalty(self) -> None:
         result = evaluate_documentation({"CONTRIBUTING.md": "# Правила\n", "LICENSE": "MIT\n"})
@@ -137,9 +152,23 @@ class FileAnalyzersTest(unittest.TestCase):
             repository = LocalGitRepository("https://sourcecraft.dev/team/platform-api.git")
             repository.temp_dir = temporary_directory
 
+            (root / "docs").mkdir()
+            (root / "docs" / "CODEOWNERS").mkdir()
+
             self.assertTrue(repository.file_exists("README.md"))
             self.assertFalse(repository.file_exists("LICENSE"))
+            self.assertFalse(repository.file_exists("docs/CODEOWNERS"))
             self.assertFalse(repository.file_exists("../outside.txt"))
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            (root / "README.md").mkdir()
+            repository = LocalGitRepository("https://sourcecraft.dev/team/platform-api.git")
+            repository.temp_dir = temporary_directory
+
+            self.assertFalse(repository.file_exists("README.md"))
+            result = documentation.evaluate(analysis_context(), documentation.collect(repository))
+            self.assertIn("doc_missing_has_readme", recommendation_codes(result))
 
     def test_documentation_collect_refuses_an_unprepared_workspace(self) -> None:
         repository = LocalGitRepository("https://sourcecraft.dev/team/platform-api.git")
@@ -234,6 +263,7 @@ class FileAnalyzersTest(unittest.TestCase):
         self.assertEqual(total_files.value, 1)
 
     def test_todo_recommendation_starts_above_fifteen_markers(self) -> None:
+        self.assertEqual(code_health.TODO_RECOMMENDATION_THRESHOLD, 15)
         context = analysis_context()
 
         def result_for(todo_count: int):
@@ -247,12 +277,25 @@ class FileAnalyzersTest(unittest.TestCase):
                 },
             )
 
-        at_threshold = result_for(code_health.TODO_RECOMMENDATION_THRESHOLD)
-        above_threshold = result_for(code_health.TODO_RECOMMENDATION_THRESHOLD + 1)
+        at_threshold = result_for(15)
+        above_threshold = result_for(16)
 
         self.assertEqual(recommendation_codes(at_threshold), set())
         self.assertEqual(recommendation_codes(above_threshold), {"code_health_clear_todos"})
         self.assertIs(above_threshold.recommendations[0].priority, RecommendationPriority.P3)
+
+    def test_scanned_todo_comments_follow_the_fifteen_marker_boundary(self) -> None:
+        def source(count: int) -> str:
+            return "".join(f"# TODO: item {index}\n" for index in range(count))
+
+        at_threshold = evaluate_code_health({"src/app.py": source(15)})
+        above_threshold = evaluate_code_health({"src/app.py": source(16)})
+
+        self.assertEqual(recommendation_codes(at_threshold), set())
+        self.assertEqual(_metric_value(at_threshold, "todo_count"), 15)
+        self.assertEqual(recommendation_codes(above_threshold), {"code_health_clear_todos"})
+        self.assertIs(above_threshold.recommendations[0].priority, RecommendationPriority.P3)
+        self.assertEqual(_metric_value(above_threshold, "todo_count"), 16)
 
     def test_fixme_evidence_points_at_the_source_line(self) -> None:
         result = evaluate_code_health({"src/app.py": "x = 1\n# FIXME: retry\n"})
@@ -289,6 +332,10 @@ def evaluate_code_health(files: dict[str, str]):
 
 def recommendation_codes(result) -> set[str]:
     return {recommendation.code for recommendation in result.recommendations}
+
+
+def _metric_value(result, code: str) -> float | int | str | None:
+    return next(metric.value for metric in result.metrics if metric.code == code)
 
 
 def repository_from_files(temporary_directory: str, files: dict[str, str]) -> LocalGitRepository:
