@@ -423,6 +423,10 @@ def create_app(
                             status_code=503,
                             detail="SourceCraft repository catalog is unavailable.",
                         ) from error
+                    except SourceCraftConnectionRequiredError:
+                        # Публичный endpoint не раскрывает, доступен ли сейчас
+                        # on-demand анализ для конкретного репозитория.
+                        pass
 
         # Не различаем отсутствующий, private/internal и ещё не проанализированный
         # репозиторий: endpoint не должен становиться oracle доступа.

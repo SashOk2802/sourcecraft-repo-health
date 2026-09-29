@@ -13,6 +13,7 @@ from backend.app.analysis.jobs import (
     AnalysisJobStatus,
     InMemoryAnalysisJobStore,
 )
+from backend.app.analysis.personal_sourcecraft import SourceCraftConnectionRequiredError
 from backend.app.analysis.store import InMemoryAnalysisStore
 from backend.app.integrations.sourcecraft_repositories import SourceCraftRepository
 from backend.app.main import create_app
@@ -50,10 +51,12 @@ class _MockDispatcher:
         self,
         job_store: InMemoryAnalysisJobStore | None = None,
         delay: float = 0.0,
+        error: Exception | None = None,
     ) -> None:
         self.submissions: list[str] = []
         self.job_store = job_store
         self.delay = delay
+        self.error = error
 
     async def start(self) -> None:
         pass
@@ -70,6 +73,8 @@ class _MockDispatcher:
     ) -> None:
         if self.delay > 0:
             await asyncio.sleep(self.delay)
+        if self.error is not None:
+            raise self.error
         if analysis_id is not None:
             self.submissions.append(analysis_id)
             if self.job_store is not None:
@@ -201,5 +206,24 @@ class PublicHealthOndemandTest(unittest.IsolatedAsyncioTestCase):
             submitted_id = dispatcher.submissions[0]
             self.assertLessEqual(len(submitted_id), 128)
             self.assertTrue(all(c.isalnum() or c in "._~-" for c in submitted_id))
+
+    async def test_missing_public_resolver_keeps_not_found_response(self) -> None:
+        store = InMemoryAnalysisStore()
+        jobs = InMemoryAnalysisJobStore()
+        dispatcher = _MockDispatcher(error=SourceCraftConnectionRequiredError())
+        app = create_app(
+            analysis_store=store,
+            job_store=jobs,
+            repository_catalog=_Catalog((_public_repo(),)),
+            analysis_dispatcher=dispatcher,
+        )
+
+        async with _api_client(app) as client:
+            response = await client.get(
+                "/api/v1/public/repositories/demo-org/health-api/health"
+            )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.json(), {"detail": "Public health score not found."})
 
 
