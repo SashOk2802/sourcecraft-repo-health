@@ -4,7 +4,7 @@
 
 **Стенд:** https://alhamdulylia.ru
 
-Данные собираются только рабочими интерфейсами SourceCraft: REST API, Git и AppSec. Готовых выгрузок нет, AI не используется ([data-sources.md](docs/data-sources.md)).
+Данные собираются только рабочими интерфейсами SourceCraft: REST API, Git и AppSec; готовых выгрузок нет. Score, приоритеты и факты детерминированные. Необязательный YandexGPT только дописывает к рекомендациям пошаговый AI-план ([data-sources.md](docs/data-sources.md#внешние-сервисы-и-ai)).
 
 ## Что реализовано
 
@@ -22,6 +22,7 @@
 **Функции со звёздочкой** ([star-features.md](docs/star-features.md)):
 - **Публичный API и бейдж для README** — реализованы, руководство — [public-api.md](docs/public-api.md).
 - **Защита публичного рейтинга** — частично: место только по Score, лайки не входят в оценку, активность ограничена потолком.
+- **AI-рекомендации** — частично: YandexGPT Lite дописывает к каждой рекомендации пошаговый план по фактам анализа (ключ `YANDEX_AI_STUDIO_API_KEY`); AI-summary нет.
 
 ## Зачем это нужно
 
@@ -55,6 +56,7 @@ docker compose up --build
 | `SOURCECRAFT_DISCOVER_PUBLIC_REPOSITORIES=true` или `SOURCECRAFT_PUBLIC_ORGANIZATIONS=org-one,org-two` | какой публичный каталог анализировать: весь или список организаций, ровно один режим |
 | `PUBLIC_ANALYSIS_SCHEDULER_ENABLED=true` | регулярный пересчёт публичных репозиториев |
 | `YANDEX_CLIENT_ID`, `YANDEX_REDIRECT_URI` | вход через Яндекс ID; локально redirect URI — `http://localhost:5173/api/v1/auth/yandex/callback`. `YANDEX_CLIENT_SECRET` — если его выдал тип OAuth-клиента |
+| `YANDEX_AI_STUDIO_API_KEY`, `YANDEX_AI_MODEL` | необязательно: AI-план действий к рекомендациям через Yandex AI Studio; без ключа AI выключен |
 | `SOURCECRAFT_CONNECTION_ENCRYPTION_KEY` | ключ Fernet для личных подключений SourceCraft (закрытые и внутренние репозитории): `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` |
 
 Уберите строку `VITE_USE_MOCKS=true`, если добавляли её, и запустите `docker compose up --build`. Миграции PostgreSQL применяются автоматически. Подробности и проверка в Docker — [docker-development.md](docs/docker-development.md).
