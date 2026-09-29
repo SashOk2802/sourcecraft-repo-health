@@ -127,10 +127,11 @@ class SourceCraftPublicRepositoryCatalogTest(unittest.IsolatedAsyncioTestCase):
 class SourceCraftPublicCatalogSettingsTest(unittest.TestCase):
     def test_factory_requires_complete_configuration_and_hides_token_from_repr(self) -> None:
         self.assertIsNone(create_sourcecraft_public_repository_catalog_from_environment({}))
-        with self.assertRaisesRegex(ValueError, "exactly one"):
+        self.assertIsNone(
             create_sourcecraft_public_repository_catalog_from_environment(
                 {"SOURCECRAFT_TOKEN": "secret"}
             )
+        )
         with self.assertRaisesRegex(ValueError, "SOURCECRAFT_TOKEN"):
             create_sourcecraft_public_repository_catalog_from_environment(
                 {"SOURCECRAFT_PUBLIC_ORGANIZATIONS": "team"}

@@ -44,6 +44,10 @@ install -m 600 deploy/traefik/dynamic.yaml traefik/dynamic.yaml
 public leaderboard/API безопасно отвечают `503`. Включайте одновременно token,
 источник публичного каталога и `PUBLIC_ANALYSIS_SCHEDULER_ENABLED=true` только после
 подготовки разрешённых публичных репозиториев.
+
+Один token без `SOURCECRAFT_PUBLIC_ORGANIZATIONS` и без
+`SOURCECRAFT_DISCOVER_PUBLIC_REPOSITORIES=true` не включает каталог и не должен
+ломать запуск: это состояние personal-only стенда до подготовки публичного рейтинга.
 PAT и ключ Fernet нельзя добавлять в Compose, логи или pull request.
 
 ## Выпуск и откат
