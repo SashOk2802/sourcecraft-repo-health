@@ -1,0 +1,50 @@
+.collaboration {
+  display: grid;
+  gap: 14px;
+}
+
+.collaboration__head {
+  display: grid;
+  gap: 4px;
+}
+
+.collaboration__list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.collaboration__item {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  padding: 14px 12px 12px;
+  border-radius: var(--rh-radius-inner);
+  background: var(--rh-surface-muted);
+}
+
+.collaboration__item-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.collaboration__value {
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.collaboration__summary,
+.collaboration__action {
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .collaboration__list {
+    grid-template-columns: 1fr;
+  }
+}

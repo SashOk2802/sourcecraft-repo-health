@@ -92,6 +92,9 @@ class LeaderboardSnapshotProjection:
     coverage: float | None
     score_limited: bool
     categories: tuple[LeaderboardCategoryBrief, ...]
+    # Опциональная метка детектора накрутки; на место и Score не влияет.
+    gaming_suspected: bool = False
+    gaming_label: str | None = None
 
 
 def project_public_snapshot(
@@ -129,6 +132,8 @@ def project_public_snapshot(
     if status != expected_status:
         raise ValueError("stored snapshot analysis status is invalid")
 
+    gaming_suspected, gaming_label = _optional_gaming_flag(report)
+
     return LeaderboardSnapshotProjection(
         analysis_id=stored_snapshot.analysis_id,
         repository=metadata,
@@ -154,7 +159,28 @@ def project_public_snapshot(
         coverage=_optional_coverage(analysis),
         score_limited=analysis.get("scoreLimit") is not None,
         categories=_category_briefs(report),
+        gaming_suspected=gaming_suspected,
+        gaming_label=gaming_label,
     )
+
+
+def _optional_gaming_flag(report: dict[str, object]) -> tuple[bool, str | None]:
+    """Читает опциональное поле gamingWarning; старые снимки без него валидны."""
+
+    warning = report.get("gamingWarning")
+    if warning is None:
+        return False, None
+    if not isinstance(warning, dict):
+        raise TypeError("stored snapshot gamingWarning must be an object or null")
+    suspected = warning.get("suspected")
+    if not isinstance(suspected, bool):
+        raise TypeError("stored snapshot gamingWarning.suspected must be a bool")
+    label = warning.get("label")
+    if label is not None and (not isinstance(label, str) or not label.strip()):
+        raise ValueError("stored snapshot gamingWarning.label must be a nonblank string or null")
+    if suspected:
+        return True, (label.strip() if isinstance(label, str) else "аномальная активность")
+    return False, None
 
 
 def _matches_public_repository(

@@ -91,6 +91,27 @@
   top: 76px;
 }
 
+.gaming-warning {
+  display: grid;
+  gap: 8px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--g-color-line-danger) 45%, transparent);
+  background: color-mix(in srgb, var(--g-color-base-danger-light) 70%, transparent);
+}
+
+.gaming-warning__title {
+  margin: 0;
+  color: var(--g-color-text-danger);
+}
+
+.gaming-warning__signals {
+  margin: 4px 0 0;
+  padding-left: 1.2em;
+  display: grid;
+  gap: 4px;
+}
+
 .no-report {
   display: grid;
   justify-items: start;

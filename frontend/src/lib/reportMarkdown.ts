@@ -1,5 +1,5 @@
 import type { CategoryStatus, Evidence } from "../api/common";
-import type { RepositoryReport } from "../api/report";
+import type { ReportInsight, RepositoryReport } from "../api/report";
 
 /*
  * Markdown-отчёт в том же формате, что render_markdown_report в
@@ -18,6 +18,7 @@ const statusLabels: Record<CategoryStatus, string> = {
 
 export function renderReportMarkdown(report: RepositoryReport, { demo = false }: { demo?: boolean } = {}): string {
   const { repository, analysis, categories, recommendations } = report;
+  const insights = report.insights ?? [];
 
   const lines = [`# Repo Health: ${repository.name}`, ""];
   if (demo) {
@@ -72,6 +73,32 @@ export function renderReportMarkdown(report: RepositoryReport, { demo = false }:
     }
   }
 
+  if (insights.length > 0) {
+    lines.push("", "## Сопровождение", "", "Показатели со звёздочкой: в Repo Health Score не входят.");
+    for (const insight of insights) {
+      lines.push(
+        "",
+        `### ${insight.label}`,
+        "",
+        `- Статус: ${statusLabels[insight.status]}`,
+        `- Значение: ${formatInsightValue(insight)}`,
+        `- ${insight.summary}`,
+      );
+      if (insight.detail) {
+        lines.push(`- ${insight.detail}`);
+      }
+      if (insight.action) {
+        lines.push(`- Что сделать: ${insight.action}`);
+      }
+      if (insight.reason) {
+        lines.push(`- Причина: \`${insight.reason}\``);
+      }
+      for (const evidence of insight.evidence) {
+        lines.push(evidenceMarkdown(evidence));
+      }
+    }
+  }
+
   lines.push("", "## Рекомендации");
   if (recommendations.length === 0) {
     lines.push("", "Рекомендаций пока нет.");
@@ -112,6 +139,14 @@ export function formatNumber(value: number | null): string {
 
 function formatPercentage(value: number | null): string {
   return value === null ? "—" : `${formatNumber(value * 100)} %`;
+}
+
+function formatInsightValue(insight: ReportInsight): string {
+  if (insight.value === null) return "—";
+  if (insight.code === "review_quality") {
+    return formatPercentage(insight.value);
+  }
+  return formatNumber(insight.value);
 }
 
 function evidenceMarkdown(evidence: Evidence): string {

@@ -32,6 +32,38 @@ def init_repo(root: Path) -> Path:
 
 
 class CommitHistoryTest(unittest.TestCase):
+    def test_commit_records_include_author_and_parent_count(self) -> None:
+        since = datetime(2026, 8, 1, tzinfo=UTC)
+        until = datetime(2026, 10, 1, tzinfo=UTC)
+        with tempfile.TemporaryDirectory() as temporary:
+            repo = init_repo(Path(temporary))
+            commit(repo, "first", datetime(2026, 9, 1, 12, tzinfo=UTC))
+            subprocess.run(["git", "-C", repo, "checkout", "-b", "side"], check=True)
+            commit(repo, "side", datetime(2026, 9, 2, 12, tzinfo=UTC))
+            subprocess.run(["git", "-C", repo, "checkout", "main"], check=True)
+            subprocess.run(
+                ["git", "-C", repo, "merge", "--no-ff", "-m", "merge-side", "side"],
+                check=True,
+                env=os.environ
+                | {
+                    "GIT_AUTHOR_DATE": "2026-09-03T12:00:00Z",
+                    "GIT_COMMITTER_DATE": "2026-09-03T12:00:00Z",
+                },
+            )
+            head = subprocess.check_output(
+                ["git", "-C", repo, "rev-parse", "HEAD"], text=True
+            ).strip()
+
+            page = read_commit_timestamps(str(repo), since=since, until=until, revision=head)
+
+        self.assertEqual(len(page.committed_at), 3)
+        self.assertEqual(len(page.commits), 3)
+        merge = next(item for item in page.commits if item.parent_count >= 2)
+        self.assertGreaterEqual(merge.parent_count, 2)
+        authored = [item for item in page.commits if item.parent_count < 2]
+        self.assertEqual(len(authored), 2)
+        self.assertTrue(all(item.author_email == "dev@example.com" for item in authored))
+
     def test_shallow_history_keeps_only_the_requested_window(self) -> None:
         since = datetime(2026, 8, 1, tzinfo=UTC)
         until = datetime(2026, 9, 20, tzinfo=UTC)
@@ -50,6 +82,8 @@ class CommitHistoryTest(unittest.TestCase):
 
         self.assertFalse(page.truncated)
         self.assertEqual(page.committed_at, (datetime(2026, 9, 1, 12, tzinfo=UTC),))
+        self.assertEqual(page.commits[0].author_email, "dev@example.com")
+        self.assertEqual(page.commits[0].parent_count, 1)
 
     def test_budget_marks_the_page_truncated(self) -> None:
         since = datetime(2026, 1, 1, tzinfo=UTC)

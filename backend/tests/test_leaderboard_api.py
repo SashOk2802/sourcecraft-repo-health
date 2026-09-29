@@ -82,6 +82,8 @@ class LeaderboardApiTest(unittest.IsolatedAsyncioTestCase):
                         "likes": 42,
                         "lastActivityAt": "2026-09-24T12:00:00Z",
                         "analyzedAt": "2026-09-25T12:00:00Z",
+                        "gamingSuspected": False,
+                        "gamingLabel": None,
                         "categories": [
                             {
                                 "code": category,

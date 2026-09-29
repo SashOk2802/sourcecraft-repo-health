@@ -107,6 +107,7 @@ class ReportBuilderTest(unittest.TestCase):
         self.assertEqual(security["evidence"][0]["evidence"][0]["source"], "sourcecraft-appsec")
         self.assertNotIn("facts", security)
         self.assertEqual(report["recommendations"][0]["expectedScoreDelta"], 30)
+        self.assertEqual(report["insights"], [])
         self.assertIn(
             "Возможные приросты не суммируются: рекомендации могут влиять на одни и те же "
             "метрики или снять общее ограничение Score.",

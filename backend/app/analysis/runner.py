@@ -6,11 +6,13 @@ import logging
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
+from backend.app.analyzers.gaming import GamingDetectionResult, take_recorded_detection
 from backend.app.contracts import (
     AnalysisContext,
     AnalysisResult,
     CategoryResult,
     DataStatus,
+    InsightResult,
     Recommendation,
     RecommendationPriority,
 )
@@ -44,10 +46,14 @@ class AnalyzerRegistration:
 
 @dataclass(frozen=True, slots=True)
 class AnalysisExecution:
-    """Общий результат запуска: модель анализа и детализация расчёта Score."""
+    """Общий результат запуска: модель анализа и детализация расчёта Score.
+
+    ``gaming`` — бонусный детектор накрутки; не влияет на Score, coverage и insights.
+    """
 
     analysis: AnalysisResult
     score_summary: ScoreSummary
+    gaming: GamingDetectionResult | None = None
 
 
 def run_analysis(
@@ -58,6 +64,9 @@ def run_analysis(
 ) -> AnalysisExecution:
     """Выполняет анализаторы независимо и собирает итог из шести категорий."""
 
+    # Сброс на случай повторного вызова в том же потоке без провайдера Activity.
+    take_recorded_detection()
+
     registrations = _validate_registrations(analyzers)
     categories = tuple(
         _run_category(context, code, registrations.get(code))
@@ -65,6 +74,8 @@ def run_analysis(
     )
     score_summary = calculate_score(categories, score_limit=score_limit)
     recommendations = _merge_recommendations(categories)
+    insights = _merge_insights(categories)
+    gaming = take_recorded_detection()
 
     return AnalysisExecution(
         analysis=AnalysisResult(
@@ -75,8 +86,10 @@ def run_analysis(
             score=score_summary.score,
             methodology_version=METHODOLOGY_VERSION,
             recommendations=recommendations,
+            insights=insights,
         ),
         score_summary=score_summary,
+        gaming=gaming,
     )
 
 
@@ -153,6 +166,16 @@ def _merge_recommendations(categories: Iterable[CategoryResult]) -> tuple[Recomm
             key=lambda recommendation: (_priority(recommendation), recommendation.code),
         )
     )
+
+
+def _merge_insights(categories: Iterable[CategoryResult]) -> tuple[InsightResult, ...]:
+    """Собирает бонусные показатели со звёздочкой. В Score они не входят."""
+
+    insights_by_code: dict[str, InsightResult] = {}
+    for category in categories:
+        for insight in category.insights:
+            insights_by_code.setdefault(insight.code, insight)
+    return tuple(sorted(insights_by_code.values(), key=lambda item: item.code))
 
 
 def _priority(recommendation: Recommendation) -> int:

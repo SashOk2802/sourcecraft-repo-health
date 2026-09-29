@@ -30,6 +30,7 @@ from backend.app.contracts import (
     RepositoryRef,
 )
 from backend.app.integrations.git_repository import (
+    CommitRecord,
     CommitTimestampPage,
     GitCloneError,
     read_commit_timestamps,
@@ -115,10 +116,15 @@ class ContributorFact:
 
 @dataclass(frozen=True, slots=True)
 class CommitHistoryFacts:
-    """Состояние отдельного чтения истории фиксированного commit SHA."""
+    """Состояние отдельного чтения истории фиксированного commit SHA.
+
+    ``committed_at`` кормит активные недели Activity. ``commits`` — те же
+    записи с автором и родителями для bus factor; email в отчёт не попадает.
+    """
 
     collected: bool = False
     committed_at: tuple[datetime, ...] = ()
+    commits: tuple[CommitRecord, ...] = ()
     truncated: bool = False
     error: str | None = None
 
@@ -361,6 +367,7 @@ def collect_commit_history(
     return CommitHistoryFacts(
         collected=True,
         committed_at=page.committed_at,
+        commits=page.commits,
         truncated=page.truncated,
     )
 

@@ -360,6 +360,11 @@ function LeaderboardRow({ item, showPlace }: { item: LeaderboardItem; showPlace:
                 !
               </span>
             )}
+            {item.gamingLabel && (
+              <span className="board__gaming" title={item.gamingLabel}>
+                {item.gamingLabel}
+              </span>
+            )}
           </>
         )}
       </td>

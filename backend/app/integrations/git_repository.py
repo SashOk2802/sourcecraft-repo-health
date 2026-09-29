@@ -575,11 +575,30 @@ def _force_remove_readonly(func: object, path: str, exc_info: object) -> None:
 
 
 @dataclass(frozen=True, slots=True)
+class CommitRecord:
+    """Один коммит из истории: время, автор и число родителей.
+
+    Email автора нужен только для подсчёта bus factor внутри анализа и в отчёт
+    не попадает. ``parent_count`` >= 2 означает merge-коммит.
+    """
+
+    committed_at: datetime
+    author_email: str
+    parent_count: int
+
+
+@dataclass(frozen=True, slots=True)
 class CommitTimestampPage:
-    """Метки времени коммитов за окно и признак, что выборка оборвана бюджетом."""
+    """Коммиты за окно и признак, что выборка оборвана бюджетом.
+
+    ``committed_at`` — все даты в окне, включая merge. Ими пользуется Activity
+    для активных недель. ``commits`` — те же записи с автором и родителями
+    для bus factor; merge в формулу bus factor не входят.
+    """
 
     committed_at: tuple[datetime, ...]
     truncated: bool
+    commits: tuple[CommitRecord, ...] = ()
 
 
 def read_commit_timestamps(
@@ -601,6 +620,9 @@ def read_commit_timestamps(
     ``--no-checkout`` не материализуют файлы. Клон и ``git log`` делят один
     бюджет ``timeout_seconds``. При обрыве бюджета или ошибке git вызывающий
     код обязан не подменять это нулём баллов категории.
+
+    Формат строки лога: ``%cI%x00%aE%x00%P`` — дата, email автора и родители.
+    Активные недели Activity берут все даты; bus factor отбрасывает merge.
     """
 
     if since.tzinfo is None or until.tzinfo is None:
@@ -680,7 +702,7 @@ def read_commit_timestamps(
                 f"--since={since_text}",
                 f"--until={until_text}",
                 f"--max-count={max_commits + 1}",
-                "--pretty=format:%cI",
+                "--pretty=format:%cI%x00%aE%x00%P",
             ],
             auth_token=None,
             repo_url=clone_url,
@@ -702,12 +724,40 @@ def read_commit_timestamps(
     truncated = len(lines) > max_commits
     if truncated:
         lines = lines[:max_commits]
-    committed_at = tuple(
-        moment
-        for moment in (_parse_git_timestamp(line) for line in lines)
-        if moment is not None and since_utc <= moment <= period_until_utc
+    commits = tuple(
+        record
+        for record in (_parse_commit_log_line(line) for line in lines)
+        if record is not None and since_utc <= record.committed_at <= period_until_utc
     )
-    return CommitTimestampPage(committed_at=committed_at, truncated=truncated)
+    return CommitTimestampPage(
+        committed_at=tuple(record.committed_at for record in commits),
+        truncated=truncated,
+        commits=commits,
+    )
+
+
+def _parse_commit_log_line(line: str) -> CommitRecord | None:
+    """Разбирает одну строку ``%cI\\0%aE\\0%P``. Битая строка пропускается."""
+
+    parts = line.split("\0")
+    if len(parts) < 2:
+        # Старый формат только с датой: активные недели сохраняются, bus factor
+        # без автора не считается.
+        moment = _parse_git_timestamp(line)
+        if moment is None:
+            return None
+        return CommitRecord(committed_at=moment, author_email="", parent_count=1)
+
+    moment = _parse_git_timestamp(parts[0])
+    if moment is None:
+        return None
+    author_email = parts[1].strip().lower()
+    parents = parts[2].split() if len(parts) > 2 and parts[2].strip() else []
+    return CommitRecord(
+        committed_at=moment,
+        author_email=author_email,
+        parent_count=len(parents) if parents else 1,
+    )
 
 
 def _remaining_timeout(deadline: float, timeout_seconds: float) -> float:

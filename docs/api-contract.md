@@ -51,6 +51,8 @@
       "likes": null,
       "lastActivityAt": null,
       "analyzedAt": "2026-09-25T12:00:00Z",
+      "gamingSuspected": false,
+      "gamingLabel": null,
       "categories": [
         { "code": "security", "label": "Безопасность", "status": "measured", "score": 90 }
       ]
@@ -70,7 +72,7 @@
 
 `place` получают только полные числовые Score выбранной методики. Равные Score получают спортивное место (`1, 2, 2, 4`), которое рассчитывается до фильтров и UI-сортировки. `preliminary` всегда содержит строки без места; туда попадают частичные оценки, а также готовые отчёты без числового Score. `total` считает только отфильтрованные полные строки, `preliminaryTotal` — все отфильтрованные предварительные, даже когда сам блок не запрошен.
 
-`pendingCount` — public-репозитории, у которых нет пригодного снимка текущей методики. `updatedAt` — самый новый `analyzedAt` среди пригодных public-снимков текущей версии или `null`. `languages` строится по таким же проанализированным строкам после `search`, но до фильтра `language`, чтобы селектор языка не исчезал после выбора. `likes` — сумма публичных положительных реакций SourceCraft, `lastActivityAt` — его проверенное поле `last_updated`; если источник не отдал поле, API возвращает `null`, а соответствующая сортировка помещает такую строку после строк с данными.
+`pendingCount` — public-репозитории, у которых нет пригодного снимка текущей методики. `updatedAt` — самый новый `analyzedAt` среди пригодных public-снимков текущей версии или `null`. `languages` строится по таким же проанализированным строкам после `search`, но до фильтра `language`, чтобы селектор языка не исчезал после выбора. `likes` — сумма публичных положительных реакций SourceCraft, `lastActivityAt` — его проверенное поле `last_updated`; если источник не отдал поле, API возвращает `null`, а соответствующая сортировка помещает такую строку после строк с данными. `gamingSuspected` / `gamingLabel` — опциональная метка необычной активности из снимка отчёта; на `place` и Score не влияют. Метка «аномальная активность» ставится только при двух независимых сигналах. Старые снимки без `gamingWarning` дают `gamingSuspected: false` и `gamingLabel: null`.
 
 Если public-каталог не сконфигурирован, endpoint отвечает `503`. Production-приложение использует `SOURCECRAFT_TOKEN` и ровно один режим: глобальный каталог с `SOURCECRAFT_DISCOVER_PUBLIC_REPOSITORIES=true` либо allowlist `SOURCECRAFT_PUBLIC_ORGANIZATIONS`.
 
@@ -433,7 +435,64 @@ JSON-модель строится в `backend/app/reporting/builder.py`; endpoi
         }
       ]
     }
+  ],
+  "insights": [
+    {
+      "code": "bus_factor",
+      "label": "Bus factor",
+      "status": "measured",
+      "value": 2,
+      "summary": "Bus factor 2: столько авторов покрывают не менее 50% не-merge коммитов за период.",
+      "detail": "Самый активный автор дал 40% не-merge коммитов (4 из 10).",
+      "reason": null,
+      "action": null,
+      "evidence": [
+        {
+          "source": "sourcecraft-collaboration",
+          "reference": "commit-authors",
+          "summary": "Учтено 10 не-merge коммитов от 3 авторов; merge-коммиты не входят.",
+          "url": null
+        }
+      ]
+    },
+    {
+      "code": "review_quality",
+      "label": "Качество review",
+      "status": "measured",
+      "value": 0.75,
+      "summary": "У 3 из 4 смерженных MR с включённым review есть хотя бы один approve (75%).",
+      "detail": "Выборка: 4 MR; review выключен у 0.",
+      "reason": null,
+      "action": null,
+      "evidence": []
+    }
   ]
+}
+~~~
+
+Поле `insights` — бонусные показатели со звёздочкой (bus factor, качество review). Они **не входят в Score**, не меняют `categories` и не дублируются в `recommendations` с `expectedScoreDelta`. Старые снимки могут не содержать `insights`: frontend тогда не показывает блок «Сопровождение».
+
+Поле `gamingWarning` — наблюдение за необычной активностью (отдельная звёздочка). **Не входит в Score v2**, не меняет coverage и место. Появляется только если детектор отработал в запуске; старые снимки поля не содержат. `suspected: true` и `label: "аномальная активность"` — только когда совпали минимум два независимых сигнала. Один сигнал репозиторий не помечает. Отсутствие данных по сигналу — `unavailable`, а не «активность обычная». Лайки не являются входом детектора.
+
+Пример при сработавшем сигнале:
+
+~~~json
+{
+  "gamingWarning": {
+    "suspected": true,
+    "label": "аномальная активность",
+    "summary": "Совпали независимые сигналы необычной активности: … Score не снижен: это наблюдение, а не штраф.",
+    "signals": [
+      {
+        "code": "mr_volume",
+        "status": "measured",
+        "summary": "За период 15 смерженных MR: это далеко выше потолка Activity (3)…",
+        "flagged": true,
+        "detail": "cap=3; flag_threshold=15",
+        "value": 15
+      }
+    ]
+  }
 }
 ~~~
 
@@ -467,6 +526,12 @@ JSON-модель строится в `backend/app/reporting/builder.py`; endpoi
 | recommendation.expectedScoreDelta | ожидаемый прирост оценки категории (0–100) после исправления или null, если его нельзя оценить надёжно; вклад в итоговый Score — прирост × `effectiveWeight` / 100 этой категории |
 | reason | машинный код, объясняющий, почему score равен null |
 | categories[].evidence и recommendations[].evidence | факты и ссылки, на которых основаны оценка и рекомендация |
+| insights | опционально; бонусные показатели, не входят в Score |
+| gamingWarning | опционально; детектор накрутки, не входит в Score; старые снимки без поля |
+| insights | необязательный массив бонусных показателей; не влияет на score |
+| insights[].code | `bus_factor` или `review_quality` |
+| insights[].status | те же статусы, что у categories[].status |
+| insights[].value | число при status = measured, иначе null; для review_quality — доля 0..1 |
 
 ## Как менять контракт
 
