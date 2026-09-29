@@ -98,6 +98,10 @@ class CiSecurityWorkflowTest(unittest.TestCase):
         )
         self.assertIn("http://127.0.0.1:5173/@vite/client", workflow)
         self.assertIn("http://127.0.0.1:5173/src/main.tsx", workflow)
+        production_smoke = workflow.split("name: Start production-mode static stack", 1)[1].split(
+            "name: Verify production-mode frontend and API", 1
+        )[0]
+        self.assertNotIn("SOURCECRAFT_TOKEN:", production_smoke)
         self.assertIn(
             "docker compose -p repo-health-production-ci -f compose.production.yaml down --volumes --remove-orphans",
             workflow,

@@ -138,7 +138,6 @@ jobs:
         env:
           DATABASE_URL: postgresql+asyncpg://repo_health:ci-only@postgres:5432/repo_health
           POSTGRES_PASSWORD: ci-only
-          SOURCECRAFT_TOKEN: ci-placeholder
           SOURCECRAFT_DISCOVER_PUBLIC_REPOSITORIES: "false"
           PUBLIC_ANALYSIS_SCHEDULER_ENABLED: "false"
         run: docker compose -p repo-health-production-ci -f compose.production.yaml up --build --wait
