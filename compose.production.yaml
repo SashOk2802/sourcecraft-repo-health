@@ -44,6 +44,9 @@ services:
       PUBLIC_ANALYSIS_SCHEDULER_ENABLED: "${PUBLIC_ANALYSIS_SCHEDULER_ENABLED:-false}"
       SOURCECRAFT_APPSEC_SNAPSHOT_DIR: /run/sourcecraft-appsec
       SOURCECRAFT_APPSEC_SNAPSHOT_MAX_AGE_SECONDS: "${SOURCECRAFT_APPSEC_SNAPSHOT_MAX_AGE_SECONDS:-3600}"
+      # AI-рекомендации (Yandex AI Studio). Без ключа AI выключен.
+      YANDEX_AI_STUDIO_API_KEY: "${YANDEX_AI_STUDIO_API_KEY:-}"
+      YANDEX_AI_MODEL: "${YANDEX_AI_MODEL:-yandexgpt-lite:latest}"
     group_add:
       - "${SOURCECRAFT_APPSEC_SNAPSHOT_READER_GID:-10001}"
     volumes:

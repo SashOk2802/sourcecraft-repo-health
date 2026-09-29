@@ -7,6 +7,7 @@ import logging
 from collections.abc import Callable, Iterable
 from datetime import UTC, datetime, timedelta
 
+from backend.app.ai.client import YandexAiClient
 from backend.app.analysis.jobs import (
     AnalysisJob,
     AnalysisJobStatus,
@@ -30,6 +31,7 @@ class AnalysisExecutionService:
         snapshot_store: AnalysisStore,
         clock: Callable[[], datetime] | None = None,
         worker_lease_timeout: timedelta = timedelta(seconds=30),
+        ai_client: YandexAiClient | None = None,
     ) -> None:
         job_store_is_postgres = isinstance(job_store, PostgresAnalysisJobStore)
         snapshot_store_is_postgres = isinstance(snapshot_store, PostgresAnalysisStore)
@@ -53,6 +55,7 @@ class AnalysisExecutionService:
             raise ValueError("worker_lease_timeout must be positive")
         self._clock = clock or _utc_now
         self._worker_lease_timeout = worker_lease_timeout
+        self._ai_client = ai_client
 
     async def start_worker(self, worker_id: str) -> tuple[AnalysisJob, ...]:
         """Продлевает собственную lease и завершает только задания мёртвых worker."""
@@ -166,6 +169,8 @@ class AnalysisExecutionService:
                 context,
                 tuple(analyzers),
             )
+            from backend.app.ai.enricher import enrich_execution
+            execution = await enrich_execution(execution, client=self._ai_client)
             status = (
                 AnalysisJobStatus.PARTIAL
                 if execution.score_summary.is_preliminary

@@ -84,6 +84,7 @@ class Recommendation:
     expected_effect: str | None = None
     expected_score_delta: float | None = None
     evidence: tuple[Evidence, ...] = ()
+    ai_action_plan: str | None = None
 
     def __post_init__(self) -> None:
         if self.expected_score_delta is not None and not 0 <= self.expected_score_delta <= 100:
