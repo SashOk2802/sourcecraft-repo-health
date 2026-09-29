@@ -23,7 +23,8 @@ Traefik (TLS) ─┬─► frontend: nginx, статическая сборка 
                      └─ интеграции ───► SourceCraft REST API (api.sourcecraft.tech)
                                    ├──► SourceCraft Git (временная рабочая копия)
                                    ├──► AppSec SourceCraft (snapshot из CLI или API сканов)
-                                   └──► Яндекс ID (OAuth 2.0 + PKCE)
+                                   ├──► Яндекс ID (OAuth 2.0 + PKCE)
+                                   └──► Yandex AI Studio: YandexGPT Lite, необязательный AI-план
                      │
                      ▼
                   PostgreSQL: задания, снимки отчётов, расписание, сессии, подключения SourceCraft
@@ -39,6 +40,7 @@ Traefik (TLS) ─┬─► frontend: nginx, статическая сборка 
 | Анализаторы | `backend/app/analyzers/` | По одному модулю на категорию; каждый возвращает общий `CategoryResult` (`backend/app/contracts.py`) |
 | Score | `backend/app/scoring/` | Взвешенное среднее измеренных категорий, покрытие, ограничение за критическую уязвимость — [scoring-methodology.md](scoring-methodology.md) |
 | Отчёт | `backend/app/reporting/` | JSON для интерфейса, Markdown для выгрузки, SVG-бейдж |
+| AI-план | `backend/app/ai/` | Необязательно: YandexGPT Lite дописывает к готовым рекомендациям пошаговый план. Без `YANDEX_AI_STUDIO_API_KEY` выключен; при сбое модели анализ не падает — [recommendations.md](recommendations.md#ai-план-действий) |
 | Рейтинг | `backend/app/leaderboard/` | Публичные проекции последних снимков, места только по Score — [leaderboard-policy.md](leaderboard-policy.md) |
 | Планировщик | `backend/app/scheduling/` | Регулярный пересчёт публичного каталога — [scheduling-policy.md](scheduling-policy.md) |
 | Интеграции | `backend/app/integrations/` | Клиенты SourceCraft API, Git, AppSec — [data-sources.md](data-sources.md) |
@@ -50,7 +52,7 @@ Traefik (TLS) ─┬─► frontend: nginx, статическая сборка 
 1. Пользователь входит через Яндекс ID; в кабинете видит репозитории из `GET /api/v1/me/repositories`: с личным подключением — всё, что видит его токен в SourceCraft, без подключения — публичный каталог сервиса.
 2. Backend заново проверяет доступ: личным токеном, если он подключён, иначе — только публичность репозитория. Сервисный токен не открывает закрытые и внутренние репозитории.
 3. Resolver фиксирует полный SHA коммита ветки по умолчанию. Все анализаторы смотрят на одно состояние кода.
-4. Worker выполняет анализаторы в отдельном потоке, собирает Score и рекомендации, сохраняет снимок и terminal-статус одной транзакцией.
+4. Worker выполняет анализаторы в отдельном потоке и собирает Score и рекомендации. Если AI включён, к рекомендациям дописывается AI-план. Снимок и terminal-статус сохраняются одной транзакцией.
 5. Интерфейс опрашивает `GET /api/v1/analyses/{id}` каждые 3 секунды и открывает отчёт. Статус и подробный отчёт видит только тот, кто запускал анализ.
 
 **Публичный рейтинг** (планировщик, флаг `PUBLIC_ANALYSIS_SCHEDULER_ENABLED`):
