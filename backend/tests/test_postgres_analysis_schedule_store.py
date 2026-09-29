@@ -71,3 +71,25 @@ class PostgresAnalysisScheduleStoreTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(second_claim, ())
         self.assertTrue(reserved)
         self.assertTrue(released)
+
+    async def test_ondemand_claim_observes_periodic_reservation(self) -> None:
+        await self.first.reconcile_catalog(
+            (ScheduleCandidate(self.repository_id, self.now),),
+            observed_at=self.now,
+        )
+
+        periodic_claim = await self.first.claim_due(
+            now=self.now,
+            limit=1,
+            lease_owner="scheduler-first",
+            lease_expires_at=self.now + timedelta(minutes=5),
+        )
+        ondemand_claim = await self.second.claim_on_demand(
+            self.repository_id,
+            now=self.now,
+            lease_owner="ondemand-second",
+            lease_expires_at=self.now + timedelta(minutes=5),
+        )
+
+        self.assertEqual([entry.repository_id for entry in periodic_claim], [self.repository_id])
+        self.assertIsNone(ondemand_claim)

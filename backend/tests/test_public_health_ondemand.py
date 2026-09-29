@@ -17,7 +17,12 @@ from backend.app.analysis.personal_sourcecraft import SourceCraftConnectionRequi
 from backend.app.analysis.store import InMemoryAnalysisStore
 from backend.app.integrations.sourcecraft_repositories import SourceCraftRepository
 from backend.app.main import create_app
-from backend.app.scheduling.runner import SYSTEM_SCHEDULER_SUBJECT
+from backend.app.scheduling.runner import (
+    SYSTEM_SCHEDULER_SUBJECT,
+    InMemoryAnalysisScheduleStore,
+    PublicAnalysisScheduler,
+    ScheduleCandidate,
+)
 
 
 def _public_repo(
@@ -71,22 +76,23 @@ class _MockDispatcher:
         principal: AnalysisPrincipal,
         *,
         analysis_id: str | None = None,
-    ) -> None:
+    ) -> AnalysisJob | None:
         if self.delay > 0:
             await asyncio.sleep(self.delay)
         if self.error is not None:
             raise self.error
         if analysis_id is not None:
             self.submissions.append(analysis_id)
+            job = AnalysisJob.queued(
+                analysis_id=analysis_id,
+                repository_id=repository_id,
+                owner_subject=principal.subject,
+                created_at=datetime.now(UTC),
+            )
             if self.job_store is not None:
-                await self.job_store.create(
-                    AnalysisJob.queued(
-                        analysis_id=analysis_id,
-                        repository_id=repository_id,
-                        owner_subject=principal.subject,
-                        created_at=datetime.now(UTC),
-                    )
-                )
+                return await self.job_store.create(job)
+            return job
+        return None
 
 
 def _api_client(app: object) -> httpx.AsyncClient:
@@ -253,5 +259,93 @@ class PublicHealthOndemandTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(response.status_code, 404)
         self.assertEqual(dispatcher.submissions, [])
+
+    async def test_scheduler_reservation_blocks_ondemand_duplicate(self) -> None:
+        now = datetime(2026, 9, 29, 20, tzinfo=UTC)
+        store = InMemoryAnalysisStore()
+        jobs = InMemoryAnalysisJobStore()
+        dispatcher = _MockDispatcher(job_store=jobs)
+        catalog = _Catalog((_public_repo(),))
+        schedule_store = InMemoryAnalysisScheduleStore()
+        await schedule_store.reconcile_catalog(
+            (ScheduleCandidate("repo-public", None),),
+            observed_at=now,
+        )
+        claimed = await schedule_store.claim_due(
+            now=now,
+            limit=1,
+            lease_owner="periodic-scheduler",
+            lease_expires_at=now + timedelta(minutes=5),
+        )
+        self.assertEqual(len(claimed), 1)
+        self.assertTrue(
+            await schedule_store.reserve_submission(
+                "repo-public",
+                lease_owner="periodic-scheduler",
+                analysis_id="scheduled-reservation",
+                updated_at=now,
+            )
+        )
+        scheduler = PublicAnalysisScheduler(
+            repository_catalog=catalog,
+            dispatcher=dispatcher,
+            job_store=jobs,
+            schedule_store=schedule_store,
+            clock=lambda: now,
+        )
+        app = create_app(
+            analysis_store=store,
+            job_store=jobs,
+            repository_catalog=catalog,
+            analysis_dispatcher=dispatcher,
+            analysis_scheduler=scheduler,
+        )
+
+        async with _api_client(app) as client:
+            response = await client.get(
+                "/api/v1/public/repositories/demo-org/health-api/health"
+            )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(dispatcher.submissions, [])
+
+    async def test_ondemand_uses_scheduler_reservation(self) -> None:
+        now = datetime(2026, 9, 29, 20, tzinfo=UTC)
+        store = InMemoryAnalysisStore()
+        jobs = InMemoryAnalysisJobStore()
+        dispatcher = _MockDispatcher(job_store=jobs)
+        catalog = _Catalog((_public_repo(),))
+        schedule_store = InMemoryAnalysisScheduleStore()
+        await schedule_store.reconcile_catalog(
+            (ScheduleCandidate("repo-public", None),),
+            observed_at=now,
+        )
+        scheduler = PublicAnalysisScheduler(
+            repository_catalog=catalog,
+            dispatcher=dispatcher,
+            job_store=jobs,
+            schedule_store=schedule_store,
+            clock=lambda: now,
+            analysis_id_factory=lambda: "ondemand-scheduled-job",
+        )
+        app = create_app(
+            analysis_store=store,
+            job_store=jobs,
+            repository_catalog=catalog,
+            analysis_dispatcher=dispatcher,
+            analysis_scheduler=scheduler,
+        )
+
+        async with _api_client(app) as client:
+            response = await client.get(
+                "/api/v1/public/repositories/demo-org/health-api/health"
+            )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(dispatcher.submissions, ["ondemand-scheduled-job"])
+        self.assertEqual(
+            (await jobs.get("ondemand-scheduled-job")).owner_subject,
+            SYSTEM_SCHEDULER_SUBJECT,
+        )
 
 

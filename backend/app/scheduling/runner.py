@@ -21,7 +21,7 @@ from uuid import uuid4
 import asyncpg
 
 from backend.app.analysis.dispatch import AnalysisDispatcher, AnalysisPrincipal
-from backend.app.analysis.jobs import AnalysisJobStatus, AnalysisJobStore
+from backend.app.analysis.jobs import AnalysisJob, AnalysisJobStatus, AnalysisJobStore
 from backend.app.integrations.sourcecraft_public_catalog import PublicRepositoryCatalog
 from backend.app.integrations.sourcecraft_repository import (
     SourceCraftRepositoryUnavailableError,
@@ -133,6 +133,16 @@ class AnalysisScheduleStore(Protocol):
         lease_expires_at: datetime,
     ) -> tuple[ScheduleEntry, ...]:
         """Атомарно закрепляет ограниченное число просроченных записей."""
+
+    async def claim_on_demand(
+        self,
+        repository_id: str,
+        *,
+        now: datetime,
+        lease_owner: str,
+        lease_expires_at: datetime,
+    ) -> ScheduleEntry | None:
+        """Атомарно закрепляет доступный public-репозиторий по HTTP-запросу."""
 
     async def reserve_submission(
         self,
@@ -299,6 +309,43 @@ class InMemoryAnalysisScheduleStore:
                 for entry in due
             )
             self._entries.update({entry.repository_id: entry for entry in claimed})
+            return claimed
+
+    async def claim_on_demand(
+        self,
+        repository_id: str,
+        *,
+        now: datetime,
+        lease_owner: str,
+        lease_expires_at: datetime,
+    ) -> ScheduleEntry | None:
+        _require_repository_id(repository_id)
+        _require_aware(now, "now")
+        _require_lease_owner(lease_owner)
+        _require_aware(lease_expires_at, "lease_expires_at")
+        if lease_expires_at <= now:
+            raise ValueError("lease_expires_at must be later than now")
+
+        with self._lock:
+            entry = self._entries.get(repository_id)
+            if (
+                entry is None
+                or not entry.active
+                or entry.blocked
+                or entry.in_flight_analysis_id is not None
+                or (
+                    entry.lease_expires_at is not None
+                    and entry.lease_expires_at > now
+                )
+            ):
+                return None
+            claimed = replace(
+                entry,
+                lease_owner=lease_owner,
+                lease_expires_at=lease_expires_at,
+                updated_at=now,
+            )
+            self._entries[repository_id] = claimed
             return claimed
 
     async def reserve_submission(
@@ -612,6 +659,45 @@ class PostgresAnalysisScheduleStore:
         )
         return tuple(_entry_from_row(row) for row in rows)
 
+    async def claim_on_demand(
+        self,
+        repository_id: str,
+        *,
+        now: datetime,
+        lease_owner: str,
+        lease_expires_at: datetime,
+    ) -> ScheduleEntry | None:
+        _require_repository_id(repository_id)
+        _require_aware(now, "now")
+        _require_lease_owner(lease_owner)
+        _require_aware(lease_expires_at, "lease_expires_at")
+        if lease_expires_at <= now:
+            raise ValueError("lease_expires_at must be later than now")
+
+        row = await self._require_pool().fetchrow(
+            """
+            UPDATE analysis_schedules
+            SET
+                lease_owner = $3,
+                lease_expires_at = $4,
+                updated_at = $2
+            WHERE repository_id = $1
+                AND active = TRUE
+                AND blocked = FALSE
+                AND in_flight_analysis_id IS NULL
+                AND (lease_expires_at IS NULL OR lease_expires_at <= $2)
+            RETURNING
+                repository_id, last_activity_at, next_analysis_at,
+                in_flight_analysis_id, consecutive_failures, active, updated_at,
+                lease_owner, lease_expires_at
+            """,
+            repository_id,
+            now,
+            lease_owner,
+            lease_expires_at,
+        )
+        return _entry_from_row(row) if row is not None else None
+
     async def reserve_submission(
         self,
         repository_id: str,
@@ -874,6 +960,77 @@ class PublicAnalysisScheduler:
                 await self._task
             self._task = None
         await self._schedule_store.close()
+
+    async def submit_on_demand(self, repository_id: str) -> AnalysisJob | None:
+        """Ставит public-анализ через ту же durable reservation, что и планировщик."""
+
+        _require_repository_id(repository_id)
+        now = _as_utc(self._clock(), "clock")
+        entry = await self._schedule_store.claim_on_demand(
+            repository_id,
+            now=now,
+            lease_owner=self._scheduler_id,
+            lease_expires_at=now + self._entry_lease,
+        )
+        if entry is None:
+            return None
+
+        analysis_id = self._analysis_id_factory()
+        _require_analysis_id(analysis_id)
+        reserved = await self._schedule_store.reserve_submission(
+            repository_id,
+            lease_owner=self._scheduler_id,
+            analysis_id=analysis_id,
+            updated_at=_as_utc(self._clock(), "clock"),
+        )
+        if not reserved:
+            raise RuntimeError("failed to reserve on-demand public analysis")
+
+        try:
+            job = await self._dispatcher.submit(
+                repository_id,
+                AnalysisPrincipal(SYSTEM_SCHEDULER_SUBJECT),
+                analysis_id=analysis_id,
+            )
+            if job.repository_id != repository_id or job.analysis_id != analysis_id:
+                raise RuntimeError("dispatcher returned a mismatched on-demand job")
+        except Exception as error:
+            failed_at = _as_utc(self._clock(), "clock")
+            if _is_temporary_submission_error(error):
+                retry = schedule_temporary_retry(
+                    repository_id,
+                    failed_at=failed_at,
+                    consecutive_failures=entry.consecutive_failures + 1,
+                )
+                await self._schedule_store.release_submission(
+                    repository_id,
+                    lease_owner=self._scheduler_id,
+                    analysis_id=analysis_id,
+                    next_analysis_at=retry.due_at,
+                    consecutive_failures=retry.consecutive_failures,
+                    updated_at=failed_at,
+                )
+            else:
+                await self._schedule_store.disable_submission(
+                    repository_id,
+                    lease_owner=self._scheduler_id,
+                    analysis_id=analysis_id,
+                    updated_at=failed_at,
+                )
+            raise
+
+        confirmed = await self._schedule_store.confirm_submission(
+            repository_id,
+            lease_owner=self._scheduler_id,
+            analysis_id=analysis_id,
+            updated_at=_as_utc(self._clock(), "clock"),
+        )
+        if not confirmed:
+            logger.warning(
+                "On-demand public analysis remains reserved until reconciliation.",
+                extra={"analysis_id": analysis_id},
+            )
+        return job
 
     async def run_once(self) -> SchedulerRun:
         """Сверяет каталог, учитывает terminal-запуски и ставит ограниченную пачку."""

@@ -381,60 +381,63 @@ def create_app(
             raise HTTPException(status_code=503, detail="Public API data is unavailable.") from error
             
         if metadata is not None and effective_analysis_dispatcher is not None:
-            principal = AnalysisPrincipal(subject="public-api-ondemand")
-            repo_lock = await get_ondemand_lock(metadata.repository_id)
-            async with repo_lock:
-                ondemand_history, scheduled_history = await asyncio.gather(
-                    jobs.list_history_for_owner_repositories(
-                        principal.subject,
-                        [metadata.repository_id],
-                    ),
-                    jobs.list_history_for_owner_repositories(
-                        SYSTEM_SCHEDULER_SUBJECT,
-                        [metadata.repository_id],
-                    ),
-                )
-                history = (*ondemand_history, *scheduled_history)
-                has_active = any(
-                    job.status in (AnalysisJobStatus.QUEUED, AnalysisJobStatus.RUNNING)
-                    for job in history
-                )
-                latest_terminal = max(
-                    (
-                        job
-                        for job in history
-                        if job.status not in (AnalysisJobStatus.QUEUED, AnalysisJobStatus.RUNNING)
-                    ),
-                    key=lambda j: j.created_at,
-                    default=None,
-                )
-
-                terminal_time = None
-                if latest_terminal:
-                    terminal_time = latest_terminal.finished_at or latest_terminal.created_at
-
-                cooldown_passed = True
-                if terminal_time:
-                    cooldown_passed = (datetime.now(UTC) - terminal_time) > timedelta(hours=1)
-
-                if not has_active and cooldown_passed:
-                    suffix = str(int(terminal_time.timestamp())) if terminal_time else "init"
-                    repo_hash = hashlib.sha256(metadata.repository_id.encode("utf-8")).hexdigest()[:24]
-                    try:
-                        await effective_analysis_dispatcher.submit(
-                            repository_id=metadata.repository_id,
-                            principal=principal,
-                            analysis_id=f"ondemand-{repo_hash}-{suffix}",
+            try:
+                if effective_analysis_scheduler is not None:
+                    await effective_analysis_scheduler.submit_on_demand(metadata.repository_id)
+                else:
+                    principal = AnalysisPrincipal(subject="public-api-ondemand")
+                    repo_lock = await get_ondemand_lock(metadata.repository_id)
+                    async with repo_lock:
+                        ondemand_history, scheduled_history = await asyncio.gather(
+                            jobs.list_history_for_owner_repositories(
+                                principal.subject,
+                                [metadata.repository_id],
+                            ),
+                            jobs.list_history_for_owner_repositories(
+                                SYSTEM_SCHEDULER_SUBJECT,
+                                [metadata.repository_id],
+                            ),
                         )
-                    except SourceCraftRepositoryUnavailableError as error:
-                        raise HTTPException(
-                            status_code=503,
-                            detail="SourceCraft repository catalog is unavailable.",
-                        ) from error
-                    except SourceCraftConnectionRequiredError:
-                        # Публичный endpoint не раскрывает, доступен ли сейчас
-                        # on-demand анализ для конкретного репозитория.
-                        pass
+                        history = (*ondemand_history, *scheduled_history)
+                        has_active = any(
+                            job.status in (AnalysisJobStatus.QUEUED, AnalysisJobStatus.RUNNING)
+                            for job in history
+                        )
+                        latest_terminal = max(
+                            (
+                                job
+                                for job in history
+                                if job.status not in (AnalysisJobStatus.QUEUED, AnalysisJobStatus.RUNNING)
+                            ),
+                            key=lambda j: j.created_at,
+                            default=None,
+                        )
+
+                        terminal_time = None
+                        if latest_terminal:
+                            terminal_time = latest_terminal.finished_at or latest_terminal.created_at
+
+                        cooldown_passed = True
+                        if terminal_time:
+                            cooldown_passed = (datetime.now(UTC) - terminal_time) > timedelta(hours=1)
+
+                        if not has_active and cooldown_passed:
+                            suffix = str(int(terminal_time.timestamp())) if terminal_time else "init"
+                            repo_hash = hashlib.sha256(metadata.repository_id.encode("utf-8")).hexdigest()[:24]
+                            await effective_analysis_dispatcher.submit(
+                                repository_id=metadata.repository_id,
+                                principal=principal,
+                                analysis_id=f"ondemand-{repo_hash}-{suffix}",
+                            )
+            except SourceCraftRepositoryUnavailableError as error:
+                raise HTTPException(
+                    status_code=503,
+                    detail="SourceCraft repository catalog is unavailable.",
+                ) from error
+            except SourceCraftConnectionRequiredError:
+                # Публичный endpoint не раскрывает, доступен ли сейчас
+                # on-demand анализ для конкретного репозитория.
+                pass
 
         # Не различаем отсутствующий, private/internal и ещё не проанализированный
         # репозиторий: endpoint не должен становиться oracle доступа.
