@@ -124,6 +124,46 @@ class SourceCraftPublicRepositoryCatalogTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(client.closed)
 
 
+class PublicCatalogDiscoveryTest(unittest.IsolatedAsyncioTestCase):
+    """Публичный репозиторий вне разрешённых организаций добавляется по запросу публичного API."""
+
+    def setUp(self) -> None:
+        self.organizations: dict[str, list[dict[str, object]]] = {
+            "alpha": [repository_payload("alpha-id", "core")],
+            "other": [
+                repository_payload("open-id", "open", organization_slug="other"),
+                repository_payload("closed-id", "closed", organization_slug="other", visibility="private"),
+            ],
+        }
+        self.catalog = SourceCraftPublicRepositoryCatalog(
+            SourceCraftPublicCatalogSettings("sourcecraft-secret", ("alpha",)),
+            client_factory=lambda token: CatalogHttpClient(token, self.organizations),
+        )
+
+    async def test_discovered_public_repository_joins_catalog(self) -> None:
+        discovered = await self.catalog.discover("other", "open")
+
+        self.assertIsNotNone(discovered)
+        slugs = [(item.organization_slug, item.slug) for item in await self.catalog.list_repositories()]
+        self.assertEqual(slugs, [("alpha", "core"), ("other", "open")])
+
+    async def test_private_and_unknown_repositories_are_not_added(self) -> None:
+        self.assertIsNone(await self.catalog.discover("other", "closed"))
+        self.assertIsNone(await self.catalog.discover("other", "missing"))
+
+        slugs = [(item.organization_slug, item.slug) for item in await self.catalog.list_repositories()]
+        self.assertEqual(slugs, [("alpha", "core")])
+
+    async def test_repository_that_became_private_leaves_catalog(self) -> None:
+        await self.catalog.discover("other", "open")
+        self.organizations["other"] = [
+            repository_payload("open-id", "open", organization_slug="other", visibility="private"),
+        ]
+
+        slugs = [(item.organization_slug, item.slug) for item in await self.catalog.list_repositories()]
+        self.assertEqual(slugs, [("alpha", "core")])
+
+
 class SourceCraftPublicCatalogSettingsTest(unittest.TestCase):
     def test_factory_requires_complete_configuration_and_hides_token_from_repr(self) -> None:
         self.assertIsNone(create_sourcecraft_public_repository_catalog_from_environment({}))

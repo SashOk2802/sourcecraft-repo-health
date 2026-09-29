@@ -380,6 +380,22 @@ def create_app(
         except (TypeError, ValueError) as error:
             raise HTTPException(status_code=503, detail="Public API data is unavailable.") from error
             
+        # Публичного репозитория нет в настроенном каталоге (например, другая организация):
+        # проверяем его в SourceCraft и добавляем. Дальше его подхватят рейтинг и планировщик.
+        discover = getattr(effective_repository_catalog, "discover", None)
+        if (
+            metadata is None
+            and discover is not None
+            and await discover(organization_slug, repository_slug) is not None
+        ):
+            try:
+                metadata = await effective_leaderboard_service.get_public_repository_metadata(
+                    organization_slug,
+                    repository_slug,
+                )
+            except (SourceCraftRepositoryUnavailableError, TypeError, ValueError):
+                metadata = None
+
         if metadata is not None and effective_analysis_dispatcher is not None:
             try:
                 if effective_analysis_scheduler is not None:
