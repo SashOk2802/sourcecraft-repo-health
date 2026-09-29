@@ -98,7 +98,7 @@ export interface Recommendation {
   expectedScoreDelta: number | null;
   evidence: Evidence[];
   /** Пошаговый план действий, сгенерированный AI на основе фактических данных анализа. null — AI не настроен. */
-  aiActionPlan: string | null;
+  aiActionPlan?: string | null;
 }
 
 export async function fetchReport(analysisId: string): Promise<RepositoryReport> {

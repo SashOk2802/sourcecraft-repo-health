@@ -16,6 +16,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse, Response
 from pydantic import BaseModel
 
+from backend.app.ai.client import create_client_from_environment as _create_ai_client
 from backend.app.analysis import (
     AnalysisDispatcher,
     AnalysisExecutionService,
@@ -37,7 +38,6 @@ from backend.app.analysis.personal_sourcecraft import (
     SourceCraftConnectionRequiredError,
 )
 from backend.app.analysis.providers import sourcecraft_analyzer_provider
-from backend.app.ai.client import create_client_from_environment as _create_ai_client
 from backend.app.analyzers.registration import project_life_analyzer_provider
 from backend.app.contracts import AnalysisContext
 from backend.app.identity import (
