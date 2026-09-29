@@ -18,6 +18,7 @@ from backend.app.analysis.dispatch import AnalysisPrincipal
 from backend.app.contracts import AnalysisContext, CategoryResult, DataStatus, RepositoryRef
 from backend.app.integrations.sourcecraft_repositories import SourceCraftRepository
 from backend.app.main import create_app
+from backend.app.scheduling.runner import SYSTEM_SCHEDULER_SUBJECT
 
 OWNER_TOKEN = "report-owner-token"
 OTHER_TOKEN = "report-other-token"
@@ -51,6 +52,21 @@ class ReportApiTest(unittest.IsolatedAsyncioTestCase):
         await self.job_store.mark_running("analysis-42", timestamp)
         await self.job_store.finish(
             "analysis-42",
+            status=AnalysisJobStatus.PARTIAL,
+            finished_at=timestamp,
+        )
+        await self.store.save("analysis-public-42", self.execution)
+        await self.job_store.create(
+            AnalysisJob.queued(
+                analysis_id="analysis-public-42",
+                repository_id="repo-42",
+                created_at=timestamp,
+                owner_subject=SYSTEM_SCHEDULER_SUBJECT,
+            )
+        )
+        await self.job_store.mark_running("analysis-public-42", timestamp)
+        await self.job_store.finish(
+            "analysis-public-42",
             status=AnalysisJobStatus.PARTIAL,
             finished_at=timestamp,
         )
@@ -193,6 +209,35 @@ class ReportApiTest(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(response.status_code, 404)
                     self.assertEqual(response.json(), {"detail": "Analysis not found."})
                     self._assert_hides_private_report(response)
+
+    async def test_public_scheduled_snapshot_opens_without_a_session(self) -> None:
+        async with api_client(self.app) as client:
+            status = await client.get("/api/v1/analyses/analysis-public-42")
+            report = await client.get("/api/v1/analyses/analysis-public-42/report")
+            markdown = await client.get("/api/v1/analyses/analysis-public-42/report.md")
+
+        self.assertEqual(status.status_code, 200)
+        self.assertEqual(status.json()["id"], "analysis-public-42")
+        self.assertEqual(report.status_code, 200)
+        self.assertEqual(report.json()["analysis"]["id"], "analysis-public-42")
+        self.assertTrue(report.json()["badgeAvailable"])
+        self.assertEqual(markdown.status_code, 200)
+        self.assertIn("analysis-public-42", markdown.text)
+
+    async def test_public_scheduled_snapshot_is_hidden_after_catalog_removal(self) -> None:
+        self.catalog.repositories = ()
+
+        async with api_client(self.app) as client:
+            for path in (
+                "/api/v1/analyses/analysis-public-42",
+                "/api/v1/analyses/analysis-public-42/report",
+                "/api/v1/analyses/analysis-public-42/report.md",
+            ):
+                with self.subTest(path=path):
+                    response = await client.get(path)
+
+                    self.assertEqual(response.status_code, 401)
+                    self.assertEqual(response.json(), {"detail": "Authentication required."})
 
     def _assert_hides_private_report(self, response: httpx.Response) -> None:
         rendered = response.text
