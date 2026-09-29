@@ -16,7 +16,13 @@ from backend.app.analyzers.activity import (
     collect_commit_history,
     evaluate,
 )
-from backend.app.contracts import AnalysisContext, CategoryResult, DataStatus, InsightResult, RepositoryRef
+from backend.app.contracts import (
+    AnalysisContext,
+    CategoryResult,
+    DataStatus,
+    InsightResult,
+    RepositoryRef,
+)
 from backend.app.integrations.git_repository import CommitRecord, CommitTimestampPage, GitCloneError
 
 ANALYZED_AT = datetime(2026, 9, 15, 12, tzinfo=UTC)
