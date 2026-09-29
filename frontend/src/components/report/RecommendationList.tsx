@@ -64,6 +64,16 @@ export function RecommendationList({ recommendations, hasScore }: Recommendation
                       Что изменится: {recommendation.expectedEffect}
                     </Text>
                   )}
+                  {recommendation.aiActionPlan && (
+                    <div className="recommendation__ai-plan">
+                      <Text variant="caption-2" color="secondary" className="recommendation__ai-label">
+                        ✦ AI-план действий
+                      </Text>
+                      <Text variant="body-2" className="recommendation__ai-text">
+                        {recommendation.aiActionPlan}
+                      </Text>
+                    </div>
+                  )}
                 </div>
                 <div className="recommendation__gain">
                   {recommendation.expectedScoreDelta !== null && recommendation.expectedScoreDelta > 0 && (

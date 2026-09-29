@@ -157,6 +157,15 @@ def render_markdown_report(
                     "Ожидаемое изменение Score: "
                     f"+{_format_number(recommendation['expectedScoreDelta'])}."
                 )
+            if recommendation.get("aiActionPlan"):
+                lines.extend(
+                    (
+                        "",
+                        "**AI-план действий:**",
+                        "",
+                        recommendation["aiActionPlan"],
+                    )
+                )
             for evidence in recommendation["evidence"]:
                 lines.append(_evidence_markdown(evidence))
 
@@ -208,6 +217,7 @@ def _recommendation_payload(recommendation: Recommendation) -> dict[str, object]
         "expectedEffect": recommendation.expected_effect,
         "expectedScoreDelta": recommendation.expected_score_delta,
         "evidence": [_evidence_payload(item) for item in recommendation.evidence],
+        "aiActionPlan": recommendation.ai_action_plan,
     }
 
 

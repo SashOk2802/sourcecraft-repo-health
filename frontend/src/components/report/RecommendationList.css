@@ -52,6 +52,26 @@
   margin-top: 2px;
 }
 
+/* AI-план действий: тонкая рамка слева отделяет сгенерированный контент от детерминированного. */
+.recommendation__ai-plan {
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-left: 2px solid var(--g-color-line-generic-accent);
+  border-radius: 0 4px 4px 0;
+  background: var(--g-color-base-misc-light);
+  display: grid;
+  gap: 4px;
+}
+
+.recommendation__ai-label {
+  opacity: 0.6;
+  letter-spacing: 0.02em;
+}
+
+.recommendation__ai-text {
+  white-space: pre-wrap;
+}
+
 .recommendation__gain {
   display: grid;
   align-content: start;

@@ -37,6 +37,7 @@ from backend.app.analysis.personal_sourcecraft import (
     SourceCraftConnectionRequiredError,
 )
 from backend.app.analysis.providers import sourcecraft_analyzer_provider
+from backend.app.ai.client import create_client_from_environment as _create_ai_client
 from backend.app.analyzers.registration import project_life_analyzer_provider
 from backend.app.contracts import AnalysisContext
 from backend.app.identity import (
@@ -844,7 +845,11 @@ def create_sourcecraft_app(
         del context
         return open_bound_client()
 
-    execution_service = AnalysisExecutionService(job_store=jobs, snapshot_store=store)
+    execution_service = AnalysisExecutionService(
+        job_store=jobs,
+        snapshot_store=store,
+        ai_client=_create_ai_client(),
+    )
     context_resolver = SourceCraftRepositoryContextResolver(open_bound_client, clock=clock)
     dispatcher = InProcessAnalysisDispatcher(
         execution_service=execution_service,
@@ -993,6 +998,7 @@ def _create_default_analysis_dispatcher(
         execution_service=AnalysisExecutionService(
             job_store=jobs,
             snapshot_store=store,
+            ai_client=_create_ai_client(),
         ),
         analysis_planner=PersonalOrPublicAnalysisPlanner(
             connection_service=connection_service,
