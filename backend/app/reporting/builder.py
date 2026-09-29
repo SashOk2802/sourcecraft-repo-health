@@ -6,7 +6,14 @@ from datetime import datetime
 from types import MappingProxyType
 
 from backend.app.analysis.runner import AnalysisExecution
-from backend.app.contracts import CategoryResult, Evidence, MetricResult, Recommendation
+from backend.app.analyzers.gaming import GamingDetectionResult, GamingSignal
+from backend.app.contracts import (
+    CategoryResult,
+    Evidence,
+    InsightResult,
+    MetricResult,
+    Recommendation,
+)
 from backend.app.scoring.engine import CategoryContribution, ScoreLimit
 from backend.app.scoring.methodology import CATEGORY_LABELS
 
@@ -35,7 +42,7 @@ def build_report_payload(
     score_summary = execution.score_summary
     contributions = {item.category: item for item in score_summary.categories}
 
-    return {
+    payload: dict[str, object] = {
         "repository": {
             "id": analysis.repository.id,
             "organizationSlug": analysis.repository.organization_slug,
@@ -68,7 +75,12 @@ def build_report_payload(
             _recommendation_payload(recommendation)
             for recommendation in analysis.recommendations
         ],
+        "insights": [_insight_payload(insight) for insight in analysis.insights],
     }
+    gaming_warning = _gaming_warning_payload(execution.gaming)
+    if gaming_warning is not None:
+        payload["gamingWarning"] = gaming_warning
+    return payload
 
 
 def render_markdown_report(
@@ -83,6 +95,8 @@ def render_markdown_report(
     analysis = report["analysis"]
     categories = report["categories"]
     recommendations = report["recommendations"]
+    insights = report["insights"]
+    gaming_warning = report.get("gamingWarning")
 
     lines = [
         f"# Repo Health: {repository['name']}",
@@ -112,6 +126,22 @@ def render_markdown_report(
             )
         )
 
+    if isinstance(gaming_warning, dict) and gaming_warning.get("suspected"):
+        lines.extend(
+            (
+                "",
+                "### Предупреждение о накрутке",
+                "",
+                f"**{gaming_warning['label']}**",
+                gaming_warning["summary"],
+                "Сигнал не меняет Repo Health Score и место в рейтинге.",
+            )
+        )
+        for signal in gaming_warning.get("signals") or ():
+            if not isinstance(signal, dict) or not signal.get("flagged"):
+                continue
+            lines.append(f"- `{signal['code']}`: {signal['summary']}")
+
     lines.extend(("", "## Категории"))
     for category in categories:
         lines.extend(
@@ -134,6 +164,35 @@ def render_markdown_report(
         for fact in category["evidence"]:
             lines.append(f"- Факт `{fact['code']}`: {fact['summary']}")
             for evidence in fact["evidence"]:
+                lines.append(_evidence_markdown(evidence))
+
+    if insights:
+        lines.extend(
+            (
+                "",
+                "## Сопровождение",
+                "",
+                "Показатели со звёздочкой: в Repo Health Score не входят.",
+            )
+        )
+        for insight in insights:
+            lines.extend(
+                (
+                    "",
+                    f"### {insight['label']}",
+                    "",
+                    f"- Статус: {_STATUS_LABELS[insight['status']]}",
+                    f"- Значение: {_format_insight_value(insight)}",
+                    f"- {insight['summary']}",
+                )
+            )
+            if insight["detail"]:
+                lines.append(f"- {insight['detail']}")
+            if insight["action"]:
+                lines.append(f"- Что сделать: {insight['action']}")
+            if insight["reason"]:
+                lines.append(f"- Причина: `{insight['reason']}`")
+            for evidence in insight["evidence"]:
                 lines.append(_evidence_markdown(evidence))
 
     lines.extend(("", "## Рекомендации"))
@@ -182,6 +241,32 @@ def render_markdown_report(
     return "\n".join(lines) + "\n"
 
 
+def _gaming_warning_payload(
+    gaming: GamingDetectionResult | None,
+) -> dict[str, object] | None:
+    """Сериализует детектор накрутки. Старые снимки без поля остаются валидными."""
+
+    if gaming is None:
+        return None
+    return {
+        "suspected": gaming.suspected,
+        "label": gaming.label,
+        "summary": gaming.summary,
+        "signals": [_gaming_signal_payload(signal) for signal in gaming.signals],
+    }
+
+
+def _gaming_signal_payload(signal: GamingSignal) -> dict[str, object]:
+    return {
+        "code": signal.code,
+        "status": signal.status.value,
+        "summary": signal.summary,
+        "flagged": signal.flagged,
+        "detail": signal.detail,
+        "value": signal.value,
+    }
+
+
 def _category_payload(category: CategoryResult, contribution: CategoryContribution) -> dict[str, object]:
     return {
         "code": category.category,
@@ -221,6 +306,20 @@ def _recommendation_payload(recommendation: Recommendation) -> dict[str, object]
     }
 
 
+def _insight_payload(insight: InsightResult) -> dict[str, object]:
+    return {
+        "code": insight.code,
+        "label": insight.label,
+        "status": insight.status.value,
+        "value": insight.value,
+        "summary": insight.summary,
+        "detail": insight.detail,
+        "reason": insight.reason,
+        "action": insight.action,
+        "evidence": [_evidence_payload(item) for item in insight.evidence],
+    }
+
+
 def _evidence_payload(evidence: Evidence) -> dict[str, object]:
     return {
         "source": evidence.source,
@@ -254,6 +353,15 @@ def _format_number(value: object) -> str:
     if isinstance(value, int | float):
         return f"{value:.2f}".rstrip("0").rstrip(".")
     return str(value)
+
+
+def _format_insight_value(insight: dict[str, object]) -> str:
+    value = insight["value"]
+    if value is None:
+        return "—"
+    if insight["code"] == "review_quality" and isinstance(value, int | float):
+        return _format_percentage(value)
+    return _format_number(value)
 
 
 def _format_percentage(value: object) -> str:

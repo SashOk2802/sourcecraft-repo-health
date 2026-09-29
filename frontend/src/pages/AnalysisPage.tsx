@@ -18,6 +18,8 @@ import { AnalysisFacts } from "../components/report/AnalysisFacts";
 import { AnalysisFailed, AnalysisProgress } from "../components/report/AnalysisProgress";
 import { BadgeSnippet } from "../components/report/BadgeSnippet";
 import { CategoryMarks } from "../components/report/CategoryMarks";
+import { CollaborationInsights } from "../components/report/CollaborationInsights";
+import { GamingWarningBanner } from "../components/report/GamingWarningBanner";
 import { MarkdownExport } from "../components/report/MarkdownExport";
 import { PdfExport } from "../components/report/PdfExport";
 import { ProjectHighlights } from "../components/report/ProjectHighlights";
@@ -212,8 +214,12 @@ function ReportView({ report }: { report: RepositoryReport }) {
       <div className="report__grid">
         <div className="report__main">
           <ScoreCard report={report} />
+          <GamingWarningBanner warning={report.gamingWarning} />
           <ProjectHighlights categories={report.categories} />
           <CategoryMarks categories={report.categories} />
+          {report.insights && report.insights.length > 0 && (
+            <CollaborationInsights insights={report.insights} />
+          )}
           <RecommendationList recommendations={report.recommendations} hasScore={report.score !== null} />
         </div>
         <aside className="report__aside">

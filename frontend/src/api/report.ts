@@ -21,6 +21,16 @@ export interface RepositoryReport {
   categories: ReportCategory[];
   /** Уже отсортированы ядром по приоритету. */
   recommendations: Recommendation[];
+  /**
+   * Бонусные показатели со звёздочкой (bus factor, качество review).
+   * В Score не входят. Старые снимки могут не содержать поле — тогда блока нет.
+   */
+  insights?: ReportInsight[];
+  /**
+   * Продвинутая защита от накрутки (звёздочка). Не входит в Score.
+   * Старые снимки без поля — блока нет; отсутствие данных ≠ «накрутки нет».
+   */
+  gamingWarning?: GamingWarning;
 }
 
 export interface ReportRepository {
@@ -99,6 +109,36 @@ export interface Recommendation {
   evidence: Evidence[];
   /** Пошаговый план действий, сгенерированный AI на основе фактических данных анализа. null — AI не настроен. */
   aiActionPlan?: string | null;
+}
+
+/** Бонусный показатель: не категория и не вклад в Score. */
+export interface ReportInsight {
+  code: string;
+  label: string;
+  status: CategoryStatus;
+  value: number | null;
+  summary: string;
+  detail: string | null;
+  reason: string | null;
+  action: string | null;
+  evidence: Evidence[];
+}
+
+/** Предупреждение детектора накрутки; не влияет на Score и место. */
+export interface GamingWarning {
+  suspected: boolean;
+  label: string | null;
+  summary: string;
+  signals: GamingSignal[];
+}
+
+export interface GamingSignal {
+  code: string;
+  status: CategoryStatus;
+  summary: string;
+  flagged: boolean;
+  detail: string | null;
+  value: number | null;
 }
 
 export async function fetchReport(analysisId: string): Promise<RepositoryReport> {

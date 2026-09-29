@@ -108,6 +108,29 @@ describe("renderReportMarkdown", () => {
   it("без рекомендаций так и пишет", () => {
     expect(renderReportMarkdown({ ...report, recommendations: [] })).toContain("## Рекомендации\n\nРекомендаций пока нет.");
   });
+
+  it("блок сопровождения только при insights", () => {
+    expect(markdown).not.toContain("## Сопровождение");
+    const withInsights = renderReportMarkdown({
+      ...report,
+      insights: [
+        {
+          code: "bus_factor",
+          label: "Bus factor",
+          status: "measured",
+          value: 2,
+          summary: "Bus factor 2.",
+          detail: null,
+          reason: null,
+          action: null,
+          evidence: [],
+        },
+      ],
+    });
+    expect(withInsights).toContain("## Сопровождение");
+    expect(withInsights).toContain("в Repo Health Score не входят");
+    expect(withInsights).toContain("### Bus factor");
+  });
 });
 
 describe("formatNumber", () => {

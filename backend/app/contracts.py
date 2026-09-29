@@ -92,6 +92,31 @@ class Recommendation:
 
 
 @dataclass(frozen=True, slots=True)
+class InsightResult:
+    """Бонусный показатель со звёздочкой: не входит в Score и не в категории.
+
+    ``value`` — измеренное число (bus factor, доля MR с approve) или null.
+    Email авторов и имена ревьюеров сюда не кладутся.
+    """
+
+    code: str
+    label: str
+    status: DataStatus
+    summary: str
+    value: float | int | None = None
+    detail: str | None = None
+    reason: str | None = None
+    evidence: tuple[Evidence, ...] = ()
+    action: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.status is DataStatus.MEASURED and self.value is None:
+            raise ValueError("a measured insight requires a value")
+        if self.status is not DataStatus.MEASURED and self.value is not None:
+            raise ValueError("only a measured insight may have a value")
+
+
+@dataclass(frozen=True, slots=True)
 class CategoryResult:
     """Единый результат одной из шести категорий здоровья репозитория."""
 
@@ -102,6 +127,7 @@ class CategoryResult:
     metrics: tuple[MetricResult, ...] = ()
     recommendations: tuple[Recommendation, ...] = ()
     reason: str | None = None
+    insights: tuple[InsightResult, ...] = ()
 
     def __post_init__(self) -> None:
         if self.score is not None and not 0 <= self.score <= 100:
@@ -123,3 +149,4 @@ class AnalysisResult:
     score: float | None
     methodology_version: str
     recommendations: tuple[Recommendation, ...] = field(default_factory=tuple)
+    insights: tuple[InsightResult, ...] = field(default_factory=tuple)

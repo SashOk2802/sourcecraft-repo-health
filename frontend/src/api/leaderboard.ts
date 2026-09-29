@@ -60,6 +60,10 @@ export interface LeaderboardItem {
   likes: number | null;
   lastActivityAt: string | null;
   analyzedAt: string | null;
+  /** Признаки накрутки из отчёта; на место не влияет. Старые снимки — false. */
+  gamingSuspected: boolean;
+  /** Короткая метка вроде «есть признаки накрутки»; null если флага нет. */
+  gamingLabel: string | null;
   categories: CategoryBrief[];
 }
 
@@ -223,6 +227,8 @@ function toLeaderboardItem(row: LeaderboardRowPayload): LeaderboardItem {
     likes: row.likes ?? null,
     lastActivityAt: row.lastActivityAt ?? null,
     analyzedAt: row.analyzedAt ?? null,
+    gamingSuspected: row.gamingSuspected ?? false,
+    gamingLabel: row.gamingLabel ?? null,
     categories: row.categories ?? [],
   };
 }

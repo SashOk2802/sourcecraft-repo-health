@@ -226,6 +226,19 @@
   text-align: center;
 }
 
+.board__gaming {
+  display: inline-block;
+  margin-left: 6px;
+  max-width: 12rem;
+  overflow: hidden;
+  color: var(--g-color-text-danger);
+  font-size: var(--g-text-caption-2-font-size);
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
 .board__likes {
   width: 104px;
 }

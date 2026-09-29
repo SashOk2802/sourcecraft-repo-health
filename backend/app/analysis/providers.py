@@ -15,7 +15,16 @@ from dataclasses import replace
 from pathlib import Path
 
 from backend.app.analysis.runner import AnalyzerRegistration
-from backend.app.analyzers import activity, cicd, code_health, documentation, issues, security
+from backend.app.analyzers import (
+    activity,
+    cicd,
+    code_health,
+    collaboration,
+    documentation,
+    issues,
+    security,
+)
+from backend.app.analyzers import gaming as gaming_detector
 from backend.app.contracts import AnalysisContext, CategoryResult, DataStatus
 from backend.app.identity.sourcecraft_connection import SourceCraftConnectionError
 from backend.app.integrations.git_repository import GitCloneError, LocalGitRepository
@@ -147,6 +156,12 @@ def personal_sourcecraft_analyzer_provider(
 
 
 def _personal_activity_evaluator(open_client: Callable[[], SourceCraftClient]):
+    """Personal Activity: API-факты, бонусные insights и детектор накрутки.
+
+    Commit history для personal-пути пока не читается (как на main): bus factor
+    тогда честно unavailable. Merge-checks и review quality работают через API.
+    """
+
     def evaluate(ctx: AnalysisContext) -> CategoryResult:
         try:
             client = open_client()
@@ -154,7 +169,8 @@ def _personal_activity_evaluator(open_client: Callable[[], SourceCraftClient]):
             return _personal_connection_error("activity")
         try:
             facts = activity.collect(client, ctx.repository)
-            return activity.evaluate(facts, ctx)
+            result = activity.evaluate(facts, ctx)
+            return _attach_activity_bonus(client, facts, ctx, result)
         finally:
             client.close()
 
@@ -206,7 +222,13 @@ def _personal_connection_error(category_code: str) -> CategoryResult:
 
 
 def _activity_evaluator(token: str):
-    """Возвращает Activity evaluator с API-фактами и отдельной историей Git."""
+    """Возвращает Activity evaluator с API-фактами, историей Git и бонусными insights.
+
+    Bus factor и качество review считаются рядом с Activity, но в Score не входят.
+    Ошибка merge-checks не подменяет CategoryResult Activity.
+    Детектор накрутки пишется отдельно в AnalysisExecution.gaming и тоже не
+    влияет на Score; его сбой не роняет Activity.
+    """
 
     def evaluate(ctx: AnalysisContext) -> CategoryResult:
         try:
@@ -216,7 +238,9 @@ def _activity_evaluator(token: str):
         try:
             facts = activity.collect(client, ctx.repository)
             history = activity.collect_commit_history(ctx, auth_token=token or None)
-            return activity.evaluate(replace(facts, commit_history=history), ctx)
+            facts = replace(facts, commit_history=history)
+            result = activity.evaluate(facts, ctx)
+            return _attach_activity_bonus(client, facts, ctx, result)
         except SourceCraftClientError as error:
             return CategoryResult(
                 category="activity",
@@ -229,6 +253,42 @@ def _activity_evaluator(token: str):
             client.close()
 
     return evaluate
+
+
+def _attach_activity_bonus(
+    client: SourceCraftClient,
+    facts: activity.ActivityFacts,
+    ctx: AnalysisContext,
+    result: CategoryResult,
+) -> CategoryResult:
+    """Добавляет insights и gaming к уже посчитанной Activity; Score не трогает."""
+
+    _record_gaming_detection(facts, ctx)
+    merge_checks: tuple[collaboration.MergeCheckFact, ...] = ()
+    try:
+        merge_checks = collaboration.collect_merge_checks(
+            client, ctx.repository, facts.pulls, ctx
+        )
+    except Exception:
+        logger.exception(
+            "Не удалось собрать merge-checks для качества review.",
+            extra={"repository_id": ctx.repository.id},
+        )
+    insights = collaboration.build_collaboration_insights(
+        facts, ctx, merge_checks=merge_checks
+    )
+    return replace(result, insights=insights)
+
+
+def _record_gaming_detection(facts: activity.ActivityFacts, ctx: AnalysisContext) -> None:
+    """Записывает бонусный детектор накрутки; сбой здесь не влияет на Activity."""
+
+    try:
+        gaming_detector.record_detection(gaming_detector.detect(facts, ctx))
+    except Exception:
+        logger.exception(
+            "Детектор накрутки не выполнен; оценка Activity сохранена без предупреждения."
+        )
 
 
 def _cicd_evaluator(token: str):

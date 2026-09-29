@@ -775,6 +775,8 @@ def _leaderboard_row_payload(row: LeaderboardPageRow) -> dict[str, object]:
         "likes": repository.likes,
         "lastActivityAt": _format_timestamp(repository.last_activity_at),
         "analyzedAt": _format_timestamp(projection.analyzed_at),
+        "gamingSuspected": projection.gaming_suspected,
+        "gamingLabel": projection.gaming_label,
         "categories": [
             {
                 "code": category.code,
