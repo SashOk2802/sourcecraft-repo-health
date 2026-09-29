@@ -3,16 +3,31 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Repo Health — здоровье репозиториев SourceCraft</title>
     <meta
       name="description"
-      content="Здоровье открытых репозиториев SourceCraft: рейтинг, объяснение оценки и рекомендации."
+      content="Оценка здоровья открытых репозиториев SourceCraft от 0 до 100: рейтинг, объяснение по шести частям проекта и конкретные рекомендации."
     />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="theme-color" content="#f2f3f5" />
-    <title>Repo Health для SourceCraft</title>
+    <meta name="theme-color" content="#f2f3f5" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#121214" media="(prefers-color-scheme: dark)" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Repo Health" />
+    <meta property="og:locale" content="ru_RU" />
+    <meta property="og:title" content="Repo Health — здоровье репозиториев SourceCraft" />
+    <meta
+      property="og:description"
+      content="Рейтинг открытых репозиториев SourceCraft по Repo Health Score, объяснение оценки и рекомендации."
+    />
+    <meta name="twitter:card" content="summary" />
+
+    <!-- Фон до загрузки приложения; отдельным файлом из-за CSP script-src 'self'. -->
+    <script src="/theme-boot.js"></script>
   </head>
   <body>
     <div id="root"></div>
+    <noscript>Для работы Repo Health нужен включённый JavaScript.</noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

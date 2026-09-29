@@ -1,9 +1,10 @@
 import { lazy, Suspense, type ReactElement } from "react";
 
 import { AuthProvider } from "./auth/AuthContext";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { SiteFooter } from "./components/SiteFooter";
 import { SiteHeader } from "./components/SiteHeader";
-import { useRoute } from "./router";
+import { useLocation, useRoute } from "./router";
 import { ThemeChoiceProvider } from "./theme/ThemeChoice";
 import type { Route } from "./routes";
 
@@ -27,13 +28,18 @@ const NotFoundPage = lazy(() =>
 
 export function App() {
   const route = useRoute();
+  const { pathname } = useLocation();
 
   return (
     <ThemeChoiceProvider>
       <AuthProvider>
         <SiteHeader route={route} />
         <main className="page">
-          <Suspense fallback={<PageLoading />}>{renderPage(route)}</Suspense>
+          {/* Упавшая страница не роняет шапку; при переходе граница начинает заново.
+              Ловит и сбой загрузки части страницы, если сеть оборвалась. */}
+          <ErrorBoundary key={pathname}>
+            <Suspense fallback={<PageLoading />}>{renderPage(route)}</Suspense>
+          </ErrorBoundary>
         </main>
         <SiteFooter />
       </AuthProvider>

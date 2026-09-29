@@ -1,5 +1,5 @@
+import { isDemoSession } from "./dataSource";
 import { ApiError, getJson, postJson, request } from "./http";
-import { mocksEnabled } from "./mockMode";
 
 /*
  * Подключение SourceCraft по личному токену (docs/frontend-review-response.md, раздел 4):
@@ -10,9 +10,10 @@ import { mocksEnabled } from "./mockMode";
  * Яндекс ID подтверждает личность, но доступа к репозиториям SourceCraft не даёт.
  * Токен уходит на backend один раз, хранится зашифрованно и в браузер не возвращается.
  *
- * На первом этапе кабинет показывает публичные репозитории из каталога сервиса и без
- * подключения (GET /api/v1/me/repositories). Этот API добавляет защищённое подключение;
- * личный список private/internal репозиториев появится следующим отдельным этапом.
+ * Хранилище токенов backend включает ключ SOURCECRAFT_CONNECTION_ENCRYPTION_KEY (PR #88); без
+ * него GET отвечает 404, и форму подключения кабинет не показывает. Список закрытых
+ * репозиториев backend добавит следующим этапом: пока GET /api/v1/me/repositories отдаёт
+ * только публичный каталог. В демо-кабинете подключения нет.
  */
 
 export interface SourceCraftConnection {
@@ -22,9 +23,12 @@ export interface SourceCraftConnection {
   connectedAt: string | null;
 }
 
-/** null — server-side vault подключения ещё не настроен в этом окружении. */
+/**
+ * null — подключения на этом сервере нет: хранилище не настроено («SourceCraft connection is
+ * not configured.») или у backend нет такого раздела. Оба ответа — 404.
+ */
 export async function fetchSourceCraftConnection(): Promise<SourceCraftConnection | null> {
-  if (mocksEnabled) {
+  if (isDemoSession()) {
     return null;
   }
   try {

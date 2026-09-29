@@ -297,10 +297,15 @@
   padding-top: 8px;
 }
 
+/* Ноутбук: все столбцы остаются — ТЗ требует место, Score, лайки, язык и активность. */
 @media (max-width: 1100px) {
-  .board__language,
-  .board__cells {
-    display: none;
+  .board th,
+  .board td {
+    padding-right: 10px;
+  }
+
+  .board__about {
+    max-width: 300px;
   }
 }
 
@@ -313,10 +318,131 @@
   .leaderboard__preliminary-toggle {
     margin-left: 0;
   }
+}
 
-  .board__activity,
+/*
+ * Планшет и телефон: строка превращается в карточку. Сверху — место, название и Score,
+ * под ними — клетки частей проекта, ниже — лайки, язык и активность.
+ */
+@media (max-width: 860px) {
+  .board {
+    position: relative;
+  }
+
+  .board thead {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .board,
+  .board tbody {
+    display: block;
+  }
+
+  /*
+   * Flex с переносом, а не сетка: длинное описание в одну строку не раздувает карточку,
+   * название сжимается, а Score и активность не уезжают за край.
+   */
+  .board__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px 14px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--rh-hairline);
+  }
+
+  .board tbody tr:last-child {
+    border-bottom: 0;
+  }
+
+  .board td,
+  .board td:first-child,
+  .board td:last-child {
+    display: block;
+    padding: 0;
+    border-bottom: 0;
+  }
+
+  .board__row:hover td {
+    background: none;
+  }
+
+  /* Место — на поле слева, чтобы все строки карточки, даже перенесённые, шли по названию. */
+  .board_places .board__row {
+    position: relative;
+    padding-left: 60px;
+  }
+
+  .board__place {
+    position: absolute;
+    top: 14px;
+    left: 16px;
+    width: auto;
+  }
+
+  /* Порядок в карточке: название и Score, клетки, затем лайки, язык и активность. */
+  .board__name {
+    order: 1;
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .board__title {
+    max-width: 100%;
+  }
+
+  .board__about {
+    max-width: none;
+  }
+
+  .board__score {
+    order: 2;
+    flex: none;
+    width: auto;
+  }
+
+  .board__cells {
+    order: 3;
+    flex: 1 0 100%;
+    width: auto;
+  }
+
+  .board__likes,
+  .board__language,
+  .board__activity {
+    flex: none;
+    color: var(--g-color-text-secondary);
+    font-size: var(--g-text-body-1-font-size);
+    white-space: nowrap;
+  }
+
   .board__likes {
-    display: none;
+    order: 4;
+  }
+
+  .board__language {
+    order: 5;
+  }
+
+  .board__activity {
+    order: 6;
+  }
+
+  .board__likes::before {
+    content: "лайки ";
+    color: var(--g-color-text-hint);
+  }
+
+  .board__activity::before {
+    content: "активность ";
+    color: var(--g-color-text-hint);
   }
 }
 
@@ -325,4 +451,8 @@
   display: block;
   max-width: 680px;
   padding-top: 6px;
+}
+
+.leaderboard__demo {
+  margin-top: 12px;
 }

@@ -29,7 +29,7 @@
   border-radius: var(--rh-radius-card);
   background: var(--rh-surface);
   box-shadow: var(--rh-shadow-1);
-  scroll-margin-top: 76px;
+  scroll-margin-top: var(--rh-anchor-offset);
 }
 
 .methodology__number {

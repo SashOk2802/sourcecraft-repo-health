@@ -61,6 +61,15 @@
   text-align: right;
 }
 
+.report__demo {
+  margin-top: 14px;
+}
+
+/* Пометка демо над ходом анализа — отдельной строкой, а не внутри карточки. */
+.page__inner > .demo-note {
+  margin: 10px 0 14px;
+}
+
 .report__grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;

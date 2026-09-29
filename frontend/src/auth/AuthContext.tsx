@@ -1,69 +1,57 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
-import { mocksEnabled } from "../api/mockMode";
-import { fetchCurrentUser, signOut, yandexSignInUrl, type CurrentUser } from "../api/me";
+import { fetchSession, signOut, yandexSignInUrl, type CurrentUser, type Session } from "../api/me";
 import { mockSession } from "../api/mocks/session";
-import { yandexAuthReady } from "../lib/featureFlags";
 import { navigate } from "../router";
 import { paths } from "../routes";
 
 export interface AuthState {
   /** unknown — ещё не спросили backend. */
   status: "unknown" | "guest" | "signedIn";
+  /** Кто обслуживает вход: backend, демо-кабинет или никто (вход недоступен). */
+  mode: Session["mode"] | null;
   user: CurrentUser | null;
-  /**
-   * Можно ли войти. На mock-данных вход локальный; с настоящим API — только там, где настроен
-   * OAuth Яндекса (VITE_YANDEX_AUTH): иначе backend отвечает 503 «не настроен».
-   */
-  canSignIn: boolean;
   /** Уводит на вход через Яндекс ID; backend после него открывает «Мои репозитории». */
   signIn: () => void;
   signOut: () => Promise<void>;
 }
 
+/** Что показать вместо входа, когда он недоступен: OAuth на сервере не настроен или backend не отвечает. */
+export const signInUnavailableHint = "Вход через Яндекс ID на этом сервере сейчас недоступен";
+
 const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<CurrentUser | null>(null);
-  const [status, setStatus] = useState<AuthState["status"]>("unknown");
+  const [session, setSession] = useState<Session | null>(null);
 
-  const loadUser = useCallback((): void => {
-    fetchCurrentUser().then(
-      (current) => {
-        setUser(current);
-        setStatus(current ? "signedIn" : "guest");
-      },
-      // Backend недоступен: работаем как с гостем, публичные страницы от этого не ломаются.
-      () => {
-        setUser(null);
-        setStatus("guest");
-      },
-    );
+  const loadSession = useCallback((): void => {
+    void fetchSession().then(setSession);
   }, []);
 
-  useEffect(loadUser, [loadUser]);
+  useEffect(loadSession, [loadSession]);
 
   const value = useMemo<AuthState>(
     () => ({
-      status,
-      user,
-      canSignIn: mocksEnabled || yandexAuthReady,
+      status: session === null ? "unknown" : session.user ? "signedIn" : "guest",
+      mode: session?.mode ?? null,
+      user: session?.user ?? null,
       signIn: () => {
-        if (mocksEnabled) {
+        if (session?.mode === "demo") {
           mockSession.signIn();
-          loadUser();
+          loadSession();
           navigate(paths.myRepositories());
           return;
         }
-        window.location.assign(yandexSignInUrl());
+        if (session?.mode === "live") {
+          window.location.assign(yandexSignInUrl());
+        }
       },
       signOut: async () => {
         await signOut();
-        setUser(null);
-        setStatus("guest");
+        setSession((current) => (current ? { ...current, user: null } : current));
       },
     }),
-    [status, user, loadUser],
+    [session, loadSession],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

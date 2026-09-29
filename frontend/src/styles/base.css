@@ -179,6 +179,17 @@ ol {
   color: var(--g-color-text-secondary);
 }
 
+/* Ссылка в тексте страницы — цветом ссылок интерфейса, подчёркивание только при наведении. */
+.page a:not([class]) {
+  color: var(--g-color-text-link);
+  text-decoration: none;
+}
+
+.page a:not([class]):hover {
+  color: var(--g-color-text-link-hover);
+  text-decoration: underline;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;
@@ -212,8 +223,10 @@ ol {
  * на печати глубину заменяет тонкая рамка.
  */
 @media print {
+  /* Фон под страницей задаёт тема через style на html — на бумаге он не нужен. */
+  html,
   body {
-    background: #fff;
+    background: #fff !important;
   }
 
   .page {

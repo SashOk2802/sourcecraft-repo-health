@@ -1,12 +1,12 @@
 import { Button, Text } from "@gravity-ui/uikit";
 
-import { useDocumentTitle } from "../hooks/useDocumentTitle";
+import { usePageMeta } from "../hooks/usePageMeta";
 import { navigate } from "../router";
 import { paths } from "../routes";
 import "./NotFoundPage.css";
 
 export function NotFoundPage() {
-  useDocumentTitle("Страница не найдена");
+  usePageMeta({ title: "Страница не найдена", noindex: true });
 
   return (
     <div className="page__inner">

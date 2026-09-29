@@ -1,12 +1,14 @@
 import type { CategoryBrief } from "./common";
+import { sourceRouter } from "./dataSource";
 import { getJson } from "./http";
-import { mocksEnabled, withMockDelay } from "./mockMode";
 import { queryMockLeaderboard } from "./mocks/leaderboard";
 
 /*
  * GET /api/v1/leaderboard — согласованный backend-контракт публичного рейтинга.
  * Места, фильтры и сортировка считаются на backend по правилам docs/leaderboard-policy.md:
  * место — только по Score среди полных оценок одной версии методики, равные делят место.
+ * Если раздел недоступен (рейтинг на сервере не настроен или backend не отвечает), в режиме
+ * auto рейтинг строится из демо-данных, и страница об этом говорит (src/api/dataSource.ts).
  *
  * Полные и предварительные оценки приходят разными списками: сравнивать их местами нельзя
  * (docs/frontend-review-response.md, раздел 5).
@@ -129,9 +131,14 @@ export function lastLeaderboardPage(total: number, pageSize: number): number {
 }
 
 export async function fetchLeaderboard(query: LeaderboardQuery): Promise<LeaderboardResponse> {
-  if (mocksEnabled) {
-    return withMockDelay(queryMockLeaderboard(query, LEADERBOARD_PAGE_SIZE));
-  }
+  return sourceRouter.liveOrDemo(
+    "leaderboard",
+    () => fetchLiveLeaderboard(query),
+    () => queryMockLeaderboard(query, LEADERBOARD_PAGE_SIZE),
+  );
+}
+
+async function fetchLiveLeaderboard(query: LeaderboardQuery): Promise<LeaderboardResponse> {
   const params = new URLSearchParams({
     sort: query.sort,
     page: String(query.page),

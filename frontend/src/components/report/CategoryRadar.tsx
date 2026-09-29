@@ -2,12 +2,16 @@ import { Text } from "@gravity-ui/uikit";
 import type { CSSProperties } from "react";
 
 import type { ReportCategory } from "../../api/report";
+import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { usePointerTilt } from "../../hooks/usePointerTilt";
 import { describeCategory } from "../../lib/categoryMeaning";
 import { cn } from "../../lib/classNames";
 import { buildRadar, describeAxis, toPoints } from "../../lib/radar";
 import { getScoreBand } from "../../lib/scoreBands";
 import "./CategoryRadar.css";
+
+/** Узкий экран: холст меньше, поэтому масштаб ближе к 1 и подписи остаются читаемыми. */
+const COMPACT_RADAR = { width: 400, height: 290, radius: 80, labelGap: 12, subGap: 14 };
 
 /*
  * Одна фигура вместо таблицы: длина луча — вес категории, вершина на луче — оценка.
@@ -18,7 +22,9 @@ import "./CategoryRadar.css";
  */
 export function CategoryRadar({ categories }: { categories: ReportCategory[] }) {
   const tilt = usePointerTilt(5);
-  const radar = buildRadar(categories);
+  // На телефоне фигура уже вдвое, и подписи при обычной геометрии ужались бы до 6–7 px.
+  const compact = useMediaQuery("(max-width: 520px)");
+  const radar = buildRadar(categories, compact ? COMPACT_RADAR : undefined);
   if (!radar) {
     return null;
   }
@@ -35,7 +41,7 @@ export function CategoryRadar({ categories }: { categories: ReportCategory[] }) 
         onPointerLeave={tilt.onPointerLeave}
       >
         <svg
-          className="category-radar__chart"
+          className={cn("category-radar__chart", compact && "category-radar__chart_compact")}
           viewBox={`0 0 ${radar.width} ${radar.height}`}
           role="img"
           aria-label="Оценки категорий: длина луча — вес категории, точка на луче — оценка"
@@ -136,7 +142,7 @@ export function CategoryRadar({ categories }: { categories: ReportCategory[] }) 
                 y={axis.labelSpot.subAt.y}
                 textAnchor={axis.labelSpot.anchor}
               >
-                {describeAxis(axis)}
+                {describeAxis(axis, { short: compact })}
               </text>
             </g>
           ))}

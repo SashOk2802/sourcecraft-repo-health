@@ -11,7 +11,7 @@
   box-shadow: var(--rh-shadow-1);
   padding: 18px 20px 16px;
   /* Переход из «Сильных и слабых сторон»: карточка не прячется под липкой шапкой. */
-  scroll-margin-top: 88px;
+  scroll-margin-top: var(--rh-anchor-offset);
 }
 
 /* Карточка, к которой перешли по ссылке, обведена акцентом. */

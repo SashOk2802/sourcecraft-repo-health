@@ -5,7 +5,7 @@ import { findMockRepository } from "./catalog";
 import { MOCK_ANALYSIS_DURATION_MS } from "./runs";
 
 const repository = findMockRepository("gorod-dev", "transit-api")!;
-const run = { id: "an-test", repositoryId: repository.id, createdAt: 0 };
+const run = { id: "demo-run-test", repositoryId: repository.id, createdAt: 0 };
 
 describe("ход mock-анализа", () => {
   it("идёт по этапам: очередь → сбор → расчёт → результат", () => {
@@ -32,7 +32,7 @@ describe("ход mock-анализа", () => {
   it("полная оценка не помечается предварительной", () => {
     const full = findMockRepository("kvant-lab", "scheduler")!;
     const state = analysisRunState(
-      { id: "an-full", repositoryId: full.id, createdAt: 0 },
+      { id: "demo-run-full", repositoryId: full.id, createdAt: 0 },
       full,
       MOCK_ANALYSIS_DURATION_MS,
     );

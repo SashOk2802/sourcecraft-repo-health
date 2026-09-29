@@ -26,7 +26,7 @@ export function findRun(id: string): MockRun | undefined {
 }
 
 export function addRun(repositoryId: string, now = Date.now()): MockRun {
-  const run: MockRun = { id: `an-${Math.random().toString(16).slice(2, 8)}`, repositoryId, createdAt: now };
+  const run: MockRun = { id: `demo-run-${Math.random().toString(16).slice(2, 8)}`, repositoryId, createdAt: now };
   writeItem(RUNS_KEY, JSON.stringify([...readRuns(), run]));
   return run;
 }

@@ -1,7 +1,7 @@
 import { isAnalysisFinished } from "./analyses";
 import type { AnalysisStatus } from "./common";
+import { isDemoSession, sourceRouter, withDemoDelay } from "./dataSource";
 import { ApiError, getJson, postJson } from "./http";
-import { mocksEnabled, withMockDelay } from "./mockMode";
 import { mockMyRepositories } from "./mocks/me";
 import { mockSession } from "./mocks/session";
 
@@ -10,6 +10,8 @@ import { mockSession } from "./mocks/session";
  * { id, login }, без сессии — 401, если вход не настроен — 503. Вход выполняет backend:
  * интерфейс только уводит на /api/v1/auth/yandex/start, после входа backend возвращает
  * в /me/repositories. Токенов интерфейс не видит.
+ * Пока вход у backend не настроен или маршрута нет, в режиме auto работает демо-кабинет:
+ * вход, список репозиториев и анализ показаны на вымышленных репозиториях.
  *
  * GET /api/v1/me/repositories — репозитории, которые можно проверить. На первом этапе backend
  * отдаёт публичные репозитории из организаций SOURCECRAFT_PUBLIC_ORGANIZATIONS: стабильный id,
@@ -84,24 +86,42 @@ export interface MyRepository {
   activeAnalysisId: string | null;
 }
 
-/** null — пользователь не вошёл (backend ответил 401). */
-export async function fetchCurrentUser(): Promise<CurrentUser | null> {
-  if (mocksEnabled) {
-    return withMockDelay(mockSession.user(), 120);
+export interface Session {
+  /**
+   * live — вход обслуживает backend; demo — демо-кабинет в режиме auto, когда вход на backend
+   * недоступен (OAuth не настроен — 503, или раздела нет); offline — то же в режиме api:
+   * работаем как гость.
+   */
+  mode: "live" | "demo" | "offline";
+  /** null — пользователь не вошёл. */
+  user: CurrentUser | null;
+}
+
+export async function fetchSession(): Promise<Session> {
+  try {
+    const user = await sourceRouter.liveOrDemo("session", fetchLiveUser, () => mockSession.user());
+    return { mode: isDemoSession() ? "demo" : "live", user };
+  } catch {
+    // Публичные страницы от этого не ломаются: рейтинг и отчёты открываются и без входа.
+    return { mode: "offline", user: null };
   }
+}
+
+async function fetchLiveUser(): Promise<CurrentUser | null> {
   try {
     return toCurrentUser(await getJson<MePayload>("/api/v1/me"));
   } catch (error) {
+    // 401 — backend умеет вход, просто пользователь ещё не вошёл.
     if (error instanceof ApiError && error.status === 401) return null;
     throw error;
   }
 }
 
 export async function fetchMyRepositories(): Promise<MyRepositoriesResponse> {
-  if (mocksEnabled) {
+  if (isDemoSession()) {
     const items = mockMyRepositories();
     if (items === null) throw new ApiError(401, "Нужно войти");
-    return withMockDelay({ items });
+    return withDemoDelay({ items });
   }
   return toMyRepositories(await getJson<MyRepositoriesPayload>("/api/v1/me/repositories"));
 }
@@ -196,7 +216,7 @@ export function yandexSignInUrl(): string {
 }
 
 export async function signOut(): Promise<void> {
-  if (mocksEnabled) {
+  if (isDemoSession()) {
     mockSession.signOut();
     return;
   }

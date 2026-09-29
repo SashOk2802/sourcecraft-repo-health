@@ -1,32 +1,34 @@
 import { Alert, Button, Label, Link as GravityLink, Text, TextInput } from "@gravity-ui/uikit";
 import { useState } from "react";
 
-import { describeStartError } from "../api/analyses";
 import {
   connectSourceCraft,
   disconnectSourceCraft,
   fetchSourceCraftConnection,
   type SourceCraftConnection,
 } from "../api/connections";
-import { describeError, isCatalogNotConfigured } from "../api/http";
+import { describeStartError } from "../api/analyses";
+import { ApiError, describeError, isCatalogNotConfigured } from "../api/http";
 import { fetchMyRepositories, repositoryVisibilityLabel, type MyRepository } from "../api/me";
-import { useAuth } from "../auth/AuthContext";
+import { signInUnavailableHint, useAuth } from "../auth/AuthContext";
+import { DemoNote } from "../components/DemoNote";
 import { ErrorNote, LoadingNote } from "../components/PageNotes";
 import { dataOf, useAsync } from "../hooks/useAsync";
-import { useDocumentTitle } from "../hooks/useDocumentTitle";
+import { usePageMeta } from "../hooks/usePageMeta";
 import { useRecentAnalyses } from "../hooks/useRecentAnalyses";
 import { useStartAnalysis } from "../hooks/useStartAnalysis";
 import { cn } from "../lib/classNames";
-import { yandexAuthPendingHint } from "../lib/featureFlags";
 import { formatDateTimeCompact, formatScore } from "../lib/format";
 import { getScoreBand } from "../lib/scoreBands";
-import { Link } from "../router";
+import { Link, spaLinkProps } from "../router";
 import { paths } from "../routes";
 import "./MyRepositoriesPage.css";
 
 export function MyRepositoriesPage() {
-  useDocumentTitle("Мои репозитории");
   const auth = useAuth();
+  // Личный кабинет поисковику не нужен.
+  usePageMeta({ title: "Мои репозитории", noindex: true });
+  const demo = auth.mode === "demo";
 
   return (
     <div className="page__inner">
@@ -38,12 +40,18 @@ export function MyRepositoriesPage() {
           <Text variant="body-2" color="secondary" className="page__lead">
             Репозитории SourceCraft, которые можно проверить: выберите нужный и запустите анализ.
           </Text>
+          {demo && (
+            <DemoNote className="my-repos__demo">
+              Демо-кабинет: вход и репозитории показаны на примере. Когда на сервере настроен вход через Яндекс ID,
+              здесь настоящие репозитории SourceCraft.
+            </DemoNote>
+          )}
         </div>
       </div>
 
       {auth.status === "unknown" && <LoadingNote>Проверяем вход</LoadingNote>}
       {auth.status === "guest" && (
-        <SignInInvite unavailable={!auth.canSignIn} onSignIn={auth.signIn} />
+        <SignInInvite unavailable={auth.mode === "offline"} onSignIn={auth.signIn} />
       )}
       {auth.status === "signedIn" && <ConnectedArea />}
     </div>
@@ -71,7 +79,7 @@ function SignInInvite({ unavailable, onSignIn }: { unavailable: boolean; onSignI
         </Button>
         {unavailable && (
           <Text variant="body-1" color="secondary">
-            {yandexAuthPendingHint}.
+            {signInUnavailableHint}.
           </Text>
         )}
       </div>
@@ -100,6 +108,68 @@ function ConnectedArea() {
       />
     </>
   );
+}
+
+/**
+ * Вход работает, а раздела со списком репозиториев у backend нет (версия до PR #55). Вместо
+ * ошибки — честное объяснение и то, что можно сделать: backend проверяет публичные
+ * репозитории из своего каталога по идентификатору SourceCraft.
+ */
+function CabinetPending() {
+  const [repositoryId, setRepositoryId] = useState("");
+  const analysis = useStartAnalysis();
+  const trimmed = repositoryId.trim();
+
+  return (
+    <section className="card my-repos__connect">
+      <Text variant="subheader-2" as="h2">
+        Вход выполнен, список репозиториев скоро появится
+      </Text>
+      <Text variant="body-2" color="secondary">
+        Вы вошли через Яндекс ID, а список репозиториев сервер пока не отдаёт. Пока его нет, публичный репозиторий из
+        каталога сервиса можно проверить по его идентификатору в SourceCraft.
+      </Text>
+
+      <form
+        className="my-repos__token-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (trimmed) void analysis.start(trimmed);
+        }}
+      >
+        <TextInput
+          value={repositoryId}
+          onUpdate={setRepositoryId}
+          placeholder="Идентификатор репозитория в SourceCraft"
+          size="l"
+          autoComplete="off"
+          className="my-repos__token-input"
+          disabled={analysis.startingId !== null}
+        />
+        <Button view="action" size="l" type="submit" disabled={!trimmed} loading={analysis.startingId !== null}>
+          Проверить
+        </Button>
+      </form>
+
+      {analysis.error && (
+        <Alert
+          theme="danger"
+          view="outlined"
+          title="Не удалось запустить анализ"
+          message={describeStartError(analysis.error)}
+        />
+      )}
+
+      <Text variant="body-1" color="secondary">
+        Готовые отчёты по открытым репозиториям — в <Link to={paths.leaderboard()}>рейтинге</Link>.
+      </Text>
+    </section>
+  );
+}
+
+/** Маршрута у backend нет (старая версия): это «раздел в работе», а не сбой. */
+function isRouteMissing(error: Error): boolean {
+  return error instanceof ApiError && error.routeMissing;
 }
 
 function ConnectForm({ onConnected }: { onConnected: () => void }) {
@@ -225,6 +295,9 @@ function RepositoryList({ canConnect }: { canConnect: boolean }) {
   const items = useRecentAnalyses(data?.items);
 
   if (!data) {
+    if (state.status === "error" && isRouteMissing(state.error)) {
+      return <CabinetPending />;
+    }
     if (state.status === "error" && canConnect && isCatalogNotConfigured(state.error)) {
       return (
         <Text variant="body-2" color="secondary">
@@ -364,13 +437,13 @@ function RepositoryRow({ item, starting, onStart }: RepositoryRowProps) {
       <td className="my-repos__actions">
         <span className="my-repos__actions-row">
           {activeAnalysisId ? (
-            <Button view="outlined" size="m" href={paths.analysis(activeAnalysisId)}>
+            <Button view="outlined" size="m" {...spaLinkProps(paths.analysis(activeAnalysisId))}>
               Смотреть ход
             </Button>
           ) : (
             <>
               {hasReport && (
-                <GravityLink href={paths.analysis(lastAnalysis.id)} className="my-repos__report-link">
+                <GravityLink {...spaLinkProps(paths.analysis(lastAnalysis.id))} className="my-repos__report-link">
                   Отчёт
                 </GravityLink>
               )}

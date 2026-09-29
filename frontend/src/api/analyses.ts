@@ -1,6 +1,6 @@
 import type { AnalysisStatus } from "./common";
+import { usesDemo, withDemoDelay } from "./dataSource";
 import { ApiError, describeError, describeSourceCraftError, getJson, postJson } from "./http";
-import { mocksEnabled, withMockDelay } from "./mockMode";
 import { fetchMockAnalysis, startMockAnalysis } from "./mocks/analyses";
 
 /*
@@ -59,25 +59,29 @@ export function isAnalysisFinished(status: AnalysisStatus): boolean {
   return finishedStatuses.includes(status);
 }
 
+/** Анализ из демо-данных открывается без backend: его идентификатор начинается с demo-. */
 export async function fetchAnalysisStatus(analysisId: string): Promise<AnalysisStatusResponse> {
-  if (mocksEnabled) {
+  if (usesDemo(analysisId)) {
     const run = fetchMockAnalysis(analysisId);
     if (!run) {
       throw new ApiError(404, "Анализ не найден");
     }
-    return withMockDelay(run, 150);
+    return withDemoDelay(run, 150);
   }
   return getJson<AnalysisStatusResponse>(`/api/v1/analyses/${encodeURIComponent(analysisId)}`);
 }
 
-/** Повторный запуск для того же репозитория возвращает уже идущий анализ, а не создаёт второй. */
+/**
+ * Повторный запуск для того же репозитория возвращает уже идущий анализ, а не создаёт второй.
+ * Демо-репозиторий запускает демо-анализ; настоящий всегда уходит в backend — даже из демо-кабинета.
+ */
 export async function startAnalysis(repositoryId: string): Promise<StartedAnalysis> {
-  if (mocksEnabled) {
+  if (usesDemo(repositoryId)) {
     const started = startMockAnalysis(repositoryId);
     if (!started) {
       throw new ApiError(404, "Репозиторий не найден");
     }
-    return withMockDelay(started, 250);
+    return withDemoDelay(started, 250);
   }
   return postJson<StartedAnalysis>(`/api/v1/repositories/${encodeURIComponent(repositoryId)}/analyses`);
 }

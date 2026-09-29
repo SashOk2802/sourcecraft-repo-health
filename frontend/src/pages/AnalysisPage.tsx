@@ -8,10 +8,11 @@ import {
   isAnalysisFinished,
   type AnalysisStatusResponse,
 } from "../api/analyses";
+import { usesDemo } from "../api/dataSource";
 import { ApiError } from "../api/http";
-import { mocksEnabled } from "../api/mockMode";
 import { fetchReport, type RepositoryReport } from "../api/report";
-import { useAuth } from "../auth/AuthContext";
+import { signInUnavailableHint, useAuth } from "../auth/AuthContext";
+import { DemoNote } from "../components/DemoNote";
 import { ErrorNote, LoadingNote } from "../components/PageNotes";
 import { AnalysisFacts } from "../components/report/AnalysisFacts";
 import { AnalysisFailed, AnalysisProgress } from "../components/report/AnalysisProgress";
@@ -22,16 +23,17 @@ import { ProjectHighlights } from "../components/report/ProjectHighlights";
 import { RecommendationList } from "../components/report/RecommendationList";
 import { ScoreCard } from "../components/report/ScoreCard";
 import { dataOf, useAsync } from "../hooks/useAsync";
-import { useDocumentTitle } from "../hooks/useDocumentTitle";
+import { usePageMeta } from "../hooks/usePageMeta";
 import { useStartAnalysis } from "../hooks/useStartAnalysis";
-import { yandexAuthPendingHint } from "../lib/featureFlags";
-import { formatDateTime } from "../lib/format";
+import { formatDateTime, formatScore } from "../lib/format";
 import { Link, navigate } from "../router";
 import { paths } from "../routes";
 import "./AnalysisPage.css";
 
-// Архитектура предлагает опрос раз в несколько секунд; mock-анализ короткий, поэтому чаще.
-const POLL_INTERVAL_MS = mocksEnabled ? 1_000 : 3_000;
+// Архитектура предлагает опрос раз в несколько секунд; демо-анализ короткий, поэтому чаще.
+function pollInterval(analysisId: string): number {
+  return usesDemo(analysisId) ? 1_000 : 3_000;
+}
 
 export function AnalysisPage({ analysisId }: { analysisId: string }) {
   const { analysis, error: statusError, retry } = useAnalysisStatus(analysisId);
@@ -39,6 +41,7 @@ export function AnalysisPage({ analysisId }: { analysisId: string }) {
   const failed = analysis !== null && (analysis.status === "failed" || analysis.status === "cancelled");
   const now = useNow(analysis !== null && !finished);
   const restart = useStartAnalysis();
+  const auth = useAuth();
 
   const [reportState, reloadReport] = useAsync(
     () => (finished && !failed ? fetchReport(analysisId) : Promise.resolve(null)),
@@ -48,7 +51,12 @@ export function AnalysisPage({ analysisId }: { analysisId: string }) {
 
   // Пока анализ в очереди, backend знает только id репозитория, без имени.
   const title = analysis?.repository.name ?? report?.repository.name ?? "Анализ репозитория";
-  useDocumentTitle(title);
+  usePageMeta({
+    title,
+    description: report ? describeReport(report) : undefined,
+    // В поиск — только готовые отчёты по настоящим репозиториям.
+    noindex: !report || usesDemo(analysisId),
+  });
 
   return (
     <div className="page__inner">
@@ -74,6 +82,13 @@ export function AnalysisPage({ analysisId }: { analysisId: string }) {
         </section>
       )}
 
+      {/* Пока отчёта нет, заголовок страницы нужен хотя бы скринридеру. */}
+      {analysis && !report && <h1 className="visually-hidden">{title}</h1>}
+
+      {analysis && !finished && usesDemo(analysisId) && (
+        <DemoNote>Демо-анализ вымышленного репозитория: этапы и результат показаны на примере.</DemoNote>
+      )}
+
       {analysis && !finished && (
         <AnalysisProgress
           analysis={analysis}
@@ -84,7 +99,9 @@ export function AnalysisPage({ analysisId }: { analysisId: string }) {
       {analysis && failed && (
         <AnalysisFailed
           analysis={analysis}
+          canRestart={auth.status === "signedIn"}
           restarting={restart.startingId !== null}
+          restartError={restart.error}
           onRestart={() => void restart.start(analysis.repository.id)}
         />
       )}
@@ -134,6 +151,11 @@ function ReportView({ report }: { report: RepositoryReport }) {
               </Text>
             )}
           </div>
+          {usesDemo(analysis.id) && (
+            <DemoNote className="report__demo">
+              Отчёт по вымышленному репозиторию — так выглядит результат анализа.
+            </DemoNote>
+          )}
         </div>
 
         <div className="report__actions">
@@ -183,7 +205,8 @@ function ReportView({ report }: { report: RepositoryReport }) {
  */
 function NoReportNote({ signInRequired }: { signInRequired: boolean }) {
   const auth = useAuth();
-  const offerSignIn = signInRequired || auth.status === "guest";
+  // Чужой отчёт откроет только настоящий вход: демо-кабинет чужих анализов не видит.
+  const suggestSignIn = (signInRequired || auth.status === "guest") && auth.mode !== "demo";
 
   return (
     <div className="no-report">
@@ -197,12 +220,12 @@ function NoReportNote({ signInRequired }: { signInRequired: boolean }) {
         Открытые проекты других команд — в рейтинге.
       </Text>
       <div className="no-report__actions">
-        {offerSignIn && (
+        {suggestSignIn && (
           <Button
             view="action"
             size="l"
-            disabled={!auth.canSignIn}
-            title={auth.canSignIn ? undefined : yandexAuthPendingHint}
+            disabled={auth.mode === "offline"}
+            title={auth.mode === "offline" ? signInUnavailableHint : undefined}
             onClick={auth.signIn}
           >
             Войти через Яндекс ID
@@ -233,7 +256,7 @@ function useAnalysisStatus(analysisId: string) {
           setAnalysis(next);
           setError(null);
           if (!isAnalysisFinished(next.status)) {
-            timer = window.setTimeout(poll, POLL_INTERVAL_MS);
+            timer = window.setTimeout(poll, pollInterval(analysisId));
           }
         },
         (reason: unknown) => {
@@ -242,7 +265,7 @@ function useAnalysisStatus(analysisId: string) {
           setError(failure);
           const permanent = failure instanceof ApiError && [401, 403, 404].includes(failure.status);
           if (!permanent) {
-            timer = window.setTimeout(poll, POLL_INTERVAL_MS * 2);
+            timer = window.setTimeout(poll, pollInterval(analysisId) * 2);
           }
         },
       );
@@ -269,6 +292,13 @@ function useNow(active: boolean): number {
   }, [active]);
 
   return now;
+}
+
+/** Описание для поиска и превью ссылки на отчёт. */
+function describeReport(report: RepositoryReport): string {
+  const score =
+    report.score === null ? "Оценку пока не из чего посчитать" : `Repo Health Score ${formatScore(report.score)} из 100`;
+  return `${score} для ${report.repository.name}: оценка по шести частям проекта, сильные и слабые стороны, рекомендации.`;
 }
 
 function isSignInRequired(error: Error): boolean {

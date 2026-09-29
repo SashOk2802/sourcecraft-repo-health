@@ -2,9 +2,8 @@ import { Pulse } from "@gravity-ui/icons";
 import { Button, Icon, Text } from "@gravity-ui/uikit";
 import { useState } from "react";
 
-import { useAuth } from "../auth/AuthContext";
+import { signInUnavailableHint, useAuth } from "../auth/AuthContext";
 import { cn } from "../lib/classNames";
-import { yandexAuthPendingHint } from "../lib/featureFlags";
 import { Link } from "../router";
 import { paths, type PageName, type Route } from "../routes";
 import { ThemeSwitch } from "./ThemeSwitch";
@@ -86,6 +85,7 @@ function UserArea() {
         <Text variant="body-2" color="secondary" className="site-header__user-name">
           {auth.user.displayName}
         </Text>
+        {auth.mode === "demo" && <DemoMark />}
         <Button view="flat" size="m" onClick={() => void handleSignOut()}>
           Выйти
         </Button>
@@ -98,23 +98,40 @@ function UserArea() {
     );
   }
 
-  // Без настроенного OAuth backend ответит на вход 503 — вместо перехода кнопка выключена.
-  if (!auth.canSignIn) {
+  // Режим api, а вход на backend не настроен или он не отвечает: кнопка выключена, чтобы не вести на 503.
+  if (auth.mode === "offline") {
     return (
-      <span className="site-header__signin" title={yandexAuthPendingHint}>
+      <span className="site-header__signin" title={signInUnavailableHint}>
         <Button view="outlined" size="m" disabled>
           Войти<span className="site-header__signin-long"> через Яндекс ID</span>
         </Button>
         <Text variant="caption-2" color="secondary" className="site-header__signin-note">
-          не настроен
+          недоступен
         </Text>
       </span>
     );
   }
 
   return (
-    <Button view="outlined" size="m" onClick={auth.signIn}>
-      Войти<span className="site-header__signin-long"> через Яндекс ID</span>
-    </Button>
+    <span className="site-header__signin">
+      <Button view="outlined" size="m" onClick={auth.signIn}>
+        Войти<span className="site-header__signin-long"> через Яндекс ID</span>
+      </Button>
+      {auth.mode === "demo" && <DemoMark />}
+    </span>
+  );
+}
+
+/** Вход в демо-кабинет: настоящего Яндекс ID за ним пока нет, и это видно. */
+function DemoMark() {
+  return (
+    <Text
+      variant="caption-2"
+      color="secondary"
+      className="site-header__signin-note"
+      title="Демо-кабинет: вход и репозитории показаны на примере. Настоящий вход через Яндекс ID включится, когда на сервере настроят OAuth."
+    >
+      демо
+    </Text>
   );
 }

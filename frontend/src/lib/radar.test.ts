@@ -150,6 +150,15 @@ describe("статус категории на радаре", () => {
     expect(describeAxis(byCode.activity)).toBe("вес 15% · мало данных");
     expect(describeAxis(byCode.cicd)).toBe("вес 20% · ошибка сбора");
   });
+
+  it("на телефоне подпись короче: без слова «оценка», у категории без оценки — только статус", () => {
+    const radar = buildRadar([...categories.slice(0, 4), notApplicable("issues", 15), categories[5]]);
+    const byCode = Object.fromEntries(radar!.axes.map((axis) => [axis.code, axis]));
+
+    expect(describeAxis(byCode.cicd, { short: true })).toBe("вес 20% · 58");
+    expect(describeAxis(byCode.issues, { short: true })).toBe("не применимо");
+    expect(describeAxis(byCode.security, { short: true })).toBe("нет данных");
+  });
 });
 
 describe("заливка радара", () => {
