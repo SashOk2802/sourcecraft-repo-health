@@ -17,6 +17,7 @@ from backend.app.analysis.personal_sourcecraft import SourceCraftConnectionRequi
 from backend.app.analysis.store import InMemoryAnalysisStore
 from backend.app.integrations.sourcecraft_repositories import SourceCraftRepository
 from backend.app.main import create_app
+from backend.app.scheduling.runner import SYSTEM_SCHEDULER_SUBJECT
 
 
 def _public_repo(
@@ -225,5 +226,32 @@ class PublicHealthOndemandTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(response.status_code, 404)
         self.assertEqual(response.json(), {"detail": "Public health score not found."})
+
+    async def test_active_scheduled_analysis_is_not_duplicated(self) -> None:
+        store = InMemoryAnalysisStore()
+        jobs = InMemoryAnalysisJobStore()
+        dispatcher = _MockDispatcher(job_store=jobs)
+        app = create_app(
+            analysis_store=store,
+            job_store=jobs,
+            repository_catalog=_Catalog((_public_repo(),)),
+            analysis_dispatcher=dispatcher,
+        )
+        await jobs.create(
+            AnalysisJob.queued(
+                analysis_id="scheduled-job",
+                repository_id="repo-public",
+                owner_subject=SYSTEM_SCHEDULER_SUBJECT,
+                created_at=datetime.now(UTC),
+            )
+        )
+
+        async with _api_client(app) as client:
+            response = await client.get(
+                "/api/v1/public/repositories/demo-org/health-api/health"
+            )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(dispatcher.submissions, [])
 
 

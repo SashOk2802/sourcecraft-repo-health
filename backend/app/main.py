@@ -81,6 +81,7 @@ from backend.app.leaderboard import (
 from backend.app.leaderboard.sourcecraft_catalog import SourceCraftLeaderboardRepositoryCatalog
 from backend.app.reporting import render_score_badge
 from backend.app.scheduling.runner import (
+    SYSTEM_SCHEDULER_SUBJECT,
     PostgresAnalysisScheduleStore,
     PublicAnalysisScheduler,
 )
@@ -383,10 +384,17 @@ def create_app(
             principal = AnalysisPrincipal(subject="public-api-ondemand")
             repo_lock = await get_ondemand_lock(metadata.repository_id)
             async with repo_lock:
-                history = await jobs.list_history_for_owner_repositories(
-                    principal.subject,
-                    [metadata.repository_id],
+                ondemand_history, scheduled_history = await asyncio.gather(
+                    jobs.list_history_for_owner_repositories(
+                        principal.subject,
+                        [metadata.repository_id],
+                    ),
+                    jobs.list_history_for_owner_repositories(
+                        SYSTEM_SCHEDULER_SUBJECT,
+                        [metadata.repository_id],
+                    ),
                 )
+                history = (*ondemand_history, *scheduled_history)
                 has_active = any(
                     job.status in (AnalysisJobStatus.QUEUED, AnalysisJobStatus.RUNNING)
                     for job in history
