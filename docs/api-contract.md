@@ -464,7 +464,7 @@ JSON-модель строится в `backend/app/reporting/builder.py`; endpoi
 | categories[].effectiveWeight | вес категории среди измеренных; null, если категория не участвовала в Score |
 | categories[].points | фактический вклад категории в Score; null, если категория не участвовала |
 | recommendation.priority | p0, p1, p2 или p3 |
-| recommendation.expectedScoreDelta | ожидаемое изменение итогового Score или null, если его нельзя оценить надёжно |
+| recommendation.expectedScoreDelta | ожидаемый прирост оценки категории (0–100) после исправления или null, если его нельзя оценить надёжно; вклад в итоговый Score — прирост × `effectiveWeight` / 100 этой категории |
 | reason | машинный код, объясняющий, почему score равен null |
 | categories[].evidence и recommendations[].evidence | факты и ссылки, на которых основаны оценка и рекомендация |
 
