@@ -313,7 +313,11 @@ def create_sourcecraft_public_catalog_settings_from_environment(
     organization_slugs = tuple(
         slug.strip() for slug in raw_organizations.split(",") if slug.strip()
     )
-    if not token and not organization_slugs and not discover_all_public:
+    # A token by itself is not an authorization policy for public analysis.
+    # Ignore it until the operator explicitly enables exactly one catalog mode;
+    # this also keeps personal-only deployments running when a shared token is
+    # present for a future public-rating setup.
+    if not organization_slugs and not discover_all_public:
         return None
     if not token:
         raise ValueError(f"{_TOKEN_ENV} is required for the public SourceCraft catalog")

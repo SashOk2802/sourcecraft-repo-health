@@ -202,12 +202,13 @@ class SourceCraftPublicRepositoryResolverTest(unittest.IsolatedAsyncioTestCase):
             with self.subTest(web_url=web_url), self.assertRaises(SourceCraftRequestError):
                 SourceCraftClient.resolve_git_clone_url("team", "platform-api", web_url)
 
-    def test_environment_requires_token_and_public_organizations_together(self) -> None:
+    def test_environment_enables_catalog_only_with_token_and_explicit_scope(self) -> None:
         self.assertIsNone(create_sourcecraft_public_repository_resolver_from_environment({}))
-        with self.assertRaisesRegex(ValueError, "exactly one"):
+        self.assertIsNone(
             create_sourcecraft_public_repository_resolver_from_environment(
                 {"SOURCECRAFT_TOKEN": "token"}
             )
+        )
         with self.assertRaisesRegex(ValueError, "SOURCECRAFT_TOKEN"):
             create_sourcecraft_public_repository_resolver_from_environment(
                 {"SOURCECRAFT_PUBLIC_ORGANIZATIONS": "team"}
