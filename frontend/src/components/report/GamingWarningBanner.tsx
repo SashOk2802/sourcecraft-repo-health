@@ -15,9 +15,9 @@ export function GamingWarningBanner({ warning }: { warning: GamingWarning | unde
   const flagged = warning.signals.filter((signal) => signal.flagged);
 
   return (
-    <section className="gaming-warning" aria-label="Предупреждение о накрутке">
+    <section className="gaming-warning" aria-label="Необычная активность">
       <Text variant="subheader-2" as="h2" className="gaming-warning__title">
-        {warning.label ?? "есть признаки накрутки"}
+        {warning.label ?? "аномальная активность"}
       </Text>
       <Text variant="body-2" color="secondary">
         {warning.summary}

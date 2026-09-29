@@ -97,6 +97,8 @@ function toItem(repository: MockRepository): LeaderboardItem {
     likes: repository.likes,
     lastActivityAt: repository.lastActivityAt,
     analyzedAt: minutesAgo(190),
+    gamingSuspected: false,
+    gamingLabel: null,
     categories: result.categories.map(({ code, label, status, score }) => ({ code, label, status, score })),
   };
 }

@@ -14,6 +14,7 @@ from backend.app.analyzers.activity import (
 )
 from backend.app.analyzers.collaboration import (
     MergeCheckFact,
+    _parse_merge_check,
     build_collaboration_insights,
     collect_merge_checks,
     evaluate_bus_factor,
@@ -60,9 +61,18 @@ def _pull(slug: str, *, days_ago: int = 1) -> PullFact:
     )
 
 
+def _bus_factor(commits: list[CommitRecord], **kwargs: object):
+    return evaluate_bus_factor(
+        commits,
+        period_start=PERIOD_START,
+        period_end=ANALYZED_AT,
+        **kwargs,
+    )
+
+
 class BusFactorTest(unittest.TestCase):
     def test_single_author_is_one(self) -> None:
-        insight = evaluate_bus_factor([_commit("a@x"), _commit("a@x"), _commit("a@x")])
+        insight = _bus_factor([_commit("a@x"), _commit("a@x"), _commit("a@x")])
 
         self.assertEqual(insight.status, DataStatus.MEASURED)
         self.assertEqual(insight.value, 1)
@@ -71,19 +81,17 @@ class BusFactorTest(unittest.TestCase):
         self.assertNotIn("a@x", insight.detail or "")
 
     def test_two_equal_authors_cover_half_with_one(self) -> None:
-        insight = evaluate_bus_factor([_commit("a@x"), _commit("b@x")])
+        insight = _bus_factor([_commit("a@x"), _commit("b@x")])
 
         self.assertEqual(insight.value, 1)
 
     def test_three_equal_authors_need_two(self) -> None:
-        insight = evaluate_bus_factor(
-            [_commit("a@x"), _commit("b@x"), _commit("c@x")]
-        )
+        insight = _bus_factor([_commit("a@x"), _commit("b@x"), _commit("c@x")])
 
         self.assertEqual(insight.value, 2)
 
     def test_merge_commits_do_not_count_toward_bus_factor(self) -> None:
-        insight = evaluate_bus_factor(
+        insight = _bus_factor(
             [
                 _commit("a@x"),
                 _commit("a@x", parents=2),
@@ -96,26 +104,38 @@ class BusFactorTest(unittest.TestCase):
         self.assertEqual(insight.value, 1)
 
     def test_truncated_history_is_insufficient(self) -> None:
-        insight = evaluate_bus_factor(
-            [_commit("a@x")],
-            history_truncated=True,
-        )
+        insight = _bus_factor([_commit("a@x")], history_truncated=True)
 
         self.assertEqual(insight.status, DataStatus.INSUFFICIENT_SAMPLE)
         self.assertIsNone(insight.value)
 
     def test_history_error_is_unavailable(self) -> None:
-        insight = evaluate_bus_factor(
-            (),
-            history_error="commit_history_unavailable",
-        )
+        insight = _bus_factor((), history_error="commit_history_unavailable")
 
         self.assertEqual(insight.status, DataStatus.UNAVAILABLE)
 
     def test_empty_period_is_not_applicable(self) -> None:
-        insight = evaluate_bus_factor(())
+        insight = _bus_factor([])
 
         self.assertEqual(insight.status, DataStatus.NOT_APPLICABLE)
+
+    def test_commits_older_than_the_period_do_not_change_bus_factor(self) -> None:
+        recent = [_commit("a@x"), _commit("a@x"), _commit("a@x")]
+        older = [
+            CommitRecord(
+                committed_at=PERIOD_START - timedelta(days=index + 1),
+                author_email=f"old{index}@x",
+                parent_count=1,
+            )
+            for index in range(6)
+        ]
+
+        insight = _bus_factor([*older, *recent])
+
+        self.assertEqual(insight.status, DataStatus.MEASURED)
+        self.assertEqual(insight.value, 1)
+        self.assertIn("3", insight.detail or "")
+        self.assertNotIn("old0", insight.detail or "")
 
 
 class ReviewQualityTest(unittest.TestCase):
@@ -206,6 +226,31 @@ class ReviewQualityTest(unittest.TestCase):
         self.assertEqual(checks[0].total_approves, 1)
         self.assertIsNotNone(checks[1].error)
         self.assertEqual(client.get_json.call_count, 2)
+
+    def test_string_false_and_boolean_true_are_not_coerced(self) -> None:
+        string_false = _parse_merge_check(
+            "1",
+            {"code_review": {"disabled": "false", "total_approves": 1}},
+        )
+        boolean_true = _parse_merge_check(
+            "2",
+            {"code_review": {"disabled": False, "total_approves": True}},
+        )
+        negative = _parse_merge_check(
+            "3",
+            {"code_review": {"disabled": False, "total_approves": -1}},
+        )
+        numeric_string = _parse_merge_check(
+            "4",
+            {"code_review": {"disabled": False, "total_approves": "1"}},
+        )
+
+        self.assertEqual(string_false.error, "code_review_disabled_invalid")
+        self.assertFalse(string_false.review_disabled)
+        self.assertEqual(boolean_true.error, "total_approves_invalid")
+        self.assertIsNone(boolean_true.total_approves)
+        self.assertEqual(negative.error, "total_approves_invalid")
+        self.assertEqual(numeric_string.error, "total_approves_invalid")
 
 
 class CollaborationInsightsWireTest(unittest.TestCase):

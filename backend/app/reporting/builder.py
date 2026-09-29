@@ -130,7 +130,7 @@ def render_markdown_report(
         lines.extend(
             (
                 "",
-                "### Предупреждение о накрутке",
+                "### Необычная активность",
                 "",
                 f"**{gaming_warning['label']}**",
                 gaming_warning["summary"],

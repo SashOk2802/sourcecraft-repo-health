@@ -11,6 +11,7 @@ import urllib.parse
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from backend.app.analyzers.activity import ActivityFacts, PullFact
 from backend.app.contracts import (
@@ -55,14 +56,18 @@ class MergeCheckFact:
 def evaluate_bus_factor(
     commits: Sequence[CommitRecord],
     *,
+    period_start: datetime,
+    period_end: datetime,
     history_collected: bool = True,
     history_error: str | None = None,
     history_truncated: bool = False,
 ) -> InsightResult:
-    """Считает bus factor по не-merge коммитам с известным автором.
+    """Считает bus factor по не-merge коммитам периода с известным автором.
 
-    Merge-коммиты (два и больше родителя) отбрасываются. Обрыв истории или
-    ошибка git не дают измеренного значения.
+    В расчёт входят только коммиты с ``period_start <= committed_at <= period_end``.
+    История git может быть длиннее окна анализа: более старые коммиты показатель
+    не меняют. Merge-коммиты (два и больше родителя) отбрасываются. Обрыв истории
+    или ошибка git не дают измеренного значения.
     """
 
     if history_error is not None:
@@ -90,13 +95,16 @@ def evaluate_bus_factor(
             reason="commit_history_truncated",
         )
 
+    in_period = tuple(
+        record for record in commits if _in_analysis_period(record.committed_at, period_start, period_end)
+    )
     counted = [
         record.author_email
-        for record in commits
+        for record in in_period
         if record.parent_count < 2 and record.author_email
     ]
     if not counted:
-        if not commits:
+        if not in_period:
             return InsightResult(
                 code=BUS_FACTOR_CODE,
                 label=BUS_FACTOR_LABEL,
@@ -336,6 +344,8 @@ def build_collaboration_insights(
     history = facts.commit_history
     bus = evaluate_bus_factor(
         history.commits,
+        period_start=context.period_start,
+        period_end=context.period_end,
         history_collected=history.collected,
         history_error=history.error,
         history_truncated=history.truncated,
@@ -395,17 +405,22 @@ def _parse_merge_check(pull_slug: str, payload: object) -> MergeCheckFact:
             total_approves=None,
             error="code_review_not_object",
         )
-    disabled = bool(code_review.get("disabled"))
-    raw_approves = code_review.get("total_approves")
-    if raw_approves is None:
+    disabled = _strict_bool(code_review.get("disabled"))
+    if disabled is None:
+        return MergeCheckFact(
+            pull_slug=pull_slug,
+            review_disabled=False,
+            total_approves=None,
+            error="code_review_disabled_invalid",
+        )
+    if "total_approves" not in code_review or code_review.get("total_approves") is None:
         return MergeCheckFact(
             pull_slug=pull_slug,
             review_disabled=disabled,
             total_approves=None,
         )
-    try:
-        total_approves = int(raw_approves)
-    except (TypeError, ValueError):
+    total_approves = _strict_non_negative_int(code_review.get("total_approves"))
+    if total_approves is None:
         return MergeCheckFact(
             pull_slug=pull_slug,
             review_disabled=disabled,
@@ -417,3 +432,27 @@ def _parse_merge_check(pull_slug: str, payload: object) -> MergeCheckFact:
         review_disabled=disabled,
         total_approves=total_approves,
     )
+
+
+def _in_analysis_period(moment: datetime, period_start: datetime, period_end: datetime) -> bool:
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=UTC)
+    return period_start <= moment.astimezone(UTC) <= period_end
+
+
+def _strict_bool(value: object) -> bool | None:
+    """Принимает только JSON-boolean. Строка false не становится True."""
+
+    if isinstance(value, bool):
+        return value
+    return None
+
+
+def _strict_non_negative_int(value: object) -> int | None:
+    """Принимает только неотрицательный int. ``True`` не считается единицей approve."""
+
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    if value < 0:
+        return None
+    return value

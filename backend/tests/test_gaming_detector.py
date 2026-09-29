@@ -64,8 +64,8 @@ class GamingDetectorTest(unittest.TestCase):
         result = detect(facts, self.context)
         burst_signal = next(signal for signal in result.signals if signal.code == "burst")
 
-        self.assertTrue(result.suspected)
-        self.assertEqual(result.label, WARNING_LABEL)
+        self.assertFalse(result.suspected)
+        self.assertIsNone(result.label)
         self.assertIs(burst_signal.status, DataStatus.MEASURED)
         self.assertTrue(burst_signal.flagged)
 
@@ -101,7 +101,8 @@ class GamingDetectorTest(unittest.TestCase):
         self.assertEqual(merged_metric.normalized_score, 100.0)
         self.assertGreaterEqual(merged_count, MERGED_MR_CAP)
         self.assertTrue(mr_signal.flagged)
-        self.assertTrue(gaming_result.suspected)
+        self.assertFalse(gaming_result.suspected)
+        self.assertIsNone(gaming_result.label)
 
     def test_truncated_history_does_not_flag_burst(self) -> None:
         burst_start = self.analyzed_at - timedelta(days=3)
@@ -138,6 +139,32 @@ class GamingDetectorTest(unittest.TestCase):
         self.assertFalse(result.suspected)
         self.assertIn("не означает", result.summary.lower())
 
+    def test_two_independent_signals_mark_anomalous_activity(self) -> None:
+        burst_start = self.analyzed_at - timedelta(days=10)
+        facts = build_facts(
+            last_updated=self.analyzed_at,
+            pull_items=_pulls(MR_VOLUME_FLAG_THRESHOLD, self.analyzed_at),
+            release_items=_releases(1, self.analyzed_at),
+            contributor_items=[{"id": "u1", "username": "alice"}],
+            commit_history=CommitHistoryFacts(
+                collected=True,
+                committed_at=tuple(
+                    burst_start + timedelta(minutes=index)
+                    for index in range(BURST_MIN_COMMITS + 5)
+                ),
+            ),
+        )
+
+        result = detect(facts, self.context)
+
+        self.assertTrue(result.suspected)
+        self.assertEqual(result.label, WARNING_LABEL)
+        self.assertGreaterEqual(
+            sum(signal.flagged for signal in result.signals),
+            2,
+        )
+        self.assertNotIn("накрут", result.summary.lower())
+
     def test_report_score_identical_with_and_without_warning(self) -> None:
         activity_score = 88.0
 
@@ -155,7 +182,13 @@ class GamingDetectorTest(unittest.TestCase):
                     build_facts(
                         last_updated=self.analyzed_at,
                         pull_items=_pulls(MR_VOLUME_FLAG_THRESHOLD, self.analyzed_at),
-                        commit_history=CommitHistoryFacts(collected=True),
+                        commit_history=CommitHistoryFacts(
+                            collected=True,
+                            committed_at=tuple(
+                                (self.analyzed_at - timedelta(days=4)) + timedelta(minutes=index)
+                                for index in range(BURST_MIN_COMMITS + 5)
+                            ),
+                        ),
                     ),
                     ctx,
                 )

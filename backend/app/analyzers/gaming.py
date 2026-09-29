@@ -35,7 +35,10 @@ VOLUME_PADDING_MULTIPLIER = 5
 MR_VOLUME_FLAG_THRESHOLD = MERGED_MR_CAP * VOLUME_PADDING_MULTIPLIER
 RELEASE_VOLUME_FLAG_THRESHOLD = RELEASE_CAP * VOLUME_PADDING_MULTIPLIER
 
-WARNING_LABEL = "есть признаки накрутки"
+WARNING_LABEL = "аномальная активность"
+# Один сигнал (15 MR, 15 релизов или плотный час) для активного проекта обычен.
+# Публичная пометка появляется только при двух независимых сигналах сразу.
+MIN_INDEPENDENT_FLAGS = 2
 
 _SIGNAL_BURST = "burst"
 _SIGNAL_MR_VOLUME = "mr_volume"
@@ -76,7 +79,8 @@ class GamingDetectionResult:
 
     @property
     def suspected(self) -> bool:
-        return any(signal.flagged for signal in self.signals)
+        flagged = sum(1 for signal in self.signals if signal.flagged)
+        return flagged >= MIN_INDEPENDENT_FLAGS
 
     @property
     def label(self) -> str | None:
@@ -106,11 +110,17 @@ def detect(facts: ActivityFacts, context: AnalysisContext) -> GamingDetectionRes
         _release_volume_signal(facts, context),
     )
     flagged = tuple(signal for signal in signals if signal.flagged)
-    if flagged:
+    if len(flagged) >= MIN_INDEPENDENT_FLAGS:
         summary = (
-            "Обнаружены признаки возможной накрутки рейтинга: "
+            "Совпали независимые сигналы необычной активности: "
             + "; ".join(signal.summary for signal in flagged)
-            + ". Оценка Score не снижена: это предупреждение, а не штраф."
+            + ". Score не снижен: это наблюдение, а не штраф."
+        )
+    elif flagged:
+        summary = (
+            "Один сигнал необычной активности сам по себе не помечает репозиторий: "
+            "для активного проекта такой объём бывает обычным. "
+            + flagged[0].summary
         )
     else:
         unavailable = tuple(
@@ -118,19 +128,19 @@ def detect(facts: ActivityFacts, context: AnalysisContext) -> GamingDetectionRes
         )
         if unavailable and not any(signal.status is DataStatus.MEASURED for signal in signals):
             summary = (
-                "Проверка накрутки не завершена: не хватает исходных данных. "
-                "Отсутствие данных не означает, что накрутки нет."
+                "Проверка необычной активности не завершена: не хватает исходных данных. "
+                "Отсутствие данных не означает, что активность обычная."
             )
         elif unavailable:
             summary = (
-                "Измеренные сигналы накрутки не сработали. "
+                "Измеренные сигналы необычной активности не совпали. "
                 "Часть источников недоступна — отсутствие данных не означает, "
-                "что накрутки нет."
+                "что активность обычная."
             )
         else:
             summary = (
-                "Измеренные сигналы накрутки не сработали. "
-                "Это не доказательство «чистого» рейтинга по недоступным источникам."
+                "Измеренные сигналы необычной активности не совпали. "
+                "Это не доказательство обычной активности по недоступным источникам."
             )
     return GamingDetectionResult(signals=signals, summary=summary)
 
@@ -313,8 +323,9 @@ def _volume_signal(
     flagged = count >= threshold
     if flagged:
         summary = (
-            f"За период {count} {noun_many}: это далеко выше потолка Activity ({cap}), "
-            f"который уже насыщает Score. Оценка категории не растёт, но объём похож на наполнение."
+            f"За период {count} {noun_many}: это выше порога наблюдения ({threshold}) "
+            f"при потолке Score {cap}. Оценка категории не растёт. "
+            f"Один такой сигнал не помечает репозиторий."
         )
     else:
         summary = (

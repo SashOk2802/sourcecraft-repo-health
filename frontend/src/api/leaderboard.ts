@@ -60,9 +60,9 @@ export interface LeaderboardItem {
   likes: number | null;
   lastActivityAt: string | null;
   analyzedAt: string | null;
-  /** Признаки накрутки из отчёта; на место не влияет. Старые снимки — false. */
+  /** Необычная активность из отчёта; на место не влияет. Старые снимки — false. */
   gamingSuspected: boolean;
-  /** Короткая метка вроде «есть признаки накрутки»; null если флага нет. */
+  /** Короткая метка вроде «аномальная активность»; null если флага нет. */
   gamingLabel: string | null;
   categories: CategoryBrief[];
 }

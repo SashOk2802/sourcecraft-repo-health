@@ -179,7 +179,7 @@ def _optional_gaming_flag(report: dict[str, object]) -> tuple[bool, str | None]:
     if label is not None and (not isinstance(label, str) or not label.strip()):
         raise ValueError("stored snapshot gamingWarning.label must be a nonblank string or null")
     if suspected:
-        return True, (label.strip() if isinstance(label, str) else "есть признаки накрутки")
+        return True, (label.strip() if isinstance(label, str) else "аномальная активность")
     return False, None
 
 
