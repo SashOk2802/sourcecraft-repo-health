@@ -1,4 +1,5 @@
-import { Button, ClipboardButton, Label, Text, TextInput } from "@gravity-ui/uikit";
+import { Link as LinkIcon } from "@gravity-ui/icons";
+import { Button, ClipboardButton, Icon, Label, Text, TextInput } from "@gravity-ui/uikit";
 import { useState, type FormEvent, type ReactNode } from "react";
 
 import { dataMode } from "../api/dataSource";
@@ -187,11 +188,11 @@ const health = await response.json();`}
       </Section>
 
       <Text variant="body-1" color="secondary" className="public-api__source">
-        Та же документация в репозитории проекта:{" "}
+        <Icon data={LinkIcon} size={14} />
+        <span>Документация в репозитории проекта:</span>
         <a href={GITHUB_DOC_URL} target="_blank" rel="noreferrer">
           docs/public-api.md
         </a>
-        .
       </Text>
     </div>
   );

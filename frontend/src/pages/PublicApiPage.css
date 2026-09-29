@@ -153,7 +153,12 @@
   color: var(--rh-band-low);
 }
 
+/* Ссылка на ту же документацию в репозитории: значок ссылки вместо слов «та же». */
 .public-api__source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
   margin-top: 16px;
 }
 
