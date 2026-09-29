@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 _API_URL = "https://llm.api.cloud.yandex.net/foundationModels/v1/completion"
 _DEFAULT_MODEL = "yandexgpt-lite:latest"
-_DEFAULT_TIMEOUT = 15.0
+_DEFAULT_TIMEOUT = 30.0
 _MAX_TOKENS = 800
 
 
@@ -42,7 +42,7 @@ class YandexAiClient:
             "completionOptions": {
                 "stream": False,
                 "temperature": 0.3,
-                "maxTokens": str(_MAX_TOKENS),
+                "maxTokens": str(_MAX_TOKENS),  # Yandex API expects Int64 as string
             },
             "messages": [
                 {"role": "system", "text": system_prompt},

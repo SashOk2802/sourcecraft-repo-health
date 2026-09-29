@@ -66,11 +66,12 @@ async def _enrich_recommendations(
     *,
     client: YandexAiClient,
 ) -> tuple[Recommendation, ...]:
-    """Отправляет все запросы к AI параллельно и собирает результаты."""
+    """Отправляет запросы к AI параллельно, но с ограничением конкурентности."""
     category_map = {cat.category: cat for cat in analysis.categories}
+    semaphore = asyncio.Semaphore(5)
 
     tasks = [
-        _enrich_one(rec, category_map, client=client)
+        _enrich_one(rec, category_map, client=client, semaphore=semaphore)
         for rec in recommendations
     ]
     results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -99,18 +100,13 @@ async def _enrich_one(
     category_map: dict[str, CategoryResult],
     *,
     client: YandexAiClient,
+    semaphore: asyncio.Semaphore,
 ) -> Recommendation:
     """Генерирует AI-план для одной рекомендации на основе фактов анализа."""
     user_prompt = _build_user_prompt(recommendation, category_map)
-    try:
+    
+    async with semaphore:
         ai_plan = await client.complete(_SYSTEM_PROMPT, user_prompt)
-    except Exception as exc:  # noqa: BLE001
-        logger.warning(
-            "Unexpected error during AI enrichment for %r: %s",
-            recommendation.code,
-            type(exc).__name__,
-        )
-        return recommendation
 
     if not ai_plan or not ai_plan.strip():
         return recommendation
