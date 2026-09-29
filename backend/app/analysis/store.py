@@ -69,6 +69,13 @@ class AnalysisStore(Protocol):
     ) -> StoredAnalysisSnapshot | None:
         """Возвращает последний снимок репозитория по его org и repo слагам."""
 
+    async def list_recent_for_repository(
+        self,
+        repository_id: str,
+        limit: int,
+    ) -> tuple[StoredAnalysisSnapshot, ...]:
+        """Возвращает не больше limit последних снимков репозитория, новые первыми."""
+
 
 class InMemoryAnalysisStore:
     """Временное хранилище для разработки и HTTP-тестов без PostgreSQL."""
@@ -149,6 +156,24 @@ class InMemoryAnalysisStore:
             return None
         result = _latest_snapshots(matches)
         return max(result, key=_snapshot_order_key) if result else None
+
+    async def list_recent_for_repository(
+        self,
+        repository_id: str,
+        limit: int,
+    ) -> tuple[StoredAnalysisSnapshot, ...]:
+        identifiers = _normalize_repository_ids((repository_id,))
+        if not identifiers or limit <= 0:
+            return ()
+
+        with self._lock:
+            snapshots = [
+                StoredAnalysisSnapshot(analysis_id, _copy_snapshot(snapshot))
+                for analysis_id, snapshot in self._snapshots.items()
+                if _snapshot_repository_id(snapshot) in identifiers
+            ]
+        snapshots.sort(key=_snapshot_order_key, reverse=True)
+        return tuple(snapshots[:limit])
 
 
 class PostgresAnalysisStore:
@@ -300,6 +325,37 @@ class PostgresAnalysisStore:
                 report=_json_object(row["report"]),
                 markdown=str(row["markdown"]),
             ),
+        )
+
+    async def list_recent_for_repository(
+        self,
+        repository_id: str,
+        limit: int,
+    ) -> tuple[StoredAnalysisSnapshot, ...]:
+        identifiers = _normalize_repository_ids((repository_id,))
+        if not identifiers or limit <= 0:
+            return ()
+
+        rows = await self._require_pool().fetch(
+            """
+            SELECT analysis_id, report, markdown
+            FROM analysis_snapshots
+            WHERE report #>> '{repository,id}' = $1
+            ORDER BY (report #>> '{analysis,analyzedAt}')::timestamptz DESC, analysis_id DESC
+            LIMIT $2
+            """,
+            next(iter(identifiers)),
+            limit,
+        )
+        return tuple(
+            StoredAnalysisSnapshot(
+                analysis_id=str(row["analysis_id"]),
+                snapshot=AnalysisSnapshot(
+                    report=_json_object(row["report"]),
+                    markdown=str(row["markdown"]),
+                ),
+            )
+            for row in rows
         )
 
     @property

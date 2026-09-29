@@ -23,6 +23,7 @@ import { PdfExport } from "../components/report/PdfExport";
 import { ProjectHighlights } from "../components/report/ProjectHighlights";
 import { RecommendationList } from "../components/report/RecommendationList";
 import { ScoreCard } from "../components/report/ScoreCard";
+import { ScoreHistory } from "../components/report/ScoreHistory";
 import { dataOf, useAsync } from "../hooks/useAsync";
 import { usePageMeta } from "../hooks/usePageMeta";
 import { useStartAnalysis } from "../hooks/useStartAnalysis";
@@ -212,6 +213,8 @@ function ReportView({ report }: { report: RepositoryReport }) {
       <div className="report__grid">
         <div className="report__main">
           <ScoreCard report={report} />
+          {/* Динамика — только публичного репозитория и только по настоящим снимкам: в демо её нет. */}
+          {report.badgeAvailable && !usesDemo(report.analysis.id) && <ScoreHistory report={report} />}
           <ProjectHighlights categories={report.categories} />
           <CategoryMarks categories={report.categories} />
           <RecommendationList recommendations={report.recommendations} hasScore={report.score !== null} />
