@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { RepositoryReport } from "../api/report";
-import { formatNumber, markdownFileName, renderReportMarkdown } from "./reportMarkdown";
+import { formatNumber, markdownFileName, renderReportMarkdown, reportFileBase } from "./reportMarkdown";
 
 const report: RepositoryReport = {
   repository: {
@@ -123,5 +123,9 @@ describe("formatNumber", () => {
 describe("markdownFileName", () => {
   it("строит имя из репозитория и даты анализа", () => {
     expect(markdownFileName(report)).toBe("repo-health-team-platform-api-2026-09-15.md");
+  });
+
+  it("у PDF то же имя: браузер берёт его из заголовка документа и добавляет .pdf", () => {
+    expect(reportFileBase(report)).toBe("repo-health-team-platform-api-2026-09-15");
   });
 });

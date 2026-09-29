@@ -377,7 +377,7 @@ function RepositoryRow({ item, starting, onStart }: RepositoryRowProps) {
       <td className="my-repos__name">
         <span className="my-repos__title">
           {hasReport ? (
-            <Link className="my-repos__link" to={paths.analysis(lastAnalysis.id)}>
+            <Link className="my-repos__link" to={paths.analysis(lastAnalysis.id)} from="myRepositories">
               <span className="my-repos__org">{repository.organizationSlug} /</span> {repository.repositorySlug}
             </Link>
           ) : (
@@ -437,13 +437,13 @@ function RepositoryRow({ item, starting, onStart }: RepositoryRowProps) {
       <td className="my-repos__actions">
         <span className="my-repos__actions-row">
           {activeAnalysisId ? (
-            <Button view="outlined" size="m" {...spaLinkProps(paths.analysis(activeAnalysisId))}>
+            <Button view="outlined" size="m" {...spaLinkProps(paths.analysis(activeAnalysisId), "myRepositories")}>
               Смотреть ход
             </Button>
           ) : (
             <>
               {hasReport && (
-                <GravityLink {...spaLinkProps(paths.analysis(lastAnalysis.id))} className="my-repos__report-link">
+                <GravityLink {...spaLinkProps(paths.analysis(lastAnalysis.id), "myRepositories")} className="my-repos__report-link">
                   Отчёт
                 </GravityLink>
               )}

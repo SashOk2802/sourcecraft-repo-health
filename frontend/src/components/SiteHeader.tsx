@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { signInUnavailableHint, useAuth } from "../auth/AuthContext";
 import { cn } from "../lib/classNames";
+import { useReportSection } from "../lib/reportSection";
 import { Link } from "../router";
 import { paths, type PageName, type Route } from "../routes";
 import { ThemeSwitch } from "./ThemeSwitch";
@@ -17,12 +18,16 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { label: "Рейтинг", to: paths.leaderboard(), pages: ["leaderboard", "analysis"] },
+  { label: "Рейтинг", to: paths.leaderboard(), pages: ["leaderboard"] },
   { label: "Мои репозитории", to: paths.myRepositories(), pages: ["myRepositories"] },
   { label: "Как считаем", to: paths.methodology(), pages: ["methodology"] },
 ];
 
 export function SiteHeader({ route }: { route: Route }) {
+  // Отчёт закрытого репозитория — в «Моих репозиториях», публичного — в рейтинге: раздел знает страница анализа.
+  const reportSection = useReportSection();
+  const page = route.page === "analysis" ? reportSection : route.page;
+
   return (
     <header className="site-header">
       <div className="site-header__inner">
@@ -38,7 +43,7 @@ export function SiteHeader({ route }: { route: Route }) {
 
         <nav className="site-header__nav" aria-label="Разделы">
           {navItems.map((item) => {
-            const active = item.pages.includes(route.page);
+            const active = page !== null && item.pages.includes(page);
             return (
               <Link
                 key={item.to}

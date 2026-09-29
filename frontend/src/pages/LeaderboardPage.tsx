@@ -293,7 +293,7 @@ function LeaderboardRow({ item, showPlace }: { item: LeaderboardItem; showPlace:
   // Кликабельна вся строка; с клавиатуры переходят по ссылке в названии.
   function openReport(event: MouseEvent<HTMLTableRowElement>): void {
     if (reportPath === null || (event.target as HTMLElement).closest("a, button")) return;
-    navigate(reportPath);
+    navigate(reportPath, { from: "leaderboard" });
   }
 
   const title = (
@@ -320,7 +320,7 @@ function LeaderboardRow({ item, showPlace }: { item: LeaderboardItem; showPlace:
           {reportPath === null ? (
             <span className="board__link">{title}</span>
           ) : (
-            <Link className="board__link" to={reportPath}>
+            <Link className="board__link" to={reportPath} from="leaderboard">
               {title}
             </Link>
           )}

@@ -119,12 +119,17 @@ function evidenceMarkdown(evidence: Evidence): string {
   return evidence.url ? `- [${label}](${evidence.url}) — ${evidence.summary}` : `- ${label} — ${evidence.summary}`;
 }
 
-/** Имя файла выгрузки: repo-health-org-repo-2026-09-24.md. */
-export function markdownFileName(report: RepositoryReport): string {
+/** Имя файла выгрузки без расширения: repo-health-org-repo-2026-09-24. Одно на .md и PDF. */
+export function reportFileBase(report: RepositoryReport): string {
   const date = report.analysis.analyzedAt.slice(0, 10);
   const slug = `${report.repository.organizationSlug}-${report.repository.repositorySlug}`
     .toLowerCase()
     .replace(/[^a-z0-9._-]+/g, "-")
     .replace(/^-+|-+$/g, "");
-  return `repo-health-${slug || "report"}-${date}.md`;
+  return `repo-health-${slug || "report"}-${date}`;
+}
+
+/** Имя файла выгрузки: repo-health-org-repo-2026-09-24.md. */
+export function markdownFileName(report: RepositoryReport): string {
+  return `${reportFileBase(report)}.md`;
 }

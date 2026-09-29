@@ -1,6 +1,6 @@
 import { useEffect, useState, type AnchorHTMLAttributes, type MouseEvent } from "react";
 
-import { matchRoute, type Route } from "./routes";
+import { matchRoute, type PageName, type Route } from "./routes";
 
 // Своё событие: pushState не вызывает popstate, а подписчикам нужно узнать о переходе.
 const NAVIGATION_EVENT = "repo-health:navigate";
@@ -10,18 +10,30 @@ interface NavigateOptions {
   replace?: boolean;
   /** Не прокручивать страницу наверх. */
   keepScroll?: boolean;
+  /** С какой страницы перешли: хранится в записи истории и переживает перезагрузку. */
+  from?: PageName;
 }
 
-export function navigate(to: string, { replace = false, keepScroll = false }: NavigateOptions = {}): void {
+export function navigate(to: string, { replace = false, keepScroll = false, from }: NavigateOptions = {}): void {
+  const state = from ? { from } : null;
   if (replace) {
-    window.history.replaceState(null, "", to);
+    window.history.replaceState(state, "", to);
   } else {
-    window.history.pushState(null, "", to);
+    window.history.pushState(state, "", to);
   }
   window.dispatchEvent(new Event(NAVIGATION_EVENT));
   if (!keepScroll) {
     window.scrollTo(0, 0);
   }
+}
+
+/** С какой страницы пришли на текущую (navigate с from); null — открыли по адресу. */
+export function navigationOrigin(): PageName | null {
+  const state: unknown = window.history.state;
+  if (typeof state === "object" && state !== null && "from" in state && typeof state.from === "string") {
+    return state.from as PageName;
+  }
+  return null;
 }
 
 export interface LocationState {
@@ -49,10 +61,10 @@ export function useRoute(): Route {
   return matchRoute(useLocation().pathname);
 }
 
-type LinkProps = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href"> & { to: string };
+type LinkProps = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href"> & { to: string; from?: PageName };
 
 /** Ссылка внутри приложения: без перезагрузки страницы, но с обычным href для новой вкладки. */
-export function Link({ to, onClick, target, ...rest }: LinkProps) {
+export function Link({ to, from, onClick, target, ...rest }: LinkProps) {
   function handleClick(event: MouseEvent<HTMLAnchorElement>): void {
     onClick?.(event);
     const opensElsewhere =
@@ -61,7 +73,7 @@ export function Link({ to, onClick, target, ...rest }: LinkProps) {
       return;
     }
     event.preventDefault();
-    navigate(to);
+    navigate(to, { from });
   }
 
   return <a {...rest} href={to} target={target} onClick={handleClick} />;
@@ -71,7 +83,10 @@ export function Link({ to, onClick, target, ...rest }: LinkProps) {
  * Для кнопок-ссылок Gravity UI: обычный href (новая вкладка, копирование адреса)
  * и переход без перезагрузки по простому клику — как у Link.
  */
-export function spaLinkProps(to: string): { href: string; onClick: (event: MouseEvent<HTMLElement>) => void } {
+export function spaLinkProps(
+  to: string,
+  from?: PageName,
+): { href: string; onClick: (event: MouseEvent<HTMLElement>) => void } {
   return {
     href: to,
     onClick: (event) => {
@@ -80,7 +95,7 @@ export function spaLinkProps(to: string): { href: string; onClick: (event: Mouse
         return;
       }
       event.preventDefault();
-      navigate(to);
+      navigate(to, { from });
     },
   };
 }
