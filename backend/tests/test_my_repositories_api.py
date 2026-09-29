@@ -11,7 +11,14 @@ from unittest.mock import patch
 import httpx
 from cryptography.fernet import Fernet
 
-from backend.app.analysis import InMemoryAnalysisJobStore, InMemoryAnalysisStore
+from backend.app.analysis import (
+    AnalysisJob,
+    AnalysisJobStatus,
+    InMemoryAnalysisJobStore,
+    InMemoryAnalysisStore,
+    run_analysis,
+)
+from backend.app.contracts import AnalysisContext, RepositoryRef
 from backend.app.identity import (
     InMemorySourceCraftConnectionStore,
     SourceCraftConnectionService,
@@ -55,6 +62,8 @@ class MyRepositoriesApiTest(unittest.IsolatedAsyncioTestCase):
                         "visibility": "public",
                         "language": "Python",
                         "isEmpty": False,
+                        "lastAnalysis": None,
+                        "activeAnalysisId": None,
                     },
                     {
                         "id": "repository-z",
@@ -66,6 +75,8 @@ class MyRepositoriesApiTest(unittest.IsolatedAsyncioTestCase):
                         "visibility": "public",
                         "language": None,
                         "isEmpty": True,
+                        "lastAnalysis": None,
+                        "activeAnalysisId": None,
                     },
                 ],
                 "total": 2,
@@ -173,6 +184,74 @@ class MyRepositoriesApiTest(unittest.IsolatedAsyncioTestCase):
             factory.catalog_tokens,
             ["owner-personal-token", "other-personal-token"],
         )
+
+    async def test_returns_private_repository_history_from_database_for_its_owner_only(
+        self,
+    ) -> None:
+        store = InMemorySourceCraftConnectionStore()
+        factory = PersonalCatalogClientFactory()
+        connections = SourceCraftConnectionService(
+            SourceCraftTokenVault(Fernet.generate_key().decode("ascii")),
+            store,
+            sourcecraft_client_factory=factory,  # type: ignore[arg-type]
+            clock=lambda: datetime(2026, 9, 28, 12, tzinfo=UTC),
+        )
+        await connections.connect("user-42", "owner-personal-token")
+        snapshots = InMemoryAnalysisStore()
+        jobs = InMemoryAnalysisJobStore()
+        timestamp = datetime(2026, 9, 29, 12, tzinfo=UTC)
+
+        await _save_finished_analysis(
+            snapshots,
+            jobs,
+            analysis_id="owner-analysis",
+            owner_subject="user-42",
+            repository_id="owner-private-id",
+            timestamp=timestamp,
+        )
+        await jobs.create(
+            AnalysisJob.queued(
+                analysis_id="owner-active-analysis",
+                repository_id="owner-private-id",
+                created_at=timestamp.replace(hour=14),
+                owner_subject="user-42",
+            )
+        )
+        await _save_finished_analysis(
+            snapshots,
+            jobs,
+            analysis_id="other-users-newer-analysis",
+            owner_subject="user-99",
+            repository_id="owner-private-id",
+            timestamp=timestamp.replace(hour=13),
+        )
+        app = create_app(
+            analysis_store=snapshots,
+            job_store=jobs,
+            yandex_auth_service=FakeYandexAuth(),  # type: ignore[arg-type]
+            sourcecraft_connection_service=connections,
+        )
+
+        async with api_client(app) as client:
+            response = await client.get(
+                "/api/v1/me/repositories",
+                headers=authenticated_headers(),
+            )
+
+        self.assertEqual(response.status_code, 200)
+        item = response.json()["repositories"][0]
+        self.assertEqual(
+            item["lastAnalysis"],
+            {
+                "id": "owner-analysis",
+                "status": "partial",
+                "analyzedAt": "2026-09-29T12:00:00Z",
+                "score": None,
+                "isPreliminary": True,
+            },
+        )
+        self.assertEqual(item["activeAnalysisId"], "owner-active-analysis")
+        self.assertNotIn("other-users-newer-analysis", response.text)
 
     async def test_revoked_or_corrupt_personal_connection_fails_without_fallback(self) -> None:
         store = InMemorySourceCraftConnectionStore()
@@ -367,6 +446,42 @@ def personal_repository_payload(
 
 def authenticated_headers() -> dict[str, str]:
     return {"cookie": "repo_health_session=valid-session"}
+
+
+async def _save_finished_analysis(
+    snapshots: InMemoryAnalysisStore,
+    jobs: InMemoryAnalysisJobStore,
+    *,
+    analysis_id: str,
+    owner_subject: str,
+    repository_id: str,
+    timestamp: datetime,
+) -> None:
+    await jobs.create(
+        AnalysisJob.queued(
+            analysis_id=analysis_id,
+            repository_id=repository_id,
+            created_at=timestamp,
+            owner_subject=owner_subject,
+        )
+    )
+    await jobs.mark_running(analysis_id, timestamp)
+    await jobs.finish(
+        analysis_id,
+        status=AnalysisJobStatus.PARTIAL,
+        finished_at=timestamp,
+    )
+    execution = run_analysis(
+        AnalysisContext(
+            repository=RepositoryRef(repository_id, "personal-org", "owner-repo"),
+            commit_sha="abc123",
+            analyzed_at=timestamp,
+            period_start=timestamp,
+            period_end=timestamp,
+        ),
+        (),
+    )
+    await snapshots.save(analysis_id, execution)
 
 
 @asynccontextmanager

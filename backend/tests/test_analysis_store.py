@@ -44,6 +44,15 @@ class InMemoryAnalysisStoreTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(snapshot.report["analysis"]["id"], "analysis-42")
         self.assertIn("Анализ " + chr(96) + "analysis-42" + chr(96), snapshot.markdown)
 
+    async def test_reads_snapshots_by_a_bounded_set_of_identifiers(self) -> None:
+        store = InMemoryAnalysisStore()
+        await store.save("analysis-first", self.execution)
+        await store.save("analysis-second", self._execution("repo-other", self.timestamp))
+
+        snapshots = await store.list_for_analysis_ids((" analysis-first ", "missing"))
+
+        self.assertEqual([snapshot.analysis_id for snapshot in snapshots], ["analysis-first"])
+
     async def test_returns_latest_snapshot_for_every_repository_and_methodology(self) -> None:
         store = InMemoryAnalysisStore()
         await store.save(

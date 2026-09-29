@@ -20,6 +20,7 @@ from backend.app.analysis import (
     AnalysisDispatcher,
     AnalysisExecutionService,
     AnalysisJob,
+    AnalysisJobStatus,
     AnalysisJobStore,
     AnalysisSnapshot,
     AnalysisStore,
@@ -473,8 +474,44 @@ def create_app(
             )
         )
 
+        # Job owner is an account subject, not a repository ACL.  Filtering by both
+        # it and the freshly authorised catalog prevents another user's scan of the
+        # same repository from being exposed in this browser session.
+        history_jobs = await jobs.list_history_for_owner_repositories(
+            user.id,
+            tuple(repository.id for repository in repositories),
+        )
+        snapshot_ids = tuple(
+            job.analysis_id
+            for job in history_jobs
+            if job.status in {AnalysisJobStatus.COMPLETED, AnalysisJobStatus.PARTIAL}
+        )
+        snapshots = await store.list_for_analysis_ids(snapshot_ids)
+        snapshots_by_id = {
+            stored.analysis_id: stored.snapshot
+            for stored in snapshots
+        }
+        active_jobs_by_repository = {
+            job.repository_id: job
+            for job in history_jobs
+            if job.status in {AnalysisJobStatus.QUEUED, AnalysisJobStatus.RUNNING}
+        }
+        terminal_jobs_by_repository = {
+            job.repository_id: job
+            for job in history_jobs
+            if job.status not in {AnalysisJobStatus.QUEUED, AnalysisJobStatus.RUNNING}
+        }
+
         return {
-            "repositories": [_repository_payload(repository) for repository in repositories],
+            "repositories": [
+                _my_repository_payload(
+                    repository,
+                    active_jobs_by_repository.get(repository.id),
+                    terminal_jobs_by_repository.get(repository.id),
+                    snapshots_by_id,
+                )
+                for repository in repositories
+            ],
             "total": len(repositories),
         }
 
@@ -817,6 +854,47 @@ def _repository_payload(repository: SourceCraftRepository) -> dict[str, object]:
         "language": repository.language,
         "isEmpty": repository.is_empty,
     }
+
+
+def _my_repository_payload(
+    repository: SourceCraftRepository,
+    active_job: AnalysisJob | None,
+    terminal_job: AnalysisJob | None,
+    snapshots_by_id: dict[str, AnalysisSnapshot],
+) -> dict[str, object]:
+    """Дополняет личный каталог только безопасным состоянием своего запуска."""
+
+    payload = _repository_payload(repository)
+    payload["lastAnalysis"] = None
+    payload["activeAnalysisId"] = None
+    if active_job is not None:
+        payload["activeAnalysisId"] = active_job.analysis_id
+    if terminal_job is None:
+        return payload
+
+    analyzed_at = _format_timestamp(terminal_job.finished_at)
+    score: int | float | None = None
+    is_preliminary = False
+    snapshot = snapshots_by_id.get(terminal_job.analysis_id)
+    if snapshot is not None:
+        report_analysis = snapshot.report.get("analysis")
+        if isinstance(report_analysis, dict):
+            candidate_timestamp = report_analysis.get("analyzedAt")
+            if isinstance(candidate_timestamp, str):
+                analyzed_at = candidate_timestamp
+            is_preliminary = report_analysis.get("isPreliminary") is True
+        candidate_score = snapshot.report.get("score")
+        if isinstance(candidate_score, int | float) and not isinstance(candidate_score, bool):
+            score = candidate_score
+
+    payload["lastAnalysis"] = {
+        "id": terminal_job.analysis_id,
+        "status": terminal_job.status.value,
+        "analyzedAt": analyzed_at,
+        "score": score,
+        "isPreliminary": is_preliminary,
+    }
+    return payload
 
 
 def _yandex_principal_provider(

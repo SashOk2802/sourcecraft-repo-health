@@ -25,6 +25,7 @@ class PostgresAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         self.created_at = datetime(2026, 9, 19, 10, tzinfo=UTC)
         self.analysis_id = f"integration-{uuid4().hex}"
+        self.analysis_ids = [self.analysis_id]
         self.worker_ids: set[str] = set()
         database_url = os.environ["DATABASE_URL"]
         self.job_store = PostgresAnalysisJobStore(database_url)
@@ -35,12 +36,12 @@ class PostgresAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self) -> None:
         pool = self.job_store._require_pool()
         await pool.execute(
-            "DELETE FROM analysis_snapshots WHERE analysis_id = $1",
-            self.analysis_id,
+            "DELETE FROM analysis_snapshots WHERE analysis_id = ANY($1::text[])",
+            self.analysis_ids,
         )
         await pool.execute(
-            "DELETE FROM analysis_jobs WHERE analysis_id = $1",
-            self.analysis_id,
+            "DELETE FROM analysis_jobs WHERE analysis_id = ANY($1::text[])",
+            self.analysis_ids,
         )
         if self.worker_ids:
             await pool.execute(
@@ -72,6 +73,34 @@ class PostgresAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
         restored = await self.job_store.get(self.analysis_id)
         self.assertEqual(partial.status, AnalysisJobStatus.PARTIAL)
         self.assertEqual(restored, partial)
+
+    async def test_lists_only_latest_jobs_owned_by_requested_subject(self) -> None:
+        older_id = self.analysis_id
+        latest_id = f"integration-{uuid4().hex}"
+        other_owner_id = f"integration-{uuid4().hex}"
+        other_repository_id = f"integration-{uuid4().hex}"
+        self.analysis_ids.extend((latest_id, other_owner_id, other_repository_id))
+        for analysis_id, repository_id, owner_subject, offset in (
+            (older_id, "repo-42", "user-42", 0),
+            (latest_id, "repo-42", "user-42", 1),
+            (other_owner_id, "repo-42", "user-99", 2),
+            (other_repository_id, "repo-99", "user-42", 3),
+        ):
+            await self.job_store.create(
+                AnalysisJob.queued(
+                    analysis_id=analysis_id,
+                    repository_id=repository_id,
+                    created_at=self.created_at + timedelta(seconds=offset),
+                    owner_subject=owner_subject,
+                )
+            )
+
+        jobs = await self.job_store.list_history_for_owner_repositories(
+            "user-42",
+            ("repo-42",),
+        )
+
+        self.assertEqual([job.analysis_id for job in jobs], [latest_id])
 
     async def test_saves_snapshot_and_terminal_state_in_one_transaction(self) -> None:
         job = AnalysisJob.queued(

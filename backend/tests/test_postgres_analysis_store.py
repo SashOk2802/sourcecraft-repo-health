@@ -60,6 +60,17 @@ class PostgresAnalysisStoreTest(unittest.IsolatedAsyncioTestCase):
         expected_heading = f"Анализ {chr(96)}{self.analysis_ids[0]}{chr(96)}"
         self.assertIn(expected_heading, snapshot.markdown)
 
+    async def test_reads_snapshots_by_requested_identifiers(self) -> None:
+        first_id = self.analysis_ids[0]
+        second_id = f"integration-{uuid4().hex}"
+        self.analysis_ids.append(second_id)
+        await self.store.save(first_id, self.execution)
+        await self.store.save(second_id, self._execution("repo-other", self.timestamp))
+
+        snapshots = await self.store.list_for_analysis_ids((first_id, "missing"))
+
+        self.assertEqual([snapshot.analysis_id for snapshot in snapshots], [first_id])
+
     async def test_returns_latest_snapshot_per_methodology(self) -> None:
         old_id = self.analysis_ids[0]
         latest_id = f"integration-{uuid4().hex}"

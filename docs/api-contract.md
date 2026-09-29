@@ -189,7 +189,15 @@ endpoint читает `GET /me/repos` его личным PAT и возвращ�
       "defaultBranch": "main",
       "visibility": "internal",
       "language": "Python",
-      "isEmpty": false
+      "isEmpty": false,
+      "lastAnalysis": {
+        "id": "analysis-2026-09-29",
+        "status": "partial",
+        "analyzedAt": "2026-09-29T12:00:04Z",
+        "score": 73.4,
+        "isPreliminary": true
+      },
+      "activeAnalysisId": null
     }
   ],
   "total": 1
@@ -199,6 +207,12 @@ endpoint читает `GET /me/repos` его личным PAT и возвращ�
 `id` — непрозрачный идентификатор, который frontend передаёт в
 `POST /api/v1/repositories/{repository_id}/analyses`. Его не нужно составлять
 из `organizationSlug` и `repositorySlug`.
+
+`lastAnalysis` — последний terminal-запуск этого пользователя для данного
+репозитория, либо `null`. `activeAnalysisId` содержит ID его queued/running
+запуска либо `null`. Эти поля формируются сервером по owner сессии, поэтому
+история не зависит от localStorage конкретного браузера и не раскрывает
+анализы других пользователей с доступом к тому же репозиторию.
 
 | Статус | Причина |
 | --- | --- |

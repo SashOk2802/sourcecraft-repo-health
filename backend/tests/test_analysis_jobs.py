@@ -85,6 +85,28 @@ class InMemoryAnalysisJobStoreTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(completed.status, AnalysisJobStatus.COMPLETED)
         self.assertEqual((await store.get("analysis-42")).finished_at, completed.finished_at)
 
+    async def test_lists_only_latest_jobs_owned_by_requested_subject(self) -> None:
+        created_at = datetime(2026, 9, 19, 10, tzinfo=UTC)
+        store = InMemoryAnalysisJobStore()
+        for analysis_id, repository_id, owner_subject, offset in (
+            ("analysis-first", "repo-42", "user-42", 0),
+            ("analysis-latest", "repo-42", "user-42", 2),
+            ("analysis-other-user", "repo-42", "user-99", 3),
+            ("analysis-other-repository", "repo-99", "user-42", 1),
+        ):
+            await store.create(
+                AnalysisJob.queued(
+                    analysis_id=analysis_id,
+                    repository_id=repository_id,
+                    created_at=created_at + timedelta(seconds=offset),
+                    owner_subject=owner_subject,
+                )
+            )
+
+        jobs = await store.list_history_for_owner_repositories("user-42", ("repo-42",))
+
+        self.assertEqual([job.analysis_id for job in jobs], ["analysis-latest"])
+
 
     async def test_recovers_only_jobs_of_workers_with_expired_leases(self) -> None:
         created_at = datetime(2026, 9, 19, 10, tzinfo=UTC)
