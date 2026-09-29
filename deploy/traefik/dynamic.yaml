@@ -1,0 +1,67 @@
+# Dynamic configuration for the Repo Health production stack.
+#
+# The file belongs on the same Docker network as the application Compose project.
+# It deliberately addresses services by their Docker DNS names: neither the
+# backend nor nginx needs a host-published port.
+http:
+  routers:
+    backend-http:
+      rule: "PathPrefix(`/api`) || Path(`/health`) || PathPrefix(`/docs`) || PathPrefix(`/openapi.json`)"
+      entryPoints:
+        - web
+      service: backend-svc
+      priority: 10
+
+    backend-https:
+      rule: "Host(`alhamdulylia.ru`) && (PathPrefix(`/api`) || Path(`/health`) || PathPrefix(`/docs`) || PathPrefix(`/openapi.json`))"
+      entryPoints:
+        - websecure
+      service: backend-svc
+      priority: 20
+      tls:
+        certResolver: le
+
+    backend-https-ip:
+      rule: "PathPrefix(`/api`) || Path(`/health`) || PathPrefix(`/docs`) || PathPrefix(`/openapi.json`)"
+      entryPoints:
+        - websecure
+      service: backend-svc
+      priority: 10
+      tls: {}
+
+    frontend-http:
+      rule: "PathPrefix(`/`)"
+      entryPoints:
+        - web
+      service: frontend-svc
+      priority: 1
+
+    frontend-https:
+      rule: "Host(`alhamdulylia.ru`)"
+      entryPoints:
+        - websecure
+      service: frontend-svc
+      priority: 20
+      tls:
+        certResolver: le
+
+    frontend-https-ip:
+      rule: "PathPrefix(`/`)"
+      entryPoints:
+        - websecure
+      service: frontend-svc
+      priority: 1
+      tls: {}
+
+  services:
+    backend-svc:
+      loadBalancer:
+        servers:
+          - url: "http://backend:8000"
+
+    frontend-svc:
+      loadBalancer:
+        # The production frontend is nginx from Dockerfile.prod, not Vite.
+        # nginx-unprivileged listens on 8080 inside its container.
+        servers:
+          - url: "http://frontend:8080"

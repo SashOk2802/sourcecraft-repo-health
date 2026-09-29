@@ -130,6 +130,29 @@ jobs:
       - name: Stop clean application stack
         if: always()
         run: docker compose -p repo-health-ci down --volumes --remove-orphans
+      # This is intentionally a separate stack from the development Compose
+      # smoke above. It proves that the image served in production is static
+      # nginx rather than a Vite source server, and that same-origin /api
+      # proxying survives a clean boot.
+      - name: Start production-mode static stack
+        env:
+          DATABASE_URL: postgresql+asyncpg://repo_health:ci-only@postgres:5432/repo_health
+          POSTGRES_PASSWORD: ci-only
+          SOURCECRAFT_DISCOVER_PUBLIC_REPOSITORIES: "false"
+          PUBLIC_ANALYSIS_SCHEDULER_ENABLED: "false"
+        run: docker compose -p repo-health-production-ci -f compose.production.yaml up --build --wait
+      - name: Verify production-mode frontend and API
+        run: |
+          curl --fail --silent --show-error http://127.0.0.1:5173/ | grep -qviE '/@vite/client|/src/main\.tsx'
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:5173/@vite/client)" = 404
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:5173/src/main.tsx)" = 404
+          curl --fail --silent --show-error http://127.0.0.1:5173/api/v1/health
+      - name: Stop production-mode static stack
+        if: always()
+        env:
+          DATABASE_URL: postgresql+asyncpg://repo_health:ci-only@postgres:5432/repo_health
+          POSTGRES_PASSWORD: ci-only
+        run: docker compose -p repo-health-production-ci -f compose.production.yaml down --volumes --remove-orphans
       - name: Test frontend upgrade from a root-owned node_modules volume
         run: bash scripts/test_frontend_volume_upgrade.sh
       - name: Test AppSec snapshot read-only mount across Docker users

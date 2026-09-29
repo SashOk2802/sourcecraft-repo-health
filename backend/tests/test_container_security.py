@@ -87,6 +87,16 @@ class ContainerSecurityTest(unittest.TestCase):
         self.assertIn("APP_ENV: production", compose)
         self.assertIn('YANDEX_SESSION_COOKIE_SECURE: "true"', compose)
         self.assertIn("127.0.0.1:${FRONTEND_PORT:-5173}:8080", compose)
+        self.assertIn('SOURCECRAFT_TOKEN: "${SOURCECRAFT_TOKEN:-}"', compose)
+        self.assertIn(
+            'SOURCECRAFT_DISCOVER_PUBLIC_REPOSITORIES: "${SOURCECRAFT_DISCOVER_PUBLIC_REPOSITORIES:-false}"',
+            compose,
+        )
+        self.assertIn(
+            'PUBLIC_ANALYSIS_SCHEDULER_ENABLED: "${PUBLIC_ANALYSIS_SCHEDULER_ENABLED:-false}"',
+            compose,
+        )
+        self.assertNotIn("name: sourcecraft-repo-health-production", compose)
         self.assertNotIn("--reload", compose)
         self.assertNotIn("./backend:/app/backend", compose)
         self.assertNotIn("./frontend:/app", compose)
@@ -106,6 +116,13 @@ class ContainerSecurityTest(unittest.TestCase):
             deployment_docs,
         )
         self.assertNotIn("compose.production.yaml config\n", deployment_docs)
+
+    def test_versioned_traefik_route_targets_production_nginx(self) -> None:
+        route = _read("deploy/traefik/dynamic.yaml")
+
+        self.assertIn('url: "http://backend:8000"', route)
+        self.assertIn('url: "http://frontend:8080"', route)
+        self.assertNotIn("frontend:5173", route)
 
     def test_frontend_vite_cache_is_outside_the_node_modules_volume(self) -> None:
         dockerfile = _read("frontend/Dockerfile")
