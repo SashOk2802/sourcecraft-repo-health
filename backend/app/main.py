@@ -443,6 +443,42 @@ def create_app(
         # репозиторий: endpoint не должен становиться oracle доступа.
         raise HTTPException(status_code=404, detail="Public health score not found.")
 
+    @app.get(
+        "/api/v1/public/repositories/{organization_slug}/{repository_slug}/history",
+        tags=["public api"],
+    )
+    async def get_public_repository_history(
+        organization_slug: str,
+        repository_slug: str,
+    ) -> dict[str, object]:
+        """Возвращает историю Score публичного репозитория по сохранённым снимкам.
+
+        Публичность проверяется по каталогу SourceCraft при каждом запросе. Отдаются
+        только дата, Score, покрытие, статус и версия методики — не больше 20 точек,
+        старые первыми. SourceCraft заново не опрашивается и анализ не запускается:
+        точки — это уже сохранённые снимки analysis_snapshots.
+        """
+
+        if effective_leaderboard_service is None:
+            raise HTTPException(status_code=503, detail="Public API is not configured.")
+        try:
+            history = await effective_leaderboard_service.get_public_repository_history(
+                organization_slug,
+                repository_slug,
+            )
+        except SourceCraftRepositoryUnavailableError as error:
+            raise HTTPException(
+                status_code=503,
+                detail="SourceCraft repository catalog is unavailable.",
+            ) from error
+        except (TypeError, ValueError) as error:
+            raise HTTPException(status_code=503, detail="Public API data is unavailable.") from error
+
+        # Как у /health: отсутствующий и private/internal репозиторий не различаются.
+        if history is None:
+            raise HTTPException(status_code=404, detail="Public health history not found.")
+        return {"points": [_public_history_point_payload(projection) for projection in history]}
+
     @app.get("/api/v1/methodology", tags=["methodology"])
     async def get_methodology() -> dict[str, object]:
         """Возвращает публичное описание правил текущей версии Score."""
@@ -933,6 +969,18 @@ def _public_repository_health_payload(
             }
             for category in projection.categories
         ],
+    }
+
+
+def _public_history_point_payload(projection: LeaderboardSnapshotProjection) -> dict[str, object]:
+    """Одна точка публичной истории: только дата, Score, покрытие, статус и методика."""
+
+    return {
+        "analyzedAt": _format_timestamp(projection.analyzed_at),
+        "score": projection.score,
+        "coverage": projection.coverage,
+        "status": "partial" if projection.is_preliminary else "completed",
+        "methodologyVersion": projection.methodology_version,
     }
 
 

@@ -21,6 +21,9 @@ from backend.app.leaderboard.snapshot_projection import (
 )
 from backend.app.scoring.methodology import METHODOLOGY_VERSION
 
+# Сколько последних снимков отдаёт публичная история Score.
+PUBLIC_HISTORY_LIMIT = 20
+
 _MAX_PAGE_SIZE = 100
 
 
@@ -184,6 +187,47 @@ class LeaderboardService:
         if len(current) != 1:
             return None
         return current[0]
+
+    async def get_public_repository_history(
+        self,
+        organization_slug: str,
+        repository_slug: str,
+        *,
+        limit: int = PUBLIC_HISTORY_LIMIT,
+    ) -> tuple[LeaderboardSnapshotProjection, ...] | None:
+        """Возвращает до limit последних публичных проекций репозитория, старые первыми.
+
+        Публичность проверяется по каталогу SourceCraft при каждом вызове, как у
+        get_public_repository_snapshot: private/internal и неизвестный репозиторий
+        дают None. Каждый снимок проходит ту же строгую проекцию, что и рейтинг,
+        поэтому снимок с другим id или устаревшими slug в историю не попадает.
+        Пустой кортеж — репозиторий публичный, но снимков ещё нет.
+        """
+
+        organization = _normalize_slug(organization_slug)
+        repository = _normalize_slug(repository_slug)
+        if organization is None or repository is None or limit <= 0:
+            return None
+
+        metadata_by_id = _metadata_by_id(await self._repository_catalog.list_repositories())
+        matches = tuple(
+            item
+            for item in metadata_by_id.values()
+            if item.organization_slug.casefold() == organization
+            and item.repository_slug.casefold() == repository
+        )
+        if len(matches) != 1:
+            return None
+
+        metadata = matches[0]
+        snapshots = await self._analysis_store.list_recent_for_repository(metadata.repository_id, limit)
+        projections = [
+            projection
+            for stored_snapshot in snapshots
+            if (projection := project_public_snapshot(metadata, stored_snapshot)) is not None
+        ]
+        projections.sort(key=lambda projection: (projection.analyzed_at, projection.analysis_id))
+        return tuple(projections[-limit:])
 
     async def get_public_repository_metadata(
         self,

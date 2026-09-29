@@ -1,0 +1,105 @@
+.score-history__body {
+  display: grid;
+  gap: 10px;
+}
+
+.score-history__error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.score-history__chart {
+  width: 100%;
+  max-width: 640px;
+  height: auto;
+  display: block;
+}
+
+/* Пороги полос 60 и 80 — те же границы, что у цвета оценки. */
+.score-history__threshold {
+  stroke: var(--g-color-line-generic);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+
+.score-history__line {
+  fill: none;
+  stroke: var(--rh-accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.score-history__dot {
+  stroke: var(--rh-surface);
+  stroke-width: 2;
+}
+
+.score-history__dot_band_high {
+  fill: var(--rh-band-high);
+}
+
+.score-history__dot_band_mid {
+  fill: var(--rh-band-mid);
+}
+
+.score-history__dot_band_low {
+  fill: var(--rh-band-low);
+}
+
+/* Предварительная оценка — полый кружок: данных собрано не по всем категориям. */
+.score-history__dot_partial {
+  fill: var(--rh-surface);
+  stroke-width: 2.5;
+}
+
+.score-history__dot_partial.score-history__dot_band_high {
+  stroke: var(--rh-band-high);
+}
+
+.score-history__dot_partial.score-history__dot_band_mid {
+  stroke: var(--rh-band-mid);
+}
+
+.score-history__dot_partial.score-history__dot_band_low {
+  stroke: var(--rh-band-low);
+}
+
+.score-history__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--g-text-body-1-font-size);
+}
+
+.score-history__table th,
+.score-history__table td {
+  padding: 6px 12px 6px 0;
+  border-bottom: 1px solid var(--g-color-line-generic);
+  text-align: left;
+}
+
+.score-history__table thead th {
+  color: var(--g-color-text-secondary);
+  font-weight: 400;
+}
+
+.score-history__score_band_high {
+  color: var(--rh-band-high);
+}
+
+.score-history__score_band_mid {
+  color: var(--rh-band-mid);
+}
+
+.score-history__score_band_low {
+  color: var(--rh-band-low);
+}
+
+@media (max-width: 520px) {
+  .score-history__table th:nth-child(5),
+  .score-history__table td:nth-child(5) {
+    display: none;
+  }
+}
