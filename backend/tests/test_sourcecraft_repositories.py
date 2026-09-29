@@ -17,6 +17,7 @@ from backend.app.integrations.sourcecraft import (
     SourceCraftResponseError,
 )
 from backend.app.integrations.sourcecraft_repositories import (
+    PUBLIC_DISCOVERY_MAX_REPOSITORIES,
     REPOSITORY_MAX_PAGES,
     REPOSITORY_PAGE_SIZE,
     SourceCraftRepositoryCatalogClient,
@@ -105,7 +106,7 @@ class SourceCraftRepositoryCatalogClientTest(unittest.TestCase):
             max_pages=REPOSITORY_MAX_PAGES,
         )
 
-    def test_public_discovery_uses_stable_order_and_accepts_multiple_organizations(self) -> None:
+    def test_public_discovery_uses_stable_order_and_is_bounded(self) -> None:
         client = Mock(spec=SourceCraftClient)
         first = _repository_payload("repository-1", "first")
         first["visibility"] = "public"
@@ -131,9 +132,40 @@ class SourceCraftRepositoryCatalogClientTest(unittest.TestCase):
             "/repos",
             items_field="repositories",
             params={"sort_by": "created_at"},
-            page_size=REPOSITORY_PAGE_SIZE,
+            page_size=PUBLIC_DISCOVERY_MAX_REPOSITORIES,
             max_pages=REPOSITORY_MAX_PAGES,
+            max_items=PUBLIC_DISCOVERY_MAX_REPOSITORIES,
         )
+
+    def test_pagination_stops_when_item_limit_is_reached(self) -> None:
+        requests: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            return httpx.Response(
+                200,
+                json={
+                    "repositories": [{"id": "one"}, {"id": "two"}, {"id": "three"}],
+                    "next_page_token": "another-page",
+                },
+            )
+
+        with httpx.Client(
+            base_url="https://api.sourcecraft.tech",
+            transport=httpx.MockTransport(handler),
+        ) as http_client:
+            client = SourceCraftClient("test-token", http_client=http_client)
+            repositories = client.get_paginated_objects(
+                "/repos",
+                items_field="repositories",
+                page_size=3,
+                max_pages=100,
+                max_items=2,
+            )
+
+        self.assertEqual(repositories, [{"id": "one"}, {"id": "two"}])
+        self.assertEqual(len(requests), 1)
+        self.assertEqual(requests[0].url.params["page_size"], "3")
 
     def test_public_discovery_fails_closed_on_non_public_repository(self) -> None:
         client = Mock(spec=SourceCraftClient)

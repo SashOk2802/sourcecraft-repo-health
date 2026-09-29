@@ -28,6 +28,9 @@ _RFC3339 = re.compile(
 
 REPOSITORY_PAGE_SIZE = 100
 REPOSITORY_MAX_PAGES = 100
+# Global discovery is an opt-in review/demo surface, not a bulk mirror of
+# SourceCraft.  Keep the catalog and its periodic analysis workload bounded.
+PUBLIC_DISCOVERY_MAX_REPOSITORIES = 25
 RepositoryVisibility = Literal["public", "internal", "private"]
 
 
@@ -107,14 +110,15 @@ class SourceCraftRepositoryCatalogClient:
         return repositories
 
     def discover_public_repositories(self) -> tuple[SourceCraftRepository, ...]:
-        """Возвращает глобальный public-каталог в устойчивом порядке API."""
+        """Возвращает ограниченный глобальный public-каталог в порядке API."""
 
         payloads = self._sourcecraft_client.get_paginated_objects(
             "/repos",
             items_field="repositories",
             params={"sort_by": "created_at"},
-            page_size=REPOSITORY_PAGE_SIZE,
+            page_size=PUBLIC_DISCOVERY_MAX_REPOSITORIES,
             max_pages=REPOSITORY_MAX_PAGES,
+            max_items=PUBLIC_DISCOVERY_MAX_REPOSITORIES,
         )
         repositories = tuple(
             _parse_repository(payload, expected_organization_slug=None)

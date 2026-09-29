@@ -234,18 +234,24 @@ class CatalogHttpClient:
         params: dict[str, str | int] | None = None,
         page_size: int,
         max_pages: int,
+        max_items: int | None = None,
     ) -> list[dict[str, object]]:
         self.requests.append(path)
         self.request_params.append(dict(params) if params is not None else None)
         if self._error is not None:
             raise self._error
-        if items_field != "repositories" or page_size != 100 or max_pages != 100:
+        if items_field != "repositories" or max_pages != 100:
             raise AssertionError("unexpected SourceCraft catalog parameters")
         if path == "/repos":
-            if params != {"sort_by": "created_at"} or self._discovered_repositories is None:
+            if (
+                params != {"sort_by": "created_at"}
+                or page_size != 25
+                or max_items != 25
+                or self._discovered_repositories is None
+            ):
                 raise AssertionError("unexpected SourceCraft discovery parameters")
             return self._discovered_repositories
-        if params is not None:
+        if params is not None or page_size != 100 or max_items is not None:
             raise AssertionError("unexpected SourceCraft organization catalog parameters")
         return self._repositories_by_organization[
             path.removeprefix("/orgs/").removesuffix("/repos")
