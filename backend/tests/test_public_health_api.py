@@ -187,6 +187,7 @@ class PublicHealthApiTest(unittest.IsolatedAsyncioTestCase):
         for response in (missing, unlisted, spoofed, obsolete):
             self.assertEqual(response.status_code, 404)
             self.assertNotIn("repo-public", response.text)
+            self.assertEqual(response.headers.get("cache-control"), "no-store")
         self.assertEqual(missing.json(), unlisted.json())
         self.assertEqual(missing.json(), spoofed.json())
         self.assertEqual(missing.json(), obsolete.json())
@@ -217,6 +218,8 @@ class PublicHealthApiTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(unconfigured.status_code, 503)
         self.assertEqual(unavailable.status_code, 503)
         self.assertEqual(invalid_catalog.status_code, 503)
+        for response in (unconfigured, unavailable, invalid_catalog):
+            self.assertEqual(response.headers.get("cache-control"), "no-store")
 
     async def test_success_response_is_cacheable_and_safe_to_embed_cross_origin(self) -> None:
         await self.store.save(

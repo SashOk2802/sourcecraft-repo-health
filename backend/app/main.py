@@ -1108,7 +1108,11 @@ def _apply_http_security_headers(response: Response, path: str) -> None:
     if path.startswith("/api/v1/public/"):
         response.headers["Cross-Origin-Resource-Policy"] = "cross-origin"
         response.headers["Access-Control-Allow-Origin"] = "*"
-        response.headers["Cache-Control"] = "public, max-age=300, s-maxage=300"
+        response.headers["Cache-Control"] = (
+            "public, max-age=300, s-maxage=300"
+            if response.status_code == 200
+            else "no-store"
+        )
         return
 
     if path.startswith("/api/") or path in _API_DOCUMENT_PATHS:
