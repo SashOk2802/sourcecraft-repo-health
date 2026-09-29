@@ -21,6 +21,7 @@ const navItems: NavItem[] = [
   { label: "Рейтинг", to: paths.leaderboard(), pages: ["leaderboard"] },
   { label: "Мои репозитории", to: paths.myRepositories(), pages: ["myRepositories"] },
   { label: "Как считаем", to: paths.methodology(), pages: ["methodology"] },
+  { label: "API", to: paths.publicApi(), pages: ["publicApi"] },
 ];
 
 export function SiteHeader({ route }: { route: Route }) {

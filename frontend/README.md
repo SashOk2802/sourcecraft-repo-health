@@ -57,6 +57,7 @@ $env:VITE_USE_MOCKS = "true"; npm run dev
 | `/analyses/demo-0000` | отчёта нет (404) |
 | `/me/repositories?mock-user=1` | список репозиториев и запуск анализа |
 | `/methodology` | как считаем |
+| `/public-api` | документация публичного API: запрос, ответ, коды, живой запрос и бейдж для README. Не `/api/…`: такие пути уходят в backend |
 
 ## Что откуда берётся
 
@@ -66,6 +67,7 @@ $env:VITE_USE_MOCKS = "true"; npm run dev
 | Markdown | `GET /api/v1/analyses/{id}/report.md` | есть; демо-отчёт собирается в браузере в том же формате |
 | Ход анализа | `GET /api/v1/analyses/{id}` — `queued`, `running`, `completed`, `partial`, `failed` с `error: {code, summary}` | есть |
 | Запуск анализа | `POST /api/v1/repositories/{id}/analyses` | есть: после входа, по внутреннему id репозитория SourceCraft. Без подключения — публичные репозитории из `SOURCECRAFT_PUBLIC_ORGANIZATIONS` (без неё и `SOURCECRAFT_TOKEN` — 503); закрытый или внутренний — по подключению SourceCraft: без него 409, без прав у токена 403 |
+| Публичный API | `GET /api/v1/public/repositories/{org}/{repo}/health`, `GET /api/v1/repositories/{org}/{repo}/badge.svg` | есть (#112, #123): вкладка «API» описывает их и отправляет живой запрос; в демо-сборке запрос выключен |
 | Методика | `GET /api/v1/methodology` | есть, v2: веса, названия, лимит и формула Security Score — с backend, объяснения и политика пересчёта — в `src/lib/methodologyTexts.ts` |
 | Вход | `/api/v1/auth/yandex/start`, `/callback`, `GET /api/v1/me` (`{id, login}`), `POST /api/v1/auth/logout` | есть; без `YANDEX_CLIENT_ID` и `YANDEX_REDIRECT_URI` backend отвечает 503 — тогда в режиме `api` вход выключен с пояснением, в режиме `auto` работает демо-кабинет |
 | Рейтинг | `GET /api/v1/leaderboard` | есть; места и сортировки по [docs/leaderboard-policy.md](../docs/leaderboard-policy.md), снимки пополняет планировщик backend (`PUBLIC_ANALYSIS_SCHEDULER_ENABLED=true`) |

@@ -1,0 +1,191 @@
+/* Документация API устроена как «Как считаем»: оглавление и пронумерованные карточки. */
+.public-api__toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  padding: 14px 20px;
+  border-radius: var(--rh-radius-card);
+  background: var(--rh-surface);
+  box-shadow: var(--rh-shadow-1);
+  font-size: var(--g-text-body-2-font-size);
+}
+
+.public-api__toc a {
+  color: var(--g-color-text-secondary);
+  text-decoration: none;
+}
+
+.public-api__toc a:hover {
+  color: var(--g-color-text-primary);
+}
+
+.public-api__section {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 0 8px;
+  margin-top: 16px;
+  padding: 22px 26px 26px;
+  border-radius: var(--rh-radius-card);
+  background: var(--rh-surface);
+  box-shadow: var(--rh-shadow-1);
+  scroll-margin-top: var(--rh-anchor-offset);
+}
+
+.public-api__number {
+  padding-top: 4px;
+}
+
+.public-api__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  justify-items: start;
+  max-width: 900px;
+}
+
+.public-api__heading {
+  width: 100%;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--g-color-line-generic);
+}
+
+.public-api code {
+  font-family: var(--g-font-family-monospace);
+  font-size: 0.92em;
+  overflow-wrap: anywhere;
+}
+
+/* Метод и путь — как строка в справочнике API. */
+.public-api__endpoint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: var(--rh-radius-inner);
+  background: var(--rh-accent-soft);
+  color: var(--g-color-text-primary);
+}
+
+.public-api__method {
+  font-weight: 600;
+  color: var(--rh-accent);
+}
+
+.public-api__code {
+  position: relative;
+  width: 100%;
+}
+
+.public-api__code pre {
+  margin: 0;
+  padding: 14px 48px 14px 16px;
+  border-radius: var(--rh-radius-inner);
+  background: var(--rh-surface-muted);
+  border: 1px solid var(--rh-hairline);
+  overflow-x: auto;
+  font-size: var(--g-text-body-1-font-size);
+  line-height: 1.55;
+}
+
+.public-api__code pre code {
+  font-size: inherit;
+  overflow-wrap: normal;
+  white-space: pre;
+}
+
+.public-api__copy {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+
+.public-api__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--g-text-body-2-font-size);
+}
+
+.public-api__table th,
+.public-api__table td {
+  padding: 10px 14px 10px 0;
+  border-bottom: 1px solid var(--g-color-line-generic);
+  text-align: left;
+  vertical-align: top;
+}
+
+.public-api__table thead th {
+  padding-top: 0;
+  color: var(--g-color-text-secondary);
+  font-size: var(--g-text-body-1-font-size);
+  font-weight: 400;
+}
+
+.public-api__table tbody th {
+  width: 170px;
+  font-weight: 500;
+}
+
+.public-api__try {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  width: 100%;
+  max-width: 560px;
+}
+
+.public-api__try .g-text-input {
+  flex: 1 1 260px;
+}
+
+.public-api__result {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+}
+
+.public-api__ok {
+  color: var(--rh-band-high);
+}
+
+.public-api__fail {
+  color: var(--rh-band-low);
+}
+
+.public-api__source {
+  margin-top: 16px;
+}
+
+/* Телефон: номер раздела над заголовком, таблицы — строками «поле → значение». */
+@media (max-width: 720px) {
+  .public-api__section {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 18px 16px 20px;
+  }
+
+  .public-api__number {
+    padding-top: 0;
+  }
+
+  .public-api__table thead {
+    display: none;
+  }
+
+  .public-api__table tr {
+    display: grid;
+    gap: 2px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--g-color-line-generic);
+  }
+
+  .public-api__table th,
+  .public-api__table td {
+    padding: 0;
+    border-bottom: 0;
+  }
+
+  .public-api__table tbody th {
+    width: auto;
+  }
+}

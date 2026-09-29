@@ -37,6 +37,7 @@ const MethodologyPage = lazyPage(() => import("./pages/MethodologyPage").then((m
 const MyRepositoriesPage = lazyPage(() =>
   import("./pages/MyRepositoriesPage").then((module) => module.MyRepositoriesPage),
 );
+const PublicApiPage = lazyPage(() => import("./pages/PublicApiPage").then((module) => module.PublicApiPage));
 const NotFoundPage = lazyPage(() => import("./pages/NotFoundPage").then((module) => module.NotFoundPage));
 
 export function App() {
@@ -69,7 +70,7 @@ export function App() {
 function usePreloadedPages(): void {
   useEffect(() => {
     const preloadAll = (): void => {
-      for (const page of [LeaderboardPage, MethodologyPage, MyRepositoriesPage, AnalysisPage]) {
+      for (const page of [LeaderboardPage, MethodologyPage, MyRepositoriesPage, AnalysisPage, PublicApiPage]) {
         // Не вышло — не страшно: страница скачается при переходе, как без предзагрузки.
         page.preload().catch(() => undefined);
       }
@@ -103,6 +104,8 @@ function renderPage(route: Route): ReactElement {
       return <MyRepositoriesPage />;
     case "methodology":
       return <MethodologyPage />;
+    case "publicApi":
+      return <PublicApiPage />;
     case "notFound":
       return <NotFoundPage />;
   }
