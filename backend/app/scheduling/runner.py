@@ -333,6 +333,7 @@ class InMemoryAnalysisScheduleStore:
                 or not entry.active
                 or entry.blocked
                 or entry.in_flight_analysis_id is not None
+                or entry.next_analysis_at > now
                 or (
                     entry.lease_expires_at is not None
                     and entry.lease_expires_at > now
@@ -685,6 +686,7 @@ class PostgresAnalysisScheduleStore:
                 AND active = TRUE
                 AND blocked = FALSE
                 AND in_flight_analysis_id IS NULL
+                AND next_analysis_at <= $2
                 AND (lease_expires_at IS NULL OR lease_expires_at <= $2)
             RETURNING
                 repository_id, last_activity_at, next_analysis_at,

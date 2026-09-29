@@ -348,4 +348,63 @@ class PublicHealthOndemandTest(unittest.IsolatedAsyncioTestCase):
             SYSTEM_SCHEDULER_SUBJECT,
         )
 
+    async def test_scheduler_retry_backoff_blocks_ondemand_submission(self) -> None:
+        now = datetime(2026, 9, 29, 20, tzinfo=UTC)
+        store = InMemoryAnalysisStore()
+        jobs = InMemoryAnalysisJobStore()
+        dispatcher = _MockDispatcher(job_store=jobs)
+        catalog = _Catalog((_public_repo(),))
+        schedule_store = InMemoryAnalysisScheduleStore()
+        await schedule_store.reconcile_catalog(
+            (ScheduleCandidate("repo-public", None),),
+            observed_at=now,
+        )
+        claimed = await schedule_store.claim_due(
+            now=now,
+            limit=1,
+            lease_owner="periodic-scheduler",
+            lease_expires_at=now + timedelta(minutes=5),
+        )
+        self.assertEqual(len(claimed), 1)
+        self.assertTrue(
+            await schedule_store.reserve_submission(
+                "repo-public",
+                lease_owner="periodic-scheduler",
+                analysis_id="failed-scheduled-job",
+                updated_at=now,
+            )
+        )
+        self.assertTrue(
+            await schedule_store.release_submission(
+                "repo-public",
+                lease_owner="periodic-scheduler",
+                analysis_id="failed-scheduled-job",
+                next_analysis_at=now + timedelta(minutes=15),
+                consecutive_failures=1,
+                updated_at=now,
+            )
+        )
+        scheduler = PublicAnalysisScheduler(
+            repository_catalog=catalog,
+            dispatcher=dispatcher,
+            job_store=jobs,
+            schedule_store=schedule_store,
+            clock=lambda: now,
+        )
+        app = create_app(
+            analysis_store=store,
+            job_store=jobs,
+            repository_catalog=catalog,
+            analysis_dispatcher=dispatcher,
+            analysis_scheduler=scheduler,
+        )
+
+        async with _api_client(app) as client:
+            response = await client.get(
+                "/api/v1/public/repositories/demo-org/health-api/health"
+            )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(dispatcher.submissions, [])
+
 
