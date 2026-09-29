@@ -149,6 +149,9 @@ jobs:
           curl --fail --silent --show-error http://127.0.0.1:5173/api/v1/health
       - name: Stop production-mode static stack
         if: always()
+        env:
+          DATABASE_URL: postgresql+asyncpg://repo_health:ci-only@postgres:5432/repo_health
+          POSTGRES_PASSWORD: ci-only
         run: docker compose -p repo-health-production-ci -f compose.production.yaml down --volumes --remove-orphans
       - name: Test frontend upgrade from a root-owned node_modules volume
         run: bash scripts/test_frontend_volume_upgrade.sh

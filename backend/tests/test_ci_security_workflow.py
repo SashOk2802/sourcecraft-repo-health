@@ -106,6 +106,10 @@ class CiSecurityWorkflowTest(unittest.TestCase):
             "docker compose -p repo-health-production-ci -f compose.production.yaml down --volumes --remove-orphans",
             workflow,
         )
+        self.assertIn(
+            "name: Stop production-mode static stack\n        if: always()\n        env:\n          DATABASE_URL:",
+            workflow,
+        )
 
     def test_ci_runs_real_bounded_git_process_tree_tests_on_windows(self) -> None:
         workflow = self._read_ci_workflow()
