@@ -734,25 +734,45 @@ def create_app(
 
     @app.get("/api/v1/analyses/{analysis_id}", tags=["analyses"])
     async def get_analysis_status(analysis_id: str, request: Request) -> dict[str, object]:
-        """Возвращает состояние анализа только его владельцу."""
+        """Возвращает статус владельцу либо готового public-снимка планировщика."""
 
         normalized_id = _normalize_analysis_id(analysis_id)
+        public_snapshot = await _public_scheduled_snapshot(
+            analysis_id=normalized_id,
+            analysis_store=store,
+            job_store=jobs,
+            repository_catalog=effective_repository_catalog,
+        )
+        if public_snapshot is not None:
+            job, snapshot = public_snapshot
+            return _analysis_job_status_payload(job, snapshot)
         job = await _authorized_job(request, jobs, effective_principal_provider, normalized_id)
         snapshot = await store.get(normalized_id)
         return _analysis_job_status_payload(job, snapshot)
 
     @app.get("/api/v1/analyses/{analysis_id}/report", tags=["reports"])
     async def get_report(analysis_id: str, request: Request) -> dict[str, object]:
-        """Возвращает JSON-отчёт только владельцу анализа."""
+        """Возвращает отчёт владельцу либо public-снимок системного планировщика."""
 
         normalized_id = _normalize_analysis_id(analysis_id)
-        await _authorized_job(request, jobs, effective_principal_provider, normalized_id)
-        snapshot = await _require_snapshot(store, normalized_id)
-        report = dict(snapshot.report)
-        report["badgeAvailable"] = (
-            await _public_badge_snapshot(snapshot, effective_repository_catalog)
-            is not None
+        public_snapshot = await _public_scheduled_snapshot(
+            analysis_id=normalized_id,
+            analysis_store=store,
+            job_store=jobs,
+            repository_catalog=effective_repository_catalog,
         )
+        if public_snapshot is None:
+            await _authorized_job(request, jobs, effective_principal_provider, normalized_id)
+            snapshot = await _require_snapshot(store, normalized_id)
+            badge_available = (
+                await _public_badge_snapshot(snapshot, effective_repository_catalog)
+                is not None
+            )
+        else:
+            _, snapshot = public_snapshot
+            badge_available = True
+        report = dict(snapshot.report)
+        report["badgeAvailable"] = badge_available
         return report
 
     @app.get(
@@ -761,11 +781,20 @@ def create_app(
         response_class=PlainTextResponse,
     )
     async def get_markdown_report(analysis_id: str, request: Request) -> PlainTextResponse:
-        """Возвращает Markdown-отчёт только владельцу анализа."""
+        """Возвращает Markdown владельцу либо public-снимок планировщика."""
 
         normalized_id = _normalize_analysis_id(analysis_id)
-        await _authorized_job(request, jobs, effective_principal_provider, normalized_id)
-        snapshot = await _require_snapshot(store, normalized_id)
+        public_snapshot = await _public_scheduled_snapshot(
+            analysis_id=normalized_id,
+            analysis_store=store,
+            job_store=jobs,
+            repository_catalog=effective_repository_catalog,
+        )
+        if public_snapshot is None:
+            await _authorized_job(request, jobs, effective_principal_provider, normalized_id)
+            snapshot = await _require_snapshot(store, normalized_id)
+        else:
+            _, snapshot = public_snapshot
         return PlainTextResponse(snapshot.markdown, media_type="text/markdown")
 
     @app.get(
@@ -1188,6 +1217,40 @@ async def _authorized_job(
     ):
         raise HTTPException(status_code=404, detail="Analysis not found.")
     return job
+
+
+async def _public_scheduled_snapshot(
+    *,
+    analysis_id: str,
+    analysis_store: AnalysisStore,
+    job_store: AnalysisJobStore,
+    repository_catalog: PublicRepositoryCatalog | None,
+) -> tuple[AnalysisJob, AnalysisSnapshot] | None:
+    """Возвращает снимок, который допустимо открыть из публичного рейтинга.
+
+    Одной видимости репозитория недостаточно: личный запуск публичного репозитория
+    всё ещё принадлежит пользователю. Публикуются только завершённые снимки,
+    созданные системным планировщиком, и только пока каталог SourceCraft
+    подтверждает репозиторий как public. Так ссылка из лидерборда не обходит
+    изоляцию персональных анализов.
+    """
+
+    job = await job_store.get(analysis_id)
+    if job is None or job.owner_subject != SYSTEM_SCHEDULER_SUBJECT:
+        return None
+    snapshot = await analysis_store.get(analysis_id)
+    if snapshot is None:
+        return None
+    public_snapshot = await _public_badge_snapshot(snapshot, repository_catalog)
+    if public_snapshot is None:
+        return None
+    repository = public_snapshot.report.get("repository")
+    repository_id = repository.get("id") if isinstance(repository, dict) else None
+    if not isinstance(repository_id, str) or not hmac.compare_digest(
+        job.repository_id.encode("utf-8"), repository_id.encode("utf-8")
+    ):
+        return None
+    return job, public_snapshot
 
 
 def _apply_http_security_headers(response: Response, path: str) -> None:
