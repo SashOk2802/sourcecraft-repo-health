@@ -58,6 +58,7 @@ compose.yaml         единый локальный запуск
 - [Публичный API Repo Health](docs/public-api.md)
 - [Production-анализ SourceCraft](docs/sourcecraft-production-analysis.md)
 - [Регулярное обновление AppSec snapshot](docs/appsec-snapshot-refresh.md)
+- [Выкладка и production smoke](docs/production-deployment-smoke.md)
 
 ## Работа в команде
 

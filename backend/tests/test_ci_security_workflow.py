@@ -88,6 +88,21 @@ class CiSecurityWorkflowTest(unittest.TestCase):
         self.assertIn("SOURCECRAFT_TOKEN: ci-placeholder", workflow)
         self.assertNotIn("SOURCECRAFT_TOKEN: ${{ secrets.", workflow)
 
+    def test_ci_boots_the_static_production_stack(self) -> None:
+        workflow = self._read_ci_workflow()
+
+        self.assertIn("name: Start production-mode static stack", workflow)
+        self.assertIn(
+            "docker compose -p repo-health-production-ci -f compose.production.yaml up --build --wait",
+            workflow,
+        )
+        self.assertIn("http://127.0.0.1:5173/@vite/client", workflow)
+        self.assertIn("http://127.0.0.1:5173/src/main.tsx", workflow)
+        self.assertIn(
+            "docker compose -p repo-health-production-ci -f compose.production.yaml down --volumes --remove-orphans",
+            workflow,
+        )
+
     def test_ci_runs_real_bounded_git_process_tree_tests_on_windows(self) -> None:
         workflow = self._read_ci_workflow()
 

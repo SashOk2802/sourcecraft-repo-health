@@ -1,5 +1,3 @@
-name: sourcecraft-repo-health-production
-
 services:
   frontend:
     build:
