@@ -11,6 +11,11 @@ describe("matchRoute", () => {
     });
     expect(matchRoute("/me/repositories")).toEqual({ page: "myRepositories" });
     expect(matchRoute("/methodology/")).toEqual({ page: "methodology" });
+    expect(matchRoute(paths.publicApi())).toEqual({ page: "publicApi" });
+  });
+
+  it("адрес документации API не начинается с /api: такие пути уходят в backend", () => {
+    expect(paths.publicApi().startsWith("/api")).toBe(false);
   });
 
   it("не путает похожие адреса", () => {

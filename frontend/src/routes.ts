@@ -5,6 +5,7 @@ export type Route =
   | { page: "analysis"; analysisId: string }
   | { page: "myRepositories" }
   | { page: "methodology" }
+  | { page: "publicApi" }
   | { page: "notFound" };
 
 export type PageName = Route["page"];
@@ -15,6 +16,8 @@ export const paths = {
   analysis: (analysisId: string): string => `/analyses/${encodeURIComponent(analysisId)}`,
   myRepositories: (): string => "/me/repositories",
   methodology: (): string => "/methodology",
+  /** Не /api/…: всё под /api уходит в backend (Vite proxy, nginx, Traefik). */
+  publicApi: (): string => "/public-api",
 };
 
 export function matchRoute(pathname: string): Route {
@@ -34,6 +37,9 @@ export function matchRoute(pathname: string): Route {
   }
   if (first === "methodology" && parts.length === 1) {
     return { page: "methodology" };
+  }
+  if (first === "public-api" && parts.length === 1) {
+    return { page: "publicApi" };
   }
   return { page: "notFound" };
 }
