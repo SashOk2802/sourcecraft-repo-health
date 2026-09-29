@@ -80,6 +80,14 @@ class CiSecurityWorkflowTest(unittest.TestCase):
             workflow,
         )
 
+    def test_ci_validates_production_compose_with_placeholders(self) -> None:
+        workflow = self._read_ci_workflow()
+
+        self.assertIn("name: Check production Compose configuration", workflow)
+        self.assertIn("docker compose -f compose.production.yaml config --quiet", workflow)
+        self.assertIn("SOURCECRAFT_TOKEN: ci-placeholder", workflow)
+        self.assertNotIn("SOURCECRAFT_TOKEN: ${{ secrets.", workflow)
+
     def test_ci_runs_real_bounded_git_process_tree_tests_on_windows(self) -> None:
         workflow = self._read_ci_workflow()
 

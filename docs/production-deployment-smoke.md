@@ -1,5 +1,26 @@
 # Проверка production-стенда
 
+## Запуск production Compose
+
+`compose.production.yaml` собирает frontend в статические файлы и запускает его
+через непривилегированный nginx. Backend стартует без `--reload`, применяет миграции
+перед запуском и доступен снаружи только через `/api` frontend-контейнера. Порт
+frontend привязан к loopback хоста, чтобы TLS завершал внешний reverse proxy.
+
+Перед запуском задайте секреты только в окружении сервера или в локальном файле
+`.env`, который исключён из Git:
+
+```sh
+docker compose -f compose.production.yaml config --quiet
+docker compose -f compose.production.yaml up -d --build
+```
+
+Обязательны `DATABASE_URL`, `POSTGRES_PASSWORD` и `SOURCECRAFT_TOKEN`. Для личного
+кабинета также нужны настройки Яндекс ID и `SOURCECRAFT_CONNECTION_ENCRYPTION_KEY`.
+После настройки OAuth задайте `VITE_YANDEX_AUTH=true` перед сборкой frontend;
+без этого флага кнопка входа намеренно остаётся выключенной.
+PAT и ключ Fernet нельзя добавлять в Compose, логи или pull request.
+
 Репозиторный CI проверяет сборку и чистый Docker Compose, но не подтверждает, что
 публичный домен действительно обслуживает production frontend и настроенный backend.
 Для проверки после выкладки добавлен ручной workflow `Demo deployment smoke`.

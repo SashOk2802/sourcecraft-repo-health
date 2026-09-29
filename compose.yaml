@@ -77,6 +77,7 @@ services:
       - ./.github:/app/.github:ro
       - ./.sourcecraft:/app/.sourcecraft:ro
       - ./compose.yaml:/app/compose.yaml:ro
+      - ./compose.production.yaml:/app/compose.production.yaml:ro
 
   postgres:
     image: postgres:16-alpine
