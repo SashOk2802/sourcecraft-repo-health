@@ -33,6 +33,9 @@ export default defineConfig({
   // owned by root, while the container deliberately runs Vite as user `app`.
   cacheDir: process.env.VITE_CACHE_DIR ?? "node_modules/.vite",
   plugins: [react()],
+  // pdfmake подключается лениво (кнопка «Скачать PDF»): без этого dev-сервер при первом нажатии
+  // находит новую зависимость, пересобирает её и перезагружает страницу.
+  optimizeDeps: { include: ["pdfmake/build/pdfmake", "pdfmake/build/vfs_fonts"] },
   server: {
     host: true,
     port: 5173,
@@ -55,6 +58,9 @@ export default defineConfig({
         // Библиотеки меняются реже кода приложения: отдельные файлы дольше живут в кэше браузера.
         codeSplitting: {
           groups: [
+            // pdfmake и шрифт (~2 МБ) нужны только по кнопке «Скачать PDF»: отдельный chunk,
+            // который грузится по требованию, а не в общем vendor на каждой странице.
+            { name: "pdf", test: /node_modules[\\/]pdfmake[\\/]/ },
             { name: "react", test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/ },
             { name: "gravity", test: /node_modules[\\/]@gravity-ui[\\/]/ },
             { name: "vendor", test: /node_modules[\\/]/ },

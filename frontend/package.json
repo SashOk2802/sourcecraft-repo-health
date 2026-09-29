@@ -14,6 +14,7 @@
     "@fontsource/onest": "5.3.1",
     "@gravity-ui/icons": "2.22.0",
     "@gravity-ui/uikit": "7.49.0",
+    "pdfmake": "0.3.11",
     "react": "18.3.1",
     "react-dom": "18.3.1"
   },
