@@ -55,6 +55,7 @@ compose.yaml         единый локальный запуск
 - [Миграции PostgreSQL](docs/database-migrations.md)
 - [Политика регулярного пересчёта](docs/scheduling-policy.md)
 - [Правила публичного рейтинга](docs/leaderboard-policy.md)
+- [Публичный API Repo Health](docs/public-api.md)
 - [Production-анализ SourceCraft](docs/sourcecraft-production-analysis.md)
 - [Регулярное обновление AppSec snapshot](docs/appsec-snapshot-refresh.md)
 

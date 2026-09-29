@@ -33,10 +33,10 @@ const sampleReport: RepositoryReport = {
 };
 
 describe("BadgeSnippet", () => {
-  it("renders badge action button", () => {
+  it("renders public badge and API action button", () => {
     const html = renderToStaticMarkup(<BadgeSnippet report={sampleReport} />);
 
-    expect(html).toContain("Бейдж для README");
+    expect(html).toContain("Бейдж и API");
   });
 
   it("does not offer a badge for a non-public repository", () => {
@@ -57,6 +57,12 @@ describe("BadgeSnippet", () => {
     );
     expect(snippets.analysisPageUrl).toBe(
       "https://repo-health.example.com/analyses/analysis-99",
+    );
+    expect(snippets.publicApiUrl).toBe(
+      "https://repo-health.example.com/api/v1/public/repositories/test-org/test-repo/health",
+    );
+    expect(snippets.curlSnippet).toBe(
+      'curl "https://repo-health.example.com/api/v1/public/repositories/test-org/test-repo/health"',
     );
     expect(snippets.markdownSnippet).toBe(
       "[![Repo Health](https://repo-health.example.com/api/v1/repositories/test-org/test-repo/badge.svg)](https://repo-health.example.com/analyses/analysis-99)",
@@ -80,6 +86,9 @@ describe("BadgeSnippet", () => {
 
     expect(snippets.repoBadgeUrl).toBe(
       "https://example.com/api/v1/repositories/team%2Falpha/project%20space/badge.svg",
+    );
+    expect(snippets.publicApiUrl).toBe(
+      "https://example.com/api/v1/public/repositories/team%2Falpha/project%20space/health",
     );
   });
 

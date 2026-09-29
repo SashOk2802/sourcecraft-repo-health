@@ -72,6 +72,7 @@ from backend.app.leaderboard import (
     LeaderboardPage,
     LeaderboardPageRow,
     LeaderboardService,
+    LeaderboardSnapshotProjection,
     LeaderboardSort,
 )
 from backend.app.leaderboard.sourcecraft_catalog import SourceCraftLeaderboardRepositoryCatalog
@@ -314,6 +315,43 @@ def create_app(
             ) from error
 
         return _leaderboard_page_payload(result, include_preliminary=include_preliminary)
+
+    @app.get(
+        "/api/v1/public/repositories/{organization_slug}/{repository_slug}/health",
+        tags=["public api"],
+    )
+    async def get_public_repository_health(
+        organization_slug: str,
+        repository_slug: str,
+    ) -> dict[str, object]:
+        """Возвращает краткую public-проекцию текущей оценки репозитория.
+
+        Ответ не требует сессии, но формируется только из записи, которую
+        SourceCraft-каталог прямо сейчас подтверждает как public. В отличие от
+        owner-only отчёта здесь нет id анализа, рекомендаций, фактов или данных
+        личного подключения SourceCraft.
+        """
+
+        if effective_leaderboard_service is None:
+            raise HTTPException(status_code=503, detail="Public API is not configured.")
+        try:
+            projection = await effective_leaderboard_service.get_public_repository_snapshot(
+                organization_slug,
+                repository_slug,
+            )
+        except SourceCraftRepositoryUnavailableError as error:
+            raise HTTPException(
+                status_code=503,
+                detail="SourceCraft repository catalog is unavailable.",
+            ) from error
+        except (TypeError, ValueError) as error:
+            raise HTTPException(status_code=503, detail="Public API data is unavailable.") from error
+
+        # Не различаем отсутствующий, private/internal и ещё не проанализированный
+        # репозиторий: endpoint не должен становиться oracle доступа.
+        if projection is None:
+            raise HTTPException(status_code=404, detail="Public health score not found.")
+        return _public_repository_health_payload(projection)
 
     @app.get("/api/v1/methodology", tags=["methodology"])
     async def get_methodology() -> dict[str, object]:
@@ -748,6 +786,37 @@ def _leaderboard_row_payload(row: LeaderboardPageRow) -> dict[str, object]:
     }
 
 
+def _public_repository_health_payload(
+    projection: LeaderboardSnapshotProjection,
+) -> dict[str, object]:
+    """Строит стабильный минимальный ответ дополнительного публичного API."""
+
+    repository = projection.repository
+    return {
+        "repository": {
+            "organizationSlug": repository.organization_slug,
+            "repositorySlug": repository.repository_slug,
+            "url": repository.url,
+            "language": repository.language,
+        },
+        "score": projection.score,
+        "coverage": projection.coverage,
+        "isPreliminary": projection.is_preliminary,
+        "scoreLimited": projection.score_limited,
+        "analyzedAt": _format_timestamp(projection.analyzed_at),
+        "methodologyVersion": projection.methodology_version,
+        "categories": [
+            {
+                "code": category.code,
+                "label": category.label,
+                "status": category.status,
+                "score": category.score,
+            }
+            for category in projection.categories
+        ],
+    }
+
+
 def create_sourcecraft_app(
     *,
     analysis_store: AnalysisStore | None = None,
@@ -1031,6 +1100,12 @@ def _apply_http_security_headers(response: Response, path: str) -> None:
         response.headers.setdefault(name, value)
 
     if path.endswith("/badge.svg"):
+        response.headers["Cross-Origin-Resource-Policy"] = "cross-origin"
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Cache-Control"] = "public, max-age=300, s-maxage=300"
+        return
+
+    if path.startswith("/api/v1/public/"):
         response.headers["Cross-Origin-Resource-Policy"] = "cross-origin"
         response.headers["Access-Control-Allow-Origin"] = "*"
         response.headers["Cache-Control"] = "public, max-age=300, s-maxage=300"

@@ -73,6 +73,22 @@
 `pendingCount` — public-репозитории, у которых нет пригодного снимка текущей методики. `updatedAt` — самый новый `analyzedAt` среди пригодных public-снимков текущей версии или `null`. `languages` строится по таким же проанализированным строкам после `search`, но до фильтра `language`, чтобы селектор языка не исчезал после выбора. `likes` — сумма публичных положительных реакций SourceCraft, `lastActivityAt` — его проверенное поле `last_updated`; если источник не отдал поле, API возвращает `null`, а соответствующая сортировка помещает такую строку после строк с данными.
 
 Если public-каталог не сконфигурирован, endpoint отвечает `503`. Production-приложение использует `SOURCECRAFT_TOKEN` и ровно один режим: глобальный каталог с `SOURCECRAFT_DISCOVER_PUBLIC_REPOSITORIES=true` либо allowlist `SOURCECRAFT_PUBLIC_ORGANIZATIONS`.
+
+## Публичный API Repo Health
+
+### GET /api/v1/public/repositories/{organization_slug}/{repository_slug}/health
+
+Read-only endpoint для виджетов, ботов и внешних дашбордов. Аутентификация не нужна.
+Он возвращает только краткую public-проекцию последнего снимка текущей методики:
+Score, coverage, статусы категорий и проверенные метаданные репозитория. В ответе нет
+`analysisId`, владельца анализа, рекомендаций, evidence, токенов или данных личного
+подключения SourceCraft.
+
+Репозиторий перед каждым ответом сверяется с текущим public-каталогом SourceCraft.
+Private/internal, отсутствующий и ещё не проанализированный репозитории намеренно
+отвечают одинаковым `404`, чтобы endpoint не раскрывал доступ.
+
+Полное руководство и примеры: [public-api.md](public-api.md).
 ## Методика Score
 
 ### GET /api/v1/methodology
