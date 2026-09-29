@@ -35,9 +35,9 @@ install -m 600 deploy/traefik/dynamic.yaml traefik/dynamic.yaml
 перезапускать.
 
 Обязательны `DATABASE_URL` и `POSTGRES_PASSWORD`. Для личного кабинета также нужны
-настройки Яндекс ID и `SOURCECRAFT_CONNECTION_ENCRYPTION_KEY`. После настройки OAuth
-задайте `VITE_YANDEX_AUTH=true` перед сборкой frontend; без этого флага кнопка входа
-намеренно остаётся выключенной.
+настройки Яндекс ID и `SOURCECRAFT_CONNECTION_ENCRYPTION_KEY`. Кнопка входа включается
+сама: frontend спрашивает `GET /api/v1/me` и при ответе `401` (OAuth настроен) ведёт
+на вход. Build-аргумент `VITE_YANDEX_AUTH` текущему frontend не нужен.
 
 `SOURCECRAFT_TOKEN` нужен только для публичного каталога, рейтинга и периодического
 пересчёта. Пока он не задан, личные подключения и анализы работают как обычно, а
