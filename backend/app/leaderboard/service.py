@@ -36,7 +36,7 @@ class PublicRepositoryCatalog(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class LeaderboardPageRow:
-    """Проекция отчёта и вычисленное место, доступное только полной оценке."""
+    """Проекция отчёта и вычисленное место, если у неё есть числовой Score."""
 
     projection: LeaderboardSnapshotProjection
     rank: int | None
@@ -58,6 +58,7 @@ class LeaderboardPage:
     preliminary_entries: tuple[LeaderboardPageRow, ...]
     total: int
     preliminary_total: int
+    partial_total: int
     page: int
     page_size: int
     languages: tuple[LeaderboardLanguageFacet, ...]
@@ -136,6 +137,7 @@ class LeaderboardService:
             preliminary_entries=preliminary_entries,
             total=policy_result.total,
             preliminary_total=len(preliminary_entries),
+            partial_total=policy_result.partial_total,
             page=page,
             page_size=page_size,
             languages=_language_facets(selected, effective_filters.search),
@@ -315,8 +317,7 @@ def _preliminary_rows(
     filtered = tuple(
         projection
         for projection in projections
-        if (projection.candidate is None or projection.is_preliminary)
-        and _matches(projection, filters)
+        if projection.candidate is None and _matches(projection, filters)
     )
     return tuple(
         LeaderboardPageRow(projection=projection, rank=None)

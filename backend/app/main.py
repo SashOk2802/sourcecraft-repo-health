@@ -912,6 +912,7 @@ def _leaderboard_page_payload(
         ),
         "total": result.total,
         "preliminaryTotal": result.preliminary_total,
+        "partialTotal": result.partial_total,
         "page": result.page,
         "pageSize": result.page_size,
         "languages": [{"name": facet.name, "count": facet.count} for facet in result.languages],

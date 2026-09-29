@@ -73,19 +73,6 @@ export function LeaderboardPage() {
     if (pageOutOfRange) update({ page: lastPage });
   }, [pageOutOfRange, lastPage]);
 
-  // Полных оценок нет ни одной, а предварительные есть (например, AppSec ещё не отдал данных):
-  // пустая таблица выглядит как «рейтинга нет». Один раз за заход показываем предварительные
-  // сами; снимет галочку пользователь — больше не включаем.
-  const autoPreliminary = useRef(false);
-  const onlyPreliminary =
-    state.status === "success" && !filtered && !query.includePreliminary && data !== undefined &&
-    data.total === 0 && data.preliminaryTotal > 0;
-  useEffect(() => {
-    if (!onlyPreliminary || autoPreliminary.current) return;
-    autoPreliminary.current = true;
-    update({ includePreliminary: true });
-  }, [onlyPreliminary]);
-
   return (
     <div className="page__inner">
       <div className="page__header">
@@ -102,6 +89,12 @@ export function LeaderboardPage() {
               {describeCoverage(data)}
             </Text>
           )}
+          {data && data.partialTotal > 0 && (
+            <Text variant="body-2" color="secondary">
+              {formatInteger(data.partialTotal)} {plural(data.partialTotal, "оценка", "оценки", "оценок")} с неполным
+              покрытием участвуют в рейтинге и отмечены процентом покрытия в таблице.
+            </Text>
+          )}
           {source === "demo" && (
             <DemoNote className="leaderboard__demo">
               Пример на вымышленных репозиториях — так рейтинг выглядит, когда сервис проверит открытые проекты
@@ -110,8 +103,8 @@ export function LeaderboardPage() {
           )}
         </div>
         <Text variant="body-1" color="secondary" className="leaderboard__principle">
-          Место определяет только Repo Health Score. Сортировка по лайкам или активности меняет порядок строк, но не
-          места.
+          Место определяет Repo Health Score по доступным метрикам. Неполные оценки отмечены отдельно; сортировка по
+          лайкам или активности меняет порядок строк, но не места.
         </Text>
       </div>
 
@@ -139,8 +132,8 @@ export function LeaderboardPage() {
           onUpdate={(checked) => update({ includePreliminary: checked })}
           content={
             data && data.preliminaryTotal > 0
-              ? `Показать предварительные · ${formatInteger(data.preliminaryTotal)}`
-              : "Показать предварительные"
+              ? `Показать без оценки · ${formatInteger(data.preliminaryTotal)}`
+              : "Показать без оценки"
           }
           className="leaderboard__preliminary-toggle"
         />
@@ -163,7 +156,7 @@ export function LeaderboardPage() {
             emptyText={
               filtered
                 ? "Под эти фильтры ничего не подошло."
-                : "Рейтинг пока пуст: ни один открытый репозиторий ещё не проанализирован полностью."
+                : "Рейтинг пока пуст: ни у одного открытого репозитория ещё нет числовой оценки."
             }
             onReset={filtered ? () => update(defaultLeaderboardQuery) : undefined}
           />
@@ -193,17 +186,17 @@ export function LeaderboardPage() {
             <section className="section leaderboard__preliminary">
               <div className="section__head">
                 <Text variant="subheader-2" as="h2">
-                  Предварительные оценки
+                  Отчёты без числовой оценки
                 </Text>
                 <Text variant="body-1" color="secondary">
-                  данные есть не по всем категориям, поэтому места в рейтинге у них нет
+                  анализ завершился, но итоговый Score получить нельзя, поэтому места в рейтинге у них нет
                 </Text>
               </div>
               <LeaderboardTable
                 items={data.preliminary}
                 loading={state.status === "loading"}
                 showPlaces={false}
-                emptyText="Предварительных оценок под эти фильтры нет."
+                emptyText="Отчётов без числовой оценки под эти фильтры нет."
               />
             </section>
           )}
@@ -368,6 +361,14 @@ function LeaderboardRow({ item, showPlace }: { item: LeaderboardItem; showPlace:
         ) : (
           <>
             <span className="board__score-value">{formatScore(item.score)}</span>
+            {item.isPreliminary && item.coverage !== null && (
+              <span
+                className="board__partial"
+                title="Оценка рассчитана по доступным метрикам и может измениться после получения остальных данных"
+              >
+                предв. {Math.round(item.coverage * 100)}%
+              </span>
+            )}
             {item.scoreLimited && (
               <span className="board__mark" title="Score ограничен из-за критической проблемы">
                 !
@@ -414,6 +415,9 @@ function Legend() {
       </span>
       <span className="leaderboard__legend-item">
         <b className="board__mark">!</b> оценка ограничена
+      </span>
+      <span className="leaderboard__legend-item">
+        <b className="board__partial">предв. 75%</b> неполное покрытие метрик
       </span>
     </div>
   );

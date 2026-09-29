@@ -56,12 +56,12 @@ class LeaderboardServiceTest(unittest.IsolatedAsyncioTestCase):
             execution("empty", self.now - timedelta(hours=12)),
         )
 
-    async def test_builds_ranked_and_preliminary_blocks_without_treating_empty_score_as_pending(
+    async def test_ranks_partial_scores_and_keeps_only_empty_scores_without_a_place(
         self,
     ) -> None:
         result = await self.service.get_page(page_size=1)
 
-        self.assertEqual(result.total, 2)
+        self.assertEqual(result.total, 3)
         self.assertEqual(result.page, 1)
         self.assertEqual(result.page_size, 1)
         self.assertEqual(
@@ -73,9 +73,10 @@ class LeaderboardServiceTest(unittest.IsolatedAsyncioTestCase):
                 (row.projection.repository.repository_id, row.projection.score, row.rank)
                 for row in result.preliminary_entries
             ],
-            [("preview", 90.0, None), ("empty", None, None)],
+            [("empty", None, None)],
         )
-        self.assertEqual(result.preliminary_total, 2)
+        self.assertEqual(result.preliminary_total, 1)
+        self.assertEqual(result.partial_total, 1)
         self.assertEqual(result.pending_count, 1)
         self.assertEqual(
             [(facet.name, facet.count) for facet in result.languages],
@@ -93,7 +94,7 @@ class LeaderboardServiceTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(
             [(row.projection.repository.repository_id, row.rank) for row in result.entries],
-            [("bravo", 2)],
+            [("bravo", 3)],
         )
         self.assertEqual(result.total, 1)
         self.assertEqual([(facet.name, facet.count) for facet in result.languages], [("Rust", 1)])
@@ -114,7 +115,11 @@ class LeaderboardServiceTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(
             [(row.projection.analysis_id, row.rank) for row in version_two.entries],
-            [("analysis-alpha-v2", 1), ("analysis-bravo-v2", 2)],
+            [
+                ("analysis-alpha-v2", 1),
+                ("analysis-preview-v2", 2),
+                ("analysis-bravo-v2", 3),
+            ],
         )
         self.assertEqual(
             [(row.projection.analysis_id, row.rank) for row in version_one.entries],
@@ -122,7 +127,7 @@ class LeaderboardServiceTest(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(version_one.pending_count, 4)
 
-    async def test_paginates_full_rows_but_returns_all_requested_preliminary_rows(self) -> None:
+    async def test_paginates_all_scored_rows_but_returns_unscored_rows_separately(self) -> None:
         result = await self.service.get_page(
             sort=LeaderboardSort.LIKES,
             page=2,
@@ -131,14 +136,14 @@ class LeaderboardServiceTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(
             [(row.projection.repository.repository_id, row.rank) for row in result.entries],
-            [("bravo", 2)],
+            [("alpha", 1)],
         )
         self.assertEqual(
             [row.projection.repository.repository_id for row in result.preliminary_entries],
-            ["preview", "empty"],
+            ["empty"],
         )
 
-    async def test_places_unknown_likes_after_known_zero_in_full_and_preliminary_blocks(self) -> None:
+    async def test_places_unknown_likes_after_known_zero_in_one_ranked_block(self) -> None:
         repositories = (
             metadata("full-zero", "Python", likes=0, activity=self.now),
             metadata("full-unknown", "Python", likes=None, activity=self.now),
@@ -152,7 +157,9 @@ class LeaderboardServiceTest(unittest.IsolatedAsyncioTestCase):
         )
         await store.save("full-zero", execution("full-zero", self.now, all_scores=90))
         await store.save("full-unknown", execution("full-unknown", self.now, all_scores=80))
-        await store.save("preliminary-zero", execution("preliminary-zero", self.now, single_score=70))
+        await store.save(
+            "preliminary-zero", execution("preliminary-zero", self.now, single_score=70)
+        )
         await store.save(
             "preliminary-unknown",
             execution("preliminary-unknown", self.now, single_score=60),
@@ -162,12 +169,10 @@ class LeaderboardServiceTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(
             [row.projection.repository.repository_id for row in result.entries],
-            ["full-zero", "full-unknown"],
+            ["full-zero", "preliminary-zero", "full-unknown", "preliminary-unknown"],
         )
-        self.assertEqual(
-            [row.projection.repository.repository_id for row in result.preliminary_entries],
-            ["preliminary-zero", "preliminary-unknown"],
-        )
+        self.assertEqual(result.preliminary_entries, ())
+        self.assertEqual(result.partial_total, 2)
 
     async def test_rejects_invalid_page_arguments_and_duplicate_catalog_ids(self) -> None:
         with self.assertRaisesRegex(ValueError, "page must"):

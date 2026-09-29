@@ -5,7 +5,7 @@ import { minutesAgo, todayAt } from "./time";
 
 /*
  * Имитация backend по правилам docs/leaderboard-policy.md: места, фильтры, сортировка и страницы.
- * Место считается до фильтров и только по Score полных оценок; поиск — по «организация/репозиторий».
+ * Место считается до фильтров по каждому доступному числовому Score; поиск — по «организация/репозиторий».
  */
 export function queryMockLeaderboard(query: LeaderboardQuery, pageSize: number): LeaderboardResponse {
   // В публичный рейтинг попадают только открытые репозитории.
@@ -17,9 +17,9 @@ export function queryMockLeaderboard(query: LeaderboardQuery, pageSize: number):
     repository.categories === null ? [] : [toItem(repository)],
   );
 
-  // Место зависит только от Score и только среди полных оценок.
-  const complete = analyzed.filter((item) => !item.isPreliminary && item.score !== null);
-  rankByScore(complete);
+  // Частичный Score остаётся предварительным, но также получает место в общей таблице.
+  const scored = analyzed.filter((item) => item.score !== null);
+  rankByScore(scored);
 
   const search = query.search.toLowerCase();
   const matchesSearch = (item: LeaderboardItem): boolean => !search || item.repository.name.toLowerCase().includes(search);
@@ -33,9 +33,9 @@ export function queryMockLeaderboard(query: LeaderboardQuery, pageSize: number):
   const matchesFilters = (item: LeaderboardItem): boolean =>
     matchesSearch(item) && (!query.language || item.repository.language === query.language);
 
-  const filtered = complete.filter(matchesFilters).sort(comparators[query.sort]);
+  const filtered = scored.filter(matchesFilters).sort(comparators[query.sort]);
   const preliminary = analyzed
-    .filter((item) => item.isPreliminary || item.score === null)
+    .filter((item) => item.score === null)
     .filter(matchesFilters)
     .sort(comparators[query.sort]);
 
@@ -46,6 +46,7 @@ export function queryMockLeaderboard(query: LeaderboardQuery, pageSize: number):
     preliminary: query.includePreliminary ? preliminary : [],
     total: filtered.length,
     preliminaryTotal: preliminary.length,
+    partialTotal: filtered.filter((item) => item.isPreliminary).length,
     page: query.page,
     pageSize,
     languages: [...languageCounts]

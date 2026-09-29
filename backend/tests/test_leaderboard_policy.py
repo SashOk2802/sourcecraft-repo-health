@@ -47,16 +47,15 @@ class LeaderboardPolicyTest(unittest.TestCase):
             ),
         )
 
-    def test_full_scores_receive_competition_rank_by_score_only(self) -> None:
+    def test_all_numeric_scores_receive_competition_rank_by_score_only(self) -> None:
         result = build_leaderboard(self.candidates, methodology_version="v1")
 
         self.assertEqual(
             [(row.candidate.repository_id, row.rank) for row in result.entries],
-            [("alpha", 1), ("bravo", 2), ("charlie", 2)],
+            [("preview", 1), ("alpha", 2), ("bravo", 3), ("charlie", 3)],
         )
-        self.assertEqual(result.total, 3)
-        self.assertEqual(result.preliminary_entries, ())
-        self.assertEqual(result.preliminary_total, 1)
+        self.assertEqual(result.total, 4)
+        self.assertEqual(result.partial_total, 1)
 
     def test_sorting_by_likes_reorders_rows_but_not_ranks(self) -> None:
         result = build_leaderboard(
@@ -67,7 +66,7 @@ class LeaderboardPolicyTest(unittest.TestCase):
 
         self.assertEqual(
             [(row.candidate.repository_id, row.rank) for row in result.entries],
-            [("bravo", 2), ("alpha", 1), ("charlie", 2)],
+            [("bravo", 3), ("alpha", 2), ("charlie", 3), ("preview", 1)],
         )
 
     def test_activity_sort_puts_recent_activity_before_unknown_time(self) -> None:
@@ -79,27 +78,22 @@ class LeaderboardPolicyTest(unittest.TestCase):
 
         self.assertEqual(
             [row.candidate.repository_id for row in result.entries],
-            ["charlie", "alpha", "bravo"],
+            ["preview", "charlie", "alpha", "bravo"],
         )
 
-    def test_filters_preserve_global_rank_and_preliminary_is_separate(self) -> None:
+    def test_filters_preserve_global_rank_for_partial_scores(self) -> None:
         result = build_leaderboard(
             self.candidates,
             methodology_version="v1",
             filters=LeaderboardFilters(language=" python "),
-            include_preliminary=True,
         )
 
         self.assertEqual(
             [(row.candidate.repository_id, row.rank) for row in result.entries],
-            [("alpha", 1), ("charlie", 2)],
+            [("preview", 1), ("alpha", 2), ("charlie", 3)],
         )
-        self.assertEqual(
-            [(row.candidate.repository_id, row.rank) for row in result.preliminary_entries],
-            [("preview", None)],
-        )
-        self.assertEqual(result.total, 2)
-        self.assertEqual(result.preliminary_total, 1)
+        self.assertEqual(result.total, 3)
+        self.assertEqual(result.partial_total, 1)
 
     def test_search_filters_name_without_recalculating_rank(self) -> None:
         result = build_leaderboard(
@@ -110,9 +104,9 @@ class LeaderboardPolicyTest(unittest.TestCase):
 
         self.assertEqual(
             [(row.candidate.repository_id, row.rank) for row in result.entries],
-            [("charlie", 2)],
+            [("charlie", 3)],
         )
-        self.assertEqual(result.preliminary_total, 0)
+        self.assertEqual(result.partial_total, 0)
 
     def test_rejects_duplicate_repository_identity_in_one_methodology(self) -> None:
         with self.assertRaisesRegex(ValueError, "duplicate repository/version pairs"):
@@ -138,7 +132,7 @@ class LeaderboardPolicyTest(unittest.TestCase):
         self.assertEqual(version_one_result.methodology_version, "v1")
         self.assertEqual(
             [(row.candidate.repository_id, row.rank) for row in version_one_result.entries],
-            [("alpha", 1), ("bravo", 2), ("charlie", 2)],
+            [("preview", 1), ("alpha", 2), ("bravo", 3), ("charlie", 3)],
         )
         self.assertEqual(version_two_result.methodology_version, "v2")
         self.assertEqual(

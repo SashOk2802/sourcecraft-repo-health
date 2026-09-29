@@ -226,6 +226,16 @@
   text-align: center;
 }
 
+.board__partial {
+  display: inline-block;
+  margin: 4px 0 0 6px;
+  color: var(--g-color-text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+}
+
 .board__likes {
   width: 104px;
 }

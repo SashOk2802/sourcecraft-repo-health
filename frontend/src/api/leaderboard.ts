@@ -6,12 +6,12 @@ import { queryMockLeaderboard } from "./mocks/leaderboard";
 /*
  * GET /api/v1/leaderboard — согласованный backend-контракт публичного рейтинга.
  * Места, фильтры и сортировка считаются на backend по правилам docs/leaderboard-policy.md:
- * место — только по Score среди полных оценок одной версии методики, равные делят место.
+ * место — по доступному числовому Score одной версии методики, равные делят место.
  * Если раздел недоступен (рейтинг на сервере не настроен или backend не отвечает), в режиме
  * auto рейтинг строится из демо-данных, и страница об этом говорит (src/api/dataSource.ts).
  *
- * Полные и предварительные оценки приходят разными списками: сравнивать их местами нельзя
- * (docs/frontend-review-response.md, раздел 5).
+ * Частичные оценки участвуют в общей таблице и помечаются покрытием; отдельный список
+ * оставлен для готовых отчётов, у которых числовой Score отсутствует.
  */
 
 export type LeaderboardSort = "score" | "likes" | "activity";
@@ -21,20 +21,22 @@ export interface LeaderboardQuery {
   language: string | null;
   sort: LeaderboardSort;
   search: string;
-  /** Показывать ли блок предварительных оценок. */
+  /** Показывать ли блок отчётов без числовой оценки. */
   includePreliminary: boolean;
   page: number;
 }
 
 export interface LeaderboardResponse {
-  /** Полные сопоставимые оценки, у каждой есть место. */
+  /** Все числовые оценки, у каждой есть место. */
   items: LeaderboardItem[];
-  /** Предварительные оценки: место не присваивается. */
+  /** Готовые отчёты без числовой оценки: место не присваивается. */
   preliminary: LeaderboardItem[];
-  /** Сколько полных оценок подходит под фильтры. */
+  /** Сколько числовых оценок подходит под фильтры. */
   total: number;
-  /** Сколько предварительных оценок подходит под фильтры, даже если сам список не запрошен. */
+  /** Сколько готовых отчётов не получили числовой Score. */
   preliminaryTotal: number;
+  /** Сколько строк в items имеют неполное покрытие метрик. */
+  partialTotal: number;
   page: number;
   pageSize: number;
   languages: LanguageFacet[];
@@ -47,7 +49,7 @@ export interface LeaderboardResponse {
 }
 
 export interface LeaderboardItem {
-  /** Место по Repo Health Score; null — у предварительных оценок. */
+  /** Место по Repo Health Score; null — только при отсутствии числовой оценки. */
   place: number | null;
   /** Снимок анализа, по которому открывается отчёт; null — backend его не прислал. */
   analysisId: string | null;
@@ -174,6 +176,7 @@ export interface LeaderboardPayload {
   preliminaryEntries?: LeaderboardRowPayload[];
   total?: number;
   preliminaryTotal?: number;
+  partialTotal?: number;
   page?: number;
   pageSize?: number;
   languages?: LanguageFacet[];
@@ -190,6 +193,7 @@ export function toLeaderboardResponse(payload: LeaderboardPayload, query: Leader
     preliminary,
     total: payload.total ?? items.length,
     preliminaryTotal: payload.preliminaryTotal ?? preliminary.length,
+    partialTotal: payload.partialTotal ?? items.filter((item) => item.isPreliminary).length,
     page: payload.page ?? query.page,
     pageSize: payload.pageSize ?? LEADERBOARD_PAGE_SIZE,
     languages: payload.languages ?? languageFacets([...items, ...preliminary]),

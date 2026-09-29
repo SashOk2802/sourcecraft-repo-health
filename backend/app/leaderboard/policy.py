@@ -82,7 +82,7 @@ class LeaderboardFilters:
 
 @dataclass(frozen=True, slots=True)
 class LeaderboardRow:
-    """Строка рейтинга с неизменяемым местом или без него для preliminary."""
+    """Строка рейтинга с неизменяемым местом."""
 
     candidate: LeaderboardCandidate
     rank: int | None
@@ -90,13 +90,12 @@ class LeaderboardRow:
 
 @dataclass(frozen=True, slots=True)
 class LeaderboardResult:
-    """Полные и предварительные результаты одной версии методики."""
+    """Результаты одной версии методики и число частичных оценок среди них."""
 
     methodology_version: str
     entries: tuple[LeaderboardRow, ...]
     total: int
-    preliminary_entries: tuple[LeaderboardRow, ...]
-    preliminary_total: int
+    partial_total: int
 
 
 def build_leaderboard(
@@ -105,22 +104,20 @@ def build_leaderboard(
     methodology_version: str,
     filters: LeaderboardFilters | None = None,
     sort: LeaderboardSort = LeaderboardSort.SCORE,
-    include_preliminary: bool = False,
 ) -> LeaderboardResult:
-    """Строит рейтинг одной версии методики и отдельный список preliminary.
+    """Строит рейтинг одной версии методики.
 
     Переданная версия выбирается до расчёта места: Score разных методик нельзя
     смешивать в одном сравнении. Место рассчитывается по Score среди всех
-    доступных публичных полных записей этой версии до применения фильтров и
-    UI-сортировки. Поэтому сортировка по лайкам или активности переставляет
-    строки, но не меняет места. Равные Score получают общее спортивное место:
-    1, 2, 2, 4.
+    доступных публичных записей этой версии до применения фильтров и
+    UI-сортировки. Частичная оценка с числовым Score тоже получает место, но
+    остаётся явно помеченной как preliminary. Поэтому сортировка по лайкам или
+    активности переставляет строки, но не меняет места. Равные Score получают
+    общее спортивное место: 1, 2, 2, 4.
     """
 
     if not isinstance(sort, LeaderboardSort):
         raise TypeError("sort must be a LeaderboardSort")
-    if not isinstance(include_preliminary, bool):
-        raise TypeError("include_preliminary must be a bool")
     selected_methodology_version = _normalize_methodology_version(methodology_version)
 
     all_candidates = tuple(candidates)
@@ -134,31 +131,23 @@ def build_leaderboard(
         if candidate.methodology_version == selected_methodology_version
     )
 
-    full_rows = _rank_full_candidates(version_candidates)
-    visible_full_rows = tuple(row for row in full_rows if _matches(row.candidate, effective_filters))
-    ordered_full_rows = _sort_rows(visible_full_rows, sort)
-
-    preliminary_rows = tuple(
-        LeaderboardRow(candidate=candidate, rank=None)
-        for candidate in version_candidates
-        if candidate.is_preliminary and _matches(candidate, effective_filters)
-    )
-    ordered_preliminary_rows = _sort_rows(preliminary_rows, sort)
+    ranked_rows = _rank_candidates(version_candidates)
+    visible_rows = tuple(row for row in ranked_rows if _matches(row.candidate, effective_filters))
+    ordered_rows = _sort_rows(visible_rows, sort)
 
     return LeaderboardResult(
         methodology_version=selected_methodology_version,
-        entries=ordered_full_rows,
-        total=len(ordered_full_rows),
-        preliminary_entries=ordered_preliminary_rows if include_preliminary else (),
-        preliminary_total=len(ordered_preliminary_rows),
+        entries=ordered_rows,
+        total=len(ordered_rows),
+        partial_total=sum(row.candidate.is_preliminary for row in ordered_rows),
     )
 
 
-def _rank_full_candidates(
+def _rank_candidates(
     candidates: tuple[LeaderboardCandidate, ...],
 ) -> tuple[LeaderboardRow, ...]:
     ordered = sorted(
-        (candidate for candidate in candidates if not candidate.is_preliminary),
+        candidates,
         key=lambda candidate: (-candidate.score, candidate.repository_id),
     )
     rows: list[LeaderboardRow] = []

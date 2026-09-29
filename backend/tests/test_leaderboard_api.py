@@ -52,78 +52,40 @@ class LeaderboardApiTest(unittest.IsolatedAsyncioTestCase):
             ),
         )
 
-    async def test_returns_frontend_contract_with_pagination_and_hidden_preliminary_block(
+    async def test_returns_frontend_contract_with_ranked_partial_scores(
         self,
     ) -> None:
         async with api_client(self.app) as client:
             response = await client.get("/api/v1/leaderboard?page=1&pageSize=15")
 
         self.assertEqual(response.status_code, 200)
+        payload = response.json()
         self.assertEqual(
-            response.json(),
-            {
-                "items": [
-                    {
-                        "place": 1,
-                        "analysisId": "analysis-alpha",
-                        "repository": {
-                            "id": "alpha",
-                            "organizationSlug": "team",
-                            "repositorySlug": "alpha",
-                            "name": "team/alpha",
-                            "url": "https://sourcecraft.dev/team/alpha",
-                            "description": None,
-                            "language": "Python",
-                        },
-                        "score": 90.0,
-                        "coverage": 1.0,
-                        "isPreliminary": False,
-                        "scoreLimited": False,
-                        "likes": 42,
-                        "lastActivityAt": "2026-09-24T12:00:00Z",
-                        "analyzedAt": "2026-09-25T12:00:00Z",
-                        "categories": [
-                            {
-                                "code": category,
-                                "label": label,
-                                "status": "measured",
-                                "score": 90.0,
-                            }
-                            for category, label in (
-                                ("security", "Безопасность"),
-                                ("cicd", "CI/CD"),
-                                ("documentation", "Документация"),
-                                ("activity", "Активность"),
-                                ("issues", "Работа с issues"),
-                                ("code_health", "Состояние кода"),
-                            )
-                        ],
-                    }
-                ],
-                "preliminary": [],
-                "total": 1,
-                "preliminaryTotal": 1,
-                "page": 1,
-                "pageSize": 15,
-                "languages": [{"name": "Python", "count": 1}, {"name": "Rust", "count": 1}],
-                "updatedAt": "2026-09-25T12:00:00Z",
-                "pendingCount": 1,
-                "methodologyVersion": "v2",
-            },
+            [
+                (item["repository"]["id"], item["place"], item["score"], item["isPreliminary"])
+                for item in payload["items"]
+            ],
+            [("alpha", 1, 90.0, False), ("preview", 2, 75.0, True)],
         )
+        self.assertEqual(payload["preliminary"], [])
+        self.assertEqual(payload["total"], 2)
+        self.assertEqual(payload["partialTotal"], 1)
+        self.assertEqual(payload["preliminaryTotal"], 0)
+        self.assertEqual(payload["languages"], [{"name": "Python", "count": 1}, {"name": "Rust", "count": 1}])
+        self.assertEqual(payload["pendingCount"], 1)
 
-    async def test_returns_requested_preliminary_rows_without_place(self) -> None:
+    async def test_returns_partial_rows_with_place_even_when_legacy_block_is_requested(self) -> None:
         async with api_client(self.app) as client:
             response = await client.get("/api/v1/leaderboard?includePreliminary=true")
 
         self.assertEqual(response.status_code, 200)
         payload = response.json()
-        self.assertEqual(len(payload["preliminary"]), 1)
-        self.assertEqual(payload["preliminary"][0]["place"], None)
-        self.assertEqual(payload["preliminary"][0]["analysisId"], "analysis-preview")
-        self.assertEqual(payload["preliminary"][0]["score"], 75.0)
-        self.assertTrue(payload["preliminary"][0]["isPreliminary"])
-        self.assertEqual(payload["preliminary"][0]["likes"], None)
+        self.assertEqual(payload["preliminary"], [])
+        preview = next(item for item in payload["items"] if item["analysisId"] == "analysis-preview")
+        self.assertEqual(preview["place"], 2)
+        self.assertEqual(preview["score"], 75.0)
+        self.assertTrue(preview["isPreliminary"])
+        self.assertEqual(preview["likes"], None)
 
     async def test_uses_sourcecraft_public_catalog_for_default_service(self) -> None:
         app = create_app(

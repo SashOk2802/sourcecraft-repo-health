@@ -65,7 +65,7 @@ describe("mock-рейтинг", () => {
   const all = (sort: LeaderboardSort) =>
     queryMockLeaderboard({ ...defaultLeaderboardQuery, sort, includePreliminary: true }, 100);
 
-  it("нумерует места только по Score", () => {
+  it("нумерует места по каждому доступному Score", () => {
     const { items } = all("score");
     expect(items[0].place).toBe(1);
     for (let i = 1; i < items.length; i += 1) {
@@ -94,9 +94,9 @@ describe("mock-рейтинг", () => {
     expect(byDescription.items).toEqual([]);
   });
 
-  it("считает предварительные, даже когда их список не запрошен", () => {
+  it("считает частичные оценки внутри основной таблицы", () => {
     const response = queryMockLeaderboard(defaultLeaderboardQuery, 100);
-    expect(response.preliminaryTotal).toBeGreaterThan(0);
+    expect(response.partialTotal).toBeGreaterThan(0);
     expect(response.methodologyVersion).toBe("v2");
   });
 
@@ -109,11 +109,11 @@ describe("mock-рейтинг", () => {
     }
   });
 
-  it("предварительные оценки идут отдельным списком и без мест", () => {
+  it("частичные оценки остаются в основной таблице и получают места", () => {
     const response = all("score");
-    expect(response.preliminary.length).toBeGreaterThan(0);
-    expect(response.preliminary.every((item) => item.place === null)).toBe(true);
-    expect(response.items.every((item) => !item.isPreliminary)).toBe(true);
+    const partial = response.items.filter((item) => item.isPreliminary);
+    expect(partial.length).toBeGreaterThan(0);
+    expect(partial.every((item) => item.place !== null)).toBe(true);
   });
 
   it("по умолчанию предварительные оценки не показываются", () => {
@@ -148,7 +148,8 @@ describe("ответ backend о рейтинге", () => {
         ],
         total: 1,
         preliminaryEntries: [],
-        preliminaryTotal: 3,
+        preliminaryTotal: 0,
+        partialTotal: 1,
       },
       defaultLeaderboardQuery,
     );
@@ -158,7 +159,8 @@ describe("ответ backend о рейтинге", () => {
     // Без снимка анализа строку не к чему вести — страница не делает её ссылкой.
     expect(item.analysisId).toBeNull();
     expect(item.categories).toEqual([]);
-    expect(response.preliminaryTotal).toBe(3);
+    expect(response.preliminaryTotal).toBe(0);
+    expect(response.partialTotal).toBe(1);
     expect(response.methodologyVersion).toBe("v1");
     expect(response.languages).toEqual([{ name: "Go", count: 1 }]);
     expect(response.pageSize).toBeGreaterThan(0);
