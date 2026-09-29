@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { describeStartError } from "./analyses";
-import { ApiError, describeError, isCatalogNotConfigured } from "./http";
+import { ApiError, describeError, isCatalogNotConfigured, isLeaderboardNotConfigured } from "./http";
 
 describe("describeStartError", () => {
   it("объясняет отказы запуска по кодам контракта", () => {
@@ -82,6 +82,13 @@ describe("describeError и ненастроенные разделы", () => {
     expect(describeError(new ApiError(503, "SourceCraft repository catalog is unavailable."))).toContain(
       "не отдаёт список",
     );
+  });
+
+  it("рейтинг без каталога отличает от сбоя, после которого стоит повторить", () => {
+    expect(isLeaderboardNotConfigured(new ApiError(503, "Leaderboard is not configured."))).toBe(true);
+    expect(isLeaderboardNotConfigured(new ApiError(503, "Leaderboard data is unavailable."))).toBe(false);
+    expect(isLeaderboardNotConfigured(new ApiError(503, "SourceCraft repository catalog is unavailable."))).toBe(false);
+    expect(isLeaderboardNotConfigured(new Error("Leaderboard is not configured."))).toBe(false);
   });
 
   it("незнакомая 500 — по-прежнему общими словами", () => {

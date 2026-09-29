@@ -1,7 +1,8 @@
 import { ArrowUpRightFromSquare, Magnifier } from "@gravity-ui/icons";
-import { Button, Checkbox, Icon, SegmentedRadioGroup, Select, Text, TextInput } from "@gravity-ui/uikit";
+import { Alert, Button, Checkbox, Icon, SegmentedRadioGroup, Select, Text, TextInput } from "@gravity-ui/uikit";
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 
+import { isLeaderboardNotConfigured } from "../api/http";
 import {
   defaultLeaderboardQuery,
   fetchLeaderboard,
@@ -32,7 +33,7 @@ import {
 } from "../lib/format";
 import { getScoreBand } from "../lib/scoreBands";
 import { createSearchDebounce, type SearchDebounce } from "../lib/searchDebounce";
-import { currentLocation, Link, navigate, useLocation } from "../router";
+import { currentLocation, Link, navigate, spaLinkProps, useLocation } from "../router";
 import { paths } from "../routes";
 import "./LeaderboardPage.css";
 
@@ -132,9 +133,12 @@ export function LeaderboardPage() {
         />
       </div>
 
-      {state.status === "error" && (
-        <ErrorNote title="Не удалось загрузить рейтинг" error={state.error} onRetry={reload} />
-      )}
+      {state.status === "error" &&
+        (isLeaderboardNotConfigured(state.error) ? (
+          <CatalogMissingNote />
+        ) : (
+          <ErrorNote title="Не удалось загрузить рейтинг" error={state.error} onRetry={reload} />
+        ))}
       {((!data && state.status === "loading") || pageOutOfRange) && <LoadingNote>Загружаем рейтинг</LoadingNote>}
 
       {data && !pageOutOfRange && (
@@ -193,6 +197,31 @@ export function LeaderboardPage() {
         </>
       )}
     </div>
+  );
+}
+
+/*
+ * 503 «рейтинг не настроен» — не сбой: серверу не задан каталог открытых репозиториев.
+ * Красная ошибка и «Попробовать ещё раз» тут не помогут — подсказываем, что можно сделать сейчас.
+ */
+function CatalogMissingNote() {
+  return (
+    <Alert
+      theme="info"
+      view="outlined"
+      title="Рейтинг на этом сервере ещё не собран"
+      message="К серверу не подключён каталог открытых репозиториев SourceCraft, поэтому сравнивать пока нечего. Свой репозиторий можно проверить в «Моих репозиториях», а правила оценки посмотреть в «Как считаем»."
+      actions={
+        <Alert.Actions>
+          <Button view="outlined" {...spaLinkProps(paths.myRepositories())}>
+            Мои репозитории
+          </Button>
+          <Button view="flat" {...spaLinkProps(paths.methodology())}>
+            Как считаем
+          </Button>
+        </Alert.Actions>
+      }
+    />
   );
 }
 

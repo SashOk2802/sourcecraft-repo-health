@@ -123,43 +123,51 @@
   font-size: 12.5px;
 }
 
+/* Пункты друг под другом и по левому краю, а сам список — по центру под фигурой. */
 .category-radar__legend {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 6px 20px;
+  display: grid;
+  gap: 6px;
   list-style: none;
 }
 
 .category-radar__legend li {
   display: flex;
-  align-items: center;
-  gap: 7px;
+  align-items: flex-start;
+  gap: 8px;
 }
 
+/* Значок не сжимается, когда подпись переносится, и стоит по центру первой строки. */
 .category-radar__key {
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
+  flex: none;
+  display: block;
+  margin-top: 3px;
 }
 
-.category-radar__key_shape {
-  background: var(--rh-accent);
+.category-radar__key line {
+  stroke-width: 2;
+  stroke-linecap: round;
 }
 
-.category-radar__key_ring {
-  background: var(--g-color-line-generic-solid);
+.category-radar__key_dot circle {
+  fill: var(--rh-band-high);
 }
 
-.category-radar__key_empty {
-  border: 2px dashed var(--g-color-text-hint);
+/* Два луча разной длины: длиннее — весомее. */
+.category-radar__key_arm line {
+  stroke: var(--rh-accent);
+  stroke-opacity: 0.6;
 }
 
-.category-radar__key_na {
-  height: 2px;
-  border-radius: 1px;
-  background: var(--g-color-text-hint);
-  opacity: 0.5;
+/* Три ровных штриха, как пунктир на фигуре. */
+.category-radar__key_empty line {
+  stroke: var(--g-color-text-hint);
+  stroke-linecap: butt;
+  stroke-dasharray: 3 3;
+}
+
+.category-radar__key_na line {
+  stroke: var(--g-color-text-hint);
+  stroke-opacity: 0.45;
 }
 
 /* Сборка фигуры: кольца, потом лучи, потом контур, вершины и подписи. */

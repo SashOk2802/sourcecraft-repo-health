@@ -4,7 +4,13 @@
   flex: 0 0 auto;
 }
 
+/*
+ * Значок по центру кнопки. Строчный inline-flex стоит на базовой линии и поднимает
+ * значок на 3–4 px; у Gravity UI так же выровнены сегменты из одной иконки
+ * (option-text_icon), но их модификатор не включается из-за скрытой подписи рядом.
+ */
 .theme-switch .g-segmented-radio-group__option-text {
-  display: inline-flex;
+  display: flex;
+  height: 100%;
   align-items: center;
 }

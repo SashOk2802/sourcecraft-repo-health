@@ -147,6 +147,11 @@ export function isCatalogNotConfigured(error: Error): boolean {
   return error instanceof ApiError && error.status === 503 && /repository catalog is not configured/i.test(error.message);
 }
 
+/** 503 «Рейтинг не настроен»: у сервера нет каталога открытых репозиториев. Повтор запроса не поможет. */
+export function isLeaderboardNotConfigured(error: Error): boolean {
+  return error instanceof ApiError && error.status === 503 && /leaderboard is not configured/i.test(error.message);
+}
+
 /** Понятное человеку объяснение ошибки загрузки. */
 export function describeError(error: Error): string {
   const sourceCraft = describeSourceCraftError(error);
