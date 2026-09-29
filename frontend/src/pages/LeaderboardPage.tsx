@@ -73,6 +73,19 @@ export function LeaderboardPage() {
     if (pageOutOfRange) update({ page: lastPage });
   }, [pageOutOfRange, lastPage]);
 
+  // Полных оценок нет ни одной, а предварительные есть (например, AppSec ещё не отдал данных):
+  // пустая таблица выглядит как «рейтинга нет». Один раз за заход показываем предварительные
+  // сами; снимет галочку пользователь — больше не включаем.
+  const autoPreliminary = useRef(false);
+  const onlyPreliminary =
+    state.status === "success" && !filtered && !query.includePreliminary && data !== undefined &&
+    data.total === 0 && data.preliminaryTotal > 0;
+  useEffect(() => {
+    if (!onlyPreliminary || autoPreliminary.current) return;
+    autoPreliminary.current = true;
+    update({ includePreliminary: true });
+  }, [onlyPreliminary]);
+
   return (
     <div className="page__inner">
       <div className="page__header">
