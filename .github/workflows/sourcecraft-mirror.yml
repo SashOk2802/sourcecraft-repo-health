@@ -1,0 +1,59 @@
+name: Mirror repository to SourceCraft
+
+on:
+  push:
+    branches: [main]
+    tags: ["**"]
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sourcecraft-repository-mirror
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    name: Mirror branches and tags
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SOURCECRAFT_PAT: ${{ secrets.SOURCECRAFT_PAT }}
+      SOURCECRAFT_REPOSITORY: https://git@git.sourcecraft.dev/ereeem13/sourcecraft-repo-health.git
+    steps:
+      - name: Require SourceCraft credentials
+        shell: bash
+        run: test -n "$SOURCECRAFT_PAT"
+
+      - name: Mirror Git branches and tags
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          askpass="$RUNNER_TEMP/sourcecraft-askpass.sh"
+          cat >"$askpass" <<'EOF'
+          #!/usr/bin/env sh
+          case "$1" in
+            *Username*) printf '%s\n' git ;;
+            *Password*) printf '%s\n' "$SOURCECRAFT_PAT" ;;
+          esac
+          EOF
+          chmod 700 "$askpass"
+
+          git clone --bare "https://github.com/${GITHUB_REPOSITORY}.git" "$RUNNER_TEMP/repository.git"
+          git -C "$RUNNER_TEMP/repository.git" remote add sourcecraft "$SOURCECRAFT_REPOSITORY"
+
+          GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 \
+            git -C "$RUNNER_TEMP/repository.git" push --force --prune sourcecraft \
+              '+refs/heads/*:refs/heads/*' \
+              '+refs/tags/*:refs/tags/*'
+
+          github_main="$(git -C "$RUNNER_TEMP/repository.git" rev-parse refs/heads/main)"
+          sourcecraft_main="$(
+            GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 \
+              git ls-remote "$SOURCECRAFT_REPOSITORY" refs/heads/main | cut -f1
+          )"
+          test "$github_main" = "$sourcecraft_main"
