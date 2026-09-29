@@ -210,11 +210,14 @@ class SourceCraftClient:
         params: Mapping[str, str | int] | None = None,
         page_size: int = 100,
         max_pages: int = 100,
+        max_items: int | None = None,
     ) -> list[dict[str, Any]]:
         """Загружает страницы списка SourceCraft, следуя `next_page_token`.
 
         Ограничение на число страниц и проверка повторного токена не позволяют
         некорректному ответу платформы запустить бесконечный цикл запросов.
+        ``max_items`` позволяет безопасно получить начало большого каталога,
+        не обходя его целиком.
         """
 
         if not isinstance(items_field, str):
@@ -223,6 +226,8 @@ class SourceCraftClient:
             raise ValueError("items_field must not be empty")
         _validate_positive_int(page_size, "page_size")
         _validate_positive_int(max_pages, "max_pages")
+        if max_items is not None:
+            _validate_positive_int(max_items, "max_items")
 
         request_params = _validated_query_params(params)
         request_params["page_size"] = page_size
@@ -241,6 +246,8 @@ class SourceCraftClient:
                     f"SourceCraft paginated response must contain an array of objects in {items_field}"
                 )
             collected.extend(items)
+            if max_items is not None and len(collected) >= max_items:
+                return collected[:max_items]
 
             next_page_token = payload.get("next_page_token")
             if next_page_token in (None, ""):

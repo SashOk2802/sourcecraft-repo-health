@@ -54,7 +54,7 @@ docker compose up --build
 | Переменная | Зачем |
 | --- | --- |
 | `SOURCECRAFT_TOKEN` | сервисный токен SourceCraft для публичного каталога, рейтинга и пересчёта |
-| `SOURCECRAFT_DISCOVER_PUBLIC_REPOSITORIES=true` или `SOURCECRAFT_PUBLIC_ORGANIZATIONS=org-one,org-two` | какой публичный каталог анализировать: весь или список организаций, ровно один режим |
+| `SOURCECRAFT_DISCOVER_PUBLIC_REPOSITORIES=true` или `SOURCECRAFT_PUBLIC_ORGANIZATIONS=org-one,org-two` | какой публичный каталог анализировать: первые 25 global-discovery репозиториев или список организаций, ровно один режим |
 | `PUBLIC_ANALYSIS_SCHEDULER_ENABLED=true` | регулярный пересчёт публичных репозиториев |
 | `YANDEX_CLIENT_ID`, `YANDEX_REDIRECT_URI` | вход через Яндекс ID; локально redirect URI — `http://localhost:5173/api/v1/auth/yandex/callback`. `YANDEX_CLIENT_SECRET` — если его выдал тип OAuth-клиента |
 | `YANDEX_AI_STUDIO_API_KEY`, `YANDEX_AI_MODEL` | необязательно: AI-план действий к рекомендациям через Yandex AI Studio; без ключа AI выключен |
