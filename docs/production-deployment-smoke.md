@@ -34,10 +34,16 @@ install -m 600 deploy/traefik/dynamic.yaml traefik/dynamic.yaml
 короткая недоступность frontend. Traefik замечает изменение файла сам; его не нужно
 перезапускать.
 
-Обязательны `DATABASE_URL`, `POSTGRES_PASSWORD` и `SOURCECRAFT_TOKEN`. Для личного
-кабинета также нужны настройки Яндекс ID и `SOURCECRAFT_CONNECTION_ENCRYPTION_KEY`.
-После настройки OAuth задайте `VITE_YANDEX_AUTH=true` перед сборкой frontend;
-без этого флага кнопка входа намеренно остаётся выключенной.
+Обязательны `DATABASE_URL` и `POSTGRES_PASSWORD`. Для личного кабинета также нужны
+настройки Яндекс ID и `SOURCECRAFT_CONNECTION_ENCRYPTION_KEY`. После настройки OAuth
+задайте `VITE_YANDEX_AUTH=true` перед сборкой frontend; без этого флага кнопка входа
+намеренно остаётся выключенной.
+
+`SOURCECRAFT_TOKEN` нужен только для публичного каталога, рейтинга и периодического
+пересчёта. Пока он не задан, личные подключения и анализы работают как обычно, а
+public leaderboard/API безопасно отвечают `503`. Включайте одновременно token,
+источник публичного каталога и `PUBLIC_ANALYSIS_SCHEDULER_ENABLED=true` только после
+подготовки разрешённых публичных репозиториев.
 PAT и ключ Fernet нельзя добавлять в Compose, логи или pull request.
 
 ## Выпуск и откат

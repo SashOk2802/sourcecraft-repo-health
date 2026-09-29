@@ -34,10 +34,14 @@ services:
       YANDEX_CLIENT_SECRET: "${YANDEX_CLIENT_SECRET:-}"
       YANDEX_SESSION_COOKIE_SECURE: "true"
       SOURCECRAFT_CONNECTION_ENCRYPTION_KEY: "${SOURCECRAFT_CONNECTION_ENCRYPTION_KEY:-}"
-      SOURCECRAFT_TOKEN: "${SOURCECRAFT_TOKEN:?set SOURCECRAFT_TOKEN in the server environment}"
-      SOURCECRAFT_DISCOVER_PUBLIC_REPOSITORIES: "${SOURCECRAFT_DISCOVER_PUBLIC_REPOSITORIES:-true}"
+      # Global token is only needed for the optional public catalog/rating.
+      # Personal SourceCraft connections use the encrypted per-user token, so
+      # a production demo remains available while the public catalog is not
+      # configured yet. The corresponding endpoints fail closed with 503.
+      SOURCECRAFT_TOKEN: "${SOURCECRAFT_TOKEN:-}"
+      SOURCECRAFT_DISCOVER_PUBLIC_REPOSITORIES: "${SOURCECRAFT_DISCOVER_PUBLIC_REPOSITORIES:-false}"
       SOURCECRAFT_PUBLIC_ORGANIZATIONS: "${SOURCECRAFT_PUBLIC_ORGANIZATIONS:-}"
-      PUBLIC_ANALYSIS_SCHEDULER_ENABLED: "${PUBLIC_ANALYSIS_SCHEDULER_ENABLED:-true}"
+      PUBLIC_ANALYSIS_SCHEDULER_ENABLED: "${PUBLIC_ANALYSIS_SCHEDULER_ENABLED:-false}"
       SOURCECRAFT_APPSEC_SNAPSHOT_DIR: /run/sourcecraft-appsec
       SOURCECRAFT_APPSEC_SNAPSHOT_MAX_AGE_SECONDS: "${SOURCECRAFT_APPSEC_SNAPSHOT_MAX_AGE_SECONDS:-3600}"
     group_add:

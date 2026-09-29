@@ -87,6 +87,15 @@ class ContainerSecurityTest(unittest.TestCase):
         self.assertIn("APP_ENV: production", compose)
         self.assertIn('YANDEX_SESSION_COOKIE_SECURE: "true"', compose)
         self.assertIn("127.0.0.1:${FRONTEND_PORT:-5173}:8080", compose)
+        self.assertIn('SOURCECRAFT_TOKEN: "${SOURCECRAFT_TOKEN:-}"', compose)
+        self.assertIn(
+            'SOURCECRAFT_DISCOVER_PUBLIC_REPOSITORIES: "${SOURCECRAFT_DISCOVER_PUBLIC_REPOSITORIES:-false}"',
+            compose,
+        )
+        self.assertIn(
+            'PUBLIC_ANALYSIS_SCHEDULER_ENABLED: "${PUBLIC_ANALYSIS_SCHEDULER_ENABLED:-false}"',
+            compose,
+        )
         self.assertNotIn("name: sourcecraft-repo-health-production", compose)
         self.assertNotIn("--reload", compose)
         self.assertNotIn("./backend:/app/backend", compose)
