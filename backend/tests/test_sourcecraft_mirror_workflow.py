@@ -1,7 +1,6 @@
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).parents[2]
 WORKFLOW = ROOT / ".github" / "workflows" / "sourcecraft-mirror.yml"
 DOCS = ROOT / "docs" / "sourcecraft-mirroring.md"
