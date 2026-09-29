@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
+import hashlib
 import hmac
 import os
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from math import floor
 
 import httpx
@@ -134,6 +136,17 @@ def create_app(
     jobs = job_store or (
         InMemoryAnalysisJobStore() if analysis_store is not None else _default_analysis_job_store()
     )
+
+    ondemand_locks: dict[str, asyncio.Lock] = {}
+    ondemand_locks_guard = asyncio.Lock()
+
+    async def get_ondemand_lock(repository_id: str) -> asyncio.Lock:
+        async with ondemand_locks_guard:
+            lock = ondemand_locks.get(repository_id)
+            if lock is None:
+                lock = asyncio.Lock()
+                ondemand_locks[repository_id] = lock
+            return lock
 
     effective_principal_provider = principal_provider or _yandex_principal_provider(
         yandex_auth_service,
@@ -347,12 +360,73 @@ def create_app(
             ) from error
         except (TypeError, ValueError) as error:
             raise HTTPException(status_code=503, detail="Public API data is unavailable.") from error
+        # Если снимок найден, возвращаем его
+        if projection is not None:
+            return _public_repository_health_payload(projection)
+            
+        # Если снимка нет, проверяем, существует ли репозиторий в публичном каталоге.
+        # Если да, мы можем автоматически запустить первичный анализ.
+        try:
+            metadata = await effective_leaderboard_service.get_public_repository_metadata(
+                organization_slug,
+                repository_slug,
+            )
+        except SourceCraftRepositoryUnavailableError as error:
+            raise HTTPException(
+                status_code=503,
+                detail="SourceCraft repository catalog is unavailable.",
+            ) from error
+        except (TypeError, ValueError) as error:
+            raise HTTPException(status_code=503, detail="Public API data is unavailable.") from error
+            
+        if metadata is not None and effective_analysis_dispatcher is not None:
+            principal = AnalysisPrincipal(subject="public-api-ondemand")
+            repo_lock = await get_ondemand_lock(metadata.repository_id)
+            async with repo_lock:
+                history = await jobs.list_history_for_owner_repositories(
+                    principal.subject,
+                    [metadata.repository_id],
+                )
+                has_active = any(
+                    job.status in (AnalysisJobStatus.QUEUED, AnalysisJobStatus.RUNNING)
+                    for job in history
+                )
+                latest_terminal = max(
+                    (
+                        job
+                        for job in history
+                        if job.status not in (AnalysisJobStatus.QUEUED, AnalysisJobStatus.RUNNING)
+                    ),
+                    key=lambda j: j.created_at,
+                    default=None,
+                )
+
+                terminal_time = None
+                if latest_terminal:
+                    terminal_time = latest_terminal.finished_at or latest_terminal.created_at
+
+                cooldown_passed = True
+                if terminal_time:
+                    cooldown_passed = (datetime.now(UTC) - terminal_time) > timedelta(hours=1)
+
+                if not has_active and cooldown_passed:
+                    suffix = str(int(terminal_time.timestamp())) if terminal_time else "init"
+                    repo_hash = hashlib.sha256(metadata.repository_id.encode("utf-8")).hexdigest()[:24]
+                    try:
+                        await effective_analysis_dispatcher.submit(
+                            repository_id=metadata.repository_id,
+                            principal=principal,
+                            analysis_id=f"ondemand-{repo_hash}-{suffix}",
+                        )
+                    except SourceCraftRepositoryUnavailableError as error:
+                        raise HTTPException(
+                            status_code=503,
+                            detail="SourceCraft repository catalog is unavailable.",
+                        ) from error
 
         # Не различаем отсутствующий, private/internal и ещё не проанализированный
         # репозиторий: endpoint не должен становиться oracle доступа.
-        if projection is None:
-            raise HTTPException(status_code=404, detail="Public health score not found.")
-        return _public_repository_health_payload(projection)
+        raise HTTPException(status_code=404, detail="Public health score not found.")
 
     @app.get("/api/v1/methodology", tags=["methodology"])
     async def get_methodology() -> dict[str, object]:

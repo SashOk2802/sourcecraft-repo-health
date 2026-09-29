@@ -185,6 +185,27 @@ class LeaderboardService:
             return None
         return current[0]
 
+    async def get_public_repository_metadata(
+        self,
+        organization_slug: str,
+        repository_slug: str,
+    ) -> PublicRepositoryMetadata | None:
+        """Проверяет существование репозитория в публичном каталоге без привязки к снимкам."""
+        organization = _normalize_slug(organization_slug)
+        repository = _normalize_slug(repository_slug)
+        if organization is None or repository is None:
+            return None
+
+        metadata_by_id = _metadata_by_id(await self._repository_catalog.list_repositories())
+        matches = tuple(
+            item
+            for item in metadata_by_id.values()
+            if item.organization_slug.casefold() == organization
+            and item.repository_slug.casefold() == repository
+        )
+        if len(matches) != 1:
+            return None
+        return matches[0]
 
 def _metadata_by_id(
     repositories: Iterable[PublicRepositoryMetadata],
