@@ -156,9 +156,11 @@ class SourceCraftPublicRepositoryResolverTest(unittest.IsolatedAsyncioTestCase):
             await resolver.resolve("repo-42", self.principal)
 
     async def test_distinguishes_unknown_repository_and_catalog_failure(self) -> None:
+        # Нет в разрешённой организации — резолвер ищет по id (репозиторий, добавленный через
+        # публичный API); SourceCraft отвечает 404, и это по-прежнему LookupError.
         unknown = SourceCraftPublicRepositoryResolver(
             SourceCraftPublicCatalogSettings("token", ("team",)),
-            client_factory=lambda _: CatalogClient([]),
+            client_factory=lambda _: CatalogClient([], repository_error_status=404),
             clock=lambda: self.now,
         )
         unavailable = SourceCraftPublicRepositoryResolver(

@@ -170,29 +170,7 @@ class SourceCraftPublicRepositoryResolver:
         repository_id: str,
     ) -> _ResolvedRepository:
         if self._settings.discover_all_public:
-            try:
-                payload = client.get_json(f"/repos/id:{quote(repository_id, safe='')}")
-            except SourceCraftResponseError as error:
-                if error.status_code == 404:
-                    raise LookupError("SourceCraft repository was not found") from error
-                raise
-            if not isinstance(payload, dict):
-                raise SourceCraftRepositoryUnavailableError(
-                    "SourceCraft repository payload is invalid"
-                )
-            if payload.get("id") != repository_id:
-                raise SourceCraftRepositoryUnavailableError(
-                    "SourceCraft repository payload is invalid"
-                )
-            organization = payload.get("organization")
-            if not isinstance(organization, dict):
-                raise SourceCraftRepositoryUnavailableError(
-                    "SourceCraft repository organization is invalid"
-                )
-            organization_slug = _required_slug(
-                organization.get("slug"), "organization slug"
-            )
-            return _parse_public_repository(payload, organization_slug)
+            return self._find_repository_by_id(client, repository_id)
 
         for organization_slug in self._settings.organization_slugs:
             path = f"/orgs/{quote(organization_slug, safe='')}/repos"
@@ -205,7 +183,38 @@ class SourceCraftPublicRepositoryResolver:
                 if payload.get("id") != repository_id:
                     continue
                 return _parse_public_repository(payload, organization_slug)
-        raise LookupError("SourceCraft repository was not found")
+        # Публичный репозиторий вне разрешённых организаций, который добавили в каталог через
+        # публичный API (discover): находим по id и так же требуем visibility: public.
+        return self._find_repository_by_id(client, repository_id)
+
+    def _find_repository_by_id(
+        self,
+        client: SourceCraftCatalogClient,
+        repository_id: str,
+    ) -> _ResolvedRepository:
+        try:
+            payload = client.get_json(f"/repos/id:{quote(repository_id, safe='')}")
+        except SourceCraftResponseError as error:
+            if error.status_code == 404:
+                raise LookupError("SourceCraft repository was not found") from error
+            raise
+        if not isinstance(payload, dict):
+            raise SourceCraftRepositoryUnavailableError(
+                "SourceCraft repository payload is invalid"
+            )
+        if payload.get("id") != repository_id:
+            raise SourceCraftRepositoryUnavailableError(
+                "SourceCraft repository payload is invalid"
+            )
+        organization = payload.get("organization")
+        if not isinstance(organization, dict):
+            raise SourceCraftRepositoryUnavailableError(
+                "SourceCraft repository organization is invalid"
+            )
+        organization_slug = _required_slug(
+            organization.get("slug"), "organization slug"
+        )
+        return _parse_public_repository(payload, organization_slug)
 
     def _find_default_branch_head(
         self,
