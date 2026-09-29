@@ -143,6 +143,48 @@ class LeaderboardService:
             methodology_version=selected_version,
         )
 
+    async def get_public_repository_snapshot(
+        self,
+        organization_slug: str,
+        repository_slug: str,
+        *,
+        methodology_version: str = METHODOLOGY_VERSION,
+    ) -> LeaderboardSnapshotProjection | None:
+        """Возвращает последнюю пригодную публичную проекцию одного репозитория.
+
+        Метод использует тот же каталог и ту же строгую проекцию, что и рейтинг.
+        Поэтому public API не может выдать private/internal отчёт, снимок с
+        устаревшими slug или результат другой версии методики.
+        """
+
+        selected_version = _normalize_methodology_version(methodology_version)
+        organization = _normalize_slug(organization_slug)
+        repository = _normalize_slug(repository_slug)
+        if organization is None or repository is None:
+            return None
+
+        metadata_by_id = _metadata_by_id(await self._repository_catalog.list_repositories())
+        matches = tuple(
+            item
+            for item in metadata_by_id.values()
+            if item.organization_slug.casefold() == organization
+            and item.repository_slug.casefold() == repository
+        )
+        if len(matches) != 1:
+            return None
+
+        metadata = matches[0]
+        snapshots = await self._analysis_store.list_latest_for_repositories((metadata.repository_id,))
+        projections = _project_snapshots({metadata.repository_id: metadata}, snapshots)
+        current = tuple(
+            projection
+            for projection in projections
+            if projection.methodology_version == selected_version
+        )
+        if len(current) != 1:
+            return None
+        return current[0]
+
 
 def _metadata_by_id(
     repositories: Iterable[PublicRepositoryMetadata],
@@ -283,6 +325,15 @@ def _normalize_methodology_version(value: str) -> str:
     if not normalized:
         raise ValueError("methodology_version must not be blank")
     return normalized
+
+
+def _normalize_slug(value: str) -> str | None:
+    """Нормализует path-параметр, не превращая некорректный URL в ошибку API."""
+
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip().casefold()
+    return normalized or None
 
 
 def _normalize_filters(filters: LeaderboardFilters | None) -> LeaderboardFilters:

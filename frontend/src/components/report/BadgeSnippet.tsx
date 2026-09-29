@@ -26,6 +26,9 @@ export function buildBadgeSnippets(report: RepositoryReport, baseUrl?: string) {
     repository.organizationSlug,
   )}/${encodeURIComponent(repository.repositorySlug)}/badge.svg`;
   const analysisPageUrl = `${origin}/analyses/${encodeURIComponent(analysis.id)}`;
+  const publicApiUrl = `${origin}/api/v1/public/repositories/${encodeURIComponent(
+    repository.organizationSlug,
+  )}/${encodeURIComponent(repository.repositorySlug)}/health`;
 
   const markdownSnippet = `[![Repo Health](${repoBadgeUrl})](${analysisPageUrl})`;
   const htmlSnippet = `<a href="${analysisPageUrl}"><img src="${repoBadgeUrl}" alt="Repo Health"></a>`;
@@ -33,6 +36,8 @@ export function buildBadgeSnippets(report: RepositoryReport, baseUrl?: string) {
   return {
     repoBadgeUrl,
     analysisPageUrl,
+    publicApiUrl,
+    curlSnippet: `curl "${publicApiUrl}"`,
     markdownSnippet,
     htmlSnippet,
   };
@@ -47,7 +52,7 @@ export function BadgeSnippet({ report, defaultOpen = false }: BadgeSnippetProps)
   const [open, setOpen] = useState(defaultOpen);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
-  const { repoBadgeUrl, markdownSnippet, htmlSnippet } = buildBadgeSnippets(report);
+  const { repoBadgeUrl, publicApiUrl, curlSnippet, markdownSnippet, htmlSnippet } = buildBadgeSnippets(report);
 
   if (!report.badgeAvailable) {
     return (
@@ -73,18 +78,18 @@ export function BadgeSnippet({ report, defaultOpen = false }: BadgeSnippetProps)
     <>
       <Button view="outlined" onClick={() => setOpen(true)}>
         <Icon data={Shield} size={16} />
-        Бейдж для README
+        Бейдж и API
       </Button>
 
       <Modal open={open} onClose={() => setOpen(false)}>
         <div className="badge-modal">
           <div className="badge-modal__header">
             <Text variant="header-2" as="h2">
-              Бейдж для README
+              Бейдж и публичный API
             </Text>
             <Text variant="body-1" color="secondary">
               Вставьте этот бейдж в README.md репозитория на SourceCraft или GitHub, чтобы показывать актуальный статус
-              здоровья проекта.
+              здоровья проекта. API можно использовать для своего сайта, дашборда или бота.
             </Text>
           </div>
 
@@ -133,6 +138,34 @@ export function BadgeSnippet({ report, defaultOpen = false }: BadgeSnippetProps)
               >
                 <Icon data={copiedKey === "url" ? Check : Copy} size={16} />
                 {copiedKey === "url" ? "Скопировано" : "Копировать"}
+              </Button>
+            </div>
+          </div>
+
+          <div className="badge-modal__section">
+            <Text variant="subheader-1">Публичный API</Text>
+            <Text variant="body-2" color="secondary">
+              JSON без авторизации: только Score, категории и статус свежести для репозитория, который SourceCraft
+              подтверждает как публичный.
+            </Text>
+            <div className="badge-modal__input-row">
+              <TextInput value={publicApiUrl} readOnly hasClear={false} />
+              <Button
+                view={copiedKey === "api-url" ? "action" : "normal"}
+                onClick={() => void copyToClipboard(publicApiUrl, "api-url")}
+              >
+                <Icon data={copiedKey === "api-url" ? Check : Copy} size={16} />
+                {copiedKey === "api-url" ? "Скопировано" : "Копировать"}
+              </Button>
+            </div>
+            <div className="badge-modal__input-row">
+              <TextInput value={curlSnippet} readOnly hasClear={false} />
+              <Button
+                view={copiedKey === "api-curl" ? "action" : "normal"}
+                onClick={() => void copyToClipboard(curlSnippet, "api-curl")}
+              >
+                <Icon data={copiedKey === "api-curl" ? Check : Copy} size={16} />
+                {copiedKey === "api-curl" ? "Скопировано" : "Копировать"}
               </Button>
             </div>
           </div>
