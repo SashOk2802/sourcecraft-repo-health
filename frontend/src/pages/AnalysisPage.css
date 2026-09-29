@@ -82,6 +82,15 @@
   gap: 24px;
 }
 
+/*
+ * «Об анализе» остаётся на виду, пока читают длинный отчёт слева: блок липнет под шапкой
+ * (60 px + 16 px отступа) и отпускает страницу только в конце отчёта.
+ */
+.report__aside {
+  position: sticky;
+  top: 76px;
+}
+
 .no-report {
   display: grid;
   justify-items: start;
@@ -102,6 +111,11 @@
 @media (max-width: 1000px) {
   .report__grid {
     grid-template-columns: 1fr;
+  }
+
+  /* В одну колонку блок стоит под отчётом: липнуть не к чему. */
+  .report__aside {
+    position: static;
   }
 }
 
@@ -125,6 +139,10 @@
 
   .report__grid {
     grid-template-columns: 1fr;
+  }
+
+  .report__aside {
+    position: static;
   }
 
   .card {
