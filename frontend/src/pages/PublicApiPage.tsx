@@ -2,6 +2,7 @@ import { Button, ClipboardButton, Label, Text, TextInput } from "@gravity-ui/uik
 import { useState, type FormEvent, type ReactNode } from "react";
 
 import { dataMode } from "../api/dataSource";
+import { useHashScroll } from "../hooks/useHashScroll";
 import { usePageMeta } from "../hooks/usePageMeta";
 import { categoryStatusLabels } from "../lib/labels";
 import { badgePath, formatApiBody, parseRepositorySlug, publicHealthPath, type RepositorySlug } from "../lib/publicApi";
@@ -48,6 +49,7 @@ export function PublicApiPage() {
     description:
       "Публичный API Repo Health: оценка здоровья открытого репозитория SourceCraft в JSON без ключа и SVG-бейдж для README.",
   });
+  useHashScroll(true);
   const origin = window.location.origin;
   const exampleUrl = `${origin}${publicHealthPath(example)}`;
 
@@ -199,11 +201,11 @@ function Section({ index, children }: { index: number; children: ReactNode }) {
   const section = sections[index];
   return (
     <section id={section.id} className="public-api__section" aria-labelledby={`${section.id}-title`}>
-      <Text variant="display-1" color="secondary" className="public-api__number num">
+      <Text variant="body-1" color="secondary" className="public-api__number num">
         {String(index + 1).padStart(2, "0")}
       </Text>
       <div className="public-api__body">
-        <Text variant="subheader-3" as="h2" id={`${section.id}-title`} className="public-api__heading">
+        <Text variant="subheader-2" as="h2" id={`${section.id}-title`} className="public-api__heading">
           {section.title}
         </Text>
         {children}

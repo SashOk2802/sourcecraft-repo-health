@@ -6,6 +6,7 @@ import { fetchMethodology, type Methodology, type MethodologyCategory } from "..
 import { ErrorNote, LoadingNote } from "../components/PageNotes";
 import { ScoreBar } from "../components/ScoreBar";
 import { dataOf, useAsync } from "../hooks/useAsync";
+import { useHashScroll } from "../hooks/useHashScroll";
 import { usePageMeta } from "../hooks/usePageMeta";
 import { formatPoints, formatScore, plural } from "../lib/format";
 import { categoryStatusLabels, priorityLabels } from "../lib/labels";
@@ -41,6 +42,8 @@ export function MethodologyPage() {
   });
   const [state, reload] = useAsync(fetchMethodology, []);
   const methodology = dataOf(state);
+  // Разделы появляются после загрузки методики: ссылка вида /methodology#no-data ждёт их.
+  useHashScroll(Boolean(methodology));
 
   return (
     <div className="page__inner methodology">

@@ -23,7 +23,8 @@ export function navigate(to: string, { replace = false, keepScroll = false, from
   }
   window.dispatchEvent(new Event(NAVIGATION_EVENT));
   if (!keepScroll) {
-    window.scrollTo(0, 0);
+    // instant: плавная прокрутка из base.css — для якорей, а не для смены страницы.
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
   }
 }
 

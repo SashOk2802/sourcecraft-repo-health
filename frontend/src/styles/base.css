@@ -9,6 +9,17 @@ body {
   background: var(--rh-page-bg);
 }
 
+/*
+ * Переход по якорю внутри страницы — плавный: оглавления «Как считаем» и «API», сильные и
+ * слабые стороны в отчёте. Кто просил меньше движения, получает обычный переход. Смена
+ * страницы прокручивает наверх мгновенно: navigate в router.tsx.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
 h1,
 h2,
 h3,
