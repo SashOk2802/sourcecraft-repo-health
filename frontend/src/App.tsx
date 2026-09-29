@@ -1,34 +1,48 @@
-import { lazy, Suspense, type ReactElement } from "react";
+import { lazy, Suspense, useEffect, type ComponentType, type ReactElement } from "react";
 
 import { AuthProvider } from "./auth/AuthContext";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { LoadingNote } from "./components/PageNotes";
 import { SiteFooter } from "./components/SiteFooter";
 import { SiteHeader } from "./components/SiteHeader";
 import { useLocation, useRoute } from "./router";
 import { ThemeChoiceProvider } from "./theme/ThemeChoice";
 import type { Route } from "./routes";
 
+/*
+ * Страница, которую Vite выделяет в отдельный chunk и скачивает при первом переходе.
+ * preload скачивает её заранее; lazy получает тот же промис и второй раз не ждёт.
+ * После сбоя сети промис сбрасывается, чтобы следующий переход попробовал снова.
+ */
+function lazyPage<Props extends object>(load: () => Promise<ComponentType<Props>>) {
+  let loading: Promise<{ default: ComponentType<Props> }> | null = null;
+  const preload = (): Promise<{ default: ComponentType<Props> }> => {
+    loading ??= load().then(
+      (component) => ({ default: component }),
+      (error: unknown) => {
+        loading = null;
+        throw error;
+      },
+    );
+    return loading;
+  };
+  return Object.assign(lazy(preload), { preload });
+}
+
 // Страницы отчёта и рейтинга содержат графики и таблицы. Их не нужно скачивать
-// до перехода по соответствующему маршруту: Vite выделяет каждый import в chunk.
-const AnalysisPage = lazy(() =>
-  import("./pages/AnalysisPage").then((module) => ({ default: module.AnalysisPage })),
+// до первой отрисовки: Vite выделяет каждый import в chunk.
+const AnalysisPage = lazyPage(() => import("./pages/AnalysisPage").then((module) => module.AnalysisPage));
+const LeaderboardPage = lazyPage(() => import("./pages/LeaderboardPage").then((module) => module.LeaderboardPage));
+const MethodologyPage = lazyPage(() => import("./pages/MethodologyPage").then((module) => module.MethodologyPage));
+const MyRepositoriesPage = lazyPage(() =>
+  import("./pages/MyRepositoriesPage").then((module) => module.MyRepositoriesPage),
 );
-const LeaderboardPage = lazy(() =>
-  import("./pages/LeaderboardPage").then((module) => ({ default: module.LeaderboardPage })),
-);
-const MethodologyPage = lazy(() =>
-  import("./pages/MethodologyPage").then((module) => ({ default: module.MethodologyPage })),
-);
-const MyRepositoriesPage = lazy(() =>
-  import("./pages/MyRepositoriesPage").then((module) => ({ default: module.MyRepositoriesPage })),
-);
-const NotFoundPage = lazy(() =>
-  import("./pages/NotFoundPage").then((module) => ({ default: module.NotFoundPage })),
-);
+const NotFoundPage = lazyPage(() => import("./pages/NotFoundPage").then((module) => module.NotFoundPage));
 
 export function App() {
   const route = useRoute();
   const { pathname } = useLocation();
+  usePreloadedPages();
 
   return (
     <ThemeChoiceProvider>
@@ -47,11 +61,35 @@ export function App() {
   );
 }
 
+/*
+ * Вкладки шапки открываются сразу: когда первая страница отрисована и браузер свободен,
+ * остальные страницы скачиваются заранее. Без этого переход в «Как считаем» ждал
+ * загрузки кода, а на стенде с dev-сервером это несколько секунд пустого экрана.
+ */
+function usePreloadedPages(): void {
+  useEffect(() => {
+    const preloadAll = (): void => {
+      for (const page of [LeaderboardPage, MethodologyPage, MyRepositoriesPage, AnalysisPage]) {
+        // Не вышло — не страшно: страница скачается при переходе, как без предзагрузки.
+        page.preload().catch(() => undefined);
+      }
+    };
+    // В Safari нет requestIdleCallback: там просто небольшая пауза после загрузки.
+    if (typeof window.requestIdleCallback === "function") {
+      const handle = window.requestIdleCallback(preloadAll, { timeout: 3000 });
+      return () => window.cancelIdleCallback(handle);
+    }
+    const handle = window.setTimeout(preloadAll, 1500);
+    return () => window.clearTimeout(handle);
+  }, []);
+}
+
+/** Появляется с задержкой (.page-loading): если страница уже скачана, надпись не мигает. */
 function PageLoading(): ReactElement {
   return (
-    <p className="page__inner" aria-live="polite">
-      Загружаем страницу…
-    </p>
+    <div className="page__inner page-loading">
+      <LoadingNote>Загружаем страницу</LoadingNote>
+    </div>
   );
 }
 

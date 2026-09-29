@@ -142,3 +142,14 @@
     display: none;
   }
 }
+
+/* Самые узкие телефоны (320–359 px): все три раздела видны целиком, без обрезанного «Как считаем». */
+@media (max-width: 359px) {
+  .site-header__nav {
+    gap: 12px;
+  }
+
+  .site-header__link {
+    font-size: 14px;
+  }
+}

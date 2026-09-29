@@ -1,12 +1,15 @@
 .evidence {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 2px;
   margin-top: 4px;
 }
 
+/* Путь к файлу без пробелов переносится где угодно, иначе на телефоне раздвигает карточку. */
 .evidence__item {
   font-size: var(--g-text-body-1-font-size);
   line-height: var(--g-text-body-1-line-height);
+  overflow-wrap: anywhere;
 }
 
 .evidence__ref {

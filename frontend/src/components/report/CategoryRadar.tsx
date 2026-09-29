@@ -151,26 +151,26 @@ export function CategoryRadar({ categories }: { categories: ReportCategory[] }) 
 
       <ul className="category-radar__legend">
         <li>
-          <span className="category-radar__key category-radar__key_shape" />
+          <LegendKey kind="dot" />
           <Text variant="body-1" color="secondary">
             точка — оценка части проекта
           </Text>
         </li>
         <li>
-          <span className="category-radar__key category-radar__key_ring" />
+          <LegendKey kind="arm" />
           <Text variant="body-1" color="secondary">
             чем длиннее луч, тем сильнее часть влияет на оценку
           </Text>
         </li>
         <li>
-          <span className="category-radar__key category-radar__key_empty" />
+          <LegendKey kind="empty" />
           <Text variant="body-1" color="secondary">
             пунктир — данных по этой части нет
           </Text>
         </li>
         {radar.axes.some((axis) => axis.status === "not_applicable") && (
           <li>
-            <span className="category-radar__key category-radar__key_na" />
+            <LegendKey kind="na" />
             <Text variant="body-1" color="secondary">
               бледный луч — часть к этому проекту не относится
             </Text>
@@ -178,5 +178,30 @@ export function CategoryRadar({ categories }: { categories: ReportCategory[] }) 
         )}
       </ul>
     </div>
+  );
+}
+
+/*
+ * Значки легенды — тот же SVG, что и фигура. Пунктирная рамка из CSS на 10 px
+ * в Safari распадается на обрывки, а stroke-dasharray везде рисуется одинаково.
+ */
+function LegendKey({ kind }: { kind: "dot" | "arm" | "empty" | "na" }) {
+  return (
+    <svg
+      className={`category-radar__key category-radar__key_${kind}`}
+      viewBox="0 0 18 12"
+      width="18"
+      height="12"
+      aria-hidden="true"
+    >
+      {kind === "dot" && <circle cx="9" cy="6" r="4.5" />}
+      {kind === "arm" && (
+        <>
+          <line x1="1.5" y1="3" x2="9.5" y2="3" />
+          <line x1="1.5" y1="9" x2="16.5" y2="9" />
+        </>
+      )}
+      {(kind === "empty" || kind === "na") && <line x1="1.5" y1="6" x2="16.5" y2="6" />}
+    </svg>
   );
 }
