@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from dataclasses import dataclass, replace
 from datetime import datetime
 from enum import StrEnum
@@ -164,6 +165,13 @@ class AnalysisJobStore(Protocol):
     async def get(self, analysis_id: str) -> AnalysisJob | None:
         """Возвращает задание по идентификатору."""
 
+    async def list_history_for_owner_repositories(
+        self,
+        owner_subject: str,
+        repository_ids: Collection[str],
+    ) -> tuple[AnalysisJob, ...]:
+        """Возвращает active и последний terminal-запуск владельца на репозиторий."""
+
     async def mark_running(
         self,
         analysis_id: str,
@@ -232,6 +240,27 @@ class InMemoryAnalysisJobStore:
     async def get(self, analysis_id: str) -> AnalysisJob | None:
         with self._lock:
             return self._jobs.get(normalize_analysis_id(analysis_id))
+
+    async def list_history_for_owner_repositories(
+        self,
+        owner_subject: str,
+        repository_ids: Collection[str],
+    ) -> tuple[AnalysisJob, ...]:
+        _require_owner_subject(owner_subject)
+        identifiers = _normalize_repository_ids(repository_ids)
+        if not identifiers:
+            return ()
+
+        with self._lock:
+            latest: dict[tuple[str, str], AnalysisJob] = {}
+            for job in self._jobs.values():
+                if job.owner_subject != owner_subject or job.repository_id not in identifiers:
+                    continue
+                key = (job.repository_id, _job_history_group(job))
+                previous = latest.get(key)
+                if previous is None or _job_order_key(job) > _job_order_key(previous):
+                    latest[key] = job
+        return tuple(latest[key] for key in sorted(latest))
 
     async def mark_running(
         self,
@@ -374,6 +403,45 @@ class PostgresAnalysisJobStore:
             normalize_analysis_id(analysis_id),
         )
         return _job_from_row(row) if row is not None else None
+
+    async def list_history_for_owner_repositories(
+        self,
+        owner_subject: str,
+        repository_ids: Collection[str],
+    ) -> tuple[AnalysisJob, ...]:
+        _require_owner_subject(owner_subject)
+        identifiers = _normalize_repository_ids(repository_ids)
+        if not identifiers:
+            return ()
+
+        rows = await self._require_pool().fetch(
+            """
+            SELECT
+                analysis_id, repository_id, owner_subject, status, created_at,
+                started_at, finished_at, error_code, error_summary, worker_id
+            FROM (
+                SELECT
+                    analysis_id, repository_id, owner_subject, status, created_at,
+                    started_at, finished_at, error_code, error_summary, worker_id,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY
+                            repository_id,
+                            CASE
+                                WHEN status IN ('queued', 'running') THEN 'active'
+                                ELSE 'terminal'
+                            END
+                        ORDER BY created_at DESC, analysis_id DESC
+                    ) AS row_rank
+                FROM analysis_jobs
+                WHERE owner_subject = $1 AND repository_id = ANY($2::text[])
+            ) AS latest_jobs
+            WHERE row_rank = 1
+            ORDER BY repository_id
+            """,
+            owner_subject,
+            list(identifiers),
+        )
+        return tuple(_job_from_row(row) for row in rows)
 
     async def mark_running(
         self,
@@ -576,6 +644,30 @@ def _require_owner_subject(owner_subject: str) -> None:
         or owner_subject != owner_subject.strip()
     ):
         raise ValueError("owner_subject must not be empty")
+
+
+def _normalize_repository_ids(repository_ids: Collection[str]) -> frozenset[str]:
+    if not isinstance(repository_ids, Collection):
+        raise TypeError("repository_ids must be a collection of strings")
+    if len(repository_ids) > 10_000:
+        raise ValueError("repository_ids must contain at most 10000 values")
+
+    normalized: set[str] = set()
+    for repository_id in repository_ids:
+        if not isinstance(repository_id, str) or not repository_id.strip():
+            raise ValueError("repository_ids must contain nonblank strings")
+        normalized.add(repository_id.strip())
+    return frozenset(normalized)
+
+
+def _job_order_key(job: AnalysisJob) -> tuple[datetime, str]:
+    return job.created_at, job.analysis_id
+
+
+def _job_history_group(job: AnalysisJob) -> str:
+    if job.status in {AnalysisJobStatus.QUEUED, AnalysisJobStatus.RUNNING}:
+        return "active"
+    return "terminal"
 
 
 def _require_job_owner(job: AnalysisJob, worker_id: str | None) -> None:

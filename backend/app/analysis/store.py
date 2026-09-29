@@ -47,6 +47,12 @@ class AnalysisStore(Protocol):
     async def get(self, analysis_id: str) -> AnalysisSnapshot | None:
         """Возвращает готовый снимок анализа или None, если его нет."""
 
+    async def list_for_analysis_ids(
+        self,
+        analysis_ids: Collection[str],
+    ) -> tuple[StoredAnalysisSnapshot, ...]:
+        """Возвращает готовые снимки из ограниченной выборки идентификаторов."""
+
     async def save(self, analysis_id: str, execution: AnalysisExecution) -> None:
         """Сохраняет новый неизменяемый снимок завершённого анализа."""
 
@@ -81,6 +87,21 @@ class InMemoryAnalysisStore:
         with self._lock:
             snapshot = self._snapshots.get(normalize_analysis_id(analysis_id))
             return _copy_snapshot(snapshot) if snapshot is not None else None
+
+    async def list_for_analysis_ids(
+        self,
+        analysis_ids: Collection[str],
+    ) -> tuple[StoredAnalysisSnapshot, ...]:
+        identifiers = _normalize_analysis_ids(analysis_ids)
+        if not identifiers:
+            return ()
+
+        with self._lock:
+            return tuple(
+                StoredAnalysisSnapshot(analysis_id, _copy_snapshot(snapshot))
+                for analysis_id, snapshot in self._snapshots.items()
+                if analysis_id in identifiers
+            )
 
     async def save(self, analysis_id: str, execution: AnalysisExecution) -> None:
         normalized_id = normalize_analysis_id(analysis_id)
@@ -170,6 +191,33 @@ class PostgresAnalysisStore:
         return AnalysisSnapshot(
             report=_json_object(row["report"]),
             markdown=str(row["markdown"]),
+        )
+
+    async def list_for_analysis_ids(
+        self,
+        analysis_ids: Collection[str],
+    ) -> tuple[StoredAnalysisSnapshot, ...]:
+        identifiers = _normalize_analysis_ids(analysis_ids)
+        if not identifiers:
+            return ()
+
+        rows = await self._require_pool().fetch(
+            """
+            SELECT analysis_id, report, markdown
+            FROM analysis_snapshots
+            WHERE analysis_id = ANY($1::text[])
+            """,
+            list(identifiers),
+        )
+        return tuple(
+            StoredAnalysisSnapshot(
+                analysis_id=str(row["analysis_id"]),
+                snapshot=AnalysisSnapshot(
+                    report=_json_object(row["report"]),
+                    markdown=str(row["markdown"]),
+                ),
+            )
+            for row in rows
         )
 
     async def save(self, analysis_id: str, execution: AnalysisExecution) -> None:
@@ -363,6 +411,20 @@ def _normalize_repository_ids(repository_ids: Collection[str]) -> frozenset[str]
         if not isinstance(repository_id, str) or not repository_id.strip():
             raise ValueError("repository_ids must contain nonblank strings")
         normalized.add(repository_id.strip())
+    return frozenset(normalized)
+
+
+def _normalize_analysis_ids(analysis_ids: Collection[str]) -> frozenset[str]:
+    if not isinstance(analysis_ids, Collection):
+        raise TypeError("analysis_ids must be a collection of strings")
+    if len(analysis_ids) > 10_000:
+        raise ValueError("analysis_ids must contain at most 10000 values")
+
+    normalized: set[str] = set()
+    for analysis_id in analysis_ids:
+        if not isinstance(analysis_id, str):
+            raise TypeError("analysis_ids must contain strings")
+        normalized.add(normalize_analysis_id(analysis_id))
     return frozenset(normalized)
 
 
