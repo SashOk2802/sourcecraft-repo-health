@@ -16,7 +16,8 @@ export function useStartAnalysis() {
     try {
       const started = await startAnalysis(repositoryId);
       rememberAnalysis(repositoryId, started.id);
-      navigate(paths.analysis(started.id));
+      // Свой запуск — всегда раздел «Мои репозитории», даже если нажали «Проверить снова» в отчёте из рейтинга.
+      navigate(paths.analysis(started.id), { from: "myRepositories" });
     } catch (reason) {
       setError(reason instanceof Error ? reason : new Error(String(reason)));
       setStartingId(null);

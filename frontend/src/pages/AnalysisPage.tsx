@@ -1,6 +1,6 @@
-import { ArrowRotateLeft, ArrowUpRightFromSquare, Printer } from "@gravity-ui/icons";
+import { ArrowRotateLeft, ArrowUpRightFromSquare } from "@gravity-ui/icons";
 import { Button, Icon, Link as GravityLink, Text } from "@gravity-ui/uikit";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 
 import {
   describeStartError,
@@ -19,6 +19,7 @@ import { AnalysisFailed, AnalysisProgress } from "../components/report/AnalysisP
 import { BadgeSnippet } from "../components/report/BadgeSnippet";
 import { CategoryMarks } from "../components/report/CategoryMarks";
 import { MarkdownExport } from "../components/report/MarkdownExport";
+import { PdfExport } from "../components/report/PdfExport";
 import { ProjectHighlights } from "../components/report/ProjectHighlights";
 import { RecommendationList } from "../components/report/RecommendationList";
 import { ScoreCard } from "../components/report/ScoreCard";
@@ -26,9 +27,20 @@ import { dataOf, useAsync } from "../hooks/useAsync";
 import { usePageMeta } from "../hooks/usePageMeta";
 import { useStartAnalysis } from "../hooks/useStartAnalysis";
 import { formatDateTime, formatScore } from "../lib/format";
-import { Link, navigate } from "../router";
-import { paths } from "../routes";
+import { resolveReportSection, setReportSection, type ReportSection } from "../lib/reportSection";
+import { Link, navigate, navigationOrigin } from "../router";
+import { paths, type PageName } from "../routes";
 import "./AnalysisPage.css";
+
+const sectionLinks: Record<ReportSection, { label: string; to: string }> = {
+  leaderboard: { label: "Рейтинг", to: paths.leaderboard() },
+  myRepositories: { label: "Мои репозитории", to: paths.myRepositories() },
+};
+
+/** Из кабинета или рейтинга — их раздел; с других страниц и по прямому адресу — решает отчёт. */
+function toReportSection(page: PageName | null): ReportSection | null {
+  return page === "leaderboard" || page === "myRepositories" ? page : null;
+}
 
 // Архитектура предлагает опрос раз в несколько секунд; демо-анализ короткий, поэтому чаще.
 function pollInterval(analysisId: string): number {
@@ -58,16 +70,32 @@ export function AnalysisPage({ analysisId }: { analysisId: string }) {
     noindex: !report || usesDemo(analysisId),
   });
 
+  // Раздел страницы: закрытый репозиторий в рейтинг не попадает, его отчёт — в «Моих репозиториях».
+  const [origin] = useState(() => toReportSection(navigationOrigin()));
+  const section = resolveReportSection({
+    origin,
+    report,
+    personalRun: analysis !== null && (!finished || failed),
+    unavailable: analysis === null && statusError !== null,
+  });
+  // До отрисовки: шапка сразу подсвечивает нужный раздел, без мигания.
+  useLayoutEffect(() => setReportSection(section), [section]);
+  useLayoutEffect(() => () => setReportSection(null), []);
+
   return (
     <div className="page__inner">
       <nav className="page__breadcrumbs" aria-label="Навигация">
         <Text variant="body-1" color="secondary">
-          <Link className="breadcrumb" to={paths.leaderboard()}>
-            Рейтинг
-          </Link>
-          <span className="breadcrumb__separator" aria-hidden="true">
-            /
-          </span>
+          {section && (
+            <>
+              <Link className="breadcrumb" to={sectionLinks[section].to}>
+                {sectionLinks[section].label}
+              </Link>
+              <span className="breadcrumb__separator" aria-hidden="true">
+                /
+              </span>
+            </>
+          )}
           {title}
         </Text>
       </nav>
@@ -169,10 +197,7 @@ function ReportView({ report }: { report: RepositoryReport }) {
               Проверить снова
             </Button>
           )}
-          <Button view="outlined" onClick={() => window.print()}>
-            <Icon data={Printer} size={16} />
-            Печать / сохранить PDF
-          </Button>
+          <PdfExport report={report} />
           <MarkdownExport report={report} />
           <BadgeSnippet report={report} />
         </div>
