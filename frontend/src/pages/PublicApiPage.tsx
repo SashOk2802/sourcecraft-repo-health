@@ -1,7 +1,9 @@
-import { Button, ClipboardButton, Label, Text, TextInput } from "@gravity-ui/uikit";
+import { Link as LinkIcon } from "@gravity-ui/icons";
+import { Button, ClipboardButton, Icon, Label, Text, TextInput } from "@gravity-ui/uikit";
 import { useState, type FormEvent, type ReactNode } from "react";
 
 import { dataMode } from "../api/dataSource";
+import { useHashScroll } from "../hooks/useHashScroll";
 import { usePageMeta } from "../hooks/usePageMeta";
 import { categoryStatusLabels } from "../lib/labels";
 import { badgePath, formatApiBody, parseRepositorySlug, publicHealthPath, type RepositorySlug } from "../lib/publicApi";
@@ -48,6 +50,7 @@ export function PublicApiPage() {
     description:
       "Публичный API Repo Health: оценка здоровья открытого репозитория SourceCraft в JSON без ключа и SVG-бейдж для README.",
   });
+  useHashScroll(true);
   const origin = window.location.origin;
   const exampleUrl = `${origin}${publicHealthPath(example)}`;
 
@@ -185,11 +188,11 @@ const health = await response.json();`}
       </Section>
 
       <Text variant="body-1" color="secondary" className="public-api__source">
-        Та же документация в репозитории проекта:{" "}
+        <Icon data={LinkIcon} size={14} />
+        <span>Документация в репозитории проекта:</span>
         <a href={GITHUB_DOC_URL} target="_blank" rel="noreferrer">
           docs/public-api.md
         </a>
-        .
       </Text>
     </div>
   );
@@ -199,11 +202,11 @@ function Section({ index, children }: { index: number; children: ReactNode }) {
   const section = sections[index];
   return (
     <section id={section.id} className="public-api__section" aria-labelledby={`${section.id}-title`}>
-      <Text variant="display-1" color="secondary" className="public-api__number num">
+      <Text variant="body-1" color="secondary" className="public-api__number num">
         {String(index + 1).padStart(2, "0")}
       </Text>
       <div className="public-api__body">
-        <Text variant="subheader-3" as="h2" id={`${section.id}-title`} className="public-api__heading">
+        <Text variant="subheader-2" as="h2" id={`${section.id}-title`} className="public-api__heading">
           {section.title}
         </Text>
         {children}
