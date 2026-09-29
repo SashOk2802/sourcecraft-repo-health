@@ -23,7 +23,7 @@ class SourceCraftMirrorWorkflowTests(unittest.TestCase):
         workflow = WORKFLOW.read_text(encoding="utf-8")
 
         self.assertIn("branches: [main]", workflow)
-        self.assertIn('tags: ["**"]', workflow)
+        self.assertNotIn("tags:", workflow)
         self.assertIn("schedule:", workflow)
         self.assertIn("workflow_dispatch:", workflow)
 
